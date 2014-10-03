@@ -50,7 +50,8 @@ PART = samd20e14
 TARGET_FLASH = bin/armio_flash.elf
 TARGET_SRAM = bin/armio_sram.elf
 #make bin output directory if it doesnt exist
-$(shell mkdir bin 2>/dev/null)
+BUILD_DIR=bin
+$(shell mkdir $(BUILD_DIR) 2>/dev/null)
 
 
 # List of C source files.
