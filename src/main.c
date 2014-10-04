@@ -6,12 +6,13 @@
  */
 
 #include <asf.h>
+#include <leds.h>
 
 int main (void)
 {
 	system_init();
 
 	while (1) {
-            port_pin_set_output_level(18, 0);
+            led_enable(0);
 	}
 }

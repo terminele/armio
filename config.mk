@@ -57,6 +57,7 @@ $(shell mkdir $(BUILD_DIR) 2>/dev/null)
 # List of C source files.
 CSRCS = \
     src/main.c						       \
+    src/leds.c						       \
     src/asf/common/utils/interrupt/interrupt_sam_nvic.c        \
     src/asf/sam0/drivers/port/port.c                           \
     src/asf/sam0/drivers/sercom/sercom.c                       \
