@@ -49,6 +49,7 @@ PART = samd20e14
 # standalone application.
 TARGET_FLASH = bin/armio_flash.elf
 TARGET_SRAM = bin/armio_sram.elf
+
 #make bin output directory if it doesnt exist
 BUILD_DIR=bin
 $(shell mkdir $(BUILD_DIR) 2>/dev/null)

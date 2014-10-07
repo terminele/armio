@@ -485,6 +485,25 @@ endif
 info-os:
 	@echo $(MSG_INFO)$(os) build host detected
 
+jinstall_debug: $(target)
+	openocd -f interface/jlink.cfg \
+	    -f utils/samd20e.cfg \
+	    -c reset_config srst_only srst_nogate \
+	    -c init -c "reset init" \
+	    -c "flash write_image erase $(target)" \
+	    -c "verify_image $(target) 0x00000000 elf" \
+	    -c "reset run"
+
+jinstall: $(target)
+	openocd -f interface/jlink.cfg \
+	    -f utils/samd20e.cfg \
+	    -c reset_config srst_only srst_nogate \
+	    -c init -c "reset init" \
+	    -c "flash write_image erase $(target)" \
+	    -c "verify_image $(target) 0x00000000 elf" \
+	    -c "reset run" \
+	    -c "shutdown"
+
 # Build Doxygen generated documentation.
 #.PHONY: doc
 #doc:
