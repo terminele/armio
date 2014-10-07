@@ -44,13 +44,5 @@
 #ifndef CONF_BOARD_H_INCLUDED
 #define CONF_BOARD_H_INCLUDED
 
-/* Buttons on OLED1 Xplained Pro */
-#  define WING_BUTTON_1 EXT3_PIN_9
-#  define WING_BUTTON_2 EXT3_PIN_3
-#  define WING_BUTTON_3 EXT3_PIN_4
-
-/* Height and width of LCD */
-#  define LCD_WIDTH_PIXELS  128
-#  define LCD_HEIGHT_PIXELS  32
 
 #endif /* CONF_BOARD_H_INCLUDED */

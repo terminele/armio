@@ -6,10 +6,10 @@
   *
   * The 60 LEDs are multiplexed using 17
   * pins -- 5 pins to select the 'bank' that the
-  * LED belongs to and 12 to select the 'group'.
+  * LED belongs to and 12 to select the 'segment'.
   *
   * A single LED is enabled by pulling its bank pin
-  * and group pin low.
+  * and segment pin low.
   */
 
 #ifndef __LEDS_H__
@@ -20,24 +20,32 @@
 
 //___ M A C R O S ____________________________________________________________
 #define BANK_COUNT 5
-#define GROUP_COUNT 12
+#define SEGMENT_COUNT 12
 
 
-/* return the bank/group id for the given led */
-#define LED_BANK(i) (i % 5)
-#define LED_GROUP(i) (i/5)
+/* return the bank/segment id for the given led */
+#define LED_SEGMENT(i) (i/5)
+#define LED_BANK(i) (LED_SEGMENT(i) % 2 ? \
+    (i % 5 ? (5-(i % 5)) : 0 ): i % 5)
 
-/* return the bank/group pin for the given led */
+/* return the bank/segment pin for the given led */
+#define LED_SEGMENT_PIN(i) led_segment_pins[LED_SEGMENT(i)]
 #define LED_BANK_PIN(i) led_bank_pins[LED_BANK(i)]
-#define LED_GROUP_PIN(i) led_group_pins[LED_BANK(i)]
 
 //___ T Y P E D E F S ________________________________________________________
 
 //___ V A R I A B L E S ______________________________________________________
 extern short led_bank_pins[BANK_COUNT];
-extern short led_group_pins[GROUP_COUNT];
+extern short led_segment_pins[SEGMENT_COUNT];
 
 //___ P R O T O T Y P E S ____________________________________________________
+
+void led_init(void);
+  /* @brief initialize led module
+   * @param None
+   * @retrn None
+   */
+
 
 void led_enable( short led );
   /* @brief enable the given led

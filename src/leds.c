@@ -22,7 +22,7 @@ short led_bank_pins[BANK_COUNT] = {
     PIN_PA23
 };
 
-short led_group_pins[GROUP_COUNT] = {
+short led_segment_pins[SEGMENT_COUNT] = {
     PIN_PA16,
     PIN_PA15,
     PIN_PA14,
@@ -43,15 +43,36 @@ short led_group_pins[GROUP_COUNT] = {
 
 //___ F U N C T I O N S ______________________________________________________
 
+void led_init() {
+  int i;
+
+  struct port_config pin_conf;
+  port_get_config_defaults(&pin_conf);
+  pin_conf.direction = PORT_PIN_DIR_OUTPUT;
+
+  for (i=0; i < SEGMENT_COUNT; i++) {
+      port_pin_set_config(led_segment_pins[i], &pin_conf);
+      /* LEDs are active low */
+      port_pin_set_output_level(led_segment_pins[i], true);
+  }
+
+  for (i=0; i < BANK_COUNT; i++) {
+      port_pin_set_config(led_bank_pins[i], &pin_conf);
+      /* LEDs are active low */
+      port_pin_set_output_level(led_bank_pins[i], true);
+  }
+
+}
+
 void led_enable( short led ) {
-    port_pin_set_output_level(LED_BANK_PIN(led), true);
-    port_pin_set_output_level(LED_GROUP_PIN(led), true);
+    port_pin_set_output_level(LED_BANK_PIN(led), false);
+    port_pin_set_output_level(LED_SEGMENT_PIN(led), false);
 }
 
 
 void led_disable( short led ) {
-    port_pin_set_output_level(LED_BANK_PIN(led), false);
-    port_pin_set_output_level(LED_GROUP_PIN(led), false);
+    port_pin_set_output_level(LED_BANK_PIN(led), true);
+    port_pin_set_output_level(LED_SEGMENT_PIN(led), true);
 }
 
 
