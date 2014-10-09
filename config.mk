@@ -59,10 +59,13 @@ $(shell mkdir $(BUILD_DIR) 2>/dev/null)
 CSRCS = \
     src/main.c						       \
     src/leds.c						       \
-    src/display.c						       \
+    src/display.c					       \
+    src/aclock.c						       \
     src/asf/common/utils/interrupt/interrupt_sam_nvic.c        \
     src/asf/common2/services/delay/sam0/systick_counter.c      \
     src/asf/sam0/drivers/port/port.c                           \
+    src/asf/sam0/drivers/rtc/rtc_calendar.c		       \
+    src/asf/sam0/drivers/rtc/rtc_calendar_interrupt.c 	       \
     src/asf/sam0/drivers/sercom/sercom.c                       \
     src/asf/sam0/drivers/sercom/sercom_interrupt.c             \
     src/asf/sam0/drivers/sercom/spi/spi.c                      \
@@ -89,6 +92,7 @@ INC_PATH = \
     src/asf/common2/services/delay                             \
     src/asf/common2/services/delay/sam0                        \
     src/asf/sam0/drivers/port                                  \
+    src/asf/sam0/drivers/rtc				       \
     src/asf/sam0/drivers/sercom                                \
     src/asf/sam0/drivers/sercom/spi                            \
     src/asf/sam0/drivers/sercom/usart			       \
@@ -158,6 +162,7 @@ CPPFLAGS = \
        -D ARM_MATH_CM0=true                               \
        -D SPI_CALLBACK_MODE=true			  \
        -D USART_CALLBACK_MODE=true 			  \
+       -D RTC_CALENDAR_ASYNC=true                         \
        -D SYSTICK_MODE                                    \
        -D __SAMD20E14__
 

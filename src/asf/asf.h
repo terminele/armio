@@ -80,6 +80,10 @@
 #include <clock.h>
 #include <gclk.h>
 
+//realtime clock calendar
+#include <rtc_calendar.h>
+#include <rtc_calendar_interrupt.h>
+
 // From module: SYSTEM - Core System Driver
 #include <system.h>
 

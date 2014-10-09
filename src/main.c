@@ -8,6 +8,7 @@
 #include <asf.h>
 #include "leds.h"
 #include "display.h"
+#include "aclock.h"
 
 void configure_input(void);
 
@@ -23,18 +24,22 @@ void configure_input(void) {
 
 }
 
-
 int main (void)
 {
-    int btn_down = false;
-    int click_count = 0;
-    int i = 1;
-    int switch_counter;
-    int off_cycles = 1;
-    int pulse_width_us = 1;
+    aclock_state_t clock_state;
     system_init();
     delay_init();
     led_init();
+
+    clock_state.second = 0;
+    clock_state.minute = 0;
+    clock_state.hour = 0;
+    clock_state.pm = false;
+    clock_state.day = 1;
+    clock_state.month = 1;
+    clock_state.year = 0;
+
+    aclock_init(clock_state);
 
     /***** IMPORTANT *****/
     /* Wait a bit before configuring any thing that uses SWD
@@ -47,6 +52,14 @@ int main (void)
 
 
     while (1) {
+        int btn_down = false;
+        int click_count = 0;
+        int i = 1;
+        int switch_counter;
+        int off_cycles = 1;
+        int pulse_width_us = 1;
+
+
 #ifdef NOW_NOW
         if (port_pin_get_input_level(PIN_PA31) &&
             port_pin_get_input_level(PIN_PA30)) {
