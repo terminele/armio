@@ -28,6 +28,10 @@ int main (void)
 {
     int btn_down = false;
     int click_count = 0;
+    int i = 1;
+    int switch_counter;
+    int off_cycles = 1;
+    int pulse_width_us = 1;
     system_init();
     delay_init();
     led_init();
@@ -43,23 +47,33 @@ int main (void)
 
 
     while (1) {
+#ifdef NOW_NOW
         if (port_pin_get_input_level(PIN_PA31) &&
             port_pin_get_input_level(PIN_PA30)) {
             led_enable(click_count);
-            delay_us(20);
+            delay_us(pulse_width_us);
             led_disable(click_count);
-            delay_ms(300);
-
-            if(!btn_down) {
-                btn_down = true;
-                click_count++;
-            }
+            delay_us(pulse_width_us*off_cycles);
+            btn_down = false;
             continue;
         }
 
-        btn_down = false;
-
-        display_swirl(25, 800, 1 );
+        if(!btn_down) {
+            btn_down = true;
+            click_count++;
+        }
+#endif
+        switch_counter = 1000000; //1 second
+        while(switch_counter > 0) {
+            led_enable(i);
+            delay_us(pulse_width_us);
+            led_disable(i);
+            delay_us(pulse_width_us*off_cycles);
+            switch_counter -= pulse_width_us*(off_cycles+1);
+        }
+        off_cycles+=1;
+        i+=1;
+        //display_swirl(25, 800, 1 );
 
     }
 
