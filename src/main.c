@@ -6,31 +6,10 @@
  */
 
 #include <asf.h>
-#include <leds.h>
+#include "leds.h"
+#include "display.h"
 
-void configure_usart(void);
 void configure_input(void);
-
-struct usart_module usart_instance;
-
-void configure_usart(void)
-{
-    struct usart_config config_usart;
-    usart_get_config_defaults(&config_usart);
-
-    config_usart.baudrate    = 9600;
-    config_usart.mux_setting = USART_RX_3_TX_2_XCK_3;
-    config_usart.pinmux_pad0 = PINMUX_UNUSED;
-    config_usart.pinmux_pad1 = PINMUX_UNUSED;
-    config_usart.pinmux_pad2 = PINMUX_PA30D_SERCOM1_PAD2;
-    config_usart.pinmux_pad3 = PINMUX_PA31D_SERCOM1_PAD3;
-
-    while (usart_init(&usart_instance,
-                    SERCOM1, &config_usart) != STATUS_OK) {
-    }
-
-    usart_enable(&usart_instance);
-}
 
 void configure_input(void) {
 
@@ -44,34 +23,6 @@ void configure_input(void) {
 
 }
 
-void led_swirl(int tail_len, int tick_us, int min_duty_cycle_us,
-        int swirl_count) {
-    int i = -tail_len;
-    while(swirl_count) {
-        for (i=0; i < 60; i++) {
-            int advance_countdown = tick_us;
-            while(advance_countdown > 0) {
-                int j = 0;
-                while( j < tail_len && advance_countdown > 0 ) {
-                    int ontime_us = j*min_duty_cycle_us;
-                    led_enable((i+j) % 60);
-                    delay_us(ontime_us);
-                    led_disable((i+j) % 60);
-                    delay_us(ontime_us*2);
-                    advance_countdown-=ontime_us*3;
-                    j++;
-                }
-
-                delay_us(20);
-                advance_countdown-=20;
-            }
-        }
-
-    swirl_count--;
-    }
-
-
-}
 
 int main (void)
 {
@@ -81,23 +32,15 @@ int main (void)
     delay_init();
     led_init();
 
+    /***** IMPORTANT *****/
+    /* Wait a bit before configuring any thing that uses SWD
+     * pins as GPIO since this can brick the device */
+    /* Show a startup LED ring during the wait period */
 
-    /* Wait a bit for configuring any thing that uses SWD pins as GPIO */
-    /* Show a startup LED ring */
-
-    led_swirl(25, 800, 1, 4 );
-    /*    for (i=0; i < 360; i++) {
-        led_enable(i % 60);
-        delay_ms(5);
-        led_disable(i % 60);
-    }*/
+    display_swirl(25, 800, 4 );
 
     configure_input();
 
-    //configure_usart();
-
-    //uint8_t string[] = "Hello World!\r\n";
-    //usart_write_buffer_wait(&usart_instance, string, sizeof(string));
 
     while (1) {
         if (port_pin_get_input_level(PIN_PA31) &&
@@ -116,7 +59,7 @@ int main (void)
 
         btn_down = false;
 
-        led_swirl(25, 800, 1, 1 );
+        display_swirl(25, 800, 1 );
 
     }
 

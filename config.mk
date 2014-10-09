@@ -59,6 +59,7 @@ $(shell mkdir $(BUILD_DIR) 2>/dev/null)
 CSRCS = \
     src/main.c						       \
     src/leds.c						       \
+    src/display.c						       \
     src/asf/common/utils/interrupt/interrupt_sam_nvic.c        \
     src/asf/common2/services/delay/sam0/systick_counter.c      \
     src/asf/sam0/drivers/port/port.c                           \
