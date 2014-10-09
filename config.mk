@@ -60,11 +60,14 @@ CSRCS = \
     src/main.c						       \
     src/leds.c						       \
     src/asf/common/utils/interrupt/interrupt_sam_nvic.c        \
-    src/asf/common2/services/delay/sam0/systick_counter.c        \
+    src/asf/common2/services/delay/sam0/systick_counter.c      \
     src/asf/sam0/drivers/port/port.c                           \
     src/asf/sam0/drivers/sercom/sercom.c                       \
     src/asf/sam0/drivers/sercom/sercom_interrupt.c             \
     src/asf/sam0/drivers/sercom/spi/spi.c                      \
+    src/asf/sam0/drivers/sercom/spi/spi_interrupt.c            \
+    src/asf/sam0/drivers/sercom/usart/usart.c                  \
+    src/asf/sam0/drivers/sercom/usart/usart_interrupt.c        \
     src/asf/sam0/drivers/system/clock/clock_samd20/clock.c     \
     src/asf/sam0/drivers/system/clock/clock_samd20/gclk.c      \
     src/asf/sam0/drivers/system/interrupt/system_interrupt.c   \
@@ -87,6 +90,7 @@ INC_PATH = \
     src/asf/sam0/drivers/port                                  \
     src/asf/sam0/drivers/sercom                                \
     src/asf/sam0/drivers/sercom/spi                            \
+    src/asf/sam0/drivers/sercom/usart			       \
     src/asf/sam0/drivers/system                                \
     src/asf/sam0/drivers/system/clock                          \
     src/asf/sam0/drivers/system/clock/clock_samd20             \
@@ -151,7 +155,8 @@ CFLAGS =
 # The most relevant symbols to define for the preprocessor are:
 CPPFLAGS = \
        -D ARM_MATH_CM0=true                               \
-       -D SPI_CALLBACK_MODE=false                         \
+       -D SPI_CALLBACK_MODE=true			  \
+       -D USART_CALLBACK_MODE=true 			  \
        -D SYSTICK_MODE                                    \
        -D __SAMD20E14__
 
