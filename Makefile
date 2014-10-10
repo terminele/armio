@@ -396,6 +396,7 @@ rebuild: clean all
 debug_flash: all
 	openocd -f interface/jlink.cfg -f utils/samd20e.cfg &
 	$(GDB) -x "$(PRJ_PATH)/$(DEBUG_SCRIPT_FLASH)" -ex "reset" -readnow -se $(TARGET_FLASH)
+	pkill openocd #FIXME -- this will kill other openocd processes
 
 # Debug the project in sram.
 .PHONY: debug_sram

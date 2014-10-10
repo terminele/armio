@@ -28,6 +28,8 @@ typedef struct aclock_state_t {
 
 //___ V A R I A B L E S ______________________________________________________
 
+extern aclock_state_t aclock_global_state;
+
 //___ P R O T O T Y P E S ____________________________________________________
 
 void aclock_get_state( aclock_state_t *clock_state );
