@@ -19,45 +19,48 @@
 #include <asf.h>
 
 //___ M A C R O S ____________________________________________________________
-#define BANK_COUNT 5
-#define SEGMENT_COUNT 12
+#define BRIGHT_RES          4       /* bit resolution */
+#define BLINK_RES           4       /* bit resolution */
 
-
-/* return the bank/segment id for the given led */
-#define LED_SEGMENT(i) (i/5)
-#define LED_BANK(i) (LED_SEGMENT(i) % 2 ? \
-    (i % 5 ? (5-(i % 5)) : 0 ): i % 5)
-
-/* return the bank/segment pin for the given led */
-#define LED_SEGMENT_PIN(i) led_segment_pins[LED_SEGMENT(i)]
-#define LED_BANK_PIN(i) led_bank_pins[LED_BANK(i)]
+#define BRIGHT_DEFAULT      ((1 << BRIGHT_RES) - 1) // default brightness level
+#define BLINK_DEFAULT       0       // default blink (0 == NONE)
 
 //___ T Y P E D E F S ________________________________________________________
 
 //___ V A R I A B L E S ______________________________________________________
-extern short led_bank_pins[BANK_COUNT];
-extern short led_segment_pins[SEGMENT_COUNT];
 
 //___ P R O T O T Y P E S ____________________________________________________
-
-void led_init(void);
+void led_init( void );
   /* @brief initialize led module
    * @param None
    * @retrn None
    */
 
-
-void led_enable( short led );
+void led_enable( uint8_t led );
   /* @brief enable the given led
    * @param led num (0-59)
    * @retrn None
    */
 
-void led_disable( short led );
+void led_disable( uint8_t led );
   /* @brief disable the given led
    * @param led num (0-59)
    * @retrn None
    */
+
+void led_set( uint8_t led, uint8_t intensity );
+  /* @brief set led intensity with default blink (none)
+   * @param led num (0-59)
+   * @param intensity (brightness) value
+   * @retrn None
+   */
+
+void led_set_state( uint8_t led_index, uint8_t blink, uint8_t light );
+  /* @brief initialize led module
+   * @param None
+   * @retrn None
+   */
+
 
 #endif /* end of include guard: __LEDS_H__ */
 // vim: shiftwidth=2
