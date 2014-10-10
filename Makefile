@@ -394,6 +394,7 @@ rebuild: clean all
 # Debug the project in flash.
 .PHONY: debug_flash
 debug_flash: all
+	openocd -f interface/jlink.cfg -f utils/samd20e.cfg &
 	$(GDB) -x "$(PRJ_PATH)/$(DEBUG_SCRIPT_FLASH)" -ex "reset" -readnow -se $(TARGET_FLASH)
 
 # Debug the project in sram.

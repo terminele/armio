@@ -7,13 +7,13 @@
 define reset
 
 # Connect to the J-Link gdb server
-target remote localhost:2331
+target remote localhost:3333
 
 # Reset the chip to get to a known state
 monitor reset
 
 # Select flash device
-monitor flash device = ATSAMD20J18A
+monitor flash device = ATSAMD20E14
 # Enable flash download and flash breakpoints
 monitor flash download = 1
 
