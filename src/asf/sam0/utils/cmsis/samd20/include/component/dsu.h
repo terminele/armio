@@ -58,11 +58,11 @@
 typedef union {
   struct {
     uint8_t  SWRST:1;          /*!< bit:      0  Software Reset                     */
-    uint8_t  :1;               /*!< bit:      1  Reserved                           */
+    unsigned char  :1;               /*!< bit:      1  Reserved                           */
     uint8_t  CRC:1;            /*!< bit:      2  32-bit Cyclic Redundancy Code      */
     uint8_t  MBIST:1;          /*!< bit:      3  Memory built-in self-test          */
     uint8_t  CE:1;             /*!< bit:      4  Chip-Erase                         */
-    uint8_t  :1;               /*!< bit:      5  Reserved                           */
+    unsigned char  :1;               /*!< bit:      5  Reserved                           */
     uint8_t  ARR:1;            /*!< bit:      6  Auxiliary Row Read                 */
     uint8_t  SMSA:1;           /*!< bit:      7  Start Memory Stream Access         */
   } bit;                       /*!< Structure used for bit  access                  */
@@ -96,7 +96,7 @@ typedef union {
     uint8_t  BERR:1;           /*!< bit:      2  Bus Error                          */
     uint8_t  FAIL:1;           /*!< bit:      3  Failure                            */
     uint8_t  PERR:1;           /*!< bit:      4  Protection Error                   */
-    uint8_t  :3;               /*!< bit:  5.. 7  Reserved                           */
+    unsigned char  :3;               /*!< bit:  5.. 7  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } DSU_STATUSA_Type;
@@ -126,12 +126,12 @@ typedef union {
     uint8_t  DCCD0:1;          /*!< bit:      2  Debug Communication Channel 0 Dirty */
     uint8_t  DCCD1:1;          /*!< bit:      3  Debug Communication Channel 1 Dirty */
     uint8_t  HPE:1;            /*!< bit:      4  Hot-Plugging Enable                */
-    uint8_t  :3;               /*!< bit:  5.. 7  Reserved                           */
+    unsigned char  :3;               /*!< bit:  5.. 7  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   struct {
-    uint8_t  :2;               /*!< bit:  0.. 1  Reserved                           */
+    unsigned char  :2;               /*!< bit:  0.. 1  Reserved                           */
     uint8_t  DCCD:2;           /*!< bit:  2.. 3  Debug Communication Channel x Dirty */
-    uint8_t  :4;               /*!< bit:  4.. 7  Reserved                           */
+    unsigned char  :4;               /*!< bit:  4.. 7  Reserved                           */
   } vec;                       /*!< Structure used for vec  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } DSU_STATUSB_Type;
@@ -181,7 +181,7 @@ typedef union {
 #if !(defined(__ASSEMBLY__) || defined(__IAR_SYSTEMS_ASM__))
 typedef union {
   struct {
-    uint32_t :2;               /*!< bit:  0.. 1  Reserved                           */
+    unsigned long int :2;               /*!< bit:  0.. 1  Reserved                           */
     uint32_t LENGTH:30;        /*!< bit:  2..31  Length                             */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
@@ -240,7 +240,7 @@ typedef union {
     uint32_t REVISION:4;       /*!< bit:  8..11  Revision Number                    */
     uint32_t DIE:4;            /*!< bit: 12..15  Die Number                         */
     uint32_t SERIES:6;         /*!< bit: 16..21  Series                             */
-    uint32_t :1;               /*!< bit:     22  Reserved                           */
+    unsigned long int :1;               /*!< bit:     22  Reserved                           */
     uint32_t FAMILY:5;         /*!< bit: 23..27  Family                             */
     uint32_t PROCESSOR:4;      /*!< bit: 28..31  Processor                          */
   } bit;                       /*!< Structure used for bit  access                  */
@@ -310,7 +310,7 @@ typedef union {
   struct {
     uint32_t EPRES:1;          /*!< bit:      0  Entry Present                      */
     uint32_t FMT:1;            /*!< bit:      1  Format                             */
-    uint32_t :10;              /*!< bit:  2..11  Reserved                           */
+    unsigned long int :10;              /*!< bit:  2..11  Reserved                           */
     uint32_t ADDOFF:20;        /*!< bit: 12..31  Address Offset                     */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
@@ -352,7 +352,7 @@ typedef union {
 typedef union {
   struct {
     uint32_t SMEMP:1;          /*!< bit:      0  System Memory Present              */
-    uint32_t :31;              /*!< bit:  1..31  Reserved                           */
+    unsigned long int :31;              /*!< bit:  1..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } DSU_MEMTYPE_Type;
@@ -371,7 +371,7 @@ typedef union {
   struct {
     uint32_t JEPCC:4;          /*!< bit:  0.. 3  JEP-106 Continuation Code          */
     uint32_t FKBC:4;           /*!< bit:  4.. 7  4KB count                          */
-    uint32_t :24;              /*!< bit:  8..31  Reserved                           */
+    unsigned long int :24;              /*!< bit:  8..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } DSU_PID4_Type;
@@ -423,7 +423,7 @@ typedef union {
 typedef union {
   struct {
     uint32_t PARTNBL:8;        /*!< bit:  0.. 7  Part Number Low                    */
-    uint32_t :24;              /*!< bit:  8..31  Reserved                           */
+    unsigned long int :24;              /*!< bit:  8..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } DSU_PID0_Type;
@@ -443,7 +443,7 @@ typedef union {
   struct {
     uint32_t PARTNBH:4;        /*!< bit:  0.. 3  Part Number High                   */
     uint32_t JEPIDCL:4;        /*!< bit:  4.. 7  Low part of the JEP-106 Identity Code */
-    uint32_t :24;              /*!< bit:  8..31  Reserved                           */
+    unsigned long int :24;              /*!< bit:  8..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } DSU_PID1_Type;
@@ -467,7 +467,7 @@ typedef union {
     uint32_t JEPIDCH:3;        /*!< bit:  0.. 2  JEP-106 Identity Code High         */
     uint32_t JEPU:1;           /*!< bit:      3  JEP-106 Identity Code is used      */
     uint32_t REVISION:4;       /*!< bit:  4.. 7  Revision Number                    */
-    uint32_t :24;              /*!< bit:  8..31  Reserved                           */
+    unsigned long int :24;              /*!< bit:  8..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } DSU_PID2_Type;
@@ -492,7 +492,7 @@ typedef union {
   struct {
     uint32_t CUSMOD:4;         /*!< bit:  0.. 3  ARM CUSMOD                         */
     uint32_t REVAND:4;         /*!< bit:  4.. 7  Revision Number                    */
-    uint32_t :24;              /*!< bit:  8..31  Reserved                           */
+    unsigned long int :24;              /*!< bit:  8..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } DSU_PID3_Type;
@@ -514,7 +514,7 @@ typedef union {
 typedef union {
   struct {
     uint32_t PREAMBLEB0:8;     /*!< bit:  0.. 7  Preamble Byte 0                    */
-    uint32_t :24;              /*!< bit:  8..31  Reserved                           */
+    unsigned long int :24;              /*!< bit:  8..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } DSU_CID0_Type;
@@ -534,7 +534,7 @@ typedef union {
   struct {
     uint32_t PREAMBLE:4;       /*!< bit:  0.. 3  Preamble                           */
     uint32_t CCLASS:4;         /*!< bit:  4.. 7  Component Class                    */
-    uint32_t :24;              /*!< bit:  8..31  Reserved                           */
+    unsigned long int :24;              /*!< bit:  8..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } DSU_CID1_Type;
@@ -556,7 +556,7 @@ typedef union {
 typedef union {
   struct {
     uint32_t PREAMBLEB2:8;     /*!< bit:  0.. 7  Preamble Byte 2                    */
-    uint32_t :24;              /*!< bit:  8..31  Reserved                           */
+    unsigned long int :24;              /*!< bit:  8..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } DSU_CID2_Type;
@@ -575,7 +575,7 @@ typedef union {
 typedef union {
   struct {
     uint32_t PREAMBLEB3:8;     /*!< bit:  0.. 7  Preamble Byte 3                    */
-    uint32_t :24;              /*!< bit:  8..31  Reserved                           */
+    unsigned long int :24;              /*!< bit:  8..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } DSU_CID3_Type;

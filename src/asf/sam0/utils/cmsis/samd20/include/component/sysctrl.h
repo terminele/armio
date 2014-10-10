@@ -69,7 +69,7 @@ typedef union {
     uint32_t BOD33RDY:1;       /*!< bit:      9  BOD33 Ready                        */
     uint32_t BOD33DET:1;       /*!< bit:     10  BOD33 Detection                    */
     uint32_t B33SRDY:1;        /*!< bit:     11  BOD33 Synchronization Ready        */
-    uint32_t :20;              /*!< bit: 12..31  Reserved                           */
+    unsigned long int :20;              /*!< bit: 12..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } SYSCTRL_INTENCLR_Type;
@@ -120,7 +120,7 @@ typedef union {
     uint32_t BOD33RDY:1;       /*!< bit:      9  BOD33 Ready                        */
     uint32_t BOD33DET:1;       /*!< bit:     10  BOD33 Detection                    */
     uint32_t B33SRDY:1;        /*!< bit:     11  BOD33 Synchronization Ready        */
-    uint32_t :20;              /*!< bit: 12..31  Reserved                           */
+    unsigned long int :20;              /*!< bit: 12..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } SYSCTRL_INTENSET_Type;
@@ -171,7 +171,7 @@ typedef union {
     uint32_t BOD33RDY:1;       /*!< bit:      9  BOD33 Ready                        */
     uint32_t BOD33DET:1;       /*!< bit:     10  BOD33 Detection                    */
     uint32_t B33SRDY:1;        /*!< bit:     11  BOD33 Synchronization Ready        */
-    uint32_t :20;              /*!< bit: 12..31  Reserved                           */
+    unsigned long int :20;              /*!< bit: 12..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } SYSCTRL_INTFLAG_Type;
@@ -222,7 +222,7 @@ typedef union {
     uint32_t BOD33RDY:1;       /*!< bit:      9  BOD33 Ready                        */
     uint32_t BOD33DET:1;       /*!< bit:     10  BOD33 Detection                    */
     uint32_t B33SRDY:1;        /*!< bit:     11  BOD33 Synchronization Ready        */
-    uint32_t :20;              /*!< bit: 12..31  Reserved                           */
+    unsigned long int :20;              /*!< bit: 12..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } SYSCTRL_PCLKSR_Type;
@@ -261,10 +261,10 @@ typedef union {
 #if !(defined(__ASSEMBLY__) || defined(__IAR_SYSTEMS_ASM__))
 typedef union {
   struct {
-    uint16_t :1;               /*!< bit:      0  Reserved                           */
+    unsigned short int :1;               /*!< bit:      0  Reserved                           */
     uint16_t ENABLE:1;         /*!< bit:      1  Enable                             */
     uint16_t XTALEN:1;         /*!< bit:      2  Crystal Oscillator Enable          */
-    uint16_t :3;               /*!< bit:  3.. 5  Reserved                           */
+    unsigned short int :3;               /*!< bit:  3.. 5  Reserved                           */
     uint16_t RUNSTDBY:1;       /*!< bit:      6  Run during Standby                 */
     uint16_t ONDEMAND:1;       /*!< bit:      7  Enable on Demand                   */
     uint16_t GAIN:3;           /*!< bit:  8..10  Gain Value                         */
@@ -300,7 +300,7 @@ typedef union {
 #if !(defined(__ASSEMBLY__) || defined(__IAR_SYSTEMS_ASM__))
 typedef union {
   struct {
-    uint16_t :1;               /*!< bit:      0  Reserved                           */
+    unsigned short int :1;               /*!< bit:      0  Reserved                           */
     uint16_t ENABLE:1;         /*!< bit:      1  Enable                             */
     uint16_t XTALEN:1;         /*!< bit:      2  Crystal Oscillator Enable          */
     uint16_t EN32K:1;          /*!< bit:      3  32kHz Output Enable                */
@@ -309,9 +309,9 @@ typedef union {
     uint16_t RUNSTDBY:1;       /*!< bit:      6  Run during Standby                 */
     uint16_t ONDEMAND:1;       /*!< bit:      7  Enable on Demand                   */
     uint16_t STARTUP:3;        /*!< bit:  8..10  Start-Up Time                      */
-    uint16_t :1;               /*!< bit:     11  Reserved                           */
+    unsigned short int :1;               /*!< bit:     11  Reserved                           */
     uint16_t WRTLOCK:1;        /*!< bit:     12  Write Lock                         */
-    uint16_t :3;               /*!< bit: 13..15  Reserved                           */
+    unsigned short int :3;               /*!< bit: 13..15  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint16_t reg;                /*!< Type      used for register access              */
 } SYSCTRL_XOSC32K_Type;
@@ -345,19 +345,19 @@ typedef union {
 #if !(defined(__ASSEMBLY__) || defined(__IAR_SYSTEMS_ASM__))
 typedef union {
   struct {
-    uint32_t :1;               /*!< bit:      0  Reserved                           */
+    unsigned long int :1;               /*!< bit:      0  Reserved                           */
     uint32_t ENABLE:1;         /*!< bit:      1  Enable                             */
     uint32_t EN32K:1;          /*!< bit:      2  32kHz Output Enable                */
     uint32_t EN1K:1;           /*!< bit:      3  1kHz Output Enable                 */
-    uint32_t :2;               /*!< bit:  4.. 5  Reserved                           */
+    unsigned long int :2;               /*!< bit:  4.. 5  Reserved                           */
     uint32_t RUNSTDBY:1;       /*!< bit:      6  Run during Standby                 */
     uint32_t ONDEMAND:1;       /*!< bit:      7  Enable on Demand                   */
     uint32_t STARTUP:3;        /*!< bit:  8..10  Start-Up Time                      */
-    uint32_t :1;               /*!< bit:     11  Reserved                           */
+    unsigned long int :1;               /*!< bit:     11  Reserved                           */
     uint32_t WRTLOCK:1;        /*!< bit:     12  Write Lock                         */
-    uint32_t :3;               /*!< bit: 13..15  Reserved                           */
+    unsigned long int :3;               /*!< bit: 13..15  Reserved                           */
     uint32_t CALIB:7;          /*!< bit: 16..22  Calibration Value                  */
-    uint32_t :9;               /*!< bit: 23..31  Reserved                           */
+    unsigned long int :9;               /*!< bit: 23..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } SYSCTRL_OSC32K_Type;
@@ -391,7 +391,7 @@ typedef union {
 typedef union {
   struct {
     uint8_t  CALIB:5;          /*!< bit:  0.. 4  Calibration Value                  */
-    uint8_t  :2;               /*!< bit:  5.. 6  Reserved                           */
+    unsigned char  :2;               /*!< bit:  5.. 6  Reserved                           */
     uint8_t  WRTLOCK:1;        /*!< bit:      7  Write Lock                         */
   } bit;                       /*!< Structure used for bit  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
@@ -412,15 +412,15 @@ typedef union {
 #if !(defined(__ASSEMBLY__) || defined(__IAR_SYSTEMS_ASM__))
 typedef union {
   struct {
-    uint32_t :1;               /*!< bit:      0  Reserved                           */
+    unsigned long int :1;               /*!< bit:      0  Reserved                           */
     uint32_t ENABLE:1;         /*!< bit:      1  Enable                             */
-    uint32_t :4;               /*!< bit:  2.. 5  Reserved                           */
+    unsigned long int :4;               /*!< bit:  2.. 5  Reserved                           */
     uint32_t RUNSTDBY:1;       /*!< bit:      6  Run during Standby                 */
     uint32_t ONDEMAND:1;       /*!< bit:      7  Enable on Demand                   */
     uint32_t PRESC:2;          /*!< bit:  8.. 9  Prescaler Select                   */
-    uint32_t :6;               /*!< bit: 10..15  Reserved                           */
+    unsigned long int :6;               /*!< bit: 10..15  Reserved                           */
     uint32_t CALIB:12;         /*!< bit: 16..27  Calibration Value                  */
-    uint32_t :2;               /*!< bit: 28..29  Reserved                           */
+    unsigned long int :2;               /*!< bit: 28..29  Reserved                           */
     uint32_t FRANGE:2;         /*!< bit: 30..31  Frequency Range                    */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
@@ -451,17 +451,17 @@ typedef union {
 #if !(defined(__ASSEMBLY__) || defined(__IAR_SYSTEMS_ASM__))
 typedef union {
   struct {
-    uint16_t :1;               /*!< bit:      0  Reserved                           */
+    unsigned short int :1;               /*!< bit:      0  Reserved                           */
     uint16_t ENABLE:1;         /*!< bit:      1  Enable                             */
     uint16_t MODE:1;           /*!< bit:      2  Mode Selection                     */
     uint16_t STABLE:1;         /*!< bit:      3  Stable Frequency                   */
     uint16_t LLAW:1;           /*!< bit:      4  Lose Lock After Wake               */
-    uint16_t :1;               /*!< bit:      5  Reserved                           */
+    unsigned short int :1;               /*!< bit:      5  Reserved                           */
     uint16_t RUNSTDBY:1;       /*!< bit:      6  Run during Standby                 */
     uint16_t ONDEMAND:1;       /*!< bit:      7  Enable on Demand                   */
     uint16_t CCDIS:1;          /*!< bit:      8  Chill Cycle Disable                */
     uint16_t QLDIS:1;          /*!< bit:      9  Quick Lock Disable                 */
-    uint16_t :6;               /*!< bit: 10..15  Reserved                           */
+    unsigned short int :6;               /*!< bit: 10..15  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint16_t reg;                /*!< Type      used for register access              */
 } SYSCTRL_DFLLCTRL_Type;
@@ -544,7 +544,7 @@ typedef union {
 #if !(defined(__ASSEMBLY__) || defined(__IAR_SYSTEMS_ASM__))
 typedef union {
   struct {
-    uint8_t  :7;               /*!< bit:  0.. 6  Reserved                           */
+    unsigned char  :7;               /*!< bit:  0.. 6  Reserved                           */
     uint8_t  READREQ:1;        /*!< bit:      7  Read Request Synchronization       */
   } bit;                       /*!< Structure used for bit  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
@@ -562,19 +562,19 @@ typedef union {
 #if !(defined(__ASSEMBLY__) || defined(__IAR_SYSTEMS_ASM__))
 typedef union {
   struct {
-    uint32_t :1;               /*!< bit:      0  Reserved                           */
+    unsigned long int :1;               /*!< bit:      0  Reserved                           */
     uint32_t ENABLE:1;         /*!< bit:      1  Enable                             */
     uint32_t HYST:1;           /*!< bit:      2  Hysteresis Enable                  */
     uint32_t ACTION:2;         /*!< bit:  3.. 4  Action when Threshold Crossed      */
-    uint32_t :1;               /*!< bit:      5  Reserved                           */
+    unsigned long int :1;               /*!< bit:      5  Reserved                           */
     uint32_t RUNSTDBY:1;       /*!< bit:      6  Run during Standby                 */
-    uint32_t :1;               /*!< bit:      7  Reserved                           */
+    unsigned long int :1;               /*!< bit:      7  Reserved                           */
     uint32_t MODE:1;           /*!< bit:      8  Operation Modes                    */
     uint32_t CEN:1;            /*!< bit:      9  Clock Enable                       */
-    uint32_t :2;               /*!< bit: 10..11  Reserved                           */
+    unsigned long int :2;               /*!< bit: 10..11  Reserved                           */
     uint32_t PSEL:4;           /*!< bit: 12..15  Prescaler Select                   */
     uint32_t LEVEL:6;          /*!< bit: 16..21  Threshold Level                    */
-    uint32_t :10;              /*!< bit: 22..31  Reserved                           */
+    unsigned long int :10;              /*!< bit: 22..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } SYSCTRL_BOD33_Type;
@@ -608,11 +608,11 @@ typedef union {
 #if !(defined(__ASSEMBLY__) || defined(__IAR_SYSTEMS_ASM__))
 typedef union {
   struct {
-    uint16_t :6;               /*!< bit:  0.. 5  Reserved                           */
+    unsigned short int :6;               /*!< bit:  0.. 5  Reserved                           */
     uint16_t RUNSTDBY:1;       /*!< bit:      6  Run during Standby                 */
-    uint16_t :6;               /*!< bit:  7..12  Reserved                           */
+    unsigned short int :6;               /*!< bit:  7..12  Reserved                           */
     uint16_t FORCELDO:1;       /*!< bit:     13  Force LDO Voltage Regulator        */
-    uint16_t :2;               /*!< bit: 14..15  Reserved                           */
+    unsigned short int :2;               /*!< bit: 14..15  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint16_t reg;                /*!< Type      used for register access              */
 } SYSCTRL_VREG_Type;
@@ -631,12 +631,12 @@ typedef union {
 #if !(defined(__ASSEMBLY__) || defined(__IAR_SYSTEMS_ASM__))
 typedef union {
   struct {
-    uint32_t :1;               /*!< bit:      0  Reserved                           */
+    unsigned long int :1;               /*!< bit:      0  Reserved                           */
     uint32_t TSEN:1;           /*!< bit:      1  Temperature Sensor Output Enable   */
     uint32_t BGOUTEN:1;        /*!< bit:      2  Bandgap Output Enable              */
-    uint32_t :13;              /*!< bit:  3..15  Reserved                           */
+    unsigned long int :13;              /*!< bit:  3..15  Reserved                           */
     uint32_t CALIB:11;         /*!< bit: 16..26  Voltage Reference Calibration Value */
-    uint32_t :5;               /*!< bit: 27..31  Reserved                           */
+    unsigned long int :5;               /*!< bit: 27..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } SYSCTRL_VREF_Type;

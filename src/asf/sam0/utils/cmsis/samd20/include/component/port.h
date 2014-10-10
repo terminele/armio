@@ -241,12 +241,12 @@ typedef union {
     uint32_t PMUXEN:1;         /*!< bit:     16  Peripheral Multiplexer Enable      */
     uint32_t INEN:1;           /*!< bit:     17  Input Enable                       */
     uint32_t PULLEN:1;         /*!< bit:     18  Pull Enable                        */
-    uint32_t :3;               /*!< bit: 19..21  Reserved                           */
+    unsigned long int :3;               /*!< bit: 19..21  Reserved                           */
     uint32_t DRVSTR:1;         /*!< bit:     22  Output Driver Strength Selection   */
-    uint32_t :1;               /*!< bit:     23  Reserved                           */
+    unsigned long int :1;               /*!< bit:     23  Reserved                           */
     uint32_t PMUX:4;           /*!< bit: 24..27  Peripheral Multiplexing            */
     uint32_t WRPMUX:1;         /*!< bit:     28  Write PMUX                         */
-    uint32_t :1;               /*!< bit:     29  Reserved                           */
+    unsigned long int :1;               /*!< bit:     29  Reserved                           */
     uint32_t WRPINCFG:1;       /*!< bit:     30  Write PINCFG                       */
     uint32_t HWSEL:1;          /*!< bit:     31  Half-Word Select                   */
   } bit;                       /*!< Structure used for bit  access                  */
@@ -340,9 +340,9 @@ typedef union {
     uint8_t  PMUXEN:1;         /*!< bit:      0  Peripheral Multiplexer Enable      */
     uint8_t  INEN:1;           /*!< bit:      1  Input Enable                       */
     uint8_t  PULLEN:1;         /*!< bit:      2  Pull Enable                        */
-    uint8_t  :3;               /*!< bit:  3.. 5  Reserved                           */
+    unsigned char  :3;               /*!< bit:  3.. 5  Reserved                           */
     uint8_t  DRVSTR:1;         /*!< bit:      6  Output Driver Strength Selection   */
-    uint8_t  :1;               /*!< bit:      7  Reserved                           */
+    unsigned char  :1;               /*!< bit:      7  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } PORT_PINCFG_Type;

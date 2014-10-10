@@ -60,16 +60,16 @@ typedef union {
     uint32_t SWRST:1;          /*!< bit:      0  Software Reset                     */
     uint32_t ENABLE:1;         /*!< bit:      1  Enable                             */
     uint32_t MODE:3;           /*!< bit:  2.. 4  Operating Mode                     */
-    uint32_t :2;               /*!< bit:  5.. 6  Reserved                           */
+    unsigned long int :2;               /*!< bit:  5.. 6  Reserved                           */
     uint32_t RUNSTDBY:1;       /*!< bit:      7  Run in Standby                     */
-    uint32_t :8;               /*!< bit:  8..15  Reserved                           */
+    unsigned long int :8;               /*!< bit:  8..15  Reserved                           */
     uint32_t PINOUT:1;         /*!< bit:     16  Pin Usage                          */
-    uint32_t :3;               /*!< bit: 17..19  Reserved                           */
+    unsigned long int :3;               /*!< bit: 17..19  Reserved                           */
     uint32_t SDAHOLD:2;        /*!< bit: 20..21  SDA Hold Time                      */
-    uint32_t :6;               /*!< bit: 22..27  Reserved                           */
+    unsigned long int :6;               /*!< bit: 22..27  Reserved                           */
     uint32_t INACTOUT:2;       /*!< bit: 28..29  Inactive Time-out                  */
     uint32_t LOWTOUT:1;        /*!< bit:     30  SCL Low Time-out                   */
-    uint32_t :1;               /*!< bit:     31  Reserved                           */
+    unsigned long int :1;               /*!< bit:     31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } SERCOM_I2CM_CTRLA_Type;
@@ -118,15 +118,15 @@ typedef union {
     uint32_t SWRST:1;          /*!< bit:      0  Software Reset                     */
     uint32_t ENABLE:1;         /*!< bit:      1  Enable                             */
     uint32_t MODE:3;           /*!< bit:  2.. 4  Operating Mode                     */
-    uint32_t :2;               /*!< bit:  5.. 6  Reserved                           */
+    unsigned long int :2;               /*!< bit:  5.. 6  Reserved                           */
     uint32_t RUNSTDBY:1;       /*!< bit:      7  Run in Standby                     */
-    uint32_t :8;               /*!< bit:  8..15  Reserved                           */
+    unsigned long int :8;               /*!< bit:  8..15  Reserved                           */
     uint32_t PINOUT:1;         /*!< bit:     16  Pin Usage                          */
-    uint32_t :3;               /*!< bit: 17..19  Reserved                           */
+    unsigned long int :3;               /*!< bit: 17..19  Reserved                           */
     uint32_t SDAHOLD:2;        /*!< bit: 20..21  SDA Hold Time                      */
-    uint32_t :8;               /*!< bit: 22..29  Reserved                           */
+    unsigned long int :8;               /*!< bit: 22..29  Reserved                           */
     uint32_t LOWTOUT:1;        /*!< bit:     30  SCL Low Time-out                   */
-    uint32_t :1;               /*!< bit:     31  Reserved                           */
+    unsigned long int :1;               /*!< bit:     31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } SERCOM_I2CS_CTRLA_Type;
@@ -180,19 +180,19 @@ typedef union {
     uint32_t SWRST:1;          /*!< bit:      0  Software Reset                     */
     uint32_t ENABLE:1;         /*!< bit:      1  Enable                             */
     uint32_t MODE:3;           /*!< bit:  2.. 4  Operating Mode                     */
-    uint32_t :2;               /*!< bit:  5.. 6  Reserved                           */
+    unsigned long int :2;               /*!< bit:  5.. 6  Reserved                           */
     uint32_t RUNSTDBY:1;       /*!< bit:      7  Run In Standby                     */
     uint32_t IBON:1;           /*!< bit:      8  Immediate Buffer Overflow Notification */
-    uint32_t :7;               /*!< bit:  9..15  Reserved                           */
+    unsigned long int :7;               /*!< bit:  9..15  Reserved                           */
     uint32_t DOPO:2;           /*!< bit: 16..17  Data Out Pinout                    */
-    uint32_t :2;               /*!< bit: 18..19  Reserved                           */
+    unsigned long int :2;               /*!< bit: 18..19  Reserved                           */
     uint32_t DIPO:2;           /*!< bit: 20..21  Data In Pinout                     */
-    uint32_t :2;               /*!< bit: 22..23  Reserved                           */
+    unsigned long int :2;               /*!< bit: 22..23  Reserved                           */
     uint32_t FORM:4;           /*!< bit: 24..27  Frame Format                       */
     uint32_t CPHA:1;           /*!< bit:     28  Clock Phase                        */
     uint32_t CPOL:1;           /*!< bit:     29  Clock Polarity                     */
     uint32_t DORD:1;           /*!< bit:     30  Data Order                         */
-    uint32_t :1;               /*!< bit:     31  Reserved                           */
+    unsigned long int :1;               /*!< bit:     31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } SERCOM_SPI_CTRLA_Type;
@@ -252,19 +252,19 @@ typedef union {
     uint32_t SWRST:1;          /*!< bit:      0  Software Reset                     */
     uint32_t ENABLE:1;         /*!< bit:      1  Enable                             */
     uint32_t MODE:3;           /*!< bit:  2.. 4  Operating Mode                     */
-    uint32_t :2;               /*!< bit:  5.. 6  Reserved                           */
+    unsigned long int :2;               /*!< bit:  5.. 6  Reserved                           */
     uint32_t RUNSTDBY:1;       /*!< bit:      7  Run In Standby                     */
     uint32_t IBON:1;           /*!< bit:      8  Immediate Buffer Overflow Notification */
-    uint32_t :7;               /*!< bit:  9..15  Reserved                           */
+    unsigned long int :7;               /*!< bit:  9..15  Reserved                           */
     uint32_t TXPO:1;           /*!< bit:     16  Transmit Data Pinout               */
-    uint32_t :3;               /*!< bit: 17..19  Reserved                           */
+    unsigned long int :3;               /*!< bit: 17..19  Reserved                           */
     uint32_t RXPO:2;           /*!< bit: 20..21  Receive Data Pinout                */
-    uint32_t :2;               /*!< bit: 22..23  Reserved                           */
+    unsigned long int :2;               /*!< bit: 22..23  Reserved                           */
     uint32_t FORM:4;           /*!< bit: 24..27  Frame Format                       */
     uint32_t CMODE:1;          /*!< bit:     28  Communication Mode                 */
     uint32_t CPOL:1;           /*!< bit:     29  Clock Polarity                     */
     uint32_t DORD:1;           /*!< bit:     30  Data Order                         */
-    uint32_t :1;               /*!< bit:     31  Reserved                           */
+    unsigned long int :1;               /*!< bit:     31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } SERCOM_USART_CTRLA_Type;
@@ -332,13 +332,13 @@ typedef union {
 #if !(defined(__ASSEMBLY__) || defined(__IAR_SYSTEMS_ASM__))
 typedef union {
   struct {
-    uint32_t :8;               /*!< bit:  0.. 7  Reserved                           */
+    unsigned long int :8;               /*!< bit:  0.. 7  Reserved                           */
     uint32_t SMEN:1;           /*!< bit:      8  Smart Mode Enable                  */
     uint32_t QCEN:1;           /*!< bit:      9  Quick Command Enable               */
-    uint32_t :6;               /*!< bit: 10..15  Reserved                           */
+    unsigned long int :6;               /*!< bit: 10..15  Reserved                           */
     uint32_t CMD:2;            /*!< bit: 16..17  Command                            */
     uint32_t ACKACT:1;         /*!< bit:     18  Acknowledge Action                 */
-    uint32_t :13;              /*!< bit: 19..31  Reserved                           */
+    unsigned long int :13;              /*!< bit: 19..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } SERCOM_I2CM_CTRLB_Type;
@@ -362,13 +362,13 @@ typedef union {
 #if !(defined(__ASSEMBLY__) || defined(__IAR_SYSTEMS_ASM__))
 typedef union {
   struct {
-    uint32_t :8;               /*!< bit:  0.. 7  Reserved                           */
+    unsigned long int :8;               /*!< bit:  0.. 7  Reserved                           */
     uint32_t SMEN:1;           /*!< bit:      8  Smart Mode Enable                  */
-    uint32_t :5;               /*!< bit:  9..13  Reserved                           */
+    unsigned long int :5;               /*!< bit:  9..13  Reserved                           */
     uint32_t AMODE:2;          /*!< bit: 14..15  Address Mode                       */
     uint32_t CMD:2;            /*!< bit: 16..17  Command                            */
     uint32_t ACKACT:1;         /*!< bit:     18  Acknowledge Action                 */
-    uint32_t :13;              /*!< bit: 19..31  Reserved                           */
+    unsigned long int :13;              /*!< bit: 19..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } SERCOM_I2CS_CTRLB_Type;
@@ -394,13 +394,13 @@ typedef union {
 typedef union {
   struct {
     uint32_t CHSIZE:3;         /*!< bit:  0.. 2  Character Size                     */
-    uint32_t :3;               /*!< bit:  3.. 5  Reserved                           */
+    unsigned long int :3;               /*!< bit:  3.. 5  Reserved                           */
     uint32_t PLOADEN:1;        /*!< bit:      6  Slave Data Preload Enable          */
-    uint32_t :7;               /*!< bit:  7..13  Reserved                           */
+    unsigned long int :7;               /*!< bit:  7..13  Reserved                           */
     uint32_t AMODE:2;          /*!< bit: 14..15  Address Mode                       */
-    uint32_t :1;               /*!< bit:     16  Reserved                           */
+    unsigned long int :1;               /*!< bit:     16  Reserved                           */
     uint32_t RXEN:1;           /*!< bit:     17  Receiver Enable                    */
-    uint32_t :14;              /*!< bit: 18..31  Reserved                           */
+    unsigned long int :14;              /*!< bit: 18..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } SERCOM_SPI_CTRLB_Type;
@@ -432,16 +432,16 @@ typedef union {
 typedef union {
   struct {
     uint32_t CHSIZE:3;         /*!< bit:  0.. 2  Character Size                     */
-    uint32_t :3;               /*!< bit:  3.. 5  Reserved                           */
+    unsigned long int :3;               /*!< bit:  3.. 5  Reserved                           */
     uint32_t SBMODE:1;         /*!< bit:      6  Stop Bit Mode                      */
-    uint32_t :2;               /*!< bit:  7.. 8  Reserved                           */
+    unsigned long int :2;               /*!< bit:  7.. 8  Reserved                           */
     uint32_t SFDE:1;           /*!< bit:      9  Start of Frame Detection Enable    */
-    uint32_t :3;               /*!< bit: 10..12  Reserved                           */
+    unsigned long int :3;               /*!< bit: 10..12  Reserved                           */
     uint32_t PMODE:1;          /*!< bit:     13  Parity Mode                        */
-    uint32_t :2;               /*!< bit: 14..15  Reserved                           */
+    unsigned long int :2;               /*!< bit: 14..15  Reserved                           */
     uint32_t TXEN:1;           /*!< bit:     16  Transmitter Enable                 */
     uint32_t RXEN:1;           /*!< bit:     17  Receiver Enable                    */
-    uint32_t :14;              /*!< bit: 18..31  Reserved                           */
+    unsigned long int :14;              /*!< bit: 18..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } SERCOM_USART_CTRLB_Type;
@@ -470,7 +470,7 @@ typedef union {
 typedef union {
   struct {
     uint8_t  DBGSTOP:1;        /*!< bit:      0  Debug Stop Mode                    */
-    uint8_t  :7;               /*!< bit:  1.. 7  Reserved                           */
+    unsigned char  :7;               /*!< bit:  1.. 7  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } SERCOM_I2CM_DBGCTRL_Type;
@@ -488,7 +488,7 @@ typedef union {
 typedef union {
   struct {
     uint8_t  DBGSTOP:1;        /*!< bit:      0  Debug Stop Mode                    */
-    uint8_t  :7;               /*!< bit:  1.. 7  Reserved                           */
+    unsigned char  :7;               /*!< bit:  1.. 7  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } SERCOM_SPI_DBGCTRL_Type;
@@ -506,7 +506,7 @@ typedef union {
 typedef union {
   struct {
     uint8_t  DBGSTOP:1;        /*!< bit:      0  Debug Stop Mode                    */
-    uint8_t  :7;               /*!< bit:  1.. 7  Reserved                           */
+    unsigned char  :7;               /*!< bit:  1.. 7  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } SERCOM_USART_DBGCTRL_Type;
@@ -583,7 +583,7 @@ typedef union {
   struct {
     uint8_t  MB:1;             /*!< bit:      0  Master on Bus Interrupt Enable     */
     uint8_t  SB:1;             /*!< bit:      1  Slave on Bus Interrupt Enable      */
-    uint8_t  :6;               /*!< bit:  2.. 7  Reserved                           */
+    unsigned char  :6;               /*!< bit:  2.. 7  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } SERCOM_I2CM_INTENCLR_Type;
@@ -605,7 +605,7 @@ typedef union {
     uint8_t  PREC:1;           /*!< bit:      0  Stop Received Interrupt Enable     */
     uint8_t  AMATCH:1;         /*!< bit:      1  Address Match Interrupt Enable     */
     uint8_t  DRDY:1;           /*!< bit:      2  Data Ready Interrupt Enable        */
-    uint8_t  :5;               /*!< bit:  3.. 7  Reserved                           */
+    unsigned char  :5;               /*!< bit:  3.. 7  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } SERCOM_I2CS_INTENCLR_Type;
@@ -629,7 +629,7 @@ typedef union {
     uint8_t  DRE:1;            /*!< bit:      0  Data Register Empty Interrupt Enable */
     uint8_t  TXC:1;            /*!< bit:      1  Transmit Complete Interrupt Enable */
     uint8_t  RXC:1;            /*!< bit:      2  Receive Complete Interrupt Enable  */
-    uint8_t  :5;               /*!< bit:  3.. 7  Reserved                           */
+    unsigned char  :5;               /*!< bit:  3.. 7  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } SERCOM_SPI_INTENCLR_Type;
@@ -654,7 +654,7 @@ typedef union {
     uint8_t  TXC:1;            /*!< bit:      1  Transmit Complete Interrupt Enable */
     uint8_t  RXC:1;            /*!< bit:      2  Receive Complete Interrupt Enable  */
     uint8_t  RXS:1;            /*!< bit:      3  Receive Start Interrupt Disable    */
-    uint8_t  :4;               /*!< bit:  4.. 7  Reserved                           */
+    unsigned char  :4;               /*!< bit:  4.. 7  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } SERCOM_USART_INTENCLR_Type;
@@ -679,7 +679,7 @@ typedef union {
   struct {
     uint8_t  MB:1;             /*!< bit:      0  Master on Bus Interrupt Enable     */
     uint8_t  SB:1;             /*!< bit:      1  Slave on Bus Interrupt Enable      */
-    uint8_t  :6;               /*!< bit:  2.. 7  Reserved                           */
+    unsigned char  :6;               /*!< bit:  2.. 7  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } SERCOM_I2CM_INTENSET_Type;
@@ -701,7 +701,7 @@ typedef union {
     uint8_t  PREC:1;           /*!< bit:      0  Stop Received Interrupt Enable     */
     uint8_t  AMATCH:1;         /*!< bit:      1  Address Match Interrupt Enable     */
     uint8_t  DRDY:1;           /*!< bit:      2  Data Ready Interrupt Enable        */
-    uint8_t  :5;               /*!< bit:  3.. 7  Reserved                           */
+    unsigned char  :5;               /*!< bit:  3.. 7  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } SERCOM_I2CS_INTENSET_Type;
@@ -725,7 +725,7 @@ typedef union {
     uint8_t  DRE:1;            /*!< bit:      0  Data Register Empty Interrupt Enable */
     uint8_t  TXC:1;            /*!< bit:      1  Transmit Complete Interrupt Enable */
     uint8_t  RXC:1;            /*!< bit:      2  Receive Complete Interrupt Enable  */
-    uint8_t  :5;               /*!< bit:  3.. 7  Reserved                           */
+    unsigned char  :5;               /*!< bit:  3.. 7  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } SERCOM_SPI_INTENSET_Type;
@@ -750,7 +750,7 @@ typedef union {
     uint8_t  TXC:1;            /*!< bit:      1  Transmit Complete Interrupt Enable */
     uint8_t  RXC:1;            /*!< bit:      2  Receive Complete Interrupt Enable  */
     uint8_t  RXS:1;            /*!< bit:      3  Receive Start Interrupt Enable     */
-    uint8_t  :4;               /*!< bit:  4.. 7  Reserved                           */
+    unsigned char  :4;               /*!< bit:  4.. 7  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } SERCOM_USART_INTENSET_Type;
@@ -775,7 +775,7 @@ typedef union {
   struct {
     uint8_t  MB:1;             /*!< bit:      0  Master on Bus                      */
     uint8_t  SB:1;             /*!< bit:      1  Slave on Bus                       */
-    uint8_t  :6;               /*!< bit:  2.. 7  Reserved                           */
+    unsigned char  :6;               /*!< bit:  2.. 7  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } SERCOM_I2CM_INTFLAG_Type;
@@ -797,7 +797,7 @@ typedef union {
     uint8_t  PREC:1;           /*!< bit:      0  Stop Received                      */
     uint8_t  AMATCH:1;         /*!< bit:      1  Address Match                      */
     uint8_t  DRDY:1;           /*!< bit:      2  Data Ready                         */
-    uint8_t  :5;               /*!< bit:  3.. 7  Reserved                           */
+    unsigned char  :5;               /*!< bit:  3.. 7  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } SERCOM_I2CS_INTFLAG_Type;
@@ -821,7 +821,7 @@ typedef union {
     uint8_t  DRE:1;            /*!< bit:      0  Data Register Empty                */
     uint8_t  TXC:1;            /*!< bit:      1  Transmit Complete                  */
     uint8_t  RXC:1;            /*!< bit:      2  Receive Complete                   */
-    uint8_t  :5;               /*!< bit:  3.. 7  Reserved                           */
+    unsigned char  :5;               /*!< bit:  3.. 7  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } SERCOM_SPI_INTFLAG_Type;
@@ -846,7 +846,7 @@ typedef union {
     uint8_t  TXC:1;            /*!< bit:      1  Transmit Complete                  */
     uint8_t  RXC:1;            /*!< bit:      2  Receive Complete                   */
     uint8_t  RXS:1;            /*!< bit:      3  Receive Start Interrupt            */
-    uint8_t  :4;               /*!< bit:  4.. 7  Reserved                           */
+    unsigned char  :4;               /*!< bit:  4.. 7  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } SERCOM_USART_INTFLAG_Type;
@@ -872,11 +872,11 @@ typedef union {
     uint16_t BUSERR:1;         /*!< bit:      0  Bus Error                          */
     uint16_t ARBLOST:1;        /*!< bit:      1  Arbitration Lost                   */
     uint16_t RXNACK:1;         /*!< bit:      2  Received Not Acknowledge           */
-    uint16_t :1;               /*!< bit:      3  Reserved                           */
+    unsigned short int :1;               /*!< bit:      3  Reserved                           */
     uint16_t BUSSTATE:2;       /*!< bit:  4.. 5  Bus State                          */
     uint16_t LOWTOUT:1;        /*!< bit:      6  SCL Low Time-out                   */
     uint16_t CLKHOLD:1;        /*!< bit:      7  Clock Hold                         */
-    uint16_t :7;               /*!< bit:  8..14  Reserved                           */
+    unsigned short int :7;               /*!< bit:  8..14  Reserved                           */
     uint16_t SYNCBUSY:1;       /*!< bit:     15  Synchronization Busy               */
   } bit;                       /*!< Structure used for bit  access                  */
   uint16_t reg;                /*!< Type      used for register access              */
@@ -912,10 +912,10 @@ typedef union {
     uint16_t RXNACK:1;         /*!< bit:      2  Received Not Acknowledge           */
     uint16_t DIR:1;            /*!< bit:      3  Read / Write Direction             */
     uint16_t SR:1;             /*!< bit:      4  Repeated Start                     */
-    uint16_t :1;               /*!< bit:      5  Reserved                           */
+    unsigned short int :1;               /*!< bit:      5  Reserved                           */
     uint16_t LOWTOUT:1;        /*!< bit:      6  SCL Low Time-out                   */
     uint16_t CLKHOLD:1;        /*!< bit:      7  Clock Hold                         */
-    uint16_t :7;               /*!< bit:  8..14  Reserved                           */
+    unsigned short int :7;               /*!< bit:  8..14  Reserved                           */
     uint16_t SYNCBUSY:1;       /*!< bit:     15  Synchronization Busy               */
   } bit;                       /*!< Structure used for bit  access                  */
   uint16_t reg;                /*!< Type      used for register access              */
@@ -947,9 +947,9 @@ typedef union {
 #if !(defined(__ASSEMBLY__) || defined(__IAR_SYSTEMS_ASM__))
 typedef union {
   struct {
-    uint16_t :2;               /*!< bit:  0.. 1  Reserved                           */
+    unsigned short int :2;               /*!< bit:  0.. 1  Reserved                           */
     uint16_t BUFOVF:1;         /*!< bit:      2  Buffer Overflow                    */
-    uint16_t :12;              /*!< bit:  3..14  Reserved                           */
+    unsigned short int :12;              /*!< bit:  3..14  Reserved                           */
     uint16_t SYNCBUSY:1;       /*!< bit:     15  Synchronization Busy               */
   } bit;                       /*!< Structure used for bit  access                  */
   uint16_t reg;                /*!< Type      used for register access              */
@@ -972,7 +972,7 @@ typedef union {
     uint16_t PERR:1;           /*!< bit:      0  Parity Error                       */
     uint16_t FERR:1;           /*!< bit:      1  Frame Error                        */
     uint16_t BUFOVF:1;         /*!< bit:      2  Buffer Overflow                    */
-    uint16_t :12;              /*!< bit:  3..14  Reserved                           */
+    unsigned short int :12;              /*!< bit:  3..14  Reserved                           */
     uint16_t SYNCBUSY:1;       /*!< bit:     15  Synchronization Busy               */
   } bit;                       /*!< Structure used for bit  access                  */
   uint16_t reg;                /*!< Type      used for register access              */
@@ -1016,9 +1016,9 @@ typedef union {
   struct {
     uint32_t GENCEN:1;         /*!< bit:      0  General Call Address Enable        */
     uint32_t ADDR:7;           /*!< bit:  1.. 7  Address                            */
-    uint32_t :9;               /*!< bit:  8..16  Reserved                           */
+    unsigned long int :9;               /*!< bit:  8..16  Reserved                           */
     uint32_t ADDRMASK:7;       /*!< bit: 17..23  Address Mask                       */
-    uint32_t :8;               /*!< bit: 24..31  Reserved                           */
+    unsigned long int :8;               /*!< bit: 24..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } SERCOM_I2CS_ADDR_Type;
@@ -1042,9 +1042,9 @@ typedef union {
 typedef union {
   struct {
     uint32_t ADDR:8;           /*!< bit:  0.. 7  Address                            */
-    uint32_t :8;               /*!< bit:  8..15  Reserved                           */
+    unsigned long int :8;               /*!< bit:  8..15  Reserved                           */
     uint32_t ADDRMASK:8;       /*!< bit: 16..23  Address Mask                       */
-    uint32_t :8;               /*!< bit: 24..31  Reserved                           */
+    unsigned long int :8;               /*!< bit: 24..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } SERCOM_SPI_ADDR_Type;
@@ -1102,7 +1102,7 @@ typedef union {
 typedef union {
   struct {
     uint16_t DATA:9;           /*!< bit:  0.. 8  Data                               */
-    uint16_t :7;               /*!< bit:  9..15  Reserved                           */
+    unsigned short int :7;               /*!< bit:  9..15  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint16_t reg;                /*!< Type      used for register access              */
 } SERCOM_SPI_DATA_Type;
@@ -1121,7 +1121,7 @@ typedef union {
 typedef union {
   struct {
     uint16_t DATA:9;           /*!< bit:  0.. 8  Data                               */
-    uint16_t :7;               /*!< bit:  9..15  Reserved                           */
+    unsigned short int :7;               /*!< bit:  9..15  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint16_t reg;                /*!< Type      used for register access              */
 } SERCOM_USART_DATA_Type;

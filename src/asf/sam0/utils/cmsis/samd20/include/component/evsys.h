@@ -58,9 +58,9 @@
 typedef union {
   struct {
     uint8_t  SWRST:1;          /*!< bit:      0  Software Reset                     */
-    uint8_t  :3;               /*!< bit:  1.. 3  Reserved                           */
+    unsigned char  :3;               /*!< bit:  1.. 3  Reserved                           */
     uint8_t  GCLKREQ:1;        /*!< bit:      4  Generic Clock Requests             */
-    uint8_t  :3;               /*!< bit:  5.. 7  Reserved                           */
+    unsigned char  :3;               /*!< bit:  5.. 7  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } EVSYS_CTRL_Type;
@@ -80,14 +80,14 @@ typedef union {
 typedef union {
   struct {
     uint32_t CHANNEL:3;        /*!< bit:  0.. 2  Channel Selection                  */
-    uint32_t :5;               /*!< bit:  3.. 7  Reserved                           */
+    unsigned long int :5;               /*!< bit:  3.. 7  Reserved                           */
     uint32_t SWEVT:1;          /*!< bit:      8  Software Event                     */
-    uint32_t :7;               /*!< bit:  9..15  Reserved                           */
+    unsigned long int :7;               /*!< bit:  9..15  Reserved                           */
     uint32_t EVGEN:6;          /*!< bit: 16..21  Event Generator Selection          */
-    uint32_t :2;               /*!< bit: 22..23  Reserved                           */
+    unsigned long int :2;               /*!< bit: 22..23  Reserved                           */
     uint32_t PATH:2;           /*!< bit: 24..25  Path Selection                     */
     uint32_t EDGSEL:2;         /*!< bit: 26..27  Edge Detection Selection           */
-    uint32_t :4;               /*!< bit: 28..31  Reserved                           */
+    unsigned long int :4;               /*!< bit: 28..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } EVSYS_CHANNEL_Type;
@@ -131,9 +131,9 @@ typedef union {
 typedef union {
   struct {
     uint16_t USER:4;           /*!< bit:  0.. 3  User Multiplexer Selection         */
-    uint16_t :4;               /*!< bit:  4.. 7  Reserved                           */
+    unsigned short int :4;               /*!< bit:  4.. 7  Reserved                           */
     uint16_t CHANNEL:4;        /*!< bit:  8..11  Channel Event Selection            */
-    uint16_t :4;               /*!< bit: 12..15  Reserved                           */
+    unsigned short int :4;               /*!< bit: 12..15  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint16_t reg;                /*!< Type      used for register access              */
 } EVSYS_USER_Type;
@@ -170,12 +170,12 @@ typedef union {
     uint32_t CHBUSY5:1;        /*!< bit:     13  Channel 5 Busy                     */
     uint32_t CHBUSY6:1;        /*!< bit:     14  Channel 6 Busy                     */
     uint32_t CHBUSY7:1;        /*!< bit:     15  Channel 7 Busy                     */
-    uint32_t :16;              /*!< bit: 16..31  Reserved                           */
+    unsigned long int :16;              /*!< bit: 16..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   struct {
     uint32_t USRRDY:8;         /*!< bit:  0.. 7  Channel x User Ready               */
     uint32_t CHBUSY:8;         /*!< bit:  8..15  Channel x Busy                     */
-    uint32_t :16;              /*!< bit: 16..31  Reserved                           */
+    unsigned long int :16;              /*!< bit: 16..31  Reserved                           */
   } vec;                       /*!< Structure used for vec  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } EVSYS_CHSTATUS_Type;
@@ -244,12 +244,12 @@ typedef union {
     uint32_t EVD5:1;           /*!< bit:     13  Channel 5 Event Detection Interrupt Enable */
     uint32_t EVD6:1;           /*!< bit:     14  Channel 6 Event Detection Interrupt Enable */
     uint32_t EVD7:1;           /*!< bit:     15  Channel 7 Event Detection Interrupt Enable */
-    uint32_t :16;              /*!< bit: 16..31  Reserved                           */
+    unsigned long int :16;              /*!< bit: 16..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   struct {
     uint32_t OVR:8;            /*!< bit:  0.. 7  Channel x Overrun Interrupt Enable */
     uint32_t EVD:8;            /*!< bit:  8..15  Channel x Event Detection Interrupt Enable */
-    uint32_t :16;              /*!< bit: 16..31  Reserved                           */
+    unsigned long int :16;              /*!< bit: 16..31  Reserved                           */
   } vec;                       /*!< Structure used for vec  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } EVSYS_INTENCLR_Type;
@@ -318,12 +318,12 @@ typedef union {
     uint32_t EVD5:1;           /*!< bit:     13  Channel 5 Event Detection Interrupt Enable */
     uint32_t EVD6:1;           /*!< bit:     14  Channel 6 Event Detection Interrupt Enable */
     uint32_t EVD7:1;           /*!< bit:     15  Channel 7 Event Detection Interrupt Enable */
-    uint32_t :16;              /*!< bit: 16..31  Reserved                           */
+    unsigned long int :16;              /*!< bit: 16..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   struct {
     uint32_t OVR:8;            /*!< bit:  0.. 7  Channel x Overrun Interrupt Enable */
     uint32_t EVD:8;            /*!< bit:  8..15  Channel x Event Detection Interrupt Enable */
-    uint32_t :16;              /*!< bit: 16..31  Reserved                           */
+    unsigned long int :16;              /*!< bit: 16..31  Reserved                           */
   } vec;                       /*!< Structure used for vec  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } EVSYS_INTENSET_Type;
@@ -392,12 +392,12 @@ typedef union {
     uint32_t EVD5:1;           /*!< bit:     13  Channel 5 Event Detection          */
     uint32_t EVD6:1;           /*!< bit:     14  Channel 6 Event Detection          */
     uint32_t EVD7:1;           /*!< bit:     15  Channel 7 Event Detection          */
-    uint32_t :16;              /*!< bit: 16..31  Reserved                           */
+    unsigned long int :16;              /*!< bit: 16..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   struct {
     uint32_t OVR:8;            /*!< bit:  0.. 7  Channel x Overrun                  */
     uint32_t EVD:8;            /*!< bit:  8..15  Channel x Event Detection          */
-    uint32_t :16;              /*!< bit: 16..31  Reserved                           */
+    unsigned long int :16;              /*!< bit: 16..31  Reserved                           */
   } vec;                       /*!< Structure used for vec  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } EVSYS_INTFLAG_Type;
