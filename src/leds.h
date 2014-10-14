@@ -19,7 +19,7 @@
 #include <asf.h>
 
 //___ M A C R O S ____________________________________________________________
-#define BRIGHT_RES          3       /* bit resolution */
+#define BRIGHT_RES          4       /* bit resolution */
 #define BLINK_RES           4       /* bit resolution */
 
 #define BRIGHT_DEFAULT      ((1 << BRIGHT_RES) - 1) // default brightness level
@@ -48,7 +48,13 @@ void led_disable( uint8_t led );
    * @retrn None
    */
 
-void led_set( uint8_t led, uint8_t intensity );
+void led_disable_all( void );
+  /* @brief disable all the leds
+   * @param none
+   * @retrn None
+   */
+
+void led_set_intensity( uint8_t led, uint8_t intensity );
   /* @brief set led intensity with default blink (none)
    * @param led num (0-59)
    * @param intensity (brightness) value

@@ -60,6 +60,7 @@ void setup_clock_pin_outputs( void ) {
 
 int main (void)
 {
+    int16_t i = 0;
     uint8_t hour, minute, second;
     uint8_t hour_prev, minute_prev, second_prev;
     system_init();
@@ -73,10 +74,7 @@ int main (void)
     /* Wait a bit before configuring any thing that uses SWD
      * pins as GPIO since this can brick the device */
     /* Show a startup LED ring during the wait period */
-    //display_swirl(25, 800, 4 );
-    led_enable(1);
-    delay_s(1);
-    led_disable(1);
+    display_swirl(15, 200, 4 );
     /* get intial time */
     aclock_get_time(&hour, &minute, &second);
 
@@ -97,8 +95,8 @@ int main (void)
             click_count++;
         }
 
-#endif
 
+#endif
         hour_prev = hour;
         minute_prev = minute;
         second_prev = second;
@@ -116,9 +114,8 @@ int main (void)
 
 
         led_enable((hour%12)*5);
-        led_enable(minute);
-        led_enable(second);
-
+        led_set_intensity(minute, 8);
+        led_set_intensity(second, 2);
     }
 
 }

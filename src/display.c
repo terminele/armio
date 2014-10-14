@@ -15,27 +15,18 @@
 #define MIN_DUTY_CYCLE_US 1
 
 void display_swirl(int tail_len, int tick_us, int revolutions) {
-    int i = -tail_len;
     while(revolutions) {
-        for (i=0; i < 60; i++) {
-            int advance_countdown = tick_us;
-            while(advance_countdown > 0) {
-                int j = 0;
-                while( j < tail_len && advance_countdown > 0 ) {
-                    int ontime_us = j*MIN_DUTY_CYCLE_US;
-                    led_enable((i+j) % 60);
-                    delay_us(ontime_us);
-                    led_disable((i+j) % 60);
-                    delay_us(ontime_us);
-                    advance_countdown-=ontime_us*2;
-                    j++;
-                }
-
-                delay_us(20);
-                advance_countdown-=20;
+        for (int i=0; i < 60; i++) {
+            /* light up current swirl segment */
+            for ( int j = 0; j  < tail_len; j++ ) {
+                uint8_t intensity = 3 + j*(1 << BRIGHT_RES)/tail_len;
+                led_set_intensity((i+j) % 60, intensity);
             }
+            delay_us(tick_us);
+            led_disable(i);
         }
 
+    led_disable_all();
     revolutions--;
     }
 

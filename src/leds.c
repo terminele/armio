@@ -3,7 +3,6 @@
   * author:     Richard Bryan
   */
 
-// FIXME : need to configure TC to
 
 //___ I N C L U D E S ________________________________________________________
 #include "leds.h"
@@ -13,7 +12,7 @@
 #define BANK_COUNT              5
 
 /* values for configuring the fastest clock interval */
-#define VISION_PERSIST_MS   5      /* time for vision persistance */
+#define VISION_PERSIST_MS   20      /* time for vision persistance */
 #define TC_FREQ_MHz         8       /* clock for the TC module */
 
 //#define BANK_SELECT_TIMER   AVR32_TC.bank[0]
@@ -253,9 +252,17 @@ void led_disable ( uint8_t led ) {
   led_set_state( led, BLINK_DEFAULT, 0 );
 }
 
-void led_set ( uint8_t led, uint8_t intensity ) {
+void led_set_intensity ( uint8_t led, uint8_t intensity ) {
   led_set_state( led, BLINK_DEFAULT, intensity );
 }
 
+void led_disable_all( void ) {
+  uint8_t bank, segment;
+  for( bank = 0; bank < BANK_COUNT; bank++ ) {
+    for( segment = 0; segment < SEGMENT_COUNT; segment++ ) {
+        led_status[ bank ][ segment ].led_state = 0;
+    }
+  }
+}
 
 // vim: shiftwidth=2
