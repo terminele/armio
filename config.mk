@@ -57,28 +57,30 @@ $(shell mkdir $(BUILD_DIR) 2>/dev/null)
 
 # List of C source files.
 CSRCS = \
-    src/main.c						       \
-    src/leds.c						       \
-    src/display.c					       \
-    src/aclock.c					       \
-    src/asf/common/utils/interrupt/interrupt_sam_nvic.c        \
-    src/asf/common2/services/delay/sam0/systick_counter.c      \
-    src/asf/sam0/drivers/port/port.c                           \
-    src/asf/sam0/drivers/rtc/rtc_calendar.c		       \
-    src/asf/sam0/drivers/rtc/rtc_calendar_interrupt.c 	       \
-    src/asf/sam0/drivers/sercom/sercom.c                       \
-    src/asf/sam0/drivers/sercom/sercom_interrupt.c             \
-    src/asf/sam0/drivers/sercom/spi/spi.c                      \
-    src/asf/sam0/drivers/sercom/spi/spi_interrupt.c            \
-    src/asf/sam0/drivers/sercom/usart/usart.c                  \
-    src/asf/sam0/drivers/sercom/usart/usart_interrupt.c        \
-    src/asf/sam0/drivers/system/clock/clock_samd20/clock.c     \
-    src/asf/sam0/drivers/system/clock/clock_samd20/gclk.c      \
-    src/asf/sam0/drivers/system/interrupt/system_interrupt.c   \
-    src/asf/sam0/drivers/system/pinmux/pinmux.c                \
-    src/asf/sam0/drivers/system/system.c                       \
+    src/main.c						       	\
+    src/leds.c						       	\
+    src/display.c					       	\
+    src/aclock.c					       	\
+    src/asf/common/utils/interrupt/interrupt_sam_nvic.c        	\
+    src/asf/common2/services/delay/sam0/systick_counter.c      	\
+    src/asf/sam0/drivers/port/port.c                           	\
+    src/asf/sam0/drivers/rtc/rtc_calendar.c		       	\
+    src/asf/sam0/drivers/rtc/rtc_calendar_interrupt.c 	       	\
+    src/asf/sam0/drivers/sercom/sercom.c                       	\
+    src/asf/sam0/drivers/sercom/sercom_interrupt.c             	\
+    src/asf/sam0/drivers/sercom/spi/spi.c                      	\
+    src/asf/sam0/drivers/sercom/spi/spi_interrupt.c            	\
+    src/asf/sam0/drivers/sercom/usart/usart.c                  	\
+    src/asf/sam0/drivers/sercom/usart/usart_interrupt.c        	\
+    src/asf/sam0/drivers/system/clock/clock_samd20/clock.c     	\
+    src/asf/sam0/drivers/system/clock/clock_samd20/gclk.c      	\
+    src/asf/sam0/drivers/system/interrupt/system_interrupt.c   	\
+    src/asf/sam0/drivers/system/pinmux/pinmux.c                	\
+    src/asf/sam0/drivers/system/system.c                       	\
+    src/asf/sam0/drivers/tc/tc.c			       	\
+    src/asf/sam0/drivers/tc/tc_interrupt.c		       	\
     src/asf/sam0/utils/cmsis/samd20/source/gcc/startup_samd20.c \
-    src/asf/sam0/utils/cmsis/samd20/source/system_samd20.c     \
+    src/asf/sam0/utils/cmsis/samd20/source/system_samd20.c     	\
     src/asf/sam0/utils/syscalls/gcc/syscalls.c
 
 # List of assembler source files.
@@ -103,6 +105,7 @@ INC_PATH = \
     src/asf/sam0/drivers/system/interrupt                      \
     src/asf/sam0/drivers/system/interrupt/system_interrupt_samd20 \
     src/asf/sam0/drivers/system/pinmux                         \
+    src/asf/sam0/drivers/tc	                               \
     src/asf/sam0/utils                                         \
     src/asf/sam0/utils/cmsis/samd20/include                    \
     src/asf/sam0/utils/cmsis/samd20/source                     \
@@ -110,9 +113,6 @@ INC_PATH = \
     src/asf/sam0/utils/preprocessor                            \
     src/asf/thirdparty/CMSIS/Include                           \
     src/asf/thirdparty/CMSIS/Lib/GCC \
-
-    #src/asf/common/boards                                      \
-    #src/asf/sam0/boards                                        \
 
 # Additional search paths for libraries.
 LIB_PATH =  \
@@ -141,7 +141,7 @@ DBGFLAGS =
 
 # Application optimization used during compilation and linking:
 # -O0, -O1, -O2, -O3 or -Os
-OPTIMIZATION = -O1
+OPTIMIZATION = -O0
 
 # Extra flags to use when archiving.
 ARFLAGS =
@@ -164,6 +164,7 @@ CPPFLAGS = \
        -D SPI_CALLBACK_MODE=true			  \
        -D USART_CALLBACK_MODE=true 			  \
        -D RTC_CALENDAR_ASYNC=true 		          \
+       -D TC_ASYNC=true		 		          \
        -D SYSTICK_MODE                                    \
        -D __SAMD20E14__
 

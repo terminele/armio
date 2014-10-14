@@ -84,6 +84,10 @@
 #include <rtc_calendar.h>
 #include <rtc_calendar_interrupt.h>
 
+// timer counter
+#include <tc.h>
+#include <tc_interrupt.h>
+
 // From module: SYSTEM - Core System Driver
 #include <system.h>
 

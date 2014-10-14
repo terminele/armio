@@ -13,7 +13,7 @@
 #define BANK_COUNT              5
 
 /* values for configuring the fastest clock interval */
-#define VISION_PERSIST_MS   10      /* time for vision persistance */
+#define VISION_PERSIST_MS   5      /* time for vision persistance */
 #define TC_FREQ_MHz         8       /* clock for the TC module */
 
 //#define BANK_SELECT_TIMER   AVR32_TC.bank[0]
@@ -48,10 +48,28 @@
     port_pin_set_output_level( LED_BANK_GPIO_PINS[bank_number], true )
 
 #define SEGMENT_ENABLE( segment_number )    \
-    port_pin_set_output_level( LED_SEGMENT_GPIO_PINS[segment_number], true )
+    port_pin_set_output_level( LED_SEGMENT_GPIO_PINS[segment_number], false )
 
 #define SEGMENT_DISABLE( segment_number )   \
-    port_pin_set_output_level( LED_SEGMENT_GPIO_PINS[segment_number], false )
+    port_pin_set_output_level( LED_SEGMENT_GPIO_PINS[segment_number], true )
+
+
+#define SEGMENT_PIN_PORT_MASK ( \
+      1 << PIN_PA16	|	\
+      1 << PIN_PA15	|	\
+      1 << PIN_PA14	|	\
+      1 << PIN_PA11	|	\
+      1 << PIN_PA07	|	\
+      1 << PIN_PA06	|	\
+      1 << PIN_PA05	|	\
+      1 << PIN_PA04	|	\
+      1 << PIN_PA28	|	\
+      1 << PIN_PA27	|	\
+      1 << PIN_PA22	|	\
+      1 << PIN_PA19 )
+
+#define SEGMENTS_CLEAR() \
+    port_group_set_output_level(PORT->Group, SEGMENT_PIN_PORT_MASK, 0xffffffff )
 
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 typedef union {
@@ -63,7 +81,7 @@ typedef union {
 } led_status_t;
 
 //___ P R O T O T Y P E S   ( P R I V A T E ) ________________________________
-static void tc_bright_isr ( void );
+static void tc_bright_isr ( struct tc_module *const tc_instance);
   /* @brief initialize led module
    * @param None
    * @retrn None
@@ -100,54 +118,48 @@ const uint32_t LED_SEGMENT_GPIO_PINS[SEGMENT_COUNT] = {
   PIN_PA19
 };
 
-static volatile uint8_t led_bank_num;           // current bank value
+static struct tc_module tc_instance;
+static volatile uint8_t led_bank;           // current bank value
 static volatile uint8_t led_bright_tc_num;      // current brightness
   /* manage led intensity number and bank number */
   // TODO : TC should be used to increment these values but need to use the
   // event managment system to configure 2 additional counters, once TC are
-  // used then led_bright_tc_num and led_bank_num can be set by reading the
+  // used then led_bright_tc_num and led_bank can be set by reading the
   // current count value
 
 static led_status_t led_status[ BANK_COUNT ][ SEGMENT_COUNT ];// = { {0} };
 
 
 //___ I N T E R R U P T S  ___________________________________________________
-static void tc_bright_isr ( void ) {
+static void tc_bright_isr ( struct tc_module *const tc_inst) {
   uint8_t segment;
 
-  // don't want to do this here..
-  if( led_bright_tc_num == (1 << BRIGHT_RES) - 1 ) {
-    /* PWM top has been reached */
-    led_bright_tc_num = 0;
 
-    /* switch to next bank */
-    BANK_DISABLE( led_bank_num );
-    /* disable all segments because we will now switch banks */
-    for( segment = 0; segment < SEGMENT_COUNT; segment++ ) {
-      SEGMENT_DISABLE( segment );
-    }
+  /* switch to next bank */
+  BANK_DISABLE( led_bank );
 
-    if( led_bank_num == BANK_COUNT - 1 ) {
-      led_bank_num = 0;
-    } else {
-      led_bank_num++;
-    }
-    BANK_ENABLE( led_bank_num );
+  /* disable all segments because we will now switch banks */
+  SEGMENTS_CLEAR();
 
-    /* turn on the relevant segments */
-    for( segment = 0; segment < SEGMENT_COUNT; segment++ ) {
-      if( led_status[ led_bank_num ][ segment ].bright ) {
-        SEGMENT_ENABLE( segment );
-      }
-    }
-  } else {
-    led_bright_tc_num++;
-    for( segment = 0; segment < SEGMENT_COUNT; segment++ ) {
-      if( led_status[ led_bank_num ][ segment ].bright < led_bright_tc_num ) {
-        SEGMENT_DISABLE( segment );
-      }
+  led_bank++;
+  led_bank = led_bank % BANK_COUNT;
+
+  BANK_ENABLE( led_bank );
+
+  /* turn on the relevant segments */
+  for( segment = 0; segment < SEGMENT_COUNT; segment++ ) {
+    if( led_status[ led_bank ][ segment ].bright > led_bright_tc_num ) {
+      SEGMENT_ENABLE( segment );
     }
   }
+
+
+  /* Switch to next brightness level after each full bank cycle */
+  if (led_bank == 0) {
+    led_bright_tc_num++;
+    led_bright_tc_num = led_bright_tc_num % (1 << BRIGHT_RES);
+  }
+
 }
 
 //___ F U N C T I O N S   ( P R I V A T E ) __________________________________
@@ -175,25 +187,26 @@ static void configure_tc ( void ) {
   const uint32_t TC_period_ns = 1e3 / TC_FREQ_MHz;
   const uint16_t count_top = (uint16_t) (count_period_ns / TC_period_ns);
 
-#if 0
-  struct tc_module tc_instance;
   struct tc_config config_tc;
 
   tc_get_config_defaults( &config_tc );
   config_tc.counter_size    = TC_COUNTER_SIZE_16BIT;
-  config_tc.wave_generation = TC_WAVE_GENERATION_MATCH_PWM;
+  config_tc.wave_generation = TC_WAVE_GENERATION_MATCH_FREQ;
   config_tc.counter_16_bit.compare_capture_channel[0] = count_top;
-  tc_init(&tc_instance, PWM_MODULE, &config_tc);
+  config_tc.run_in_standby = true;
+  config_tc.clock_source = GCLK_GENERATOR_0;
 
-  tc_enable(&tc_instance);
+  tc_init(&tc_instance, TC0, &config_tc);
+
+
 
   tc_register_callback( &tc_instance,
-      tc_callback_to_change_duty_cycle, TC_CALLBACK_CC_CHANNEL0);
+      tc_bright_isr, TC_CALLBACK_CC_CHANNEL0);
 
   tc_enable_callback(&tc_instance, TC_CALLBACK_CC_CHANNEL0);
-#else
-  UNUSED ( count_top );
-#endif
+
+  tc_enable(&tc_instance);
+//  tc_start_counter(&tc_instance);
 }
 
 
@@ -204,7 +217,7 @@ void led_init ( void ) {
   struct port_config pin_conf;
 
   led_bright_tc_num = 0;
-  led_bank_num = 0;
+  led_bank = 0;
 
   port_get_config_defaults(&pin_conf);
   pin_conf.direction = PORT_PIN_DIR_OUTPUT;
@@ -221,7 +234,6 @@ void led_init ( void ) {
 
   configure_tc();
 }
-
 void led_set_state ( uint8_t led_index, uint8_t blink, uint8_t bright ) {
   uint8_t bank_number = LED_BANK( led_index );
   uint8_t segment_number = LED_SEGMENT( led_index );

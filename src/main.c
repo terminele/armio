@@ -60,24 +60,30 @@ void setup_clock_pin_outputs( void ) {
 
 int main (void)
 {
-    uint32_t i = 1;
+    uint8_t hour, minute, second;
+    uint8_t hour_prev, minute_prev, second_prev;
     system_init();
     delay_init();
-    led_init();
-    system_interrupt_enable_global();
     aclock_init();
+    led_init();
+
+    system_interrupt_enable_global();
 
     /***** IMPORTANT *****/
     /* Wait a bit before configuring any thing that uses SWD
      * pins as GPIO since this can brick the device */
     /* Show a startup LED ring during the wait period */
-    display_swirl(25, 800, 4 );
+    //display_swirl(25, 800, 4 );
+    led_enable(1);
+    delay_s(1);
+    led_disable(1);
+    /* get intial time */
+    aclock_get_time(&hour, &minute, &second);
 
 //    configure_input();
 
     while (1) {
         int led;
-        uint8_t hour, minute, second;
 
 #ifdef NOT_NOW
         int click_count = 0;
@@ -92,28 +98,27 @@ int main (void)
         }
 
 #endif
+
+        hour_prev = hour;
+        minute_prev = minute;
+        second_prev = second;
+        /* Get latest time */
         aclock_get_time(&hour, &minute, &second);
 
-        /* Hour led */
-        led = (hour % 12)*5;
+        /* If time change, disable previous leds */
+        /* ###TODO just implement a clear led state function? */
+        if (hour != hour_prev)
+            led_disable((hour_prev%12)*5);
+        if (minute != minute_prev)
+            led_disable(minute_prev);
+        if (second != second_prev)
+            led_disable(second_prev);
 
-        led_enable(led);
-        delay_us(50);
-        led_disable(led);
 
-        /* minute led */
-        led = minute;
-        led_enable(led);
-        delay_us(20);
-        led_disable(led);
-        led = second;
-        led_enable(led);
-        delay_us(1);
-        led_disable(led);
+        led_enable((hour%12)*5);
+        led_enable(minute);
+        led_enable(second);
 
-        delay_us(1);
-        i+=1;
-        //display_swirl(25, 800, 1 );
     }
 
 }
