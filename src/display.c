@@ -26,8 +26,8 @@ void display_swirl(int tail_len, int tick_us, int revolutions) {
                     led_enable((i+j) % 60);
                     delay_us(ontime_us);
                     led_disable((i+j) % 60);
-                    delay_us(ontime_us*2);
-                    advance_countdown-=ontime_us*3;
+                    delay_us(ontime_us);
+                    advance_countdown-=ontime_us*2;
                     j++;
                 }
 

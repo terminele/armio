@@ -164,4 +164,3 @@
 #  define CONF_CLOCK_GCLK_7_OUTPUT_ENABLE         false
 
 #endif /* CONF_CLOCKS_H_INCLUDED */
-

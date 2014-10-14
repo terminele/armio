@@ -11,8 +11,6 @@
 
 //___ T Y P E D E F S ________________________________________________________
 
-typedef void (*aclock_tick_callback_t)(void);
-
 typedef struct aclock_state_t {
     /* similar to rtc_calendar_time */
     uint8_t  second;
@@ -28,17 +26,16 @@ typedef struct aclock_state_t {
 
 //___ V A R I A B L E S ______________________________________________________
 
-extern aclock_state_t aclock_global_state;
 
 //___ P R O T O T Y P E S ____________________________________________________
 
-void aclock_get_state( aclock_state_t *clock_state );
-  /* @brief get state
-   * @param user-provided state ptr to be filled
+void aclock_get_time( uint8_t* hour_ptr, uint8_t* minute_ptr, uint8_t* second_ptr);
+  /* @brief get current time
+   * @param user-provided ptrs to be filled
    * @retrn None
    */
 
-void aclock_init( aclock_tick_callback_t tick_cb);
+void aclock_init( void );
   /* @brief initalize clock module
    * @param callback to trigger on each clock tick (every second)
    * @retrn None

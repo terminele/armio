@@ -163,7 +163,7 @@ CPPFLAGS = \
        -D ARM_MATH_CM0=true                               \
        -D SPI_CALLBACK_MODE=true			  \
        -D USART_CALLBACK_MODE=true 			  \
-       -D RTC_CALENDAR_ASYNC=true                         \
+       -D RTC_CALENDAR_ASYNC=true 		          \
        -D SYSTICK_MODE                                    \
        -D __SAMD20E14__
 

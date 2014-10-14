@@ -331,6 +331,9 @@ enum rtc_calendar_callback {
 #  endif
 	/** Callback for  overflow */
 	RTC_CALENDAR_CALLBACK_OVERFLOW,
+
+        /** Callback for synchronization ready */
+        RTC_CALENDAR_CALLBACK_SYNCRDY,
 #  if !defined(__DOXYGEN__)
 	/** Total number of callbacks */
 	_RTC_CALENDAR_CALLBACK_N
@@ -1063,4 +1066,3 @@ static inline void rtc_calendar_disable_events(
  */
 
 #endif /* RTC_CALENDAR_H_INCLUDED */
-

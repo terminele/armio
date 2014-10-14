@@ -21,23 +21,29 @@ void rtc_alarm_s_callback( void );
    * @param None
    * @retrn None
    */
+void aclock_sync_ready_cb ( void );
+  /* @brief callback after an RTC read sync
+   * is finished and we can read an updated
+   * clock value
+   * @param None
+   * @retrn None
+   */
 
 
 //___ V A R I A B L E S ______________________________________________________
 struct rtc_module rtc_instance;
 
 struct rtc_calendar_alarm_time alarm;
-
-aclock_state_t aclock_global_state;
-aclock_tick_callback_t user_tick_cb = NULL;
+aclock_state_t global_state;
 
 //___ I N T E R R U P T S  ___________________________________________________
 
 //___ F U N C T I O N S   ( P R I V A T E ) __________________________________
 
+#ifdef NOT_NOW
 void rtc_alarm_s_callback( void ) {
     struct rtc_calendar_time curr_time;
-
+    //user_tick_cb();
     /* Set next alarm for a second later */
     alarm.mask = RTC_CALENDAR_ALARM_MASK_SEC;
     alarm.time.second += 1;
@@ -46,24 +52,58 @@ void rtc_alarm_s_callback( void ) {
     rtc_calendar_set_alarm(&rtc_instance, &alarm, RTC_CALENDAR_ALARM_0);
 
     /* Update our time state */
-    rtc_calendar_get_time(&rtc_instance, &curr_time);
-    aclock_global_state.second = curr_time.second;
-    aclock_global_state.minute = curr_time.minute;
-    aclock_global_state.hour = curr_time.hour;
-    aclock_global_state.day = curr_time.day;
-    aclock_global_state.month = curr_time.month;
-    aclock_global_state.year = curr_time.year;
+
+
 
 }
+
+#endif
 
 
 //___ F U N C T I O N S ______________________________________________________
 
+void aclock_sync_ready_cb ( void ) {
+    struct rtc_calendar_time curr_time;
+    rtc_calendar_get_time(&rtc_instance, &curr_time);
+    global_state.year = curr_time.year;
+    global_state.month = curr_time.month;
+    global_state.day = curr_time.day;
 
-void aclock_init( aclock_tick_callback_t tick_cb) {
+    global_state.hour = curr_time.hour;
+    global_state.minute = curr_time.minute;
+    global_state.second = curr_time.second;
+
+
+    /* ###continuous update doesn't seeem to be working so... */
+    /* Make another read request */
+    RTC->MODE2.READREQ.reg = RTC_READREQ_RREQ;
+}
+
+void aclock_get_time( uint8_t* hour_ptr, uint8_t* minute_ptr, uint8_t* second_ptr) {
+
+#ifdef NOT_NOW
+    struct rtc_calendar_time curr_time;
+    if (!rtc_calendar_is_syncing(&rtc_instance)) {
+      rtc_calendar_get_time(&rtc_instance, &curr_time);
+      global_state.year = curr_time.year;
+      global_state.month = curr_time.month;
+      global_state.day = curr_time.day;
+
+      global_state.hour = curr_time.hour;
+      global_state.minute = curr_time.minute;
+      global_state.second = curr_time.second;
+    }
+#endif
+
+    *hour_ptr = global_state.hour;
+    *minute_ptr = global_state.minute;
+    *second_ptr = global_state.second;
+
+
+}
+
+void aclock_init( void ) {
     struct rtc_calendar_time initial_time;
-
-    user_tick_cb = tick_cb;
 
     /* Initialize RTC in calendar mode */
     struct rtc_calendar_config config_rtc_calendar;
@@ -73,14 +113,14 @@ void aclock_init( aclock_tick_callback_t tick_cb) {
 
     /* Set current time */
     rtc_calendar_get_time_defaults(&initial_time);
-    initial_time.year   = aclock_global_state.year = 2014;
-    initial_time.month  = aclock_global_state.month = 10;
-    initial_time.day    = aclock_global_state.day = 10;
+    initial_time.year   = global_state.year = 2014;
+    initial_time.month  = global_state.month = 10;
+    initial_time.day    =  global_state.day = 10;
 
     /* Use compile time for initial time */
-    initial_time.hour   = aclock_global_state.hour = 10*(__TIME__[0] - '0') +  (__TIME__[1] - '0');
-    initial_time.minute = aclock_global_state.minute = 10*(__TIME__[3] - '0') +  (__TIME__[4] - '0');
-    initial_time.second = aclock_global_state.second = (10*(__TIME__[6] - '0') +  (__TIME__[7] - '0') + \
+    initial_time.hour   = global_state.hour =  10*(__TIME__[0] - '0') +  (__TIME__[1] - '0');
+    initial_time.minute = global_state.minute = 10*(__TIME__[3] - '0') +  (__TIME__[4] - '0');
+    initial_time.second = global_state.second = (10*(__TIME__[6] - '0') +  (__TIME__[7] - '0') + \
                           10) % 60; //make it a little fast to account for time between compiling and flashing
 
     /* Configure alarm to trigger at 1-second    */
@@ -90,19 +130,22 @@ void aclock_init( aclock_tick_callback_t tick_cb) {
     alarm.mask = RTC_CALENDAR_ALARM_MASK_SEC;
 
     config_rtc_calendar.clock_24h = true;
-    config_rtc_calendar.alarm[0].time = alarm.time;
-    config_rtc_calendar.alarm[0].mask = alarm.mask;
+    config_rtc_calendar.prescaler  = RTC_CALENDAR_PRESCALER_DIV_1024;
+    //config_rtc_calendar.alarm[0].time = alarm.time;
+    //config_rtc_calendar.alarm[0].mask = alarm.mask;
+    config_rtc_calendar.continuously_update = true;
 
     rtc_calendar_init(&rtc_instance, RTC, &config_rtc_calendar);
+
     rtc_calendar_enable(&rtc_instance);
 
-    /* Register alarm callbacks */
-    rtc_calendar_register_callback( &rtc_instance,
-        rtc_alarm_s_callback, RTC_CALENDAR_CALLBACK_ALARM_0);
-
-    rtc_calendar_enable_callback(&rtc_instance, RTC_CALENDAR_CALLBACK_ALARM_0);
-
     rtc_calendar_set_time(&rtc_instance, &initial_time);
+
+    /* Register sync ready callback */
+    rtc_calendar_register_callback( &rtc_instance,
+        aclock_sync_ready_cb, RTC_CALENDAR_CALLBACK_SYNCRDY);
+
+    rtc_calendar_enable_callback(&rtc_instance, RTC_CALENDAR_CALLBACK_SYNCRDY);
 
 }
 

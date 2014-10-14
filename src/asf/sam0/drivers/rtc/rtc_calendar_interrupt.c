@@ -70,7 +70,8 @@ enum status_code rtc_calendar_register_callback(
 	enum status_code status = STATUS_OK;
 
 	/* Overflow callback */
-	if (callback_type == RTC_CALENDAR_CALLBACK_OVERFLOW) {
+	if (callback_type == RTC_CALENDAR_CALLBACK_OVERFLOW ||
+                callback_type == RTC_CALENDAR_CALLBACK_SYNCRDY) {
 		status = STATUS_OK;
 	} else if (callback_type > RTC_NUM_OF_ALARMS) {
 		/* Make sure alarm callback can be registered */
@@ -107,7 +108,8 @@ enum status_code rtc_calendar_unregister_callback(
 	enum status_code status = STATUS_OK;
 
 	/* Overflow callback */
-	if (callback_type == RTC_CALENDAR_CALLBACK_OVERFLOW) {
+	if (callback_type == RTC_CALENDAR_CALLBACK_OVERFLOW ||
+                callback_type == RTC_CALENDAR_CALLBACK_SYNCRDY) {
 		status = STATUS_OK;
 	} else if (callback_type > RTC_NUM_OF_ALARMS) {
 		/* Make sure alarm callback can be unregistered */
@@ -144,6 +146,8 @@ void rtc_calendar_enable_callback(
 
 	if (callback_type == RTC_CALENDAR_CALLBACK_OVERFLOW) {
 		rtc_module->MODE2.INTENSET.reg = RTC_MODE2_INTFLAG_OVF;
+	} else if (callback_type == RTC_CALENDAR_CALLBACK_SYNCRDY) {
+		rtc_module->MODE2.INTENSET.reg = RTC_MODE2_INTFLAG_SYNCRDY;
 	} else {
 		rtc_module->MODE2.INTENSET.reg = RTC_MODE2_INTFLAG_ALARM(1 << callback_type);
 	}
@@ -172,6 +176,8 @@ void rtc_calendar_disable_callback(
 	/* Disable interrupt */
 	if (callback_type == RTC_CALENDAR_CALLBACK_OVERFLOW) {
 		rtc_module->MODE2.INTENCLR.reg = RTC_MODE2_INTFLAG_OVF;
+	} else if (callback_type == RTC_CALENDAR_CALLBACK_SYNCRDY) {
+		rtc_module->MODE2.INTENCLR.reg = RTC_MODE2_INTFLAG_SYNCRDY;
 	} else {
 		rtc_module->MODE2.INTENCLR.reg = RTC_MODE2_INTFLAG_ALARM(1 << callback_type);
 	}
@@ -245,7 +251,15 @@ static void _rtc_interrupt_handler(const uint32_t instance_index)
 		/* Clear interrupt flag */
 		rtc_module->MODE2.INTFLAG.reg = RTC_MODE2_INTFLAG_ALARM(1 << 3);
 		#endif
-	}
+        } else if (interrupt_status & RTC_MODE2_INTFLAG_SYNCRDY) {
+                /* Overflow interrupt */
+		if (callback_mask & (1 << RTC_CALENDAR_CALLBACK_SYNCRDY)) {
+			module->callbacks[RTC_CALENDAR_CALLBACK_SYNCRDY]();
+		}
+
+                /* Clear interrupt flag */
+		rtc_module->MODE2.INTFLAG.reg = RTC_MODE2_INTFLAG_SYNCRDY;
+        }
 }
 
 /**

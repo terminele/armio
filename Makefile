@@ -395,7 +395,7 @@ rebuild: clean all
 .PHONY: debug_flash
 debug_flash: all
 	openocd -f interface/jlink.cfg -f utils/samd20e.cfg &
-	$(GDB) -x "$(PRJ_PATH)/$(DEBUG_SCRIPT_FLASH)" -ex "reset" -readnow -se $(TARGET_FLASH)
+	-$(GDB) -x "$(PRJ_PATH)/$(DEBUG_SCRIPT_FLASH)" -ex "reset" -readnow -se $(TARGET_FLASH)
 	pkill openocd #FIXME -- this will kill other openocd processes
 
 # Debug the project in sram.
@@ -481,6 +481,12 @@ endif
 %.bin: $(target)
 	@echo $(MSG_BINARY_IMAGE)
 	$(Q)$(OBJCOPY) -O binary $< $@
+
+#always rebuild aclock so latest datetime will be used
+aclock.o: .FORCE
+
+.PHONE: .FORCE
+
 
 # Provide information about the detected host operating system.
 .SECONDARY: info-os
