@@ -30,7 +30,14 @@
 
 /* return the bank/segment ID for the given led index */
 #define LED_SEGMENT(led_index)      ( led_index / BANK_COUNT )
-// TODO : change LED_BANK to something that is more legible
+
+/* LED Bank numbering is 0,1,2,3,4,0,4,3,2,1,0,....
+ * therefore calculating the bank # for a given LED # is
+ * tricky.  If the led's segment is odd, then the bank
+ * is simply the led # modulo 5.  Otherwise, it is
+ * either 0 (if its one of the 'hour' tick leds) or 5 minus
+ * the led # modulo 5
+ */
 #define LED_BANK(i)                 \
   ( LED_SEGMENT(i) % 2 ? (i % 5 ? (5-(i % 5)) : 0 ) : i % 5 )
 
