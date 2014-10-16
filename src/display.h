@@ -36,6 +36,8 @@ void display_swirl(int tail_len, int tick_us, int revolutions);
    * @param tick_us -- microseconds between moving the head forward 1 led
    * @param swirl_count -- # of revolutions before returning
    * @retrn None
+   *
+   * ### doesnt work very well with tail longer than ~20
    */
 
 #endif /* end of include guard */

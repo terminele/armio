@@ -23,10 +23,10 @@ void display_swirl(int tail_len, int tick_us, int revolutions) {
                 led_set_intensity((i+j) % 60, intensity);
             }
             delay_us(tick_us);
-            led_disable(i);
+            led_off(i);
         }
 
-    led_disable_all();
+    led_clear_all();
     revolutions--;
     }
 

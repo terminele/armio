@@ -30,39 +30,59 @@
 //___ V A R I A B L E S ______________________________________________________
 
 //___ P R O T O T Y P E S ____________________________________________________
-void led_init( void );
+void led_controller_init( void );
   /* @brief initialize led module
    * @param None
    * @retrn None
    */
 
-void led_enable( uint8_t led );
-  /* @brief enable the given led
+void led_controller_disable( void );
+  /* @brief disable the led controller
+   * @param None
+   * @retrn None
+   */
+
+void led_controller_enable( void );
+  /* @brief enable the led controller
+   * @param None
+   * @retrn None
+   */
+
+void led_on( uint8_t led );
+  /* @brief enable the given led with default
+   * brightness and no blink
    * @param led num (0-59)
    * @retrn None
    */
 
-void led_disable( uint8_t led );
+void led_off( uint8_t led );
   /* @brief disable the given led
    * @param led num (0-59)
    * @retrn None
    */
 
-void led_disable_all( void );
-  /* @brief disable all the leds
+void led_clear_all( void );
+  /* @brief disable all leds
    * @param none
    * @retrn None
    */
 
 void led_set_intensity( uint8_t led, uint8_t intensity );
-  /* @brief set led intensity with default blink (none)
+  /* @brief set led intensity
    * @param led num (0-59)
    * @param intensity (brightness) value
    * @retrn None
    */
 
-void led_set_state( uint8_t led_index, uint8_t blink, uint8_t light );
-  /* @brief initialize led module
+void led_set_blink( uint8_t led, uint8_t blink);
+  /* @brief set led blink level
+   * @param led num (0-59)
+   * @param intensity (brightness) value
+   * @retrn None
+   */
+
+void led_set_state( uint8_t led_index, uint8_t blink, uint8_t intensity);
+  /* @brief set intensitity and blink level
    * @param None
    * @retrn None
    */

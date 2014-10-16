@@ -33,7 +33,7 @@ void configure_input(void) {
     pin_conf.direction = PORT_PIN_DIR_INPUT;
     pin_conf.input_pull = PORT_PIN_PULL_NONE;
     port_pin_set_config(PIN_PA31, &pin_conf);
-    port_pin_set_config(PIN_PA30, &pin_conf);
+    //port_pin_set_config(PIN_PA30, &pin_conf);
 
 }
 
@@ -63,40 +63,54 @@ int main (void)
     int16_t i = 0;
     uint8_t hour, minute, second;
     uint8_t hour_prev, minute_prev, second_prev;
+    bool btn_down = false;
+    int click_count = 0;
     system_init();
     delay_init();
     aclock_init();
-    led_init();
+    led_controller_init();
+    led_controller_enable();
 
     system_interrupt_enable_global();
+
 
     /***** IMPORTANT *****/
     /* Wait a bit before configuring any thing that uses SWD
      * pins as GPIO since this can brick the device */
     /* Show a startup LED ring during the wait period */
-    display_swirl(15, 200, 4 );
+    display_swirl(15, 100, 4 );
+
+
     /* get intial time */
     aclock_get_time(&hour, &minute, &second);
 
-//    configure_input();
+    configure_input();
+    led_controller_disable();
 
     while (1) {
         int led;
 
-#ifdef NOT_NOW
-        int click_count = 0;
-        bool btn_down = false;
-        if (port_pin_get_input_level(PIN_PA31) &&
-            port_pin_get_input_level(PIN_PA30)) {
-            continue;
+        //if (port_pin_get_input_level(PIN_PA30) &&
+          if (port_pin_get_input_level(PIN_PA31)) {
+            if (btn_down) {
+                led_controller_disable();
+                btn_down = false;
+            }
         }
-        if(!btn_down) {
-            btn_down = true;
-            click_count++;
+        else {
+            if(!btn_down) {
+                btn_down = true;
+                led_controller_enable();
+            //led_off(click_count % 60);
+            //click_count++;
+            //led_on(click_count % 60);
+            //led_set_intensity(click_count % 60, 4);
+            //led_set_blink(click_count % 60, 4);
+            }
         }
 
 
-#endif
+        //led_set_state(45, 8, 8);
         hour_prev = hour;
         minute_prev = minute;
         second_prev = second;
@@ -104,18 +118,17 @@ int main (void)
         aclock_get_time(&hour, &minute, &second);
 
         /* If time change, disable previous leds */
-        /* ###TODO just implement a clear led state function? */
         if (hour != hour_prev)
-            led_disable((hour_prev%12)*5);
+            led_off((hour_prev%12)*5);
         if (minute != minute_prev)
-            led_disable(minute_prev);
+            led_off(minute_prev);
         if (second != second_prev)
-            led_disable(second_prev);
+            led_off(second_prev);
 
 
-        led_enable((hour%12)*5);
-        led_set_intensity(minute, 8);
-        led_set_intensity(second, 2);
+        led_on((hour%12)*5);
+        led_set_intensity(minute, 6);
+        led_set_intensity(second, 1);
     }
 
 }
