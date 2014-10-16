@@ -44,11 +44,11 @@ static void configure_extint(void);
 
 //___ V A R I A B L E S ______________________________________________________
 static bool btn_extint = false;
-static bool btn_down = false;
 
 //___ F U N C T I O N S   ( P R I V A T E ) __________________________________
 
 void button_extint_cb( void ) {
+    /* Only trigger on wakeup since button interrupts are disabled normally */
 }
 
 
@@ -111,6 +111,7 @@ void enter_sleep( void ) {
     /* Enable button callback to awake us from sleep */
     extint_chan_enable_callback(BUTTON_EIC_CHAN,
                     EXTINT_CALLBACK_TYPE_DETECT);
+
     led_controller_disable();
     aclock_disable();
     system_sleep();
@@ -130,7 +131,7 @@ void wakeup (void) {
 
 int main (void)
 {
-    int16_t i = 0;
+    uint16_t sleep_timeout = 0;
     uint8_t hour, minute, second;
     uint8_t hour_prev, minute_prev, second_prev;
     int click_count = 0;
@@ -141,7 +142,6 @@ int main (void)
     led_controller_enable();
 
     system_set_sleepmode(SYSTEM_SLEEPMODE_STANDBY);
-    //system_set_sleepmode(SYSTEM_SLEEPMODE_IDLE_0);
 
     /* Show a startup LED swirl */
     display_swirl(15, 300, 4 );
@@ -152,8 +152,10 @@ int main (void)
     configure_input();
     system_interrupt_enable_global();
 
+    /* Start in sleep mode until button press */
     enter_sleep();
 
+    /* Button has been pressed */
     wakeup();
 
     while (1) {;
@@ -164,18 +166,18 @@ int main (void)
 
             if (port_pin_get_input_level(BUTTON_PIN)) {
                 /* button is up */
-                if (btn_down) {
+                sleep_timeout++;
+                if ( sleep_timeout > 50000 ) {
                     /* Just released */
-                    btn_down = false;
                     display_swirl(15, 100, 2 );
                     enter_sleep();
                     wakeup();
+                    sleep_timeout = 0;
                     }
                 }
             else {
-                if(!btn_down) {
-                    btn_down = true;
-                }
+                sleep_timeout = 0;
+
                 //led_off(click_count % 60);
                 //click_count++;
                 //led_on(click_count % 60);

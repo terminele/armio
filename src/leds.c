@@ -221,7 +221,7 @@ static void configure_tc ( void ) {
   config_tc.counter_size    = TC_COUNTER_SIZE_16BIT;
   config_tc.wave_generation = TC_WAVE_GENERATION_MATCH_FREQ;
   config_tc.counter_16_bit.compare_capture_channel[0] = count_top;
-  config_tc.run_in_standby = true;
+  config_tc.run_in_standby = false;
   config_tc.clock_source = GCLK_GENERATOR_0;
 
   tc_init(&tc_instance, TC0, &config_tc);
