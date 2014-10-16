@@ -226,8 +226,6 @@ static void configure_tc ( void ) {
 
   tc_init(&tc_instance, TC0, &config_tc);
 
-
-
   tc_register_callback( &tc_instance,
       tc_bright_isr, TC_CALLBACK_CC_CHANNEL0);
 
@@ -235,44 +233,50 @@ static void configure_tc ( void ) {
 
 
 //___ F U N C T I O N S ______________________________________________________
+
 void led_controller_init ( void ) {
-  uint8_t bank;
-  uint8_t segment;
-  struct port_config pin_conf;
 
   brightness_ctr = 0;
   blink_ctr = 0;
   bank_ctr = 0;
 
-  port_get_config_defaults(&pin_conf);
-  pin_conf.direction = PORT_PIN_DIR_OUTPUT;
-
-  for( bank = 0; bank < BANK_COUNT; bank++ ) {
-    port_pin_set_config( LED_BANK_GPIO_PINS[bank], &pin_conf );
-    BANK_DISABLE( bank );
-    for( segment = 0; segment < SEGMENT_COUNT; segment++ ) {
-      port_pin_set_config( LED_SEGMENT_GPIO_PINS[segment], &pin_conf );
-      SEGMENT_DISABLE( segment );
-      led_status[ bank ][ segment ].led_state = 0;
-    }
-  }
-
   configure_tc();
 }
 
 void led_controller_enable ( void ) {
+  struct port_config pin_conf;
+
+  /* Configure bank and segment pin groups as outputs */
+  port_get_config_defaults(&pin_conf);
+  pin_conf.direction = PORT_PIN_DIR_OUTPUT;
+
+  port_group_set_config(PORT->Group, SEGMENT_PIN_PORT_MASK, &pin_conf );
+  port_group_set_config(PORT->Group, BANK_PIN_PORT_MASK, &pin_conf );
+
+  led_clear_all();
 
   tc_enable_callback(&tc_instance, TC_CALLBACK_CC_CHANNEL0);
   tc_enable(&tc_instance);
 
 }
+
 void led_controller_disable ( void ) {
+  struct port_config pin_conf;
 
   tc_disable_callback(&tc_instance, TC_CALLBACK_CC_CHANNEL0);
   tc_disable(&tc_instance);
 
   SEGMENTS_CLEAR();
   BANKS_CLEAR();
+
+  /* Configure led pins with powersave */
+  port_get_config_defaults(&pin_conf);
+  pin_conf.direction = PORT_PIN_DIR_OUTPUT;
+  pin_conf.powersave = true;
+  port_group_set_config(PORT->Group, SEGMENT_PIN_PORT_MASK, &pin_conf );
+  port_group_set_config(PORT->Group, BANK_PIN_PORT_MASK, &pin_conf );
+
+
 }
 
 
@@ -313,6 +317,9 @@ void led_set_blink ( uint8_t led, uint8_t blink ) {
 void led_clear_all( void ) {
   uint8_t bank, segment;
   /* clear (disable) all active leds */
+
+  SEGMENTS_CLEAR();
+  BANKS_CLEAR();
 
   for( bank = 0; bank < BANK_COUNT; bank++ ) {
     for( segment = 0; segment < SEGMENT_COUNT; segment++ ) {
