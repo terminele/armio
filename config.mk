@@ -141,7 +141,7 @@ DBGFLAGS =
 
 # Application optimization used during compilation and linking:
 # -O0, -O1, -O2, -O3 or -Os
-OPTIMIZATION = -O0
+OPTIMIZATION = -O1
 
 # Extra flags to use when archiving.
 ARFLAGS =
@@ -168,8 +168,9 @@ CPPFLAGS = \
        -D SYSTICK_MODE                                    \
        -D __SAMD20E14__
 
+
 # Extra flags to use when linking
-LDFLAGS = \
+LDFLAGS =
 
 # Pre- and post-build commands
 PREBUILD_CMD =

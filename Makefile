@@ -394,7 +394,11 @@ rebuild: clean all
 # Debug the project in flash.
 .PHONY: debug_flash
 debug_flash: all
-	openocd -f interface/jlink.cfg -f utils/samd20e.cfg &
+	openocd -f interface/jlink.cfg -f utils/samd20e.cfg \
+	    -c "init" \
+	    -c "reset" \
+	    -c "halt"
+
 	-$(GDB) -x "$(PRJ_PATH)/$(DEBUG_SCRIPT_FLASH)" -ex "reset" -readnow -se $(TARGET_FLASH)
 	pkill openocd #FIXME -- this will kill other openocd processes
 
@@ -505,8 +509,9 @@ jinstall_debug: $(target)
 jinstall: $(target)
 	openocd -f interface/jlink.cfg \
 	    -f utils/samd20e.cfg \
-	    -c reset_config srst_only srst_nogate \
-	    -c init -c "reset init" \
+	    -c "init" \
+	    -c "reset" \
+	    -c "halt" \
 	    -c "flash write_image erase $(target)" \
 	    -c "verify_image $(target) 0x00000000 elf" \
 	    -c "reset run" \
