@@ -63,6 +63,8 @@ CSRCS = \
     src/aclock.c					       	\
     src/asf/common/utils/interrupt/interrupt_sam_nvic.c        	\
     src/asf/common2/services/delay/sam0/systick_counter.c      	\
+    src/asf/sam0/drivers/extint/extint.c                      	\
+    src/asf/sam0/drivers/extint/extint_callback.c             	\
     src/asf/sam0/drivers/port/port.c                           	\
     src/asf/sam0/drivers/rtc/rtc_calendar.c		       	\
     src/asf/sam0/drivers/rtc/rtc_calendar_interrupt.c 	       	\
@@ -89,10 +91,12 @@ ASSRCS =
 # List of include paths.
 INC_PATH = \
     src/						       \
+    src/conf						       \
     src/asf						       \
     src/asf/common/utils                                       \
     src/asf/common2/services/delay                             \
     src/asf/common2/services/delay/sam0                        \
+    src/asf/sam0/drivers/extint				       \
     src/asf/sam0/drivers/port                                  \
     src/asf/sam0/drivers/port                                  \
     src/asf/sam0/drivers/rtc				       \
@@ -164,6 +168,7 @@ CPPFLAGS = \
        -D SPI_CALLBACK_MODE=true			  \
        -D USART_CALLBACK_MODE=true 			  \
        -D RTC_CALENDAR_ASYNC=true 		          \
+       -D EXTINT_CALLBACK_MODE=true		          \
        -D TC_ASYNC=true		 		          \
        -D SYSTICK_MODE                                    \
        -D __SAMD20E14__

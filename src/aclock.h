@@ -29,6 +29,16 @@ typedef struct aclock_state_t {
 
 //___ P R O T O T Y P E S ____________________________________________________
 
+void aclock_enable ( void );
+  /* @brief enable clock module (i.e. wake up from sleep)
+   * @retrn None
+   */
+
+void aclock_disable ( void );
+  /* @brief disable clock module (i.e. before sleeping)
+   * @retrn None
+   */
+
 void aclock_get_time( uint8_t* hour_ptr, uint8_t* minute_ptr, uint8_t* second_ptr);
   /* @brief get current time
    * @param user-provided ptrs to be filled

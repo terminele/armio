@@ -486,10 +486,7 @@ endif
 	@echo $(MSG_BINARY_IMAGE)
 	$(Q)$(OBJCOPY) -O binary $< $@
 
-#always rebuild aclock so latest datetime will be used
-aclock.o: .FORCE
 
-.PHONE: .FORCE
 
 
 # Provide information about the detected host operating system.

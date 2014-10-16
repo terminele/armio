@@ -82,8 +82,8 @@
 #  define CONF_CLOCK_OSC32K_STARTUP_TIME          SYSTEM_OSC32K_STARTUP_130
 #  define CONF_CLOCK_OSC32K_ENABLE_1KHZ_OUTPUT    false
 #  define CONF_CLOCK_OSC32K_ENABLE_32KHZ_OUTPUT   true
-#  define CONF_CLOCK_OSC32K_ON_DEMAND             true
-#  define CONF_CLOCK_OSC32K_RUN_IN_STANDBY        false
+#  define CONF_CLOCK_OSC32K_ON_DEMAND             false
+#  define CONF_CLOCK_OSC32K_RUN_IN_STANDBY        true
 
 /* SYSTEM_CLOCK_SOURCE_DFLL configuration - Digital Frequency Locked Loop */
 #  define CONF_CLOCK_DFLL_ENABLE                  false
@@ -114,7 +114,7 @@
 #  define CONF_CLOCK_GCLK_0_RUN_IN_STANDBY        false
 #  define CONF_CLOCK_GCLK_0_CLOCK_SOURCE          SYSTEM_CLOCK_SOURCE_OSC8M
 #  define CONF_CLOCK_GCLK_0_PRESCALER             1
-#  define CONF_CLOCK_GCLK_0_OUTPUT_ENABLE         true
+#  define CONF_CLOCK_GCLK_0_OUTPUT_ENABLE         false
 
 /* Configure GCLK generator 1 */
 #  define CONF_CLOCK_GCLK_1_ENABLE                false
@@ -128,7 +128,7 @@
 #  define CONF_CLOCK_GCLK_2_RUN_IN_STANDBY        true
 #  define CONF_CLOCK_GCLK_2_CLOCK_SOURCE          SYSTEM_CLOCK_SOURCE_OSC32K
 #  define CONF_CLOCK_GCLK_2_PRESCALER             32
-#  define CONF_CLOCK_GCLK_2_OUTPUT_ENABLE         true
+#  define CONF_CLOCK_GCLK_2_OUTPUT_ENABLE         false
 
 /* Configure GCLK generator 3 */
 #  define CONF_CLOCK_GCLK_3_ENABLE                false
