@@ -71,9 +71,9 @@
 #include <parts.h>
 
 // From module: SERCOM
-#include <sercom.h>
-#include <sercom_interrupt.h>
-#include <usart.h>
+//#include <sercom.h>
+//#include <sercom_interrupt.h>
+//#include <usart.h>
 
 // From module: SERCOM SPI - Serial Peripheral Interface (Polled APIs)
 #include <spi.h>

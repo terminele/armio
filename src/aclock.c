@@ -79,6 +79,16 @@ void aclock_sync_ready_cb ( void ) {
     RTC->MODE2.READREQ.reg = RTC_READREQ_RREQ;
 }
 
+void aclock_set_time( uint8_t hour, uint8_t minute, uint8_t second) {
+    struct rtc_calendar_time curr_time;
+    rtc_calendar_get_time(&rtc_instance, &curr_time);
+    curr_time.hour = hour;
+    curr_time.minute = minute;
+    curr_time.second = second;
+    rtc_calendar_set_time(&rtc_instance, &curr_time);
+}
+
+
 void aclock_get_time( uint8_t* hour_ptr, uint8_t* minute_ptr, uint8_t* second_ptr) {
 
 #ifdef NOT_NOW
@@ -136,9 +146,10 @@ void aclock_init( void ) {
 
     /* Use compile time for initial time */
     initial_time.hour   = global_state.hour =  10*(__TIME__[0] - '0') +  (__TIME__[1] - '0');
-    initial_time.minute = global_state.minute = 10*(__TIME__[3] - '0') +  (__TIME__[4] - '0');
-    initial_time.second = global_state.second = (10*(__TIME__[6] - '0') +  (__TIME__[7] - '0') + \
-                          10) % 60; //make it a little fast to account for time between compiling and flashing
+    initial_time.minute = global_state.minute = 5 + 10*(__TIME__[3] - '0') +  (__TIME__[4] - '0');
+    initial_time.second = global_state.second = 10*(__TIME__[6] - '0') +  (__TIME__[7] - '0') % 60;
+
+#pragma message "Setting intial time to " __TIME__ " + 5 minutes"
 
     /* Configure alarm to trigger at 1-second    */
     /* we only care about second since other     */

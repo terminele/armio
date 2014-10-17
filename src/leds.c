@@ -76,10 +76,10 @@
       1 << PIN_PA23 )
 
 #define SEGMENTS_CLEAR() \
-    port_group_set_output_level(PORT->Group, SEGMENT_PIN_PORT_MASK, 0xffffffff )
+    port_group_set_output_level(&PORTA, SEGMENT_PIN_PORT_MASK, 0xffffffff )
 
 #define BANKS_CLEAR() \
-    port_group_set_output_level(PORT->Group, BANK_PIN_PORT_MASK, 0xffffffff )
+    port_group_set_output_level(&PORTA, BANK_PIN_PORT_MASK, 0xffffffff )
 
 
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
@@ -250,8 +250,8 @@ void led_controller_enable ( void ) {
   port_get_config_defaults(&pin_conf);
   pin_conf.direction = PORT_PIN_DIR_OUTPUT;
 
-  port_group_set_config(PORT->Group, SEGMENT_PIN_PORT_MASK, &pin_conf );
-  port_group_set_config(PORT->Group, BANK_PIN_PORT_MASK, &pin_conf );
+  port_group_set_config(&PORTA, SEGMENT_PIN_PORT_MASK, &pin_conf );
+  port_group_set_config(&PORTA, BANK_PIN_PORT_MASK, &pin_conf );
 
   led_clear_all();
 
@@ -273,8 +273,8 @@ void led_controller_disable ( void ) {
   port_get_config_defaults(&pin_conf);
   pin_conf.direction = PORT_PIN_DIR_OUTPUT;
   pin_conf.powersave = true;
-  port_group_set_config(PORT->Group, SEGMENT_PIN_PORT_MASK, &pin_conf );
-  port_group_set_config(PORT->Group, BANK_PIN_PORT_MASK, &pin_conf );
+  port_group_set_config(&PORTA, SEGMENT_PIN_PORT_MASK, &pin_conf );
+  port_group_set_config(&PORTA, BANK_PIN_PORT_MASK, &pin_conf );
 
 
 }

@@ -114,6 +114,7 @@ void enter_sleep( void ) {
 
     led_controller_disable();
     aclock_disable();
+
     system_sleep();
 
 }
@@ -135,7 +136,10 @@ int main (void)
     uint8_t hour, minute, second;
     uint8_t hour_prev, minute_prev, second_prev;
     int click_count = 0;
+    uint32_t button_down_cnt = 0;
+    bool fast_tick = false;
     system_init();
+    //system_ahb_clock_clear_mask();
     delay_init();
     aclock_init();
     led_controller_init();
@@ -152,12 +156,6 @@ int main (void)
     configure_input();
     system_interrupt_enable_global();
 
-    /* Start in sleep mode until button press */
-    enter_sleep();
-
-    /* Button has been pressed */
-    wakeup();
-
     while (1) {;
 
         int led;
@@ -167,6 +165,8 @@ int main (void)
             if (port_pin_get_input_level(BUTTON_PIN)) {
                 /* button is up */
                 sleep_timeout++;
+                button_down_cnt = 0;
+                fast_tick = false;
                 if ( sleep_timeout > 50000 ) {
                     /* Just released */
                     display_swirl(15, 100, 2 );
@@ -177,6 +177,51 @@ int main (void)
                 }
             else {
                 sleep_timeout = 0;
+                button_down_cnt++;
+                if ( button_down_cnt % 800 == 0) {
+
+
+                    aclock_get_time(&hour, &minute, &second);
+                    hour_prev = hour;
+                    minute_prev = minute;
+                    second_prev = second;
+
+
+                    if (!fast_tick && button_down_cnt > 25000) {
+                        display_swirl(15, 50, 3 );
+                        fast_tick = true;
+                    }
+
+                    if (fast_tick) {
+                        minute++;
+                    } else {
+                        second++;
+                        if (second > 59) {
+                            second = 0;
+                            minute++;
+                        }
+                    }
+
+                    if (minute > 59) {
+                        minute = 0;
+                        hour = (hour + 1) % 12;
+                    }
+
+                    aclock_set_time(hour, minute, second);
+                    /* If time change, disable previous leds */
+                    if (hour != hour_prev)
+                        led_off((hour_prev%12)*5);
+                    if (minute != minute_prev)
+                        led_off(minute_prev);
+                    if (second != second_prev)
+                        led_off(second_prev);
+
+
+                    led_on((hour%12)*5);
+                    led_set_intensity(minute, 6);
+                    led_set_intensity(second, 1);
+
+                }
 
                 //led_off(click_count % 60);
                 //click_count++;
@@ -203,7 +248,7 @@ int main (void)
 
 
         led_on((hour%12)*5);
-        led_set_intensity(minute, 6);
+        led_set_intensity(minute, 5);
         led_set_intensity(second, 1);
     }
 
