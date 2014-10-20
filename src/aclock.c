@@ -159,8 +159,6 @@ void aclock_init( void ) {
 
     config_rtc_calendar.clock_24h = true;
     config_rtc_calendar.prescaler  = RTC_CALENDAR_PRESCALER_DIV_1024;
-    //config_rtc_calendar.alarm[0].time = alarm.time;
-    //config_rtc_calendar.alarm[0].mask = alarm.mask;
     config_rtc_calendar.continuously_update = true;
 
     rtc_calendar_init(&rtc_instance, RTC, &config_rtc_calendar);

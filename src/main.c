@@ -115,11 +115,16 @@ void enter_sleep( void ) {
     led_controller_disable();
     aclock_disable();
 
+    //system_ahb_clock_clear_mask( PM_AHBMASK_HPB2 | PM_AHBMASK_DSU);
+
     system_sleep();
 
 }
 
 void wakeup (void) {
+
+    //system_ahb_clock_set_mask( PM_AHBMASK_HPB2 | PM_AHBMASK_DSU);
+
     extint_chan_disable_callback(BUTTON_EIC_CHAN,
                     EXTINT_CALLBACK_TYPE_DETECT);
 
@@ -138,8 +143,11 @@ int main (void)
     int click_count = 0;
     uint32_t button_down_cnt = 0;
     bool fast_tick = false;
+
+
     system_init();
-    //system_ahb_clock_clear_mask();
+    system_apb_clock_clear_mask (SYSTEM_CLOCK_APB_APBB, PM_APBAMASK_WDT);
+    system_set_sleepmode(SYSTEM_SLEEPMODE_STANDBY);
     delay_init();
     aclock_init();
     led_controller_init();
@@ -148,11 +156,10 @@ int main (void)
     system_set_sleepmode(SYSTEM_SLEEPMODE_STANDBY);
 
     /* Show a startup LED swirl */
-    display_swirl(15, 300, 4 );
+    display_swirl(10, 200, 2 );
 
     /* get intial time */
     aclock_get_time(&hour, &minute, &second);
-
     configure_input();
     system_interrupt_enable_global();
 
@@ -169,7 +176,7 @@ int main (void)
                 fast_tick = false;
                 if ( sleep_timeout > 50000 ) {
                     /* Just released */
-                    display_swirl(15, 100, 2 );
+                    display_swirl(10, 100, 2 );
                     enter_sleep();
                     wakeup();
                     sleep_timeout = 0;
@@ -178,7 +185,7 @@ int main (void)
             else {
                 sleep_timeout = 0;
                 button_down_cnt++;
-                if ( button_down_cnt % 800 == 0) {
+                if ( button_down_cnt > 10000 && button_down_cnt % 800 == 0) {
 
 
                     aclock_get_time(&hour, &minute, &second);
@@ -218,6 +225,7 @@ int main (void)
 
 
                     led_on((hour%12)*5);
+                    led_set_intensity((hour%12)*5, 10);
                     led_set_intensity(minute, 6);
                     led_set_intensity(second, 1);
 

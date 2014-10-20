@@ -255,6 +255,7 @@ void led_controller_enable ( void ) {
 
   led_clear_all();
 
+  system_apb_clock_set_mask(SYSTEM_CLOCK_APB_APBC, PM_APBCMASK_TC0);
   tc_enable_callback(&tc_instance, TC_CALLBACK_CC_CHANNEL0);
   tc_enable(&tc_instance);
 
@@ -271,11 +272,11 @@ void led_controller_disable ( void ) {
 
   /* Configure led pins with powersave */
   port_get_config_defaults(&pin_conf);
-  pin_conf.direction = PORT_PIN_DIR_OUTPUT;
   pin_conf.powersave = true;
   port_group_set_config(&PORTA, SEGMENT_PIN_PORT_MASK, &pin_conf );
   port_group_set_config(&PORTA, BANK_PIN_PORT_MASK, &pin_conf );
 
+  system_apb_clock_clear_mask(SYSTEM_CLOCK_APB_APBC, PM_APBCMASK_TC0);
 
 }
 
