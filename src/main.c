@@ -253,7 +253,6 @@ int main (void)
         led_set_intensity(minute, 2);
         led_set_blink(minute, 15);
         led_set_intensity(second, 1);
-        led_set_blink(second, 2);
     }
 
 }
