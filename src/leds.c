@@ -12,9 +12,12 @@
 #define BANK_COUNT              5
 
 /* values for configuring the fastest clock interval */
-#define VISION_PERSIST_MS   20      /* interval before noticeable blink */
+#define VISION_PERSIST_MS   10      /* interval before noticeable blink */
 #define TC_FREQ_MHz         8       /* clock for the TC module */
-#define BLINK_FACTOR        4       /* ratio of blink units to vision persist interval */
+#define BLINK_FACTOR        5       /* ratio of blink units to vision persist interval */
+
+#define MAX_BRIGHT_VAL      ((1 << BRIGHT_RES) - 1)
+#define MAX_BLINK_VAL       (BLINK_FACTOR * (1 << BLINK_RES) - 1)
 
 //#define BANK_SELECT_TIMER   AVR32_TC.bank[0]
    /* counts from 0 to 4, does not trigger an interrupt */
@@ -138,7 +141,7 @@ const uint32_t LED_SEGMENT_GPIO_PINS[SEGMENT_COUNT] = {
 static struct tc_module tc_instance;
 static uint8_t bank_ctr;           // current bank value
 static uint8_t brightness_ctr;      // current brightness level
-static uint8_t blink_ctr;      // current blink value
+static uint16_t blink_ctr;      // current blink value
 
   /* manage led intensity number and bank number */
   // TODO : TC should be used to increment these values but need to use the
@@ -168,7 +171,7 @@ static void tc_bright_isr ( struct tc_module *const tc_inst) {
   for( segment = 0; segment < SEGMENT_COUNT; segment++ ) {
     led_status_t status = led_status[ bank_ctr ][ segment ];
     if (status.bright && status.bright >= brightness_ctr) {
-        if (!status.blink || blink_ctr % (BLINK_FACTOR*status.blink) == 0) {
+        if (!status.blink || blink_ctr % (BLINK_FACTOR*status.blink) < BLINK_FACTOR*status.blink/2) {
           SEGMENT_ENABLE( segment );
         }
       }
@@ -179,13 +182,13 @@ static void tc_bright_isr ( struct tc_module *const tc_inst) {
   if (bank_ctr == 0) {
     brightness_ctr++;
 
-    if (brightness_ctr == 1 << BRIGHT_RES) {
+    if (brightness_ctr == MAX_BRIGHT_VAL ) {
       /* a full cycle of all leds at all brightness leds has    */
       /* completed (this should have taken VISION_PERSIST_MS)   */
       /* reset brightness counter and increment blink counter   */
         brightness_ctr = 0;
         blink_ctr++;
-        blink_ctr = blink_ctr % (1 << BLINK_RES);
+        blink_ctr = blink_ctr % MAX_BLINK_VAL;
     }
   }
 

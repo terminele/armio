@@ -25,6 +25,9 @@
 #define BRIGHT_DEFAULT      ((1 << BRIGHT_RES) - 1) // default brightness level
 #define BLINK_DEFAULT       0       // default blink (0 == NONE)
 
+#define MAX_BRIGHT_VAL      ((1 << BRIGHT_RES) - 1)
+#define MAX_BLINK_VAL       ((1 << BLINK_RES) - 1)
+
 //___ T Y P E D E F S ________________________________________________________
 
 //___ V A R I A B L E S ______________________________________________________

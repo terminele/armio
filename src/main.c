@@ -140,9 +140,9 @@ int main (void)
     uint16_t sleep_timeout = 0;
     uint8_t hour, minute, second;
     uint8_t hour_prev, minute_prev, second_prev;
-    int click_count = 0;
     uint32_t button_down_cnt = 0;
     bool fast_tick = false;
+    uint32_t cnt = 0;
 
 
     system_init();
@@ -231,15 +231,9 @@ int main (void)
 
                 }
 
-                //led_off(click_count % 60);
-                //click_count++;
-                //led_on(click_count % 60);
-                //led_set_intensity(click_count % 60, 4);
-                //led_set_blink(click_count % 60, 4);
             }
 
 
-        //led_set_state(45, 8, 8);
         hour_prev = hour;
         minute_prev = minute;
         second_prev = second;
@@ -255,9 +249,11 @@ int main (void)
             led_off(second_prev);
 
 
-        led_on((hour%12)*5);
-        led_set_intensity(minute, 5);
+        led_set_intensity((hour%12)*5, 10);
+        led_set_intensity(minute, 2);
+        led_set_blink(minute, 15);
         led_set_intensity(second, 1);
+        led_set_blink(second, 2);
     }
 
 }
