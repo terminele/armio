@@ -249,8 +249,8 @@ int main (void)
             led_off(second_prev);
 
 
-        led_set_intensity((hour%12)*5, 10);
-        led_set_intensity(minute, 2);
+        led_set_intensity((hour%12)*5, 20);
+        led_set_intensity(minute, 5);
         led_set_blink(minute, 15);
         led_set_intensity(second, 1);
     }
