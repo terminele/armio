@@ -16,7 +16,7 @@
 
 //___ P R O T O T Y P E S ____________________________________________________
 
-bool accel_data_read (uint16_t *x_ptr, uint16_t *y_ptr, uint16_t *z_ptr);
+bool accel_data_read (int16_t *x_ptr, int16_t *y_ptr, int16_t *z_ptr);
  /* @brief reads the x,y,z data of the accelerometer
    * accelerometer
    * @param x,y,z - pointers to be filled with 16-bit acceleration data

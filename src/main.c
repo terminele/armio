@@ -149,7 +149,7 @@ void wakeup (void) {
 
 static void end_in_error ( void ) {
 
-    /* Display error codes on hour hound leds */
+    /* Display error codes on hour hand leds */
     int i;
 
     for (i = 0; i < 11; i++) {
@@ -158,6 +158,8 @@ static void end_in_error ( void ) {
             led_set_blink(i, 5);
         }
     }
+
+    while(1);
 }
 
 //___ F U N C T I O N S ______________________________________________________
@@ -183,6 +185,7 @@ int main (void)
     aclock_init();
 
     if (!accel_init()) {
+
         error_status |= ACCEL_INIT_ERROR;
     }
 
@@ -294,6 +297,28 @@ int main (void)
         led_set_intensity(second, 20);
 
 
+#ifdef ACCEL_TEST
+        int16_t x,y,z;
+        uint8_t blink_rate;
+
+        if (!accel_data_read(&x, &y, &z)) {
+            display_swirl(10, 200, 4 );
+            continue;
+        } else if (x < 0) {
+            blink_rate = -x >> 12;
+            led_on(45);
+            led_set_blink(45, blink_rate);
+            delay_ms(100);
+            led_off(45);
+
+        } else {
+            blink_rate = x >> 12;
+            led_on(15);
+            led_set_blink(15, blink_rate);
+            delay_ms(100);
+            led_off(15);
+        }
+#endif
     }
 
 

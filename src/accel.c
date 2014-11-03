@@ -11,10 +11,11 @@
 #define AX_SCL_PIN      PINMUX_PA09C_SERCOM0_PAD1 //PIN_PA09
 #define AX_INT1_PIN     PIN_PA10
 
-#define AX_ADDRESS 0x18 //0011000
+#define AX_ADDRESS 0x19 //0011000
 #define DATA_LENGTH 8
 
 #define AX_REG_OUT_X_L    0x28
+#define AX_REG_CTL1       0x20
 #define AX_REG_WHO_AM_I   0x0F
 #define WHO_IS_IT         0x33
 
@@ -62,6 +63,7 @@ static void configure_i2c(void)
     config_i2c_master.buffer_timeout = 65535;
     config_i2c_master.pinmux_pad0 = AX_SDA_PIN;
     config_i2c_master.pinmux_pad1 = AX_SCL_PIN;
+    config_i2c_master.start_hold_time = I2C_MASTER_START_HOLD_TIME_400NS_800NS;
 
     /* Initialize and enable device with config */
     while(i2c_master_init(&i2c_master_instance, SERCOM0, &config_i2c_master) != STATUS_OK);
@@ -72,14 +74,14 @@ static void configure_i2c(void)
 
 static bool accel_register_consecutive_read (uint8_t start_reg, uint8_t count, uint8_t *data_ptr){
 
-    /* register address is 7 MSBs, LSB indicates consecutive or single read */
-    uint8_t write_buf[1] = {start_reg << 1 | (count > 1 ? 1 : 0)};
+    /* register address is 7 LSBs, MSB indicates consecutive or single read */
+    uint8_t write = start_reg | (count > 1 ? 1 << 7 : 0);
 
     /* Write the register address (SUB) to the accelerometer */
     struct i2c_master_packet packet = {
             .address     = AX_ADDRESS,
             .data_length = 1,
-            .data = write_buf,
+            .data = &write,
             .ten_bit_address = false,
             .high_speed      = false,
             .hs_master_code  = 0x0,
@@ -97,15 +99,34 @@ static bool accel_register_consecutive_read (uint8_t start_reg, uint8_t count, u
     return true;
 }
 
-bool accel_data_read (uint16_t *x_ptr, uint16_t *y_ptr, uint16_t *z_ptr) {
+static bool accel_register_write (uint8_t reg, uint8_t val) {
+    uint8_t data[2] = {reg, val};
+    /* Write the register address (SUB) to the accelerometer */
+    struct i2c_master_packet packet = {
+            .address     = AX_ADDRESS,
+            .data_length = 2,
+            .data = data,
+            .ten_bit_address = false,
+            .high_speed      = false,
+            .hs_master_code  = 0x0,
+    };
+
+    if (STATUS_OK != i2c_master_write_packet_wait ( &i2c_master_instance, &packet))
+        return false;
+
+    return true;
+
+}
+
+bool accel_data_read (int16_t *x_ptr, int16_t *y_ptr, int16_t *z_ptr) {
     uint8_t reg_data[6];
     /* Read the 6 8-bit registers starting with lower 8-bits of X value */
     if (!accel_register_consecutive_read (AX_REG_OUT_X_L, 6, reg_data))
         return false; //failure
 
-    *x_ptr = (uint16_t)reg_data[0] | ((uint16_t)reg_data[1]) << 8;
-    *y_ptr = (uint16_t)reg_data[2] | ((uint16_t)reg_data[3]) << 8;
-    *z_ptr = (uint16_t)reg_data[4] | ((uint16_t)reg_data[5]) << 8;
+    *x_ptr = (int16_t)reg_data[0] | ((int16_t)reg_data[1]) << 8;
+    *y_ptr = (int16_t)reg_data[2] | ((int16_t)reg_data[3]) << 8;
+    *z_ptr = (int16_t)reg_data[4] | ((int16_t)reg_data[5]) << 8;
 
     return true;
 
@@ -127,6 +148,9 @@ bool accel_init ( void ) {
         return false;
 
     if (who_it_be != WHO_IS_IT)
+        return false;
+
+    if (!accel_register_write (AX_REG_CTL1, 0x7F))
         return false;
 
     return true;
