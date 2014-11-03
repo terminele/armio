@@ -112,6 +112,7 @@ CSRCS += \
     src/leds.c						       	\
     src/display.c					       	\
     src/aclock.c					       	\
+    src/accel.c						       	\
     src/asf/common/utils/interrupt/interrupt_sam_nvic.c        	\
     src/asf/common2/services/delay/sam0/systick_counter.c      	\
     src/asf/sam0/drivers/events/events.c                      	\
@@ -120,10 +121,11 @@ CSRCS += \
     src/asf/sam0/drivers/port/port.c                           	\
     src/asf/sam0/drivers/rtc/rtc_calendar.c		       	\
     src/asf/sam0/drivers/rtc/rtc_calendar_interrupt.c 	       	\
-    src/asf/sam0/drivers/sercom/spi/spi.c                      	\
-    src/asf/sam0/drivers/sercom/spi/spi_interrupt.c            	\
     src/asf/sam0/drivers/system/clock/clock_$(UCID_CLOCK)/clock.c     	\
     src/asf/sam0/drivers/system/clock/clock_$(UCID_CLOCK)/gclk.c      	\
+    src/asf/sam0/drivers/sercom/sercom.c			\
+    src/asf/sam0/drivers/sercom/sercom_interrupt.c		\
+    src/asf/sam0/drivers/sercom/i2c/i2c_$(UCID_SERCOM)/i2c_master.c	\
     src/asf/sam0/drivers/system/interrupt/system_interrupt.c   	\
     src/asf/sam0/drivers/system/pinmux/pinmux.c                	\
     src/asf/sam0/drivers/system/system.c                       	\
@@ -150,7 +152,8 @@ INC_PATH = \
     src/asf/sam0/drivers/port                                  \
     src/asf/sam0/drivers/rtc				       \
     src/asf/sam0/drivers/sercom                                \
-    src/asf/sam0/drivers/sercom/spi                            \
+    src/asf/sam0/drivers/sercom/i2c                            \
+    src/asf/sam0/drivers/sercom/i2c/$(UCID_SERCOM)	       \
     src/asf/sam0/drivers/system                                \
     src/asf/sam0/drivers/system/clock                          \
     src/asf/sam0/drivers/system/clock/clock_$(UCID_CLOCK)             \
@@ -213,8 +216,7 @@ CFLAGS = -mtune=$(ARCH)
 # The most relevant symbols to define for the preprocessor are:
 CPPFLAGS = \
        -D ARM_MATH_CM0=true                               \
-       -D SPI_CALLBACK_MODE=true			  \
-       -D USART_CALLBACK_MODE=true 			  \
+       -D I2C_MASTER_CALLBACK_MODE=false			  \
        -D RTC_CALENDAR_ASYNC=true 		          \
        -D EXTINT_CALLBACK_MODE=true		          \
        -D EVENTS_INTERRUPT_HOOKS_MODE=false               \

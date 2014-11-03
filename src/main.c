@@ -9,6 +9,7 @@
 #include "leds.h"
 #include "display.h"
 #include "aclock.h"
+#include "accel.h"
 
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
 #define BUTTON_PIN          PIN_PA31
@@ -20,7 +21,10 @@
 #define BATT_ADC_PIN                PIN_PA02
 #define LIGHT_ADC_PIN               PIN_PA03
 
+#define ACCEL_INIT_ERROR    1 << 0
+
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
+
 
 //___ P R O T O T Y P E S   ( P R I V A T E ) ________________________________
 void configure_input( void );
@@ -49,6 +53,7 @@ static void configure_extint(void);
 
 //___ V A R I A B L E S ______________________________________________________
 static bool btn_extint = false;
+static uint8_t error_status = 0; /* mask of error codes */
 
 //___ F U N C T I O N S   ( P R I V A T E ) __________________________________
 
@@ -120,6 +125,7 @@ void enter_sleep( void ) {
 
     led_controller_disable();
     aclock_disable();
+    accel_disable();
 
     //system_ahb_clock_clear_mask( PM_AHBMASK_HPB2 | PM_AHBMASK_DSU);
 
@@ -137,6 +143,21 @@ void wakeup (void) {
     system_interrupt_enable_global();
     led_controller_enable();
     aclock_enable();
+    accel_enable();
+}
+
+
+static void end_in_error ( void ) {
+
+    /* Display error codes on hour hound leds */
+    int i;
+
+    for (i = 0; i < 11; i++) {
+        if (error_status & (1 << i)) {
+            led_on(i);
+            led_set_blink(i, 5);
+        }
+    }
 }
 
 //___ F U N C T I O N S ______________________________________________________
@@ -156,9 +177,19 @@ int main (void)
     system_apb_clock_clear_mask (SYSTEM_CLOCK_APB_APBB, PM_APBAMASK_WDT);
     system_set_sleepmode(SYSTEM_SLEEPMODE_STANDBY);
     delay_init();
-    aclock_init();
     led_controller_init();
     led_controller_enable();
+
+    aclock_init();
+
+    if (!accel_init()) {
+        error_status |= ACCEL_INIT_ERROR;
+    }
+
+
+    if (error_status != 0) {
+        end_in_error();
+    }
 
     system_set_sleepmode(SYSTEM_SLEEPMODE_STANDBY);
 
