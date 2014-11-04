@@ -19,6 +19,8 @@
 #define AX_REG_WHO_AM_I   0x0F
 #define WHO_IS_IT         0x33
 
+#define BITS_PER_ACCEL_VAL  10
+
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 
 //___ P R O T O T Y P E S   ( P R I V A T E ) ________________________________
@@ -119,14 +121,17 @@ static bool accel_register_write (uint8_t reg, uint8_t val) {
 }
 
 bool accel_data_read (int16_t *x_ptr, int16_t *y_ptr, int16_t *z_ptr) {
-    uint8_t reg_data[6];
+    uint8_t reg_data[6] = {0};
     /* Read the 6 8-bit registers starting with lower 8-bits of X value */
     if (!accel_register_consecutive_read (AX_REG_OUT_X_L, 6, reg_data))
         return false; //failure
 
-    *x_ptr = (int16_t)reg_data[0] | ((int16_t)reg_data[1]) << 8;
-    *y_ptr = (int16_t)reg_data[2] | ((int16_t)reg_data[3]) << 8;
-    *z_ptr = (int16_t)reg_data[4] | ((int16_t)reg_data[5]) << 8;
+    *x_ptr = (int16_t)reg_data[0] | (((int16_t)reg_data[1]) << 8);
+    *x_ptr = *x_ptr >> (16 - BITS_PER_ACCEL_VAL);
+    *y_ptr = (int16_t)reg_data[2] | (((int16_t)reg_data[3]) << 8);
+    *y_ptr = *y_ptr >> (16 - BITS_PER_ACCEL_VAL);
+    *z_ptr = (int16_t)reg_data[4] | (((int16_t)reg_data[5]) << 8);
+    *z_ptr = *z_ptr >> (16 - BITS_PER_ACCEL_VAL);
 
     return true;
 

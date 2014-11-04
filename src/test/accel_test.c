@@ -152,14 +152,17 @@ static void end_in_error ( void ) {
     /* Display error codes on hour hand leds */
     int i;
 
-    for (i = 0; i < 11; i++) {
-        if (error_status & (1 << i)) {
-            led_on(i);
-            led_set_blink(i, 5);
+    while (1) {
+        for (i = 0; i < 11; i++) {
+            if (error_status & (1 << i)) {
+                led_on(i);
+                //delay_ms(50);
+                //led_off(i);
+                //delay_ms(20);
+                //led_set_blink(i, 5);
+            }
         }
     }
-
-    while(1);
 }
 
 //___ F U N C T I O N S ______________________________________________________
@@ -170,6 +173,8 @@ int main (void)
     uint8_t hour, minute, second;
     uint8_t hour_prev, minute_prev, second_prev;
     uint32_t button_down_cnt = 0;
+    bool btn_down = false;
+    uint8_t mode;
     bool fast_tick = false;
     uint32_t cnt = 0;
     int led = 0;
@@ -226,79 +231,93 @@ int main (void)
                 led_on(31);
                 sleep_timeout = 0;
                 button_down_cnt++;
-                if ( button_down_cnt > 10000 && button_down_cnt % 800 == 0) {
-
-
-                    aclock_get_time(&hour, &minute, &second);
-                    hour_prev = hour;
-                    minute_prev = minute;
-                    second_prev = second;
-
-
-                    if (!fast_tick && button_down_cnt > 25000) {
-                        display_swirl(15, 50, 3, 64 );
-                        fast_tick = true;
-                    }
-
-                    if (fast_tick) {
-                        minute++;
-                    } else {
-                        second++;
-                        if (second > 59) {
-                            second = 0;
-                            minute++;
-                        }
-                    }
-
-                    if (minute > 59) {
-                        minute = 0;
-                        hour = (hour + 1) % 12;
-                    }
-
-                    aclock_set_time(hour, minute, second);
-                    /* If time change, disable previous leds */
-                    if (hour != hour_prev)
-                        led_off((hour_prev%12)*5);
-                    if (minute != minute_prev)
-                        led_off(minute_prev);
-                    if (second != second_prev)
-                        led_off(second_prev);
-
-
-                    led_on((hour%12)*5);
-                    led_set_intensity((hour%12)*5, 10);
-                    led_set_intensity(minute, 6);
-                    led_set_intensity(second, 1);
-
-                }
-
             }
 
 
-        hour_prev = hour;
-        minute_prev = minute;
-        second_prev = second;
-        /* Get latest time */
-        aclock_get_time(&hour, &minute, &second);
+        int16_t x,y,z;
+        float mag;
+        uint32_t led;
+        uint8_t intensity;
+        float x_f, y_f, z_f;
+        int16_t val;
 
-        /* If time change, disable previous leds */
-        if (hour != hour_prev)
-            led_off((hour_prev%12)*5);
-        if (minute != minute_prev)
-            led_off(minute_prev);
-        if (second != second_prev)
-            led_off(second_prev);
+        if (port_pin_get_input_level(BUTTON_PIN)) {
+            if (!btn_down) {
+                mode+=1;
+                mode = mode % 3;
+                btn_down = true;
+                display_swirl(10, 200, 2,  64);
+                led_on(mode*5);
+                delay_ms(500);
+                led_off(mode*5);
+            }
+        }
+        else {
+                btn_down = false;
+        }
+        x = y = z = 0;
+        if (!accel_data_read(&x, &y, &z)) {
+            display_swirl(10, 200, 4, 64 );
+            continue;
+        }
 
+        x_f = (float)x;
+        y_f = (float)y;
+        z_f = (float)z;
 
-        //led_set_intensity((hour%12)*5, 32);
-        led_set_intensity((hour%12)*5, MAX_BRIGHT_VAL);
-        led_set_intensity(minute, 30);
-        //led_set_blink(minute, 15);
-        led_set_intensity(second, 20);
+        switch(mode) {
+            case 0:
+                val = x;
+                break;
+            case 1:
+                val = y;
+                break;
+            case 2:
+                val = z;
+        }
 
+        //mag = sqrtf(x_f*x_f + y_f*y_f);
+        if (val < 0) {
+            led = 12 + val/42;
 
+        } else {
+            led = val/42;
+        }
+
+        if (led > 11)
+            led = 11;
+
+        led*=5;
+        led_on((uint8_t) led);
+        led_set_intensity(led, 5);
+        delay_ms(100);
+        led_clear_all();
+
+#ifdef NOT_NOW
+        if (x < 0) {
+            intensity = -x >> 12;
+            led_on(45);
+            led_set_intensity(45, intensity);
+
+        } else {
+            intensity = x >> 12;
+            led_on(15);
+            led_set_intensity(15, intensity);
+        }
+
+        if (y < 0) {
+            intensity = -y >> 12;
+            led_on(30);
+            led_set_intensity(30, intensity);
+
+        } else {
+            intensity = y >> 12;
+            led_on(0);
+            led_set_intensity(0, intensity);
+        }
+
+         led_clear_all();
+#endif
     }
-
-
 
 }

@@ -176,8 +176,8 @@ LIB_PATH =  \
     lib/
 
 # List of libraries to use during linking.
-LIBS =  \
-       arm_cortexM0l_math
+LIBS = # \
+       #arm_cortexM0l_math
 
 # Path relative to top level directory pointing to a linker script.
 LINKER_SCRIPT_FLASH = utils/$(PART)_flash.ld
@@ -196,7 +196,7 @@ DBGFLAGS =
 
 # Application optimization used during compilation and linking:
 # -O0, -O1, -O2, -O3 or -Os
-OPTIMIZATION = -O2 #O2 seems better power-wise than 03
+OPTIMIZATION = -Os
 
 # Extra flags to use when archiving.
 ARFLAGS =
@@ -215,7 +215,6 @@ CFLAGS = -mtune=$(ARCH)
 #
 # The most relevant symbols to define for the preprocessor are:
 CPPFLAGS = \
-       -D ARM_MATH_CM0=true                               \
        -D I2C_MASTER_CALLBACK_MODE=false			  \
        -D RTC_CALENDAR_ASYNC=true 		          \
        -D EXTINT_CALLBACK_MODE=true		          \
