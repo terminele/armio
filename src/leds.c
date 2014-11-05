@@ -240,7 +240,7 @@ static void configure_tc ( void ) {
   config_tc.run_in_standby = false;
   config_tc.clock_source = GCLK_GENERATOR_0;
 
-  tc_init(&tc_instance, TC0, &config_tc);
+  tc_init(&tc_instance, TC3, &config_tc);
 
   tc_register_callback( &tc_instance,
       tc_bright_isr, TC_CALLBACK_CC_CHANNEL0);
@@ -273,7 +273,7 @@ void led_controller_enable ( void ) {
 
   led_clear_all();
 
-  system_apb_clock_set_mask(SYSTEM_CLOCK_APB_APBC, PM_APBCMASK_TC0);
+  system_apb_clock_set_mask(SYSTEM_CLOCK_APB_APBC, PM_APBCMASK_TC3);
   tc_enable_callback(&tc_instance, TC_CALLBACK_CC_CHANNEL0);
   tc_enable(&tc_instance);
 
@@ -294,7 +294,7 @@ void led_controller_disable ( void ) {
   port_group_set_config(&PORTA, SEGMENT_PIN_PORT_MASK, &pin_conf );
   port_group_set_config(&PORTA, BANK_PIN_PORT_MASK, &pin_conf );
 
-  system_apb_clock_clear_mask(SYSTEM_CLOCK_APB_APBC, PM_APBCMASK_TC0);
+  system_apb_clock_clear_mask(SYSTEM_CLOCK_APB_APBC, PM_APBCMASK_TC3);
 
 }
 

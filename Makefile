@@ -394,7 +394,7 @@ rebuild: clean all
 # Debug the project in flash.
 .PHONY: debug_flash
 debug_flash: all
-	openocd -f interface/jlink.cfg -f utils/samd20e.cfg \
+	openocd -f interface/jlink.cfg -f utils/$(OCD_PART_CFG) \
 	    -c "init" \
 	    -c "reset" \
 
