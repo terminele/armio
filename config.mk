@@ -42,20 +42,30 @@ PRJ_PATH = .
 # Target CPU architecture: cortex-m3, cortex-m4
 ARCH = cortex-m0plus
 
-#PART = samd20e14
-#PARTD = __SAMD20E14__
-#UCID=samd20
-#UCID_SERCOM=samd20
-#UCID_CLOCK=samd20
-#OCD_PART_CFG = samd20e.cfg
+ifndef chip
+    chip=samd21
+    $(warning "defaulting the samd21 target")
+endif
 
-PART=samd21e17a
-PARTD = __SAMD21E17A__
-UCID=samd21
-UCID_SERCOM=samd21_r21_d10_d11
-UCID_CLOCK=samd21_r21
-OCD_PART_CFG = samd21e.cfg
-
+ifeq ($(chip),samd20)
+    PART = samd20e14
+    PARTD = __SAMD20E14__
+    UCID=samd20
+    UCID_SERCOM=samd20
+    UCID_CLOCK=samd20
+    OCD_PART_CFG = samd20e.cfg
+else
+ifeq ($(chip),samd21)
+    PART=samd21e17a
+    PARTD = __SAMD21E17A__
+    UCID=samd21
+    UCID_SERCOM=samd21_r21_d10_d11
+    UCID_CLOCK=samd21_r21
+    OCD_PART_CFG = samd21e.cfg
+else
+$(error "chip must be specified as either samd20 or samd21")
+endif
+endif
 # Application target name. Given with suffix .a for library and .elf for a
 # standalone application.
 TARGET_FLASH = bin/armio_flash.elf
