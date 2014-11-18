@@ -394,7 +394,7 @@ rebuild: clean all
 # Debug the project in flash.
 .PHONY: debug_flash
 debug_flash: all
-	openocd -f interface/jlink.cfg -f utils/samd20e.cfg \
+	openocd -f interface/jlink.cfg -f utils/$(OCD_PART_CFG) \
 	    -c "init" \
 	    -c "reset" \
 
@@ -495,7 +495,7 @@ info-os:
 
 jinstall_debug: $(target)
 	openocd -f interface/jlink.cfg \
-	    -f utils/samd20e.cfg \
+	    -f utils/$(OCD_PART_CFG) \
 	    -c reset_config srst_only srst_nogate \
 	    -c init -c "reset init" \
 	    -c "flash write_image erase $(target)" \
@@ -504,13 +504,21 @@ jinstall_debug: $(target)
 
 jinstall: $(target)
 	openocd -f interface/jlink.cfg \
-	    -f utils/samd20e.cfg \
+	    -f utils/$(OCD_PART_CFG) \
 	    -c "init" \
 	    -c "reset" \
 	    -c "halt" \
 	    -c "flash write_image erase $(target)" \
 	    -c "verify_image $(target) 0x00000000 elf" \
 	    -c "reset run" \
+	    -c "shutdown"
+
+.PHONY: chiperase
+chiperase:
+	openocd -f interface/jlink.cfg \
+	    -f utils/$(OCD_PART_CFG) \
+	    -c "init" \
+	    -c "at91samd chip-erase" \
 	    -c "shutdown"
 
 # Build Doxygen generated documentation.

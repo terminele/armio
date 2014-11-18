@@ -42,8 +42,19 @@ PRJ_PATH = .
 # Target CPU architecture: cortex-m3, cortex-m4
 ARCH = cortex-m0plus
 
-# Target part: none, sam3n4 or sam4l4aa
-PART = samd20e14
+#PART = samd20e14
+#PARTD = __SAMD20E14__
+#UCID=samd20
+#UCID_SERCOM=samd20
+#UCID_CLOCK=samd20
+#OCD_PART_CFG = samd20e.cfg
+
+PART=samd21e17a
+PARTD = __SAMD21E17A__
+UCID=samd21
+UCID_SERCOM=samd21_r21_d10_d11
+UCID_CLOCK=samd21_r21
+OCD_PART_CFG = samd21e.cfg
 
 # Application target name. Given with suffix .a for library and .elf for a
 # standalone application.
@@ -70,15 +81,15 @@ CSRCS = \
     src/asf/sam0/drivers/rtc/rtc_calendar_interrupt.c 	       	\
     src/asf/sam0/drivers/sercom/spi/spi.c                      	\
     src/asf/sam0/drivers/sercom/spi/spi_interrupt.c            	\
-    src/asf/sam0/drivers/system/clock/clock_samd20/clock.c     	\
-    src/asf/sam0/drivers/system/clock/clock_samd20/gclk.c      	\
+    src/asf/sam0/drivers/system/clock/clock_$(UCID_CLOCK)/clock.c     	\
+    src/asf/sam0/drivers/system/clock/clock_$(UCID_CLOCK)/gclk.c      	\
     src/asf/sam0/drivers/system/interrupt/system_interrupt.c   	\
     src/asf/sam0/drivers/system/pinmux/pinmux.c                	\
     src/asf/sam0/drivers/system/system.c                       	\
     src/asf/sam0/drivers/tc/tc.c			       	\
     src/asf/sam0/drivers/tc/tc_interrupt.c		       	\
-    src/asf/sam0/utils/cmsis/samd20/source/gcc/startup_samd20.c \
-    src/asf/sam0/utils/cmsis/samd20/source/system_samd20.c     	\
+    src/asf/sam0/utils/cmsis/$(UCID)/source/gcc/startup_$(UCID).c \
+    src/asf/sam0/utils/cmsis/$(UCID)/source/system_$(UCID).c   	\
     src/asf/sam0/utils/syscalls/gcc/syscalls.c
 
 # List of assembler source files.
@@ -100,14 +111,14 @@ INC_PATH = \
     src/asf/sam0/drivers/sercom/spi                            \
     src/asf/sam0/drivers/system                                \
     src/asf/sam0/drivers/system/clock                          \
-    src/asf/sam0/drivers/system/clock/clock_samd20             \
+    src/asf/sam0/drivers/system/clock/clock_$(UCID_CLOCK)             \
     src/asf/sam0/drivers/system/interrupt                      \
-    src/asf/sam0/drivers/system/interrupt/system_interrupt_samd20 \
+    src/asf/sam0/drivers/system/interrupt/system_interrupt_$(UCID) \
     src/asf/sam0/drivers/system/pinmux                         \
     src/asf/sam0/drivers/tc	                               \
     src/asf/sam0/utils                                         \
-    src/asf/sam0/utils/cmsis/samd20/include                    \
-    src/asf/sam0/utils/cmsis/samd20/source                     \
+    src/asf/sam0/utils/cmsis/$(UCID)/include                    \
+    src/asf/sam0/utils/cmsis/$(UCID)/source                     \
     src/asf/sam0/utils/header_files                            \
     src/asf/sam0/utils/preprocessor                            \
     src/asf/thirdparty/CMSIS/Include                           \
@@ -124,8 +135,8 @@ LIBS =  \
        arm_cortexM0l_math
 
 # Path relative to top level directory pointing to a linker script.
-LINKER_SCRIPT_FLASH = utils/samd20e14_flash.ld
-LINKER_SCRIPT_SRAM  = utils/samd20e14_sram.ld
+LINKER_SCRIPT_FLASH = utils/$(PART)_flash.ld
+LINKER_SCRIPT_SRAM  = utils/$(PART)_sram.ld
 
 #debug scripts
 DEBUG_SCRIPT_FLASH = utils/armio_flash.gdb
@@ -166,7 +177,7 @@ CPPFLAGS = \
        -D EXTINT_CALLBACK_MODE=true		          \
        -D TC_ASYNC=true		 		          \
        -D SYSTICK_MODE                                    \
-       -D __SAMD20E14__
+       -D $(PARTD)
 
 
 # Extra flags to use when linking
