@@ -14,21 +14,17 @@
 /* values for configuring the fastest clock interval */
 #define VISION_PERSIST_MS   20      /* interval before noticeable blink */
 #define TC_FREQ_MHz         8       /* clock for the TC module */
-#define BLINK_FACTOR        5       /* ratio of blink units to vision persist interval */
 
-#define MAX_BRIGHT_VAL      ((1 << BRIGHT_RES) - 1)
-#define MAX_BLINK_VAL       (BLINK_FACTOR * (1 << BLINK_RES) - 1)
 
 //#define BANK_SELECT_TIMER   AVR32_TC.bank[0]
    /* counts from 0 to 4, does not trigger an interrupt */
 
 //#define PWM_SELECT_TIMER    AVR32_TC.bank[1]
-  /* counts from 0 to 15, triggers the tc_bank_isr interrupt */
+  /* counts from 0 to MAX_BRIGHT_VAL, triggers the tc_bank_isr interrupt */
 
 //#define PWM_BASE_TIMER      AVR32_TC.bank[2]
-  /* configured to count out 10ms / ( BANK_COUNT * 2**BRIGHT_RES ),
-   * triggers the tc_pwm_isr -- this assumes that 10ms is the vision
-   * persistence duration
+  /* configured to count out VISION_PERSIST_MS / ( BANK_COUNT * 2**BRIGHT_RES ),
+   * triggers the tc_pwm_isr
    */
 
 /* return the bank/segment ID for the given led index */
@@ -47,13 +43,9 @@
 
 #define BANK_GPIO( bank_number ) LED_BANK_GPIO_PINS[bank_number]
 #define SEGMENT_GPIO( seg_number ) LED_SEGMENT_GPIO_PINS[seg_number]
-//#define BANK_ENABLE( bank_number )          \
-//    port_pin_set_output_level( LED_BANK_GPIO_PINS[bank_number], false )
+
 #define BANK_ENABLE( bank_number )          \
   PORTA.OUTCLR.reg = 1UL << BANK_GPIO( bank_number )
-
-//#define BANK_DISABLE( bank_number )         \
-//    port_pin_set_output_level( LED_BANK_GPIO_PINS[bank_number], true )
 
 #define BANK_DISABLE( bank_number )         \
   PORTA.OUTSET.reg = 1UL << BANK_GPIO( bank_number )
@@ -165,7 +157,11 @@ static led_status_t led_status[ BANK_COUNT ][ SEGMENT_COUNT ];// = { {0} };
 //___ I N T E R R U P T S  ___________________________________________________
 static void tc_bright_isr ( struct tc_module *const tc_inst) {
   uint8_t segment;
+  uint8_t prev_bank;
   uint32_t segment_enable_mask = 0;
+
+  prev_bank = bank_ctr;
+
 
   /* switch to next bank */
   BANK_DISABLE( bank_ctr );
@@ -175,6 +171,7 @@ static void tc_bright_isr ( struct tc_module *const tc_inst) {
 
   bank_ctr++;
   bank_ctr = bank_ctr % BANK_COUNT;
+
 
   BANK_ENABLE( bank_ctr );
 
@@ -187,6 +184,7 @@ static void tc_bright_isr ( struct tc_module *const tc_inst) {
         }
       }
   }
+
 
   /* Enable (toggle low) the specific led segments applying mask to "clear" register */
   PORTA.OUTCLR.reg  = segment_enable_mask;
