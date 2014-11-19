@@ -16,16 +16,24 @@
 #define TC_FREQ_MHz         8       /* clock for the TC module */
 
 
-//#define BANK_SELECT_TIMER   AVR32_TC.bank[0]
+#define BANK_SELECT_TIMER   TC1
    /* counts from 0 to 4, does not trigger an interrupt */
 
 //#define PWM_SELECT_TIMER    AVR32_TC.bank[1]
   /* counts from 0 to MAX_BRIGHT_VAL, triggers the tc_bank_isr interrupt */
 
-//#define PWM_BASE_TIMER      AVR32_TC.bank[2]
+#define PWM_BASE_TIMER      TC0
   /* configured to count out VISION_PERSIST_MS / ( BANK_COUNT * 2**BRIGHT_RES ),
    * triggers the tc_pwm_isr
    */
+
+
+//FIXME
+#define CONF_EVENT_BANK_INC_GEN_ID       EVSYS_ID_GEN_TC0_OVF
+#define CONF_EVENT_BANK_INC_USER_ID            EVSYS_ID_USER_TC1_EVU
+
+#define CONF_EVENT_BRIGHT_INC_GEN_ID       EVSYS_ID_GEN_TC1_MCX_0
+#define CONF_EVENT_BRIGHT_INC_USER_ID            EVSYS_ID_USER_TC2_EVU
 
 /* return the bank/segment ID for the given led index */
 #define LED_SEGMENT(led_index)      ( led_index / BANK_COUNT )
@@ -91,7 +99,9 @@
 typedef union {
   struct {
     /* led blink interval in units of 4*VISION_PERSIST_MS */
+#if BLINK_RES > 0
     uint8_t   blink     : BLINK_RES;
+#endif
 
     /* led intensity level -- duty cycle between 1/15 to 1      */
     /* max intensity is 20% duty cycle (due to 5 bank cycling)  */
@@ -103,7 +113,7 @@ typedef union {
 } led_status_t;
 
 //___ P R O T O T Y P E S   ( P R I V A T E ) ________________________________
-static void tc_bright_isr ( struct tc_module *const tc_instance);
+static void tc_pwm_isr ( struct tc_module *const tc_instance);
   /* @brief initialize led module
    * @param None
    * @retrn None
@@ -140,57 +150,53 @@ const uint32_t LED_SEGMENT_GPIO_PINS[SEGMENT_COUNT] = {
   PIN_PA19
 };
 
-static struct tc_module tc_instance;
-static uint8_t bank_ctr;           // current bank value
+static struct tc_module pwm_tc_instance;
+static struct tc_module bank_tc_instance;
+
+
+static struct events_resource bank_inc_event;
+static struct events_resource bright_inc_event;
+
 static uint8_t brightness_ctr;      // current brightness level
 static uint16_t blink_ctr;      // current blink value
 
-  /* manage led intensity number and bank number */
-  // TODO : TC should be used to increment these values but need to use the
-  // event managment system to configure 2 additional counters, once TC are
-  // used then brightness_ctr and bank_ctr can be set by reading the
-  // current count value
-
-static led_status_t led_status[ BANK_COUNT ][ SEGMENT_COUNT ];// = { {0} };
+/* manage led intensity number and bank number */
+static led_status_t led_status[ BANK_COUNT ][ SEGMENT_COUNT ];
 
 
 //___ I N T E R R U P T S  ___________________________________________________
-static void tc_bright_isr ( struct tc_module *const tc_inst) {
+static void tc_pwm_isr ( struct tc_module *const tc_inst) {
   uint8_t segment;
-  uint8_t prev_bank;
   uint32_t segment_enable_mask = 0;
-
-  prev_bank = bank_ctr;
-
-
-  /* switch to next bank */
-  BANK_DISABLE( bank_ctr );
-
-  /* disable all segments because we will now switch banks */
-  SEGMENTS_CLEAR();
-
-  bank_ctr++;
-  bank_ctr = bank_ctr % BANK_COUNT;
+  uint8_t bank;
 
 
-  BANK_ENABLE( bank_ctr );
+  bank = tc_get_count_value(&bank_tc_instance);
 
   /* turn on the relevant segments */
   for( segment = 0; segment < SEGMENT_COUNT; segment++ ) {
-    led_status_t status = led_status[ bank_ctr ][ segment ];
+    led_status_t status = led_status[ bank ][ segment ];
     if (status.bright && status.bright >= brightness_ctr) {
-        if (!status.blink || blink_ctr % (BLINK_FACTOR*status.blink) < BLINK_FACTOR*status.blink/2) {
+        //if (!status.blink || blink_ctr % (BLINK_FACTOR*status.blink) < BLINK_FACTOR*status.blink/2) {
           segment_enable_mask |= 1UL << SEGMENT_GPIO(segment);
-        }
+        //}
       }
   }
 
 
+  /* switch to next bank */
+  BANKS_CLEAR();
+
+  /* disable all segments because we will now switch banks */
+  SEGMENTS_CLEAR();
+
   /* Enable (toggle low) the specific led segments applying mask to "clear" register */
   PORTA.OUTCLR.reg  = segment_enable_mask;
+  BANK_ENABLE( bank );
+
 
   /* Switch to next brightness level after each full bank cycle */
-  if (bank_ctr == 0) {
+  if (bank == 0) {
     brightness_ctr++;
 
     if (brightness_ctr == MAX_BRIGHT_VAL ) {
@@ -198,8 +204,8 @@ static void tc_bright_isr ( struct tc_module *const tc_inst) {
       /* completed (this should have taken VISION_PERSIST_MS)   */
       /* reset brightness counter and increment blink counter   */
         brightness_ctr = 0;
-        blink_ctr++;
-        blink_ctr = blink_ctr % MAX_BLINK_VAL;
+    //    blink_ctr++;
+    //    blink_ctr = blink_ctr % MAX_BLINK_VAL;
     }
   }
 
@@ -227,24 +233,53 @@ static void configure_tc ( void ) {
   const uint32_t count_period_ns = 1e6 * VISION_PERSIST_MS / \
                                    ( BANK_COUNT * (1<<BRIGHT_RES) );
   const uint32_t TC_period_ns = 1e3 / TC_FREQ_MHz;
-  const uint16_t count_top = (uint16_t) (count_period_ns / TC_period_ns);
+  const uint16_t pwm_base_count_top = (uint16_t) (count_period_ns / TC_period_ns);
 
   struct tc_config config_tc;
+  struct tc_events events_tc;
+  struct events_config config_ev;
 
+  /* Configure highest frequency counter for led PWM */
   tc_get_config_defaults( &config_tc );
   config_tc.counter_size    = TC_COUNTER_SIZE_16BIT;
   config_tc.wave_generation = TC_WAVE_GENERATION_MATCH_FREQ;
-  config_tc.counter_16_bit.compare_capture_channel[0] = count_top;
+  config_tc.counter_16_bit.compare_capture_channel[0] = pwm_base_count_top;
   config_tc.run_in_standby = false;
   config_tc.clock_source = GCLK_GENERATOR_0;
 
-  tc_init(&tc_instance, TC3, &config_tc);
+  tc_init(&pwm_tc_instance, PWM_BASE_TIMER, &config_tc);
 
-  tc_register_callback( &tc_instance,
-      tc_bright_isr, TC_CALLBACK_CC_CHANNEL0);
+  tc_register_callback( &pwm_tc_instance,
+      tc_pwm_isr, TC_CALLBACK_CC_CHANNEL0);
 
+  /* Configure bank counter incremented by base pwm counter events */
+  tc_get_config_defaults( &config_tc );
+  config_tc.counter_size = TC_COUNTER_SIZE_8BIT;
+  config_tc.counter_8_bit.period = BANK_COUNT;
+  config_tc.counter_8_bit.value = 0;
 
+  tc_init(&bank_tc_instance, BANK_SELECT_TIMER, &config_tc);
 
+  /* Configure base PWM timer to generate bank timer increment events */
+  events_tc.generate_event_on_compare_channel[0] = true;
+  tc_enable_events(&pwm_tc_instance, &events_tc);
+
+  /* Configure bank timer to increment on incoming events */
+  events_tc.generate_event_on_compare_channel[0] = true;
+  events_tc.generate_event_on_compare_channel[0] = false;
+  events_tc.event_action = TC_EVENT_ACTION_INCREMENT_COUNTER;
+  events_tc.on_event_perform_action = true;
+
+  tc_enable_events(&bank_tc_instance, &events_tc);
+
+  /* Allocate and attach pwm->bank timer inc event */
+  events_get_config_defaults(&config_ev);
+
+  config_ev.path           = EVENTS_PATH_SYNCHRONOUS;
+  config_ev.generator      = CONF_EVENT_BANK_INC_GEN_ID;
+
+  events_allocate(&bank_inc_event, &config_ev);
+  events_attach_user(&bank_inc_event, CONF_EVENT_BANK_INC_USER_ID);
 }
 
 
@@ -254,7 +289,6 @@ void led_controller_init ( void ) {
 
   brightness_ctr = 0;
   blink_ctr = 0;
-  bank_ctr = 0;
 
   configure_tc();
 }
@@ -272,16 +306,24 @@ void led_controller_enable ( void ) {
   led_clear_all();
 
   system_apb_clock_set_mask(SYSTEM_CLOCK_APB_APBC, PM_APBCMASK_TC3);
-  tc_enable_callback(&tc_instance, TC_CALLBACK_CC_CHANNEL0);
-  tc_enable(&tc_instance);
+  tc_enable_callback(&pwm_tc_instance, TC_CALLBACK_CC_CHANNEL0);
+  tc_enable(&pwm_tc_instance);
+
+  tc_enable(&bank_tc_instance);
+  /* The bank tc shouldnt run -- it should only increment on pwm events
+   * therefore, stop and reset its value immediately
+   */
+  tc_stop_counter(&bank_tc_instance);
+  tc_set_count_value(&bank_tc_instance, 0);
 
 }
 
 void led_controller_disable ( void ) {
   struct port_config pin_conf;
 
-  tc_disable_callback(&tc_instance, TC_CALLBACK_CC_CHANNEL0);
-  tc_disable(&tc_instance);
+  tc_disable_callback(&pwm_tc_instance, TC_CALLBACK_CC_CHANNEL0);
+  tc_disable(&pwm_tc_instance);
+  tc_disable(&bank_tc_instance);
 
   SEGMENTS_CLEAR();
   BANKS_CLEAR();
@@ -301,7 +343,9 @@ void led_set_state ( uint8_t led_index, uint8_t blink, uint8_t bright ) {
   uint8_t bank_number = LED_BANK( led_index );
   uint8_t segment_number = LED_SEGMENT( led_index );
 
+#if BLINK_RES > 0
   led_status[ bank_number ][ segment_number ].blink = blink;
+#endif
   led_status[ bank_number ][ segment_number ].bright = bright;
 }
 
@@ -323,11 +367,12 @@ void led_set_intensity ( uint8_t led, uint8_t intensity ) {
 }
 
 void led_set_blink ( uint8_t led, uint8_t blink ) {
+#if BLINK_RES > 0
   uint8_t bank_number = LED_BANK( led );
   uint8_t segment_number = LED_SEGMENT( led );
 
   led_status[ bank_number ][ segment_number ].blink = blink;
-
+#endif
 }
 
 

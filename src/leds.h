@@ -19,8 +19,8 @@
 #include <asf.h>
 
 //___ M A C R O S ____________________________________________________________
-#define BRIGHT_RES          4       /* bit resolution */
-#define BLINK_RES           4       /* bit resolution */
+#define BRIGHT_RES          8       /* bit resolution */
+#define BLINK_RES           0       /* bit resolution */
 
 #define BRIGHT_DEFAULT      ((1 << BRIGHT_RES) - 1) // default brightness level
 #define BLINK_DEFAULT       0       // default blink (0 == NONE)

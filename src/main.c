@@ -143,6 +143,7 @@ int main (void)
     uint32_t button_down_cnt = 0;
     bool fast_tick = false;
     uint32_t cnt = 0;
+    int led = 0;
 
 
     system_init();
@@ -165,8 +166,7 @@ int main (void)
 
     while (1) {;
 
-        int led;
-
+#ifdef NOT_NOW
         //if (port_pin_get_input_level(PIN_PA30) &&
 
             if (port_pin_get_input_level(BUTTON_PIN)) {
@@ -253,6 +253,23 @@ int main (void)
         led_set_intensity(minute, 5);
         led_set_blink(minute, 15);
         led_set_intensity(second, 1);
+#endif
+
+    led_on(led);
+    //if (led/5 % 2)
+        led_set_intensity(led, (led + 1) % MAX_BRIGHT_VAL);
+    //else
+    //    led_set_intensity(led, MAX_BRIGHT_VAL - led/5);
+
+    delay_s(2);
+    led+=5;
+
+    led_clear_all();
+
+
+
     }
+
+
 
 }

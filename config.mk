@@ -84,6 +84,7 @@ CSRCS = \
     src/aclock.c					       	\
     src/asf/common/utils/interrupt/interrupt_sam_nvic.c        	\
     src/asf/common2/services/delay/sam0/systick_counter.c      	\
+    src/asf/sam0/drivers/events/events.c                      	\
     src/asf/sam0/drivers/extint/extint.c                      	\
     src/asf/sam0/drivers/extint/extint_callback.c             	\
     src/asf/sam0/drivers/port/port.c                           	\
@@ -113,6 +114,7 @@ INC_PATH = \
     src/asf/common/utils                                       \
     src/asf/common2/services/delay                             \
     src/asf/common2/services/delay/sam0                        \
+    src/asf/sam0/drivers/events				       \
     src/asf/sam0/drivers/extint				       \
     src/asf/sam0/drivers/port                                  \
     src/asf/sam0/drivers/port                                  \
@@ -185,6 +187,7 @@ CPPFLAGS = \
        -D USART_CALLBACK_MODE=true 			  \
        -D RTC_CALENDAR_ASYNC=true 		          \
        -D EXTINT_CALLBACK_MODE=true		          \
+       -D EVENTS_INTERRUPT_HOOKS_MODE=false               \
        -D TC_ASYNC=true		 		          \
        -D SYSTICK_MODE                                    \
        -D $(PARTD)
