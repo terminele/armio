@@ -176,7 +176,7 @@ static void tc_pwm_isr ( struct tc_module *const tc_inst) {
   /* turn on the relevant segments */
   for( segment = 0; segment < SEGMENT_COUNT; segment++ ) {
     led_status_t status = led_status[ bank ][ segment ];
-    if (status.bright && status.bright >= brightness_ctr) {
+    if (status.bright && status.bright > brightness_ctr) {
         //if (!status.blink || blink_ctr % (BLINK_FACTOR*status.blink) < BLINK_FACTOR*status.blink/2) {
           segment_enable_mask |= 1UL << SEGMENT_GPIO(segment);
         //}
