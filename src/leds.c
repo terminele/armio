@@ -16,24 +16,24 @@
 #define TC_FREQ_MHz         8       /* clock for the TC module */
 
 
-#define BANK_SELECT_TIMER   TC1
+#define BANK_SELECT_TIMER   TC4
    /* counts from 0 to 4, does not trigger an interrupt */
 
 //#define PWM_SELECT_TIMER    AVR32_TC.bank[1]
   /* counts from 0 to MAX_BRIGHT_VAL, triggers the tc_bank_isr interrupt */
 
-#define PWM_BASE_TIMER      TC0
+#define PWM_BASE_TIMER      TC3
   /* configured to count out VISION_PERSIST_MS / ( BANK_COUNT * 2**BRIGHT_RES ),
    * triggers the tc_pwm_isr
    */
 
 
 //FIXME
-#define CONF_EVENT_BANK_INC_GEN_ID       EVSYS_ID_GEN_TC0_OVF
-#define CONF_EVENT_BANK_INC_USER_ID            EVSYS_ID_USER_TC1_EVU
+#define CONF_EVENT_BANK_INC_GEN_ID       EVSYS_ID_GEN_TC3_OVF
+#define CONF_EVENT_BANK_INC_USER_ID            EVSYS_ID_USER_TC4_EVU
 
-#define CONF_EVENT_BRIGHT_INC_GEN_ID       EVSYS_ID_GEN_TC1_MCX_0
-#define CONF_EVENT_BRIGHT_INC_USER_ID            EVSYS_ID_USER_TC2_EVU
+#define CONF_EVENT_BRIGHT_INC_GEN_ID       EVSYS_ID_GEN_TC1_MCX_4
+#define CONF_EVENT_BRIGHT_INC_USER_ID            EVSYS_ID_USER_TC5_EVU
 
 /* return the bank/segment ID for the given led index */
 #define LED_SEGMENT(led_index)      ( led_index / BANK_COUNT )
@@ -306,6 +306,7 @@ void led_controller_enable ( void ) {
   led_clear_all();
 
   system_apb_clock_set_mask(SYSTEM_CLOCK_APB_APBC, PM_APBCMASK_TC3);
+  system_apb_clock_set_mask(SYSTEM_CLOCK_APB_APBC, PM_APBCMASK_TC4);
   tc_enable_callback(&pwm_tc_instance, TC_CALLBACK_CC_CHANNEL0);
   tc_enable(&pwm_tc_instance);
 
@@ -335,6 +336,7 @@ void led_controller_disable ( void ) {
   port_group_set_config(&PORTA, BANK_PIN_PORT_MASK, &pin_conf );
 
   system_apb_clock_clear_mask(SYSTEM_CLOCK_APB_APBC, PM_APBCMASK_TC3);
+  system_apb_clock_clear_mask(SYSTEM_CLOCK_APB_APBC, PM_APBCMASK_TC4);
 
 }
 
