@@ -262,7 +262,7 @@ int main (void)
     //    led_set_intensity(led, MAX_BRIGHT_VAL - led/5);
 
     delay_s(2);
-    led+=5;
+    led+=1;
 
     led_clear_all();
 

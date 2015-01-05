@@ -391,21 +391,6 @@ endif
 .PHONY: rebuild
 rebuild: clean all
 
-# Debug the project in flash.
-.PHONY: debug_flash
-debug_flash: all
-	openocd -f interface/jlink.cfg -f utils/$(OCD_PART_CFG) \
-	    -c "init" \
-	    -c "reset" \
-
-	-$(GDB) -x "$(PRJ_PATH)/$(DEBUG_SCRIPT_FLASH)" -ex "reset" -readnow -se $(TARGET_FLASH)
-	pkill openocd #FIXME -- this will kill other openocd processes
-
-# Debug the project in sram.
-.PHONY: debug_sram
-debug_sram: all
-	$(GDB) -x "$(PRJ_PATH)/$(DEBUG_SCRIPT_SRAM)" -ex "reset" -readnow -se $(TARGET_SRAM)
-
 .PHONY: objfiles
 objfiles: $(obj-y)
 
@@ -493,44 +478,20 @@ endif
 info-os:
 	@echo $(MSG_INFO)$(os) build host detected
 
-jinstall_debug: $(target)
-	openocd -f interface/jlink.cfg \
-	    -f utils/$(OCD_PART_CFG) \
-	    -c reset_config srst_only srst_nogate \
+install_debug: $(target)
+	openocd -f $(DEBUGGER_CFG) \
+	    -f $(OCD_PART_CFG) \
 	    -c init -c "reset init" \
 	    -c "flash write_image erase $(target)" \
 	    -c "verify_image $(target) 0x00000000 elf" \
 	    -c "reset run"
 
-jinstall: $(target)
-	openocd -f interface/jlink.cfg \
-	    -f utils/$(OCD_PART_CFG) \
-	    -c "init" \
-	    -c "reset" \
-	    -c "halt" \
-	    -c "flash write_image erase $(target)" \
-	    -c "verify_image $(target) 0x00000000 elf" \
-	    -c "reset run" \
-	    -c "shutdown"
-
-
-install: $(target)
-	openocd -f utils/$(OCD_PART_CFG) \
-	    -c "init" \
-	    -c "reset" \
-	    -c "halt" \
-	    -c "flash write_image erase $(target)" \
-	    -c "verify_image $(target) 0x00000000 elf" \
-	    -c "reset run" \
-	    -c "shutdown"
+install: all $(target)
+	$(INSTALL_CMD)
 
 .PHONY: chiperase
 chiperase:
-	openocd -f interface/jlink.cfg \
-	    -f utils/$(OCD_PART_CFG) \
-	    -c "init" \
-	    -c "at91samd chip-erase" \
-	    -c "shutdown"
+	$(CHIPERASE_CMD)
 
 # Build Doxygen generated documentation.
 #.PHONY: doc

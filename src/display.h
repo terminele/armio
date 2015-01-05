@@ -30,11 +30,13 @@ void display_init(void);
    */
 
 
-void display_swirl(int tail_len, int tick_us, int revolutions);
+void display_swirl(int tail_len, int tick_us,
+    int revolutions, int max_intensity);
   /* @brief display a 'snake' of leds swirling around the display
    * @param tail_len -- number of leds in the snake
    * @param tick_us -- microseconds between moving the head forward 1 led
    * @param swirl_count -- # of revolutions before returning
+   * @param max_intensity -- brightness of the head led
    * @retrn None
    *
    * ### doesnt work very well with tail longer than ~20

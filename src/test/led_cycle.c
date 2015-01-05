@@ -27,6 +27,7 @@
 int main (void)
 {
     uint8_t led = 0;
+    uint8_t intensity = 1;
 
 
     system_init();
@@ -35,13 +36,16 @@ int main (void)
     led_controller_enable();
 
 
+    /* Show a startup LED swirl */
+    display_swirl(10, 200, 3, 60 );
 
     while (1) {
 
-    led_set_intensity(led, 1);
-    delay_ms(50);
-    led_off(led);
-    led++;
+        led_set_intensity(led, ++intensity);
+        delay_ms(100);
+        led_off(led);
+        led++;
+        led= led % 60;
 
 
     }

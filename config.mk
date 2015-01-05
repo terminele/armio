@@ -47,13 +47,20 @@ ifndef chip
     $(info defaulting to samd21 target)
 endif
 
+ifndef debugger
+    debugger=atmel-ice
+    $(info defaulting to atmel-ice debugger)
+endif
+
+DEBUGGER_CFG=utils/$(debugger).cfg
+
 ifeq ($(chip),samd20)
     PART = samd20e14
     PARTD = __SAMD20E14__
     UCID=samd20
     UCID_SERCOM=samd20
     UCID_CLOCK=samd20
-    OCD_PART_CFG = samd20e.cfg
+    OCD_PART_CFG = utils/samd20e.cfg
 else
 ifeq ($(chip),samd21)
     PART=samd21e17a
@@ -61,7 +68,7 @@ ifeq ($(chip),samd21)
     UCID=samd21
     UCID_SERCOM=samd21_r21_d10_d11
     UCID_CLOCK=samd21_r21
-    OCD_PART_CFG = samd21e.cfg
+    OCD_PART_CFG = utils/samd21e.cfg
 else
 $(error chip must be specified as either samd20 or samd21)
 endif
@@ -71,6 +78,23 @@ endif
 TARGET_FLASH = bin/armio_flash.elf
 TARGET_SRAM = bin/armio_sram.elf
 
+INSTALL_CMD = openocd \
+	    -f $(DEBUGGER_CFG) \
+	    -f $(OCD_PART_CFG) \
+	    -c "init" \
+	    -c "reset" \
+	    -c "halt" \
+	    -c "flash write_image erase $(target)" \
+	    -c "verify_image $(target) 0x00000000 elf" \
+	    -c "reset run" \
+	    -c "shutdown"
+
+CHIPERASE_CMD = openocd \
+	    -f $(DEBUGGER_CFG) \
+	    -f $(OCD_PART_CFG) \
+	    -c "init" \
+	    -c "at91samd chip-erase" \
+	    -c "shutdown"
 #make bin output directory if it doesnt exist
 BUILD_DIR=bin
 $(shell mkdir $(BUILD_DIR) 2>/dev/null)
@@ -80,7 +104,7 @@ ifndef test
     CSRCS=src/main.c
 else
     CSRCS=src/test/$(test).c
-    $(info running with main from $(CSRSC))
+    $(info running with main from $(CSRCS))
 endif
 
 # List of additional C source files.
@@ -204,4 +228,16 @@ LDFLAGS =
 
 # Pre- and post-build commands
 PREBUILD_CMD =
+ifdef test
+    if [-a bin/src/main.o]; \
+	then \
+	    PREBUILD_CMD = rm bin/src/main.o; \
+	fi;
+else
+    if [-a bin/src/test/*.o]; \
+	then \
+	    PREBUILD_CMD = rm bin/src/test/*.o; \
+	fi;
+endif
+
 POSTBUILD_CMD =
