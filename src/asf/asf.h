@@ -74,8 +74,12 @@
 #include <parts.h>
 
 
-// From module: SERCOM SPI - Serial Peripheral Interface (Polled APIs)
-#include <spi.h>
+// From module: SERCOM
+#include <sercom.h>
+#include <sercom_interrupt.h>
+#include <i2c_common.h>
+#include <i2c_master.h>
+//#include <i2c_master_interrupt.h>
 
 // From module: SYSTEM - Clock Management for SAMD20
 #include <clock.h>
