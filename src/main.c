@@ -157,7 +157,7 @@ int main (void)
     system_set_sleepmode(SYSTEM_SLEEPMODE_STANDBY);
 
     /* Show a startup LED swirl */
-    display_swirl(10, 200, 2 );
+    display_swirl(10, 200, 2, 64);
 
     /* get intial time */
     aclock_get_time(&hour, &minute, &second);

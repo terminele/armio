@@ -32,6 +32,39 @@ int main (void)
 
     system_init();
     delay_init();
+
+#define SEGMENT_PIN_PORT_MASK ( \
+      1 << PIN_PA16	|	\
+      1 << PIN_PA15	|	\
+      1 << PIN_PA14	|	\
+      1 << PIN_PA11	|	\
+      1 << PIN_PA07	|	\
+      1 << PIN_PA06	|	\
+      1 << PIN_PA05	|	\
+      1 << PIN_PA04	|	\
+      1 << PIN_PA28	|	\
+      1 << PIN_PA27	|	\
+      1 << PIN_PA22	|	\
+      1 << PIN_PA19 )
+
+#define BANK_PIN_PORT_MASK (    \
+      1 << PIN_PA17     |       \
+      1 << PIN_PA18     |       \
+      1 << PIN_PA25     |       \
+      1 << PIN_PA24     |       \
+      1 << PIN_PA23 )
+
+  struct port_config pin_conf;
+
+    /* Configure bank and segment pin groups as outputs */
+    port_get_config_defaults(&pin_conf);
+    pin_conf.direction = PORT_PIN_DIR_OUTPUT;
+
+    port_group_set_config(&PORTA, SEGMENT_PIN_PORT_MASK, &pin_conf );
+    port_group_set_config(&PORTA, BANK_PIN_PORT_MASK, &pin_conf );
+
+    delay_ms(1000);
+
     led_controller_init();
     led_controller_enable();
 
