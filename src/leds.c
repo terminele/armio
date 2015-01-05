@@ -95,6 +95,17 @@
     port_group_set_output_level(&PORTA, BANK_PIN_PORT_MASK, 0xffffffff )
 
 
+#define BANKS_SEGMENTS_CLEAR() \
+    port_group_set_output_level(&PORTA, BANK_PIN_PORT_MASK | SEGMENT_PIN_PORT_MASK, \
+        0xffffffff )
+
+#define CURRENT_BANK() \
+        ((Tc *) BANK_SELECT_TIMER)->COUNT8.COUNT.reg;
+
+#define BANK_IS_SYNCING() \
+        (((Tc *) BANK_SELECT_TIMER)->COUNT8.STATUS.reg & TC_STATUS_SYNCBUSY)
+
+
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 typedef union {
   struct {
@@ -170,7 +181,6 @@ static void tc_pwm_isr ( struct tc_module *const tc_inst) {
   uint32_t segment_enable_mask = 0;
   uint8_t bank;
 
-
   bank = tc_get_count_value(&bank_tc_instance);
 
   /* turn on the relevant segments */
@@ -185,10 +195,7 @@ static void tc_pwm_isr ( struct tc_module *const tc_inst) {
 
 
   /* switch to next bank */
-  BANKS_CLEAR();
-
-  /* disable all segments because we will now switch banks */
-  SEGMENTS_CLEAR();
+  BANKS_SEGMENTS_CLEAR();
 
   /* Enable (toggle low) the specific led segments applying mask to "clear" register */
   PORTA.OUTCLR.reg  = segment_enable_mask;
