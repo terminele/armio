@@ -513,6 +513,17 @@ jinstall: $(target)
 	    -c "reset run" \
 	    -c "shutdown"
 
+
+install: $(target)
+	openocd -f utils/$(OCD_PART_CFG) \
+	    -c "init" \
+	    -c "reset" \
+	    -c "halt" \
+	    -c "flash write_image erase $(target)" \
+	    -c "verify_image $(target) 0x00000000 elf" \
+	    -c "reset run" \
+	    -c "shutdown"
+
 .PHONY: chiperase
 chiperase:
 	openocd -f interface/jlink.cfg \

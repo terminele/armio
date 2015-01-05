@@ -44,7 +44,7 @@ ARCH = cortex-m0plus
 
 ifndef chip
     chip=samd21
-    $(warning "defaulting the samd21 target")
+    $(info defaulting to samd21 target)
 endif
 
 ifeq ($(chip),samd20)
@@ -63,7 +63,7 @@ ifeq ($(chip),samd21)
     UCID_CLOCK=samd21_r21
     OCD_PART_CFG = samd21e.cfg
 else
-$(error "chip must be specified as either samd20 or samd21")
+$(error chip must be specified as either samd20 or samd21)
 endif
 endif
 # Application target name. Given with suffix .a for library and .elf for a
@@ -76,9 +76,15 @@ BUILD_DIR=bin
 $(shell mkdir $(BUILD_DIR) 2>/dev/null)
 
 
-# List of C source files.
-CSRCS = \
-    src/main.c						       	\
+ifndef test
+    CSRCS=src/main.c
+else
+    CSRCS=src/test/$(test).c
+    $(info running with main from $(CSRSC))
+endif
+
+# List of additional C source files.
+CSRCS += \
     src/leds.c						       	\
     src/display.c					       	\
     src/aclock.c					       	\
