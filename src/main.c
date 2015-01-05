@@ -15,6 +15,11 @@
 #define BUTTON_PIN_EIC      PIN_PA31A_EIC_EXTINT11
 #define BUTTON_PIN_EIC_MUX  MUX_PA31A_EIC_EXTINT11
 #define BUTTON_EIC_CHAN     11
+
+#define LIGHT_BATT_ENABLE_PIN       PIN_PA30
+#define BATT_ADC_PIN                PIN_PA02
+#define LIGHT_ADC_PIN               PIN_PA03
+
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 
 //___ P R O T O T Y P E S   ( P R I V A T E ) ________________________________
@@ -64,6 +69,7 @@ void configure_input(void) {
 
     /* Enable interrupts for the button */
     configure_extint();
+
   }
 
 static void configure_extint(void)
@@ -166,7 +172,6 @@ int main (void)
 
     while (1) {;
 
-#ifdef NOT_NOW
         //if (port_pin_get_input_level(PIN_PA30) &&
 
             if (port_pin_get_input_level(BUTTON_PIN)) {
@@ -174,15 +179,17 @@ int main (void)
                 sleep_timeout++;
                 button_down_cnt = 0;
                 fast_tick = false;
-                if ( sleep_timeout > 50000 ) {
+                led_off(31);
+                if ( sleep_timeout > 10000 ) {
                     /* Just released */
-                    display_swirl(10, 100, 2 );
+                    display_swirl(10, 100, 2, 64 );
                     enter_sleep();
                     wakeup();
                     sleep_timeout = 0;
                     }
                 }
             else {
+                led_on(31);
                 sleep_timeout = 0;
                 button_down_cnt++;
                 if ( button_down_cnt > 10000 && button_down_cnt % 800 == 0) {
@@ -195,7 +202,7 @@ int main (void)
 
 
                     if (!fast_tick && button_down_cnt > 25000) {
-                        display_swirl(15, 50, 3 );
+                        display_swirl(15, 50, 3, 64 );
                         fast_tick = true;
                     }
 
@@ -249,23 +256,11 @@ int main (void)
             led_off(second_prev);
 
 
-        led_set_intensity((hour%12)*5, 20);
-        led_set_intensity(minute, 5);
-        led_set_blink(minute, 15);
-        led_set_intensity(second, 1);
-#endif
-
-    led_on(led);
-    //if (led/5 % 2)
-        led_set_intensity(led, (led + 1) % MAX_BRIGHT_VAL);
-    //else
-    //    led_set_intensity(led, MAX_BRIGHT_VAL - led/5);
-
-    delay_s(2);
-    led+=1;
-
-    led_clear_all();
-
+        //led_set_intensity((hour%12)*5, 32);
+        led_set_intensity((hour%12)*5, MAX_BRIGHT_VAL);
+        led_set_intensity(minute, 30);
+        //led_set_blink(minute, 15);
+        led_set_intensity(second, 20);
 
 
     }
