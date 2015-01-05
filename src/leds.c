@@ -32,7 +32,7 @@
 #define CONF_EVENT_BANK_INC_GEN_ID       EVSYS_ID_GEN_TC3_OVF
 #define CONF_EVENT_BANK_INC_USER_ID            EVSYS_ID_USER_TC4_EVU
 
-#define CONF_EVENT_BRIGHT_INC_GEN_ID       EVSYS_ID_GEN_TC1_MCX_4
+#define CONF_EVENT_BRIGHT_INC_GEN_ID       EVSYS_ID_GEN_TC4_MCX_4
 #define CONF_EVENT_BRIGHT_INC_USER_ID            EVSYS_ID_USER_TC5_EVU
 
 /* return the bank/segment ID for the given led index */
@@ -174,7 +174,6 @@ static uint16_t blink_ctr;      // current blink value
 /* manage led intensity number and bank number */
 static led_status_t led_status[ BANK_COUNT ][ SEGMENT_COUNT ];
 
-
 //___ I N T E R R U P T S  ___________________________________________________
 static void tc_pwm_isr ( struct tc_module *const tc_inst) {
   uint8_t segment;
@@ -268,7 +267,8 @@ static void configure_tc ( void ) {
   tc_init(&bank_tc_instance, BANK_SELECT_TIMER, &config_tc);
 
   /* Configure base PWM timer to generate bank timer increment events */
-  events_tc.generate_event_on_compare_channel[0] = true;
+  //events_tc.generate_event_on_compare_channel[0] = true;
+  events_tc.generate_event_on_overflow = true;
   tc_enable_events(&pwm_tc_instance, &events_tc);
 
   /* Configure bank timer to increment on incoming events */
