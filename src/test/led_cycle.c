@@ -60,6 +60,23 @@ int main (void)
     port_get_config_defaults(&pin_conf);
     pin_conf.direction = PORT_PIN_DIR_OUTPUT;
 
+    port_group_set_config(&PORTA, 1 << PIN_PA07, &pin_conf );
+    port_group_set_config(&PORTA, 1 << PIN_PA17, &pin_conf );
+
+    PORTA.PINCFG[PIN_PA06].bit.DRVSTR = 0;
+    PORTA.PINCFG[PIN_PA05].bit.DRVSTR = 0;
+    PORTA.PINCFG[PIN_PA04].bit.DRVSTR = 0;
+    PORTA.PINCFG[PIN_PA00].bit.DRVSTR = 0;
+    PORTA.PINCFG[PIN_PA07].bit.DRVSTR = 0;
+    PORTA.PINCFG[PIN_PA06].bit.DRVSTR = 0;
+    PORTA.PINCFG[PIN_PA05].bit.DRVSTR = 0;
+    PORTA.PINCFG[PIN_PA04].bit.DRVSTR = 0;
+    PORTA.PINCFG[PIN_PA28].bit.DRVSTR = 0;
+    PORTA.PINCFG[PIN_PA27].bit.DRVSTR = 0;
+    PORTA.PINCFG[PIN_PA22].bit.DRVSTR = 0;
+    PORTA.PINCFG[PIN_PA09].bit.DRVSTR = 0;
+
+    delay_ms(1000);
     port_group_set_config(&PORTA, SEGMENT_PIN_PORT_MASK, &pin_conf );
     port_group_set_config(&PORTA, BANK_PIN_PORT_MASK, &pin_conf );
 
@@ -75,7 +92,7 @@ int main (void)
     while (1) {
 
         led_set_intensity(led, ++intensity);
-        delay_ms(100);
+        delay_ms(500);
         led_off(led);
         led++;
         led= led % 60;
