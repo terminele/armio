@@ -12,7 +12,7 @@
 #define BANK_COUNT              5
 
 /* values for configuring the fastest clock interval */
-#define VISION_PERSIST_MS   20      /* interval before noticeable blink */
+#define VISION_PERSIST_MS   15      /* interval before noticeable blink */
 #define TC_FREQ_MHz         8       /* clock for the TC module */
 
 
