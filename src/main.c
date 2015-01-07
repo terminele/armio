@@ -39,12 +39,6 @@ void setup_clock_pin_outputs( void );
    * @retrn None
    */
 
-void button_extint_cb( void );
-  /* @brief interrupt callback for button value changes
-   * @param None
-   * @retrn None
-   */
-
 static void configure_extint(void);
   /* @brief enable external interrupts
    * @param None
@@ -56,11 +50,6 @@ static bool btn_extint = false;
 static uint8_t error_status = 0; /* mask of error codes */
 
 //___ F U N C T I O N S   ( P R I V A T E ) __________________________________
-
-void button_extint_cb( void ) {
-    /* Only trigger on wakeup since button interrupts are disabled normally */
-}
-
 
 
 void configure_input(void) {
@@ -74,6 +63,12 @@ void configure_input(void) {
 
     /* Enable interrupts for the button */
     configure_extint();
+
+    port_get_config_defaults(&pin_conf);
+    pin_conf.direction = PORT_PIN_DIR_INPUT;
+    pin_conf.input_pull = PORT_PIN_PULL_DOWN;
+    port_pin_set_config(LIGHT_BATT_ENABLE_PIN, &pin_conf);
+
 
   }
 
@@ -90,10 +85,6 @@ static void configure_extint(void)
 	eint_chan_conf.filter_input_signal  = false;
 	eint_chan_conf.wake_if_sleeping     = true;
 	extint_chan_set_config(BUTTON_EIC_CHAN, &eint_chan_conf);
-
-        extint_register_callback(button_extint_cb,
-                    BUTTON_EIC_CHAN,
-                    EXTINT_CALLBACK_TYPE_DETECT);
 
 }
 
@@ -178,6 +169,13 @@ int main (void)
     system_init();
     system_apb_clock_clear_mask (SYSTEM_CLOCK_APB_APBB, PM_APBAMASK_WDT);
     system_set_sleepmode(SYSTEM_SLEEPMODE_STANDBY);
+
+    /* Errata 39.3.2 -- device may not wake up from
+     * standby if nvm goes to sleep.  May not be necessary
+     * for samd21e15/16 if revision E
+     */
+    //NVMCTRL->CTRLB.bit.SLEEPPRM = NVMCTRL_CTRLB_SLEEPPRM_DISABLED_Val;
+
     delay_init();
     aclock_init();
     led_controller_init();
@@ -194,7 +192,6 @@ int main (void)
     //    end_in_error();
     //}
 
-    system_set_sleepmode(SYSTEM_SLEEPMODE_STANDBY);
 
     /* Show a startup LED swirl */
     display_swirl(10, 200, 2, 64);
