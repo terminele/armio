@@ -165,6 +165,7 @@ void aclock_init( void ) {
 
     rtc_calendar_enable(&rtc_instance);
 
+    rtc_calendar_frequency_correction(&rtc_instance, -10);//FIXME
     rtc_calendar_set_time(&rtc_instance, &initial_time);
 
     /* Register sync ready callback */
