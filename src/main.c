@@ -21,10 +21,12 @@
 #define BATT_ADC_PIN                PIN_PA02
 #define LIGHT_ADC_PIN               PIN_PA03
 
-#define MAIN_TIMER_TICK_US      1000
 #define ACCEL_INIT_ERROR    1 << 0
 
 #define MAIN_TIMER  TC5
+
+#define MAIN_TIMER_TICK_US      1000
+#define SLEEP_TIMEOUT_TICKS     7000
 
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 
@@ -160,6 +162,7 @@ static void tick( void ) {
     static uint8_t hour = 0, minute = 0, second = 0;
     uint8_t hour_prev, minute_prev, second_prev;
     static uint32_t button_down_cnt = 0;
+    static uint16_t ticks_since_last_sec;
     bool fast_tick = false;
 
 
@@ -169,7 +172,7 @@ static void tick( void ) {
         button_down_cnt = 0;
         fast_tick = false;
         led_off(31);
-        if ( sleep_timeout > 10000 ) {
+        if ( sleep_timeout > SLEEP_TIMEOUT_TICKS) {
             /* Just released */
             display_swirl(10, 100, 2, 64 );
             enter_sleep();
@@ -181,7 +184,7 @@ static void tick( void ) {
         led_on(31);
         sleep_timeout = 0;
         button_down_cnt++;
-        if ( button_down_cnt > 10000 && button_down_cnt % 800 == 0) {
+        if ( button_down_cnt > 5000 && button_down_cnt % 800 == 0) {
 
 
             aclock_get_time(&hour, &minute, &second);
@@ -190,7 +193,7 @@ static void tick( void ) {
             second_prev = second;
 
 
-            if (!fast_tick && button_down_cnt > 25000) {
+            if (!fast_tick && button_down_cnt > 15000) {
                 display_swirl(15, 50, 3, 64 );
                 fast_tick = true;
             }
@@ -241,15 +244,32 @@ static void tick( void ) {
         led_off((hour_prev%12)*5);
     if (minute != minute_prev)
         led_off(minute_prev);
-    if (second != second_prev)
+
+    if (second != second_prev) {
+        ticks_since_last_sec = 1;
         led_off(second_prev);
+    }
 
 
     //led_set_intensity((hour%12)*5, 32);
+    //led_set_blink(minute, 15);
+    led_set_intensity(second, 31);
+
+    ticks_since_last_sec++;
+
+    if (ticks_since_last_sec < 128) {
+        led_set_intensity((second - 1) % 60, 16 - ticks_since_last_sec << 3);
+    } else {
+        led_off((second - 1) % 60);
+
+        if (ticks_since_last_sec > 872) {
+            led_set_intensity(second + 1,  16 - (1000 - ticks_since_last_sec) << 3);
+        }
+    }
+
     led_set_intensity((hour%12)*5, MAX_BRIGHT_VAL);
     led_set_intensity(minute, 30);
-    //led_set_blink(minute, 15);
-    led_set_intensity(second, 20);
+
 
 }
 
