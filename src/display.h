@@ -29,6 +29,11 @@ void display_init(void);
    * @retrn None
    */
 
+void display_tick(void);
+  /* @brief refresh display
+   * @param None
+   * @retrn None
+   */
 
 void display_swirl(int tail_len, int tick_us,
     int revolutions, int max_intensity);

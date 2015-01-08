@@ -21,7 +21,10 @@
 #define BATT_ADC_PIN                PIN_PA02
 #define LIGHT_ADC_PIN               PIN_PA03
 
+#define MAIN_TIMER_TICK_US      1000
 #define ACCEL_INIT_ERROR    1 << 0
+
+#define MAIN_TIMER  TC5
 
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 
@@ -46,8 +49,8 @@ static void configure_extint(void);
    */
 
 //___ V A R I A B L E S ______________________________________________________
-static bool btn_extint = false;
 static uint8_t error_status = 0; /* mask of error codes */
+static struct tc_module main_tc;
 
 //___ F U N C T I O N S   ( P R I V A T E ) __________________________________
 
@@ -106,7 +109,6 @@ void setup_clock_pin_outputs( void ) {
 
 }
 
-
 void enter_sleep( void ) {
 
     /* Enable button callback to awake us from sleep */
@@ -152,18 +154,110 @@ static void end_in_error ( void ) {
     while(1);
 }
 
+static void tick( void ) {
+
+    static uint16_t sleep_timeout = 0;
+    static uint8_t hour = 0, minute = 0, second = 0;
+    uint8_t hour_prev, minute_prev, second_prev;
+    static uint32_t button_down_cnt = 0;
+    bool fast_tick = false;
+
+
+    if (port_pin_get_input_level(BUTTON_PIN)) {
+        /* button is up */
+        sleep_timeout++;
+        button_down_cnt = 0;
+        fast_tick = false;
+        led_off(31);
+        if ( sleep_timeout > 10000 ) {
+            /* Just released */
+            display_swirl(10, 100, 2, 64 );
+            enter_sleep();
+            wakeup();
+            sleep_timeout = 0;
+            }
+        }
+    else {
+        led_on(31);
+        sleep_timeout = 0;
+        button_down_cnt++;
+        if ( button_down_cnt > 10000 && button_down_cnt % 800 == 0) {
+
+
+            aclock_get_time(&hour, &minute, &second);
+            hour_prev = hour;
+            minute_prev = minute;
+            second_prev = second;
+
+
+            if (!fast_tick && button_down_cnt > 25000) {
+                display_swirl(15, 50, 3, 64 );
+                fast_tick = true;
+            }
+
+            if (fast_tick) {
+                minute++;
+            } else {
+                second++;
+                if (second > 59) {
+                    second = 0;
+                    minute++;
+                }
+            }
+
+            if (minute > 59) {
+                minute = 0;
+                hour = (hour + 1) % 12;
+            }
+
+            aclock_set_time(hour, minute, second);
+            /* If time change, disable previous leds */
+            if (hour != hour_prev)
+                led_off((hour_prev%12)*5);
+            if (minute != minute_prev)
+                led_off(minute_prev);
+            if (second != second_prev)
+                led_off(second_prev);
+
+
+            led_on((hour%12)*5);
+            led_set_intensity((hour%12)*5, 10);
+            led_set_intensity(minute, 6);
+            led_set_intensity(second, 1);
+
+        }
+
+    }
+
+
+    hour_prev = hour;
+    minute_prev = minute;
+    second_prev = second;
+    /* Get latest time */
+    aclock_get_time(&hour, &minute, &second);
+
+    /* If time change, disable previous leds */
+    if (hour != hour_prev)
+        led_off((hour_prev%12)*5);
+    if (minute != minute_prev)
+        led_off(minute_prev);
+    if (second != second_prev)
+        led_off(second_prev);
+
+
+    //led_set_intensity((hour%12)*5, 32);
+    led_set_intensity((hour%12)*5, MAX_BRIGHT_VAL);
+    led_set_intensity(minute, 30);
+    //led_set_blink(minute, 15);
+    led_set_intensity(second, 20);
+
+}
+
 //___ F U N C T I O N S ______________________________________________________
 
 int main (void)
 {
-    uint16_t sleep_timeout = 0;
-    uint8_t hour, minute, second;
-    uint8_t hour_prev, minute_prev, second_prev;
-    uint32_t button_down_cnt = 0;
-    bool fast_tick = false;
-    uint32_t cnt = 0;
-    int led = 0;
-
+    struct tc_config config_tc;
 
     system_init();
     system_apb_clock_clear_mask (SYSTEM_CLOCK_APB_APBB, PM_APBAMASK_WDT);
@@ -178,121 +272,46 @@ int main (void)
     delay_init();
     aclock_init();
     led_controller_init();
-    led_controller_enable();
+    display_init();
+
+    /* Configure main timer counter */
+    tc_get_config_defaults( &config_tc );
+    config_tc.clock_source = GCLK_GENERATOR_0;
+    config_tc.counter_size = TC_COUNTER_SIZE_16BIT;
+    config_tc.clock_prescaler = TC_CLOCK_PRESCALER_DIV8; //give 1us count for 8MHz clock
+    config_tc.wave_generation = TC_WAVE_GENERATION_MATCH_FREQ;
+    config_tc.counter_16_bit.compare_capture_channel[0] = MAIN_TIMER_TICK_US;
+    config_tc.counter_16_bit.value = 0;
+
+    tc_init(&main_tc, MAIN_TIMER, &config_tc);
+    tc_enable(&main_tc);
+    tc_start_counter(&main_tc);
 
 
     if (!accel_init()) {
-
-        error_status |= ACCEL_INIT_ERROR;
+        //error_status |= ACCEL_INIT_ERROR;
     }
 
+    led_controller_enable();
 
-    //if (error_status != 0) {
-    //    end_in_error();
-    //}
+    if (error_status != 0) {
+        end_in_error();
+    }
 
 
     /* Show a startup LED swirl */
     display_swirl(10, 200, 2, 64);
 
     /* get intial time */
-    aclock_get_time(&hour, &minute, &second);
     configure_input();
     system_interrupt_enable_global();
 
     while (1) {
-
-            if (port_pin_get_input_level(BUTTON_PIN)) {
-                /* button is up */
-                sleep_timeout++;
-                button_down_cnt = 0;
-                fast_tick = false;
-                led_off(31);
-                if ( sleep_timeout > 10000 ) {
-                    /* Just released */
-                    display_swirl(10, 100, 2, 64 );
-                    enter_sleep();
-                    wakeup();
-                    sleep_timeout = 0;
-                    }
-                }
-            else {
-                led_on(31);
-                sleep_timeout = 0;
-                button_down_cnt++;
-                if ( button_down_cnt > 10000 && button_down_cnt % 800 == 0) {
-
-
-                    aclock_get_time(&hour, &minute, &second);
-                    hour_prev = hour;
-                    minute_prev = minute;
-                    second_prev = second;
-
-
-                    if (!fast_tick && button_down_cnt > 25000) {
-                        display_swirl(15, 50, 3, 64 );
-                        fast_tick = true;
-                    }
-
-                    if (fast_tick) {
-                        minute++;
-                    } else {
-                        second++;
-                        if (second > 59) {
-                            second = 0;
-                            minute++;
-                        }
-                    }
-
-                    if (minute > 59) {
-                        minute = 0;
-                        hour = (hour + 1) % 12;
-                    }
-
-                    aclock_set_time(hour, minute, second);
-                    /* If time change, disable previous leds */
-                    if (hour != hour_prev)
-                        led_off((hour_prev%12)*5);
-                    if (minute != minute_prev)
-                        led_off(minute_prev);
-                    if (second != second_prev)
-                        led_off(second_prev);
-
-
-                    led_on((hour%12)*5);
-                    led_set_intensity((hour%12)*5, 10);
-                    led_set_intensity(minute, 6);
-                    led_set_intensity(second, 1);
-
-                }
-
-            }
-
-
-        hour_prev = hour;
-        minute_prev = minute;
-        second_prev = second;
-        /* Get latest time */
-        aclock_get_time(&hour, &minute, &second);
-
-        /* If time change, disable previous leds */
-        if (hour != hour_prev)
-            led_off((hour_prev%12)*5);
-        if (minute != minute_prev)
-            led_off(minute_prev);
-        if (second != second_prev)
-            led_off(second_prev);
-
-
-        //led_set_intensity((hour%12)*5, 32);
-        led_set_intensity((hour%12)*5, MAX_BRIGHT_VAL);
-        led_set_intensity(minute, 30);
-        //led_set_blink(minute, 15);
-        led_set_intensity(second, 20);
-
-
+        if (tc_get_status(&main_tc) & TC_STATUS_COUNT_OVERFLOW) {
+            tc_clear_status(&main_tc, TC_STATUS_COUNT_OVERFLOW);
+            tick();
+            display_tick();
+        }
     }
-
-
 
 }

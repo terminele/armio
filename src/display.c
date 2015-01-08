@@ -12,8 +12,6 @@
 #include <leds.h>
 #include <display.h>
 
-#define MIN_DUTY_CYCLE_US 1
-
 void display_swirl(int tail_len, int tick_us, int revolutions, int max_intensity) {
     while(revolutions) {
         for (int i=0; i < 60; i++) {
@@ -30,6 +28,11 @@ void display_swirl(int tail_len, int tick_us, int revolutions, int max_intensity
     revolutions--;
     }
 
+
+}
+
+
+void display_tick(void) {
 
 }
 
