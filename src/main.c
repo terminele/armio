@@ -65,10 +65,9 @@ void configure_input(void) {
     configure_extint();
 
     port_get_config_defaults(&pin_conf);
-    pin_conf.direction = PORT_PIN_DIR_INPUT;
-    pin_conf.input_pull = PORT_PIN_PULL_DOWN;
+    pin_conf.direction = PORT_PIN_DIR_OUTPUT;
     port_pin_set_config(LIGHT_BATT_ENABLE_PIN, &pin_conf);
-
+    port_pin_set_output_level(LIGHT_BATT_ENABLE_PIN, 0);
 
   }
 
