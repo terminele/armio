@@ -146,10 +146,10 @@ void aclock_init( void ) {
 
     /* Use compile time for initial time */
     initial_time.hour   = global_state.hour =  10*(__TIME__[0] - '0') +  (__TIME__[1] - '0');
-    initial_time.minute = global_state.minute = 5 + 10*(__TIME__[3] - '0') +  (__TIME__[4] - '0');
+    initial_time.minute = global_state.minute = 10*(__TIME__[3] - '0') +  (__TIME__[4] - '0');
     initial_time.second = global_state.second = 10*(__TIME__[6] - '0') +  (__TIME__[7] - '0') % 60;
 
-#pragma message "Setting intial time to " __TIME__ " + 5 minutes"
+#pragma message "Setting intial time to " __TIME__
 
     /* Configure alarm to trigger at 1-second    */
     /* we only care about second since other     */
@@ -165,7 +165,7 @@ void aclock_init( void ) {
 
     rtc_calendar_enable(&rtc_instance);
 
-    rtc_calendar_frequency_correction(&rtc_instance, -10);//FIXME
+    rtc_calendar_frequency_correction(&rtc_instance, -9);//FIXME
     rtc_calendar_set_time(&rtc_instance, &initial_time);
 
     /* Register sync ready callback */

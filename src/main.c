@@ -184,7 +184,7 @@ static void tick( void ) {
         led_on(31);
         sleep_timeout = 0;
         button_down_cnt++;
-        if ( button_down_cnt > 5000 && button_down_cnt % 800 == 0) {
+        if ( button_down_cnt > 5000 && button_down_cnt % 200 == 0) {
 
 
             aclock_get_time(&hour, &minute, &second);
@@ -223,6 +223,7 @@ static void tick( void ) {
                 led_off(second_prev);
 
 
+            led_clear_all();
             led_on((hour%12)*5);
             led_set_intensity((hour%12)*5, 10);
             led_set_intensity(minute, 6);
@@ -325,6 +326,12 @@ int main (void)
     /* get intial time */
     configure_input();
     system_interrupt_enable_global();
+
+    while (!port_pin_get_input_level(BUTTON_PIN)) {
+        //if btn down at startup, zero out time
+        //and dont continue until released
+        aclock_set_time(0, 0, 0);
+    }
 
     while (1) {
         if (tc_get_status(&main_tc) & TC_STATUS_COUNT_OVERFLOW) {
