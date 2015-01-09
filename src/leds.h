@@ -27,6 +27,7 @@
 
 #define BLINK_FACTOR        5       /* ratio of blink units to vision persist interval */
 #define MAX_BRIGHT_VAL      ((1 << BRIGHT_RES) - 1)
+#define DEFAULT_BRIGHTNESS  (1 << (BRIGHT_RES - 1))
 #define MAX_BLINK_VAL       (BLINK_FACTOR * (1 << BLINK_RES) - 1)
 
 //___ T Y P E D E F S ________________________________________________________
@@ -52,9 +53,8 @@ void led_controller_enable( void );
    * @retrn None
    */
 
-void led_on( uint8_t led );
-  /* @brief enable the given led with default
-   * brightness and no blink
+void led_on( uint8_t led, uint8_t intensity );
+  /* @brief enable the given led at the given brightness
    * @param led num (0-59)
    * @retrn None
    */

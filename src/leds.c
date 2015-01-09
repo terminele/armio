@@ -358,9 +358,9 @@ void led_set_state ( uint8_t led_index, uint8_t blink, uint8_t bright ) {
   led_status[ bank_number ][ segment_number ].bright = bright;
 }
 
-void led_on ( uint8_t led ) {
+void led_on ( uint8_t led, uint8_t intensity ) {
 
-  led_set_state( led, BLINK_DEFAULT, BRIGHT_DEFAULT );
+  led_set_state( led, BLINK_DEFAULT, intensity );
 }
 
 void led_off ( uint8_t led ) {

@@ -167,7 +167,8 @@ INC_PATH = \
     src/asf/sam0/utils/header_files                            \
     src/asf/sam0/utils/preprocessor                            \
     src/asf/thirdparty/CMSIS/Include                           \
-    src/asf/thirdparty/CMSIS/Lib/GCC \
+    src/asf/thirdparty/CMSIS/Lib/GCC 				\
+    src/thirdparty
 
 # Additional search paths for libraries.
 LIB_PATH =  \

@@ -10,6 +10,7 @@
 #include "display.h"
 #include "aclock.h"
 #include "accel.h"
+#include "main.h"
 
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
 #define BUTTON_PIN          PIN_PA31
@@ -17,16 +18,27 @@
 #define BUTTON_PIN_EIC_MUX  MUX_PA31A_EIC_EXTINT11
 #define BUTTON_EIC_CHAN     11
 
+#define BUTTON_UP           true
+#define BUTTON_DOWN         false
+
 #define LIGHT_BATT_ENABLE_PIN       PIN_PA30
 #define BATT_ADC_PIN                PIN_PA02
 #define LIGHT_ADC_PIN               PIN_PA03
 
-#define ACCEL_INIT_ERROR    1 << 0
 
 #define MAIN_TIMER  TC5
 
 #define MAIN_TIMER_TICK_US      1000
 #define SLEEP_TIMEOUT_TICKS     7000
+
+/* tick count before considering a button press "long" */
+#define LONG_PRESS_TICKS    2000
+
+/* max tick count between successive quick taps */
+#define QUICK_TAP_INTERVAL_TICKS    500
+
+/* corresponding led position for the given hour */
+#define HOUR_POS(hour) ((hour % 12) * 5)
 
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 
@@ -49,10 +61,50 @@ static void configure_extint(void);
    * @param None
    * @retrn None
    */
+event_flags_t get_button_event_flags( void );
+  /* @brief check current button event flags
+   * @param None
+   * @retrn button event flags
+   */
+void enter_sleep( void );
+  /* @brief enter into standby sleep
+   * @param None
+   * @retrn None
+   */
+void wakeup( void );
+  /* @brief wakeup from sleep (e.g. enable sleeping modules)
+   * @param None
+   * @retrn None
+   */
+
+
+void main_tic ( void );
+  /* @brief main control loop update function
+   * @param None
+   * @retrn None
+   */
 
 //___ V A R I A B L E S ______________________________________________________
-static uint8_t error_status = 0; /* mask of error codes */
 static struct tc_module main_tc;
+
+
+struct {
+
+    /* Inactivity counter for sleeping.  Resets on any
+     * user activity (e.g. button press)
+     */
+    uint32_t inactivity_ticks;
+
+    /* Current button state */
+    bool button_state;
+
+    /* Counter for button ticks since pushed down */
+    uint32_t button_hold_ticks;
+
+    /* Count of multiple quick presses in a row */
+    uint8_t tap_count;
+
+} main_state;
 
 //___ F U N C T I O N S   ( P R I V A T E ) __________________________________
 
@@ -140,52 +192,55 @@ void wakeup (void) {
     accel_enable();
 }
 
+event_flags_t get_button_event_flags ( void ) {
 
-static void end_in_error ( void ) {
+    event_flags_t event_flags = 0;
+    bool new_btn_state = port_pin_get_input_level(BUTTON_PIN);
 
-    /* Display error codes on hour hand leds */
-    int i;
-
-    for (i = 0; i < 11; i++) {
-        if (error_status & (1 << i)) {
-            led_on(i);
-            led_set_blink(i, 5);
+    if (new_btn_state == BUTTON_UP &&
+            main_state.button_state == BUTTON_DOWN) {
+        /* button has been released */
+        main_state.button_state = BUTTON_UP;
+        if (main_state.tap_count == 0) {
+            /* End of a single button push */
+            if (main_state.button_hold_ticks  < LONG_PRESS_TICKS ) {
+                event_flags |= EV_FLAG_SINGLE_BTN_PRESS_END;
+            } else {
+                event_flags |= EV_FLAG_LONG_BTN_PRESS_END;
+            }
+        } else {
+            /* TODO -- multi-tap support */
+        }
+    } else if (new_btn_state == BUTTON_DOWN &&
+            main_state.button_state == BUTTON_UP) {
+        /* button has been pushed down */
+        main_state.button_state = BUTTON_DOWN;
+    } else {
+        /* button state has not changed */
+        if (main_state.button_state == BUTTON_DOWN) {
+            main_state.button_hold_ticks++;
+            if (main_state.button_hold_ticks > LONG_PRESS_TICKS) {
+                event_flags |= EV_FLAG_LONG_BTN_PRESS;
+            }
         }
     }
 
-    while(1);
+    return event_flags;
 }
 
-static void tick( void ) {
-
-    static uint16_t sleep_timeout = 0;
+void clock_mode_tic ( event_flags_t event_flags ) {
     static uint8_t hour = 0, minute = 0, second = 0;
+    static bool fast_inc = false;
+    static display_comp_t *second_disp_ptr = NULL;
+    static display_comp_t *minute_disp_ptr = NULL;
+    static display_comp_t *hour_disp_ptr = NULL;
+
     uint8_t hour_prev, minute_prev, second_prev;
-    static uint32_t button_down_cnt = 0;
-    static uint16_t ticks_since_last_sec;
-    bool fast_tick = false;
 
-
-    if (port_pin_get_input_level(BUTTON_PIN)) {
-        /* button is up */
-        sleep_timeout++;
-        button_down_cnt = 0;
-        fast_tick = false;
-        led_off(31);
-        if ( sleep_timeout > SLEEP_TIMEOUT_TICKS) {
-            /* Just released */
-            display_swirl(10, 100, 2, 64 );
-            enter_sleep();
-            wakeup();
-            sleep_timeout = 0;
-            }
-        }
-    else {
-        led_on(31);
-        sleep_timeout = 0;
-        button_down_cnt++;
-        if ( button_down_cnt > 5000 && button_down_cnt % 200 == 0) {
-
+#ifdef NOT_NOW_TIME_UPDATE_MODE
+    if (event_flags & EV_FLAG_LONG_BTN_PRESS) {
+        uint32_t button_down_ticks = main_get_button_hold_ticks();
+        if ( button_down_ticks > 5000 && button_down_ticks % 200 == 0) {
 
             aclock_get_time(&hour, &minute, &second);
             hour_prev = hour;
@@ -193,12 +248,12 @@ static void tick( void ) {
             second_prev = second;
 
 
-            if (!fast_tick && button_down_cnt > 15000) {
-                display_swirl(15, 50, 3, 64 );
-                fast_tick = true;
+            if (!fast_inc && button_down_ticks > 15000) {
+                anim_swirl(15, 50, 3, 64 );
+                fast_inc = true;
             }
 
-            if (fast_tick) {
+            if (fast_inc) {
                 minute++;
             } else {
                 second++;
@@ -224,57 +279,97 @@ static void tick( void ) {
 
 
             led_clear_all();
-            led_on((hour%12)*5);
-            led_set_intensity((hour%12)*5, 10);
-            led_set_intensity(minute, 6);
-            led_set_intensity(second, 1);
+            led_on((hour%12)*5, 10);
+            led_on(minute, 6);
+            led_on(second, 1);
 
         }
 
     }
 
+#endif
 
-    hour_prev = hour;
-    minute_prev = minute;
-    second_prev = second;
     /* Get latest time */
     aclock_get_time(&hour, &minute, &second);
 
-    /* If time change, disable previous leds */
-    if (hour != hour_prev)
-        led_off((hour_prev%12)*5);
-    if (minute != minute_prev)
-        led_off(minute_prev);
+    if (!second_disp_ptr)
+        second_disp_ptr = display_point(second, 1, BLINK_NONE);
 
-    if (second != second_prev) {
-        ticks_since_last_sec = 1;
-        led_off(second_prev);
-    }
+    if (!minute_disp_ptr)
+        minute_disp_ptr = display_point(minute, DEFAULT_BRIGHTNESS << 2, BLINK_NONE);
 
+    if (!hour_disp_ptr)
+        hour_disp_ptr = display_point(HOUR_POS(hour), DEFAULT_BRIGHTNESS, BLINK_NONE);
 
-    //led_set_intensity((hour%12)*5, 32);
-    //led_set_blink(minute, 15);
-    led_set_intensity(second, 31);
-
-    ticks_since_last_sec++;
-
-    if (ticks_since_last_sec < 128) {
-        led_set_intensity((second - 1) % 60, 16 - ticks_since_last_sec << 3);
-    } else {
-        led_off((second - 1) % 60);
-
-        if (ticks_since_last_sec > 872) {
-            led_set_intensity(second + 1,  16 - (1000 - ticks_since_last_sec) << 3);
-        }
-    }
-
-    led_set_intensity((hour%12)*5, MAX_BRIGHT_VAL);
-    led_set_intensity(minute, 30);
-
+    display_comp_update_pos(second_disp_ptr, second);
+    display_comp_update_pos(minute_disp_ptr, minute);
+    display_comp_update_pos(hour_disp_ptr, HOUR_POS(hour));
 
 }
 
+void main_tic( void ) {
+
+    static display_comp_t* btn_press_display_point = NULL;
+
+    event_flags_t event_flags = 0;
+
+
+    main_state.inactivity_ticks++;
+
+    event_flags |= get_button_event_flags();
+
+    /* Reset inactivity if any button event occurs */
+    if (event_flags != EV_FLAG_NONE) main_state.inactivity_ticks = 0;
+
+    /* Check for inactivity timeout */
+    if ( main_state.inactivity_ticks > SLEEP_TIMEOUT_TICKS) {
+            //display_swirl(10, 100, 2, 64 );
+            display_comp_t *line1_ptr, *line2_ptr;
+            line1_ptr = display_line(32, DEFAULT_BRIGHTNESS, 40, 4);
+            line2_ptr = display_line(58, DEFAULT_BRIGHTNESS, 40, 4);
+            delay_ms(400);
+            display_comp_release(line1_ptr);
+            display_comp_release(line2_ptr);
+            enter_sleep();
+            wakeup();
+            main_state.inactivity_ticks = 0;
+            return;
+    }
+
+    /* Button test code */
+    if (event_flags & EV_FLAG_LONG_BTN_PRESS) {
+        if (!btn_press_display_point)
+            btn_press_display_point = display_point(31, 5, 200);
+    } else if (event_flags & EV_FLAG_LONG_BTN_PRESS_END) {
+        if (btn_press_display_point) {
+            display_comp_hide(btn_press_display_point);
+        }
+    }
+    /* End button test code */
+
+    clock_mode_tic(event_flags);
+}
+
 //___ F U N C T I O N S ______________________________________________________
+
+
+void main_terminate_in_error ( uint8_t error_code ) {
+
+    /* Display error code led */
+    led_on(error_code, DEFAULT_BRIGHTNESS);
+
+    /* loop indefinitely */
+    while(1);
+}
+
+uint8_t main_get_multipress_count( void ) {
+    return main_state.tap_count;
+}
+
+
+uint32_t main_get_button_hold_ticks ( void ) {
+    return main_state.button_hold_ticks;
+}
 
 int main (void)
 {
@@ -308,20 +403,13 @@ int main (void)
     tc_enable(&main_tc);
     tc_start_counter(&main_tc);
 
-
-    if (!accel_init()) {
-        //error_status |= ACCEL_INIT_ERROR;
-    }
+    accel_init();
 
     led_controller_enable();
 
-    if (error_status != 0) {
-        end_in_error();
-    }
-
 
     /* Show a startup LED swirl */
-    display_swirl(10, 200, 2, 64);
+    //display_swirl(10, 200, 2, 64);
 
     /* get intial time */
     configure_input();
@@ -336,8 +424,8 @@ int main (void)
     while (1) {
         if (tc_get_status(&main_tc) & TC_STATUS_COUNT_OVERFLOW) {
             tc_clear_status(&main_tc, TC_STATUS_COUNT_OVERFLOW);
-            tick();
-            display_tick();
+            main_tic();
+            display_tic();
         }
     }
 

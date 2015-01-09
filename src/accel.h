@@ -36,7 +36,7 @@ void accel_disable ( void );
    * @retrn None
    */
 
-bool accel_init ( void );
+void accel_init ( void );
   /* @brief initialize accelerometer interface
    * @param None
    * @retrn success or failure

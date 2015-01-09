@@ -4,6 +4,7 @@
 
 //___ I N C L U D E S ________________________________________________________
 #include "accel.h"
+#include "main.h"
 
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
 
@@ -145,20 +146,18 @@ void accel_disable ( void ) {
   //FIXME -- sleep accelerometer
 }
 
-bool accel_init ( void ) {
+void accel_init ( void ) {
     uint8_t who_it_be;
 
     configure_i2c();
     if (!accel_register_consecutive_read (AX_REG_WHO_AM_I, 1, &who_it_be))
-        return false;
+        main_terminate_in_error(ERROR_ACCEL_READ_ID);
 
     if (who_it_be != WHO_IS_IT)
-        return false;
+        main_terminate_in_error(ERROR_ACCEL_BAD_ID);
 
     if (!accel_register_write (AX_REG_CTL1, 0x7F))
-        return false;
-
-    return true;
+        main_terminate_in_error(ERROR_ACCEL_WRITE_ENABLE);
 
 
 }
