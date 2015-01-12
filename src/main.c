@@ -308,7 +308,7 @@ void clock_mode_tic ( event_flags_t event_flags ) {
         minute_disp_ptr = display_point(minute, BRIGHT_DEFAULT, BLINK_NONE);
 
     if (!hour_disp_ptr)
-        hour_disp_ptr = display_point(HOUR_POS(hour), BRIGHT_DEFAULT, BLINK_NONE);
+        hour_disp_ptr = display_line(4 + HOUR_POS(hour), BRIGHT_DEFAULT, BLINK_NONE, 4);
 
     display_comp_update_pos(second_disp_ptr, second);
     display_comp_update_pos(minute_disp_ptr, minute);

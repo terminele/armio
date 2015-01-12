@@ -93,4 +93,3 @@ void led_set_state( uint8_t led_index, uint8_t blink, uint8_t intensity);
 
 
 #endif /* end of include guard: __LEDS_H__ */
-// vim: shiftwidth=2

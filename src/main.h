@@ -52,4 +52,3 @@ uint32_t main_get_button_hold_ticks( void );
    */
 
 #endif /* end of include guard: __CONTROL_H__ */
-// vim: shiftwidth=2

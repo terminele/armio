@@ -31,13 +31,13 @@ typedef enum {
 } display_type_t;
 
 typedef struct display_comp_t {
-  display_type_t type;
   bool on;
+  display_type_t type;
 
   uint16_t blink_interval;
   uint8_t brightness;
-  uint8_t pos;
-  uint8_t length;
+  int8_t pos;
+  int8_t length;
 
   struct display_comp_t *next, *prev;
 
@@ -60,7 +60,7 @@ void display_tic(void);
    * @retrn None
    */
 
-display_comp_t* display_point ( uint8_t pos,
+display_comp_t* display_point ( int8_t pos,
         uint8_t brightness, uint16_t blink_interval );
   /* @brief display a single point (led) at the given pos
    * @param pos -- led number 0-59
@@ -70,9 +70,9 @@ display_comp_t* display_point ( uint8_t pos,
    *   the point being displayed
    */
 
-display_comp_t* display_line ( uint8_t pos,
+display_comp_t* display_line ( int8_t pos,
         uint8_t brightness, uint16_t blink_interval,
-        uint8_t length);
+        int8_t length);
   /* @brief display a line of points (leds) starting at the given pos
    *     and ending clockwise n points from there
    * @param pos - head led number 0-59 (highest point of line clockwise)
@@ -80,29 +80,37 @@ display_comp_t* display_line ( uint8_t pos,
    * @param blink_interval - blink interval in milliseconds
    * @param length - length of line
    * @retrn handle to a display structure representing the
-   *   the point being displayed
+   *   the line being displayed
    */
 
-static inline void display_comp_update_pos ( display_comp_t *ptr, uint8_t pos ) {
-    led_off(ptr->pos);
-    ptr->pos = pos;
-}
+display_comp_t* display_polygon ( int8_t pos,
+        uint8_t brightness, uint16_t blink_interval,
+        int8_t num_sides);
+  /* @brief display a polygon of points (leds) starting at the given pos
+   * @param pos - starting vertex (led number 0-59)
+   * @param brightness - led intensity/brightness
+   * @param blink_interval - blink interval in milliseconds
+   * @param num sides - # of sides/vertices of polygon
+   * @retrn handle to a display structure representing the
+   *   the polygon being displayed
+   */
+
+
+void display_comp_update_pos ( display_comp_t *ptr, int8_t pos );
   /* @brief update the pos position of the given component
    * @param comp_ptr - handle to component to update
    * @param new_pos - new position for component
    * @retrn None
    */
 
-static inline void display_comp_hide (display_comp_t *ptr) {
-  led_off(ptr->pos); ptr->on = false;
-}
+void display_comp_hide (display_comp_t *ptr);
   /* @brief hide the given component from displaying
    * @param component handle to hide
    * @retrn None
    */
 
 static inline void display_comp_show (display_comp_t *ptr) { ptr->on = true; }
-  /* @brief show the previously hidden display component
+  /* @brief show a previously hidden display component
    * @param component handle to show
    * @retrn None
    */
@@ -135,4 +143,3 @@ void display_swirl(int tail_len, int tick_us,
 
 
 #endif /* end of include guard */
-// vim: shiftwidth=2

@@ -397,5 +397,3 @@ void led_clear_all( void ) {
     }
   }
 }
-
-// vim: shiftwidth=2
