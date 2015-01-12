@@ -10,6 +10,7 @@
 
 //___ M A C R O S ____________________________________________________________
 
+
 /* Event Flags */
 #define EV_FLAG_NONE                    0
 #define EV_FLAG_SINGLE_BTN_PRESS_END    1 << 1
@@ -21,7 +22,10 @@
 #define ERROR_ACCEL_READ_ID             1
 #define ERROR_ACCEL_BAD_ID              2
 #define ERROR_ACCEL_WRITE_ENABLE        3
-#define ERROR_DISP_DRAW_BAD_COMP_TYPE     4
+#define ERROR_DISP_DRAW_BAD_COMP_TYPE   4
+#define ERROR_ASSERTION_FAIL            5
+
+#define assert(B) if (!(B)) main_terminate_in_error(ERROR_ASSERTION_FAIL)
 
 //___ T Y P E D E F S ________________________________________________________
 typedef uint16_t event_flags_t;

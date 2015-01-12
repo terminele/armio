@@ -22,12 +22,12 @@
 #define BRIGHT_RES          5       /* bit resolution */
 #define BLINK_RES           3       /* bit resolution */
 
-#define BRIGHT_DEFAULT      ((1 << BRIGHT_RES) - 1) // default brightness level
+#define BRIGHT_DEFAULT      (1 << (BRIGHT_RES - 1))
 #define BLINK_DEFAULT       0       // default blink (0 == NONE)
 
 #define BLINK_FACTOR        5       /* ratio of blink units to vision persist interval */
 #define MAX_BRIGHT_VAL      ((1 << BRIGHT_RES) - 1)
-#define DEFAULT_BRIGHTNESS  (1 << (BRIGHT_RES - 1))
+#define MIN_BRIGHT_VAL      3
 #define MAX_BLINK_VAL       (BLINK_FACTOR * (1 << BLINK_RES) - 1)
 
 //___ T Y P E D E F S ________________________________________________________

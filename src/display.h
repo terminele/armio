@@ -14,6 +14,7 @@
 
 //___ I N C L U D E S ________________________________________________________
 #include <asf.h>
+#include "leds.h"
 
 //___ M A C R O S ____________________________________________________________
 
@@ -83,6 +84,7 @@ display_comp_t* display_line ( uint8_t pos,
    */
 
 static inline void display_comp_update_pos ( display_comp_t *ptr, uint8_t pos ) {
+    led_off(ptr->pos);
     ptr->pos = pos;
 }
   /* @brief update the pos position of the given component
@@ -91,7 +93,9 @@ static inline void display_comp_update_pos ( display_comp_t *ptr, uint8_t pos ) 
    * @retrn None
    */
 
-static inline void display_comp_hide (display_comp_t *ptr) { ptr->on = false; }
+static inline void display_comp_hide (display_comp_t *ptr) {
+  led_off(ptr->pos); ptr->on = false;
+}
   /* @brief hide the given component from displaying
    * @param component handle to hide
    * @retrn None

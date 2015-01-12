@@ -77,9 +77,14 @@ void wakeup( void );
    * @retrn None
    */
 
-
 void main_tic ( void );
   /* @brief main control loop update function
+   * @param None
+   * @retrn None
+   */
+
+void main_init( void );
+  /* @brief initialize main control module
    * @param None
    * @retrn None
    */
@@ -106,11 +111,14 @@ struct {
 
 } main_state;
 
+static display_comp_t *second_disp_ptr = NULL;
+static display_comp_t *minute_disp_ptr = NULL;
+static display_comp_t *hour_disp_ptr = NULL;
+
 //___ F U N C T I O N S   ( P R I V A T E ) __________________________________
 
 
 void configure_input(void) {
-
     /* Configure our button as an input */
     struct port_config pin_conf;
     port_get_config_defaults(&pin_conf);
@@ -143,7 +151,7 @@ static void configure_extint(void)
 	extint_chan_set_config(BUTTON_EIC_CHAN, &eint_chan_conf);
 
 }
-
+#ifdef CLOCK_OUTPUT
 void setup_clock_pin_outputs( void ) {
     /* For debugging purposes, multiplex our
      * clocks onto output pins.. GCLK gens 4 and 7
@@ -162,6 +170,7 @@ void setup_clock_pin_outputs( void ) {
     system_pinmux_pin_set_config(PIN_PA23H_GCLK_IO7, &pin_mux);
 
 }
+#endif
 
 void enter_sleep( void ) {
 
@@ -171,7 +180,8 @@ void enter_sleep( void ) {
 
     led_controller_disable();
     aclock_disable();
-    accel_disable();
+    //accel_disable();
+    tc_disable(&main_tc);
 
     //system_ahb_clock_clear_mask( PM_AHBMASK_HPB2 | PM_AHBMASK_DSU);
 
@@ -189,7 +199,8 @@ void wakeup (void) {
     system_interrupt_enable_global();
     led_controller_enable();
     aclock_enable();
-    accel_enable();
+    //accel_enable();
+    tc_enable(&main_tc);
 }
 
 event_flags_t get_button_event_flags ( void ) {
@@ -208,6 +219,7 @@ event_flags_t get_button_event_flags ( void ) {
             } else {
                 event_flags |= EV_FLAG_LONG_BTN_PRESS_END;
             }
+            main_state.button_hold_ticks = 0;
         } else {
             /* TODO -- multi-tap support */
         }
@@ -229,11 +241,8 @@ event_flags_t get_button_event_flags ( void ) {
 }
 
 void clock_mode_tic ( event_flags_t event_flags ) {
-    static uint8_t hour = 0, minute = 0, second = 0;
+    uint8_t hour = 0, minute = 0, second = 0;
     static bool fast_inc = false;
-    static display_comp_t *second_disp_ptr = NULL;
-    static display_comp_t *minute_disp_ptr = NULL;
-    static display_comp_t *hour_disp_ptr = NULL;
 
     uint8_t hour_prev, minute_prev, second_prev;
 
@@ -293,13 +302,13 @@ void clock_mode_tic ( event_flags_t event_flags ) {
     aclock_get_time(&hour, &minute, &second);
 
     if (!second_disp_ptr)
-        second_disp_ptr = display_point(second, 1, BLINK_NONE);
+        second_disp_ptr = display_point(second, MIN_BRIGHT_VAL, BLINK_NONE);
 
     if (!minute_disp_ptr)
-        minute_disp_ptr = display_point(minute, DEFAULT_BRIGHTNESS << 2, BLINK_NONE);
+        minute_disp_ptr = display_point(minute, BRIGHT_DEFAULT, BLINK_NONE);
 
     if (!hour_disp_ptr)
-        hour_disp_ptr = display_point(HOUR_POS(hour), DEFAULT_BRIGHTNESS, BLINK_NONE);
+        hour_disp_ptr = display_point(HOUR_POS(hour), BRIGHT_DEFAULT, BLINK_NONE);
 
     display_comp_update_pos(second_disp_ptr, second);
     display_comp_update_pos(minute_disp_ptr, minute);
@@ -313,7 +322,6 @@ void main_tic( void ) {
 
     event_flags_t event_flags = 0;
 
-
     main_state.inactivity_ticks++;
 
     event_flags |= get_button_event_flags();
@@ -323,23 +331,28 @@ void main_tic( void ) {
 
     /* Check for inactivity timeout */
     if ( main_state.inactivity_ticks > SLEEP_TIMEOUT_TICKS) {
+            display_comp_t* display_comp_ptr = NULL;
             //display_swirl(10, 100, 2, 64 );
-            display_comp_t *line1_ptr, *line2_ptr;
-            line1_ptr = display_line(32, DEFAULT_BRIGHTNESS, 40, 4);
-            line2_ptr = display_line(58, DEFAULT_BRIGHTNESS, 40, 4);
+            //display_comp_t *line1_ptr, *line2_ptr;
+            //line1_ptr = display_line(32, BRIGHT_DEFAULT, 40, 4);
+            //line2_ptr = display_line(58, BRIGHT_DEFAULT, 40, 4);
+            //display_comp_ptr = display_point(31, BRIGHT_DEFAULT, 200);
+            led_on(30, BRIGHT_DEFAULT);
             delay_ms(400);
-            display_comp_release(line1_ptr);
-            display_comp_release(line2_ptr);
+            led_off(30);
+            //display_comp_release(display_comp_ptr);
+            //display_comp_release(line1_ptr);
+            //display_comp_release(line2_ptr);
             enter_sleep();
             wakeup();
             main_state.inactivity_ticks = 0;
             return;
     }
-
     /* Button test code */
     if (event_flags & EV_FLAG_LONG_BTN_PRESS) {
         if (!btn_press_display_point)
             btn_press_display_point = display_point(31, 5, 200);
+        display_comp_show(btn_press_display_point);
     } else if (event_flags & EV_FLAG_LONG_BTN_PRESS_END) {
         if (btn_press_display_point) {
             display_comp_hide(btn_press_display_point);
@@ -356,7 +369,8 @@ void main_tic( void ) {
 void main_terminate_in_error ( uint8_t error_code ) {
 
     /* Display error code led */
-    led_on(error_code, DEFAULT_BRIGHTNESS);
+    led_clear_all();
+    led_on(error_code, BRIGHT_DEFAULT);
 
     /* loop indefinitely */
     while(1);
@@ -370,25 +384,15 @@ uint8_t main_get_multipress_count( void ) {
 uint32_t main_get_button_hold_ticks ( void ) {
     return main_state.button_hold_ticks;
 }
+void main_init( void ) {
 
-int main (void)
-{
     struct tc_config config_tc;
 
-    system_init();
-    system_apb_clock_clear_mask (SYSTEM_CLOCK_APB_APBB, PM_APBAMASK_WDT);
-    system_set_sleepmode(SYSTEM_SLEEPMODE_STANDBY);
-
-    /* Errata 39.3.2 -- device may not wake up from
-     * standby if nvm goes to sleep.  May not be necessary
-     * for samd21e15/16 if revision E
-     */
-    //NVMCTRL->CTRLB.bit.SLEEPPRM = NVMCTRL_CTRLB_SLEEPPRM_DISABLED_Val;
-
-    delay_init();
-    aclock_init();
-    led_controller_init();
-    display_init();
+    /* Initalize main state */
+    main_state.button_hold_ticks = 0;
+    main_state.tap_count = 0;
+    main_state.inactivity_ticks = 0;
+    main_state.button_state = BUTTON_UP;
 
     /* Configure main timer counter */
     tc_get_config_defaults( &config_tc );
@@ -401,20 +405,41 @@ int main (void)
 
     tc_init(&main_tc, MAIN_TIMER, &config_tc);
     tc_enable(&main_tc);
-    tc_start_counter(&main_tc);
 
-    accel_init();
+}
 
+int main (void)
+{
+
+    system_init();
+    system_apb_clock_clear_mask (SYSTEM_CLOCK_APB_APBB, PM_APBAMASK_WDT);
+    system_set_sleepmode(SYSTEM_SLEEPMODE_STANDBY);
+
+    /* Errata 39.3.2 -- device may not wake up from
+     * standby if nvm goes to sleep.  May not be necessary
+     * for samd21e15/16 if revision E
+     */
+    //NVMCTRL->CTRLB.bit.SLEEPPRM = NVMCTRL_CTRLB_SLEEPPRM_DISABLED_Val;
+
+    delay_init();
+    main_init();
+    aclock_init();
+    led_controller_init();
     led_controller_enable();
+    display_init();
+
+    //accel_init();
 
 
     /* Show a startup LED swirl */
     //display_swirl(10, 200, 2, 64);
+    led_on(0, BRIGHT_DEFAULT);
+    delay_ms(500);
+    led_off(0);
 
     /* get intial time */
     configure_input();
     system_interrupt_enable_global();
-
     while (!port_pin_get_input_level(BUTTON_PIN)) {
         //if btn down at startup, zero out time
         //and dont continue until released

@@ -16,7 +16,6 @@
 
 //___ I N C L U D E S ________________________________________________________
 #include <asf.h>
-#include "leds.h"
 #include "display.h"
 #include "utlist.h"
 #include "main.h"
@@ -55,7 +54,7 @@ void draw_comp( display_comp_t* comp_ptr);
 //___ V A R I A B L E S ______________________________________________________
 
 /* statically allocate maximum number of display components */
-display_comp_t component_allocs[MAX_ALLOCATIONS];
+display_comp_t component_allocs[MAX_ALLOCATIONS] = {{0}};
 
 
 /* pointer to head of active component list */
@@ -146,7 +145,6 @@ display_comp_t* display_point ( uint8_t pos,
 
     return comp_ptr;
 
-
 }
 
 display_comp_t* display_line ( uint8_t pos,
@@ -171,6 +169,7 @@ display_comp_t* display_line ( uint8_t pos,
 
 
 void display_comp_release (display_comp_t *comp_ptr) {
+    led_off(comp_ptr->pos);
     comp_ptr->type = dispt_unused;
 
     DL_DELETE(head_component_ptr, comp_ptr);
@@ -189,7 +188,6 @@ void display_tic(void) {
 }
 
 void display_init(void) {
-
 
 }
 

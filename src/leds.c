@@ -138,7 +138,7 @@ static void configure_tc ( void );
 
 
 //___ V A R I A B L E S ______________________________________________________
-const uint32_t LED_BANK_GPIO_PINS[BANK_COUNT] = {
+const uint8_t LED_BANK_GPIO_PINS[BANK_COUNT] = {
   PIN_PA17,
   PIN_PA18,
   PIN_PA25,
@@ -146,7 +146,7 @@ const uint32_t LED_BANK_GPIO_PINS[BANK_COUNT] = {
   PIN_PA23
 };
 
-const uint32_t LED_SEGMENT_GPIO_PINS[SEGMENT_COUNT] = {
+const uint8_t LED_SEGMENT_GPIO_PINS[SEGMENT_COUNT] = {
   PIN_PA16,
   PIN_PA15,
   PIN_PA14,
@@ -389,8 +389,7 @@ void led_clear_all( void ) {
   uint8_t bank, segment;
   /* clear (disable) all active leds */
 
-  SEGMENTS_CLEAR();
-  BANKS_CLEAR();
+  BANKS_SEGMENTS_CLEAR();
 
   for( bank = 0; bank < BANK_COUNT; bank++ ) {
     for( segment = 0; segment < SEGMENT_COUNT; segment++ ) {

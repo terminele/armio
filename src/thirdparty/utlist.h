@@ -26,7 +26,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define UTLIST_VERSION 1.9.9
 
-#define assert(B) if (!(B))  *((int *) NULL) = 0
 
 /*
  * This file contains macros to manipulate singly and doubly-linked lists.
