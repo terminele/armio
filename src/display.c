@@ -22,7 +22,7 @@
 
 
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
-#define MAX_ALLOCATIONS     64
+#define MAX_ALLOCATIONS     16
 #define MOD(a,b) ((a % b) < 0 ? a + b : a % b)
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 
@@ -36,7 +36,7 @@ display_comp_t* comp_alloc ( void );
    */
 
 void comp_free ( display_comp_t* ptr );
-  /* @brief free a new display component
+  /* @brief free a display component
    * @param pointer to comp to free
    * @retrn None
    */

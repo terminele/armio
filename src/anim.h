@@ -1,0 +1,77 @@
+/** file:       anim.h
+  * created:   2015-01-12 13:29:48
+  * author:     Richard Bryan
+  */
+
+#ifndef __ANIM_H__
+#define __ANIM_H__
+
+//___ I N C L U D E S ________________________________________________________
+#include "display.h"
+#include "utlist.h"
+
+//___ M A C R O S ____________________________________________________________
+#define ANIMATION_DURATION_INF -1
+
+//___ T Y P E D E F S ________________________________________________________
+
+typedef enum {
+    anim_unused = 0,
+    anim_rotate_cw,
+    anim_rotate_ccw,
+    anim_random,
+    anim_fade_in,
+    anim_fade_out
+} animation_type_t;
+
+typedef struct animation_t {
+    animation_type_t type;
+    display_comp_t *disp_comp;
+    bool enabled;
+    uint16_t interval_counter;
+    uint16_t tick_interval; //update interval in ticks
+    int32_t tick_duration; //duration in ticks
+    uint8_t step; //only applicable for rotations
+    struct animation_t *next, *prev;
+} animation_t;
+
+//___ V A R I A B L E S ______________________________________________________
+
+//___ P R O T O T Y P E S ____________________________________________________
+
+animation_t* anim_rotate(display_comp_t *disp_comp,
+        bool clockwise, uint16_t tick_interval, int32_t duration);
+  /* @brief animate the given display component rotating
+   * @param clockwise - true for clockwise rotation, false for opposite (ccw)
+   * @param disp_comp - display component to animate
+   * @param tick_interval - rotation rate in ticks (i.e. ms)
+   * @param duration - duration of animation in ticks or
+   *    ANIMATION_DURATION_INF for indefinite animation
+   * @retrn animation reference handle
+   */
+
+void anim_stop( animation_t *anim);
+  /* @brief stop the given animation
+   * @param animation reference handle to stop
+   * @retrn None
+   */
+void anim_release( animation_t *anim);
+  /* @brief release/free the given animation
+   * @param animation obj to free
+   * @retrn None
+   */
+
+void anim_tic( void );
+  /* @brief animation update function
+   * @param None
+   * @retrn None
+   */
+
+void anim_init( void );
+  /* @brief initialize animation module
+   * @param None
+   * @retrn None
+   */
+
+
+#endif /* end of include guard: __ANIM_H__ */

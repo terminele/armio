@@ -1,13 +1,14 @@
 /**
- * \file main.c
+ * \file display_test.c
  *
- * \brief main application entry point for armio
+ * \brief test display/animation modules
  *
  */
 
 #include <asf.h>
 #include "leds.h"
 #include "display.h"
+#include "anim.h"
 #include "main.h"
 
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
@@ -41,20 +42,22 @@ static struct tc_module main_tc;
 void main_tic( void ) {
     static uint32_t tick_cnt = 0;
     static display_comp_t* display_comp = NULL;
+    static animation_t *anim = NULL;
     static int8_t polycount = 3;
 
     tick_cnt++;
 
-    if (!display_comp)
+    if (!display_comp) {
         display_comp = display_line(0, BRIGHT_DEFAULT, BLINK_NONE, 5);
-
-    if (tick_cnt % 20 == 0)
-        display_comp_update_pos(display_comp, (display_comp->pos + 1) % 60);
+        anim = anim_rotate(display_comp, false, 20, 1200);
+    }
 
     if (tick_cnt % 1200 == 1199) {
         display_comp_release(display_comp);
+        anim_release(anim);
         //display_comp = display_point(polycount, BRIGHT_DEFAULT, BLINK_NONE);
         display_comp = display_polygon(0, BRIGHT_DEFAULT, BLINK_NONE, polycount);
+        anim = anim_rotate(display_comp, polycount % 2, 40, 2400);
         polycount++;
     }
 
@@ -128,6 +131,7 @@ int main (void)
         if (tc_get_status(&main_tc) & TC_STATUS_COUNT_OVERFLOW) {
             tc_clear_status(&main_tc, TC_STATUS_COUNT_OVERFLOW);
             main_tic();
+            anim_tic();
             display_tic();
         }
     }

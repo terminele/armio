@@ -113,6 +113,7 @@ CSRCS += \
     src/display.c					       	\
     src/aclock.c					       	\
     src/accel.c						       	\
+    src/anim.c						       	\
     src/asf/common/utils/interrupt/interrupt_sam_nvic.c        	\
     src/asf/common2/services/delay/sam0/systick_counter.c      	\
     src/asf/sam0/drivers/events/events.c                      	\
