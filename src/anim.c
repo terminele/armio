@@ -69,7 +69,9 @@ void anim_update( animation_t *anim ) {
                     60 + anim->disp_comp->pos - anim->step :
                     anim->disp_comp->pos - anim->step);
             break;
-        case anim_random:
+        case anim_rand:
+            display_comp_update_pos(anim->disp_comp,
+                    rand() % 60);
             break;
         case anim_fade_in:
             break;
@@ -97,6 +99,24 @@ animation_t* anim_rotate(display_comp_t *disp_comp,
     anim->tick_duration = duration;
     anim->prev = anim->next = NULL;
     anim->step = 1;
+
+    DL_APPEND(head_anim_ptr, anim);
+
+    return anim;
+}
+
+animation_t* anim_random( display_comp_t *disp_comp,
+        uint16_t tick_interval, int32_t duration) {
+
+    animation_t *anim = anim_alloc();
+
+    anim->type = anim_rand;
+    anim->enabled = true;
+    anim->disp_comp = disp_comp;
+    anim->tick_interval = tick_interval;
+    anim->interval_counter = 0;
+    anim->tick_duration = duration;
+    anim->prev = anim->next = NULL;
 
     DL_APPEND(head_anim_ptr, anim);
 

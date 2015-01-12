@@ -43,22 +43,32 @@ void main_tic( void ) {
     static uint32_t tick_cnt = 0;
     static display_comp_t* display_comp = NULL;
     static animation_t *anim = NULL;
-    static int8_t polycount = 3;
+    static int8_t polycount = 0;
 
     tick_cnt++;
 
-    if (!display_comp) {
-        display_comp = display_line(0, BRIGHT_DEFAULT, BLINK_NONE, 5);
-        anim = anim_rotate(display_comp, false, 20, 1200);
-    }
+    if (tick_cnt % 2000 != 1)
+        return;
 
-    if (tick_cnt % 1200 == 1199) {
-        display_comp_release(display_comp);
-        anim_release(anim);
-        //display_comp = display_point(polycount, BRIGHT_DEFAULT, BLINK_NONE);
-        display_comp = display_polygon(0, BRIGHT_DEFAULT, BLINK_NONE, polycount);
-        anim = anim_rotate(display_comp, polycount % 2, 40, 2400);
-        polycount++;
+    polycount++;
+
+    switch (polycount) {
+        case 1:
+            display_comp = display_point(0, BRIGHT_DEFAULT, BLINK_NONE);
+            anim = anim_random(display_comp, 10, ANIMATION_DURATION_INF);
+            break;
+        case 2:
+            display_comp_release(display_comp);
+            anim_release(anim);
+            display_comp = display_line(0, BRIGHT_DEFAULT, BLINK_NONE, 5);
+            anim = anim_rotate(display_comp, true, 10, 1200);
+            break;
+        default:
+            display_comp_release(display_comp);
+            anim_release(anim);
+            display_comp = display_polygon(0, BRIGHT_DEFAULT, BLINK_NONE, polycount);
+            anim = anim_rotate(display_comp, polycount % 2, 40, 2400);
+            polycount++;
     }
 
 

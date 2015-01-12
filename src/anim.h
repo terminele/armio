@@ -19,7 +19,7 @@ typedef enum {
     anim_unused = 0,
     anim_rotate_cw,
     anim_rotate_ccw,
-    anim_random,
+    anim_rand,
     anim_fade_in,
     anim_fade_out
 } animation_type_t;
@@ -45,6 +45,15 @@ animation_t* anim_rotate(display_comp_t *disp_comp,
    * @param clockwise - true for clockwise rotation, false for opposite (ccw)
    * @param disp_comp - display component to animate
    * @param tick_interval - rotation rate in ticks (i.e. ms)
+   * @param duration - duration of animation in ticks or
+   *    ANIMATION_DURATION_INF for indefinite animation
+   * @retrn animation reference handle
+   */
+animation_t* anim_random( display_comp_t *disp_comp,
+        uint16_t tick_interval, int32_t duration);
+  /* @brief animate display comp with random positions
+   * @param disp_comp - display component to animate
+   * @param tick_interval - how often to update position
    * @param duration - duration of animation in ticks or
    *    ANIMATION_DURATION_INF for indefinite animation
    * @retrn animation reference handle
