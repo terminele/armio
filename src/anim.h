@@ -28,18 +28,20 @@ typedef struct animation_t {
     animation_type_t type;
     display_comp_t *disp_comp;
     bool enabled;
+    bool autorelease_disp_comp; //for display components we allocate
     uint16_t interval_counter;
     uint16_t tick_interval; //update interval in ticks
     int32_t tick_duration; //duration in ticks
     uint8_t step; //only applicable for rotations
     struct animation_t *next, *prev;
+
 } animation_t;
 
 //___ V A R I A B L E S ______________________________________________________
 
 //___ P R O T O T Y P E S ____________________________________________________
 
-animation_t* anim_rotate(display_comp_t *disp_comp,
+animation_t* anim_rotate( display_comp_t *disp_comp,
         bool clockwise, uint16_t tick_interval, int32_t duration);
   /* @brief animate the given display component rotating
    * @param clockwise - true for clockwise rotation, false for opposite (ccw)
@@ -50,7 +52,7 @@ animation_t* anim_rotate(display_comp_t *disp_comp,
    * @retrn animation reference handle
    */
 animation_t* anim_random( display_comp_t *disp_comp,
-        uint16_t tick_interval, int32_t duration);
+        uint16_t tick_interval, int32_t duration );
   /* @brief animate display comp with random positions
    * @param disp_comp - display component to animate
    * @param tick_interval - how often to update position
@@ -59,12 +61,31 @@ animation_t* anim_random( display_comp_t *disp_comp,
    * @retrn animation reference handle
    */
 
-void anim_stop( animation_t *anim);
+animation_t* anim_swirl(uint8_t len, uint16_t tick_interval,
+        uint8_t revolutions, bool clockwise);
+  /* @brief convenience function for creating and
+   *  animating a finite swirling snake
+   * @param len - snake length
+   * @param tick_interval - rotation rate in ticks (i.e. ms)
+   * @param revolutions - # of revolutions before finishing
+   * @param clockwise - true for clockwise rotation, false for opposite (ccw)
+   * @retrn handle to swirl animation object
+   */
+
+static inline bool anim_is_finished ( animation_t *anim ) {
+    return !anim->enabled;
+}
+  /* @brief check if the given animation has finished
+   * @param animation reference handle to check
+   * @retrn true if finished, else false
+   */
+
+void anim_stop( animation_t *anim );
   /* @brief stop the given animation
    * @param animation reference handle to stop
    * @retrn None
    */
-void anim_release( animation_t *anim);
+void anim_release( animation_t *anim );
   /* @brief release/free the given animation
    * @param animation obj to free
    * @retrn None

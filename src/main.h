@@ -23,8 +23,9 @@
 #define ERROR_ACCEL_BAD_ID              2
 #define ERROR_ACCEL_WRITE_ENABLE        3
 #define ERROR_DISP_DRAW_BAD_COMP_TYPE   4
-#define ERROR_ANIM_BAD_TYPE             5
-#define ERROR_ASSERTION_FAIL            6
+#define ERROR_DISP_CLEAR_BAD_COMP_TYPE  5
+#define ERROR_ANIM_BAD_TYPE             6
+#define ERROR_ASSERTION_FAIL            7
 
 #define assert(B) if (!(B)) main_terminate_in_error(ERROR_ASSERTION_FAIL)
 

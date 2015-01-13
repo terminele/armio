@@ -76,7 +76,7 @@ display_comp_t *comp_alloc( void ) {
 
     for (i=0; i < MAX_ALLOCATIONS; i++) {
         if (component_allocs[i].type == dispt_unused)
-            return &(component_allocs[i]);
+            return component_allocs + i;
     }
 
     assert(false);
@@ -96,14 +96,12 @@ void comp_draw( display_comp_t* comp) {
         led_on(comp->pos, comp->brightness);
         break;
       case dispt_line:
-        pos = MOD(comp->pos - comp->length, 60);
+      case dispt_snake: //TODO - snake
+        pos = MOD(comp->pos - comp->length + 1, 60);
         while (pos != comp->pos) {
           led_on(pos, comp->brightness);
           pos = (pos + 1 ) % 60;
         }
-        break;
-      case dispt_snake:
-        //TODO
         break;
       case dispt_polygon:
         for (tmp = 0; tmp < comp->length; tmp++) {
@@ -139,33 +137,13 @@ void comp_leds_clear(  display_comp_t *comp ) {
         }
         break;
       default:
-        main_terminate_in_error( 30); //ERROR_DISP_DRAW_BAD_COMP_TYPE );
+        main_terminate_in_error( ERROR_DISP_CLEAR_BAD_COMP_TYPE );
         break;
     }
 
 }
 
 //___ F U N C T I O N S ______________________________________________________
-
-
-void display_swirl(int tail_len, int tick_us, int revolutions, int max_intensity) {
-    while(revolutions) {
-        for (int i=0; i < 60; i++) {
-            /* light up current swirl segment */
-            for ( int j = 0; j  < tail_len; j++ ) {
-                uint8_t intensity = 1 + j*max_intensity/tail_len;
-                led_set_intensity((i+j) % 60, intensity);
-            }
-            delay_us(tick_us);
-            led_off(i);
-        }
-
-    led_clear_all();
-    revolutions--;
-    }
-
-
-}
 
 
 display_comp_t* display_point ( int8_t pos,
@@ -208,6 +186,28 @@ display_comp_t* display_line ( int8_t pos,
     return comp_ptr;
 }
 
+display_comp_t* display_snake ( int8_t pos,
+        uint8_t brightness, uint16_t blink_interval,
+        int8_t length) {
+
+    display_comp_t *comp_ptr = comp_alloc();
+
+    comp_ptr->type = dispt_snake;
+    comp_ptr->on = true;
+    comp_ptr->brightness = brightness;
+    comp_ptr->blink_interval = blink_interval;
+    comp_ptr->pos = pos;
+    comp_ptr->length = length;
+
+    comp_ptr->next = comp_ptr->prev = NULL;
+
+    DL_APPEND(head_component_ptr, comp_ptr);
+
+    return comp_ptr;
+}
+
+
+
 display_comp_t* display_polygon ( int8_t pos,
         uint8_t brightness, uint16_t blink_interval,
         int8_t num_sides) {
@@ -232,6 +232,28 @@ void display_comp_hide (display_comp_t *comp) {
     comp->on = false;
     comp_leds_clear(comp);
 }
+
+void display_comp_hide_all ( void ) {
+  display_comp_t* comp_ptr;
+
+  DL_FOREACH(head_component_ptr, comp_ptr) {
+        comp_ptr->on = false;
+  }
+
+  led_clear_all();
+
+}
+
+
+void display_comp_show_all ( void ) {
+  display_comp_t* comp_ptr;
+
+  DL_FOREACH(head_component_ptr, comp_ptr) {
+        comp_ptr->on = true;
+  }
+
+}
+
 void display_comp_update_pos ( display_comp_t *comp, int8_t pos ) {
     comp_leds_clear(comp);
     comp->pos = pos;

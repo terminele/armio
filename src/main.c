@@ -7,6 +7,7 @@
 
 #include <asf.h>
 #include "leds.h"
+#include "anim.h"
 #include "display.h"
 #include "aclock.h"
 #include "accel.h"
@@ -42,6 +43,11 @@
 
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 
+typedef enum ctl_state_t {
+    STARTUP = 0,
+    RUNNING,
+    ENTERING_SLEEP,
+} ctl_state_t;
 
 //___ P R O T O T Y P E S   ( P R I V A T E ) ________________________________
 void configure_input( void );
@@ -109,11 +115,14 @@ struct {
     /* Count of multiple quick presses in a row */
     uint8_t tap_count;
 
-} main_state;
+    ctl_state_t state;
+
+} main_globals;
 
 static display_comp_t *second_disp_ptr = NULL;
 static display_comp_t *minute_disp_ptr = NULL;
 static display_comp_t *hour_disp_ptr = NULL;
+static animation_t *sleep_wake_anim = NULL;
 
 //___ F U N C T I O N S   ( P R I V A T E ) __________________________________
 
@@ -209,29 +218,29 @@ event_flags_t get_button_event_flags ( void ) {
     bool new_btn_state = port_pin_get_input_level(BUTTON_PIN);
 
     if (new_btn_state == BUTTON_UP &&
-            main_state.button_state == BUTTON_DOWN) {
+            main_globals.button_state == BUTTON_DOWN) {
         /* button has been released */
-        main_state.button_state = BUTTON_UP;
-        if (main_state.tap_count == 0) {
+        main_globals.button_state = BUTTON_UP;
+        if (main_globals.tap_count == 0) {
             /* End of a single button push */
-            if (main_state.button_hold_ticks  < LONG_PRESS_TICKS ) {
+            if (main_globals.button_hold_ticks  < LONG_PRESS_TICKS ) {
                 event_flags |= EV_FLAG_SINGLE_BTN_PRESS_END;
             } else {
                 event_flags |= EV_FLAG_LONG_BTN_PRESS_END;
             }
-            main_state.button_hold_ticks = 0;
+            main_globals.button_hold_ticks = 0;
         } else {
             /* TODO -- multi-tap support */
         }
     } else if (new_btn_state == BUTTON_DOWN &&
-            main_state.button_state == BUTTON_UP) {
+            main_globals.button_state == BUTTON_UP) {
         /* button has been pushed down */
-        main_state.button_state = BUTTON_DOWN;
+        main_globals.button_state = BUTTON_DOWN;
     } else {
         /* button state has not changed */
-        if (main_state.button_state == BUTTON_DOWN) {
-            main_state.button_hold_ticks++;
-            if (main_state.button_hold_ticks > LONG_PRESS_TICKS) {
+        if (main_globals.button_state == BUTTON_DOWN) {
+            main_globals.button_hold_ticks++;
+            if (main_globals.button_hold_ticks > LONG_PRESS_TICKS) {
                 event_flags |= EV_FLAG_LONG_BTN_PRESS;
             }
         }
@@ -308,7 +317,8 @@ void clock_mode_tic ( event_flags_t event_flags ) {
         minute_disp_ptr = display_point(minute, BRIGHT_DEFAULT, BLINK_NONE);
 
     if (!hour_disp_ptr)
-        hour_disp_ptr = display_line(4 + HOUR_POS(hour), BRIGHT_DEFAULT, BLINK_NONE, 4);
+        hour_disp_ptr = display_point(HOUR_POS(hour), MAX_BRIGHT_VAL, BLINK_NONE);
+
 
     display_comp_update_pos(second_disp_ptr, second);
     display_comp_update_pos(minute_disp_ptr, minute);
@@ -322,45 +332,48 @@ void main_tic( void ) {
 
     event_flags_t event_flags = 0;
 
-    main_state.inactivity_ticks++;
+    main_globals.inactivity_ticks++;
 
     event_flags |= get_button_event_flags();
 
     /* Reset inactivity if any button event occurs */
-    if (event_flags != EV_FLAG_NONE) main_state.inactivity_ticks = 0;
+    if (event_flags != EV_FLAG_NONE) main_globals.inactivity_ticks = 0;
 
-    /* Check for inactivity timeout */
-    if ( main_state.inactivity_ticks > SLEEP_TIMEOUT_TICKS) {
-            display_comp_t* display_comp_ptr = NULL;
-            //display_swirl(10, 100, 2, 64 );
-            //display_comp_t *line1_ptr, *line2_ptr;
-            //line1_ptr = display_line(32, BRIGHT_DEFAULT, 40, 4);
-            //line2_ptr = display_line(58, BRIGHT_DEFAULT, 40, 4);
-            //display_comp_ptr = display_point(31, BRIGHT_DEFAULT, 200);
-            led_on(30, BRIGHT_DEFAULT);
-            delay_ms(400);
-            led_off(30);
-            //display_comp_release(display_comp_ptr);
-            //display_comp_release(line1_ptr);
-            //display_comp_release(line2_ptr);
-            enter_sleep();
-            wakeup();
-            main_state.inactivity_ticks = 0;
+    switch (main_globals.state) {
+        case STARTUP:
+            /* Stay in startup until animation is finished */
+            if (anim_is_finished(sleep_wake_anim)) {
+                main_globals.state = RUNNING;
+                anim_release(sleep_wake_anim);
+            }
             return;
-    }
-    /* Button test code */
-    if (event_flags & EV_FLAG_LONG_BTN_PRESS) {
-        if (!btn_press_display_point)
-            btn_press_display_point = display_point(31, 5, 200);
-        display_comp_show(btn_press_display_point);
-    } else if (event_flags & EV_FLAG_LONG_BTN_PRESS_END) {
-        if (btn_press_display_point) {
-            display_comp_hide(btn_press_display_point);
-        }
-    }
-    /* End button test code */
 
-    clock_mode_tic(event_flags);
+        case ENTERING_SLEEP:
+            /* Wait until animation is finished to sleep */
+            if (anim_is_finished(sleep_wake_anim)) {
+                anim_release(sleep_wake_anim);
+                enter_sleep();
+
+                wakeup();
+                // FIXME -- should have a mode-specific "wakeup"
+                display_comp_show_all();
+                main_globals.inactivity_ticks = 0;
+                main_globals.state = RUNNING;
+            }
+            return;
+        case RUNNING:
+            /* Check for inactivity timeout */
+            if ( main_globals.inactivity_ticks > SLEEP_TIMEOUT_TICKS) {
+                main_globals.state = ENTERING_SLEEP;
+                // FIXME -- should have a mode-specific "about to sleep"
+                display_comp_hide_all();
+                sleep_wake_anim = anim_swirl(5, 4, 2, false);
+                return;
+            }
+            /* FIXME -- multiple mode handler */
+            clock_mode_tic(event_flags);
+            break;
+    }
 }
 
 //___ F U N C T I O N S ______________________________________________________
@@ -370,29 +383,35 @@ void main_terminate_in_error ( uint8_t error_code ) {
 
     /* Display error code led */
     led_clear_all();
-    led_on(error_code, BRIGHT_DEFAULT);
 
-    /* loop indefinitely */
-    while(1);
+    /* blink error code indefinitely */
+    while(1) {
+        led_on(error_code, BRIGHT_DEFAULT);
+        delay_ms(100);
+        led_off(error_code);
+        delay_ms(100);
+
+    }
 }
 
 uint8_t main_get_multipress_count( void ) {
-    return main_state.tap_count;
+    return main_globals.tap_count;
 }
 
 
 uint32_t main_get_button_hold_ticks ( void ) {
-    return main_state.button_hold_ticks;
+    return main_globals.button_hold_ticks;
 }
 void main_init( void ) {
 
     struct tc_config config_tc;
 
     /* Initalize main state */
-    main_state.button_hold_ticks = 0;
-    main_state.tap_count = 0;
-    main_state.inactivity_ticks = 0;
-    main_state.button_state = BUTTON_UP;
+    main_globals.button_hold_ticks = 0;
+    main_globals.tap_count = 0;
+    main_globals.inactivity_ticks = 0;
+    main_globals.button_state = BUTTON_UP;
+    main_globals.state = STARTUP;
 
     /* Configure main timer counter */
     tc_get_config_defaults( &config_tc );
@@ -427,15 +446,14 @@ int main (void)
     led_controller_init();
     led_controller_enable();
     display_init();
+    anim_init();
 
     //accel_init();
 
 
+
     /* Show a startup LED swirl */
-    //display_swirl(10, 200, 2, 64);
-    led_on(0, BRIGHT_DEFAULT);
-    delay_ms(500);
-    led_off(0);
+    sleep_wake_anim = anim_swirl(5, 4, 2, true);
 
     /* get intial time */
     configure_input();
@@ -450,6 +468,7 @@ int main (void)
         if (tc_get_status(&main_tc) & TC_STATUS_COUNT_OVERFLOW) {
             tc_clear_status(&main_tc, TC_STATUS_COUNT_OVERFLOW);
             main_tic();
+            anim_tic();
             display_tic();
         }
     }

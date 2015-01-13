@@ -47,7 +47,7 @@ void main_tic( void ) {
 
     tick_cnt++;
 
-    if (tick_cnt % 2000 != 1)
+    if (tick_cnt % 4000 != 1)
         return;
 
     polycount++;
@@ -61,13 +61,13 @@ void main_tic( void ) {
             display_comp_release(display_comp);
             anim_release(anim);
             display_comp = display_line(0, BRIGHT_DEFAULT, BLINK_NONE, 5);
-            anim = anim_rotate(display_comp, true, 10, 1200);
+            anim = anim_rotate(display_comp, true, 5, ANIMATION_DURATION_INF);
             break;
         default:
             display_comp_release(display_comp);
             anim_release(anim);
             display_comp = display_polygon(0, BRIGHT_DEFAULT, BLINK_NONE, polycount);
-            anim = anim_rotate(display_comp, polycount % 2, 40, 2400);
+            anim = anim_rotate(display_comp, polycount % 2, 40, ANIMATION_DURATION_INF);
             polycount++;
     }
 

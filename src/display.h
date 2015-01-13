@@ -83,6 +83,20 @@ display_comp_t* display_line ( int8_t pos,
    *   the line being displayed
    */
 
+
+display_comp_t* display_snake ( int8_t pos,
+        uint8_t brightness, uint16_t blink_interval,
+        int8_t length);
+  /* @brief same as display_line() but led intensity
+   *    decreases with distance from head led
+   * @param pos - head led number 0-59 (highest point of line clockwise)
+   * @param brightness - led intensity/brightness
+   * @param blink_interval - blink interval in milliseconds
+   * @param length - length of snake
+   * @retrn handle to a display structure representing the
+   *   the snake
+   */
+
 display_comp_t* display_polygon ( int8_t pos,
         uint8_t brightness, uint16_t blink_interval,
         int8_t num_sides);
@@ -109,6 +123,16 @@ void display_comp_hide (display_comp_t *ptr);
    * @retrn None
    */
 
+void display_comp_hide_all ( void );
+  /* @brief hide all current display components
+   * @retrn None
+   */
+
+void display_comp_show_all ( void );
+  /* @brief show all current display components
+   * @retrn None
+   */
+
 static inline void display_comp_show (display_comp_t *ptr) { ptr->on = true; }
   /* @brief show a previously hidden display component
    * @param component handle to show
@@ -127,19 +151,6 @@ void display_refresh(void);
    * @param None
    * @retrn None
    */
-
-void display_swirl(int tail_len, int tick_us,
-    int revolutions, int max_intensity);
-  /* @brief display a 'snake' of leds swirling around the display
-   * @param tail_len -- number of leds in the snake
-   * @param tick_us -- microseconds between moving the head forward 1 led
-   * @param swirl_count -- # of revolutions before returning
-   * @param max_intensity -- brightness of the head led
-   * @retrn None
-   *
-   * ### doesnt work very well with tail longer than ~20
-   */
-
 
 
 #endif /* end of include guard */

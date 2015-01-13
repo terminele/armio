@@ -94,6 +94,7 @@ animation_t* anim_rotate(display_comp_t *disp_comp,
     anim->type = clockwise ? anim_rotate_cw : anim_rotate_ccw;
     anim->enabled = true;
     anim->disp_comp = disp_comp;
+    anim->autorelease_disp_comp = false;
     anim->tick_interval = tick_interval;
     anim->interval_counter = 0;
     anim->tick_duration = duration;
@@ -112,6 +113,8 @@ animation_t* anim_random( display_comp_t *disp_comp,
 
     anim->type = anim_rand;
     anim->enabled = true;
+    anim->autorelease_disp_comp = false;
+    anim->tick_interval = tick_interval;
     anim->disp_comp = disp_comp;
     anim->tick_interval = tick_interval;
     anim->interval_counter = 0;
@@ -123,24 +126,46 @@ animation_t* anim_random( display_comp_t *disp_comp,
     return anim;
 }
 
+animation_t* anim_swirl(uint8_t len, uint16_t tick_interval,
+        uint8_t revolutions, bool clockwise) {
+    display_comp_t *disp_comp = display_snake((int8_t)len - 1, BRIGHT_DEFAULT, BLINK_NONE, len);
+    animation_t *anim = anim_rotate(disp_comp, clockwise, tick_interval,
+            revolutions * 60 * tick_interval);
+
+    anim->autorelease_disp_comp = true;
+
+    return anim;
+
+}
+
 void anim_stop( animation_t *anim) {
     anim->enabled = false;
 }
 
 void anim_release( animation_t *anim) {
+    if (anim->autorelease_disp_comp)
+        display_comp_release(anim->disp_comp);
+
     anim_free(anim);
+
 }
 
 void anim_tic( void ) {
     animation_t *anim = NULL;
 
     DL_FOREACH(head_anim_ptr, anim) {
+        if (anim->tick_duration > 0) {
+            anim->tick_duration--;
+            if (anim->tick_duration == 0) {
+                anim->enabled = false;
+            }
+        }
+
         anim->interval_counter++;
-        if (anim->interval_counter == anim->tick_interval) {
+        if (anim->enabled && anim->interval_counter == anim->tick_interval) {
             anim->interval_counter = 0;
             anim_update(anim);
         }
-
 
     }
 }
