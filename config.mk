@@ -116,6 +116,7 @@ CSRCS += \
     src/anim.c						       	\
     src/asf/common/utils/interrupt/interrupt_sam_nvic.c        	\
     src/asf/common2/services/delay/sam0/systick_counter.c      	\
+    src/asf/sam0/drivers/adc/adc.c                      	\
     src/asf/sam0/drivers/events/events.c                      	\
     src/asf/sam0/drivers/extint/extint.c                      	\
     src/asf/sam0/drivers/extint/extint_callback.c             	\
@@ -147,6 +148,7 @@ INC_PATH = \
     src/asf/common/utils                                       \
     src/asf/common2/services/delay                             \
     src/asf/common2/services/delay/sam0                        \
+    src/asf/sam0/drivers/adc				       \
     src/asf/sam0/drivers/events				       \
     src/asf/sam0/drivers/extint				       \
     src/asf/sam0/drivers/port                                  \
@@ -217,8 +219,9 @@ CFLAGS = -mtune=$(ARCH)
 #
 # The most relevant symbols to define for the preprocessor are:
 CPPFLAGS = \
-       -D I2C_MASTER_CALLBACK_MODE=false			  \
+       -D I2C_MASTER_CALLBACK_MODE=false		  \
        -D ARM_MATH_CM0=true                               \
+       -D ADC_CALLBACK_MODE=false		     	  \
        -D RTC_CALENDAR_ASYNC=true 		          \
        -D EXTINT_CALLBACK_MODE=true		          \
        -D EVENTS_INTERRUPT_HOOKS_MODE=false               \

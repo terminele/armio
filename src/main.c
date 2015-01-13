@@ -47,6 +47,7 @@ typedef enum ctl_state_t {
     STARTUP = 0,
     RUNNING,
     ENTERING_SLEEP,
+    MODE_TRANSITION
 } ctl_state_t;
 
 //___ P R O T O T Y P E S   ( P R I V A T E ) ________________________________
@@ -123,9 +124,21 @@ static display_comp_t *second_disp_ptr = NULL;
 static display_comp_t *minute_disp_ptr = NULL;
 static display_comp_t *hour_disp_ptr = NULL;
 static animation_t *sleep_wake_anim = NULL;
+static struct adc_module adc_instance;
 
 //___ F U N C T I O N S   ( P R I V A T E ) __________________________________
 
+
+void configure_adc(void)
+{
+	struct adc_config config_adc;
+	adc_get_config_defaults(&config_adc);
+        config_adc.reference = ADC_REFERENCE_INTVCC0;
+        config_adc.positive_input = ADC_POSITIVE_INPUT_PIN1;
+	adc_init(&adc_instance, ADC, &config_adc);
+
+	adc_enable(&adc_instance);
+}
 
 void configure_input(void) {
     /* Configure our button as an input */
@@ -141,7 +154,7 @@ void configure_input(void) {
     port_get_config_defaults(&pin_conf);
     pin_conf.direction = PORT_PIN_DIR_OUTPUT;
     port_pin_set_config(LIGHT_BATT_ENABLE_PIN, &pin_conf);
-    port_pin_set_output_level(LIGHT_BATT_ENABLE_PIN, 0);
+    port_pin_set_output_level(LIGHT_BATT_ENABLE_PIN, true);
 
   }
 
@@ -247,6 +260,60 @@ event_flags_t get_button_event_flags ( void ) {
     }
 
     return event_flags;
+}
+
+
+uint8_t adc_value_scale ( uint16_t value ) {
+
+    if (value >= 2048)
+        return (55 + (value >> 8)) % 60;
+
+    if (value >= 1024)
+        return 47 + (value >> 7);
+
+    if (value >= 512)
+        return 39 + (value >> 6);
+
+    if (value >= 256)
+        return 31 + (value >> 5);
+
+    if (value >= 128)
+        return 23 + (value >> 4);
+
+    if (value >= 64)
+        return 19 + (value >> 4);
+
+    if (value >= 32)
+        return 15 + (value >> 3);
+
+    if (value >= 16)
+        return 11 + (value >> 2);
+
+    if (value >= 8)
+        return 7 + (value >> 1);
+
+    return value;
+
+}
+
+void light_sense_mode_tic ( event_flags_t event_flags ) {
+    bool waiting = false;
+    static display_comp_t *adc_pt = NULL;
+    uint16_t result;
+
+    if (!adc_pt) {
+        adc_pt = display_point(0, BRIGHT_DEFAULT, BLINK_NONE);
+    }
+
+    if (!waiting) {
+        adc_start_conversion(&adc_instance);
+        waiting = true;
+    }
+
+    if (adc_read(&adc_instance, &result) == STATUS_OK) {
+        waiting = false;
+        display_comp_update_pos(adc_pt, adc_value_scale(result));//(result/68) % 60);
+    }
 }
 
 void clock_mode_tic ( event_flags_t event_flags ) {
@@ -363,7 +430,7 @@ void main_tic( void ) {
             return;
         case RUNNING:
             /* Check for inactivity timeout */
-            if ( main_globals.inactivity_ticks > SLEEP_TIMEOUT_TICKS) {
+            if ( false && main_globals.inactivity_ticks > SLEEP_TIMEOUT_TICKS) {
                 main_globals.state = ENTERING_SLEEP;
                 // FIXME -- should have a mode-specific "about to sleep"
                 display_comp_hide_all();
@@ -371,7 +438,9 @@ void main_tic( void ) {
                 return;
             }
             /* FIXME -- multiple mode handler */
-            clock_mode_tic(event_flags);
+            //clock_mode_tic(event_flags);
+            light_sense_mode_tic(event_flags);
+
             break;
     }
 }
@@ -448,6 +517,7 @@ int main (void)
     display_init();
     anim_init();
 
+    configure_adc();
     //accel_init();
 
 

@@ -56,6 +56,8 @@
 #include <compiler.h>
 #include <status_codes.h>
 
+#include <adc.h>
+
 // From module: Delay routines
 #include <delay.h>
 
