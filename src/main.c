@@ -6,12 +6,13 @@
  */
 
 #include <asf.h>
-#include "leds.h"
-#include "anim.h"
 #include "display.h"
-#include "aclock.h"
-#include "accel.h"
+#include "anim.h"
 #include "main.h"
+#include "leds.h"
+#include "accel.h"
+#include "aclock.h"
+#include "control.h"
 
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
 #define BUTTON_PIN          PIN_PA31
@@ -23,14 +24,14 @@
 #define BUTTON_DOWN         false
 
 #define LIGHT_BATT_ENABLE_PIN       PIN_PA30
-#define BATT_ADC_PIN                PIN_PA02
-#define LIGHT_ADC_PIN               PIN_PA03
+#define VBATT_ADC_PIN                ADC_POSITIVE_INPUT_PIN0
+#define LIGHT_ADC_PIN               ADC_POSITIVE_INPUT_PIN1
 
 
 #define MAIN_TIMER  TC5
 
 #define MAIN_TIMER_TICK_US      1000
-#define SLEEP_TIMEOUT_TICKS     7000
+#define DEFAULT_SLEEP_TIMEOUT_TICKS     7000
 
 /* tick count before considering a button press "long" */
 #define LONG_PRESS_TICKS    2000
@@ -38,17 +39,15 @@
 /* max tick count between successive quick taps */
 #define QUICK_TAP_INTERVAL_TICKS    500
 
-/* corresponding led position for the given hour */
-#define HOUR_POS(hour) ((hour % 12) * 5)
 
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 
-typedef enum ctl_state_t {
+typedef enum main_state_t {
     STARTUP = 0,
     RUNNING,
     ENTERING_SLEEP,
     MODE_TRANSITION
-} ctl_state_t;
+} main_state_t;
 
 //___ P R O T O T Y P E S   ( P R I V A T E ) ________________________________
 void configure_input( void );
@@ -116,15 +115,17 @@ struct {
     /* Count of multiple quick presses in a row */
     uint8_t tap_count;
 
-    ctl_state_t state;
+    uint16_t light_sensor_adc_val;
+    uint16_t vbatt_sensor_adc_val;
+
+    main_state_t state;
 
 } main_globals;
 
-static display_comp_t *second_disp_ptr = NULL;
-static display_comp_t *minute_disp_ptr = NULL;
-static display_comp_t *hour_disp_ptr = NULL;
 static animation_t *sleep_wake_anim = NULL;
-static struct adc_module adc_instance;
+static animation_t *mode_trans_anim = NULL;
+static struct adc_module light_sens_adc;
+static struct adc_module vbatt_sens_adc;
 
 //___ F U N C T I O N S   ( P R I V A T E ) __________________________________
 
@@ -134,10 +135,15 @@ void configure_adc(void)
 	struct adc_config config_adc;
 	adc_get_config_defaults(&config_adc);
         config_adc.reference = ADC_REFERENCE_INTVCC0;
-        config_adc.positive_input = ADC_POSITIVE_INPUT_PIN1;
-	adc_init(&adc_instance, ADC, &config_adc);
+        config_adc.positive_input = LIGHT_ADC_PIN;
+	adc_init(&light_sens_adc, ADC, &config_adc);
+        adc_enable(&light_sens_adc);
 
-	adc_enable(&adc_instance);
+	adc_get_config_defaults(&config_adc);
+        config_adc.reference = ADC_REFERENCE_INT1V;
+        config_adc.positive_input = VBATT_ADC_PIN;
+	adc_init(&vbatt_sens_adc, ADC, &config_adc);
+	adc_enable(&vbatt_sens_adc);
 }
 
 void configure_input(void) {
@@ -200,6 +206,7 @@ void enter_sleep( void ) {
     extint_chan_enable_callback(BUTTON_EIC_CHAN,
                     EXTINT_CALLBACK_TYPE_DETECT);
 
+    port_pin_set_output_level(LIGHT_BATT_ENABLE_PIN, false);
     led_controller_disable();
     aclock_disable();
     //accel_disable();
@@ -263,141 +270,10 @@ event_flags_t get_button_event_flags ( void ) {
 }
 
 
-uint8_t adc_value_scale ( uint16_t value ) {
-
-    if (value >= 2048)
-        return (55 + (value >> 8)) % 60;
-
-    if (value >= 1024)
-        return 47 + (value >> 7);
-
-    if (value >= 512)
-        return 39 + (value >> 6);
-
-    if (value >= 256)
-        return 31 + (value >> 5);
-
-    if (value >= 128)
-        return 23 + (value >> 4);
-
-    if (value >= 64)
-        return 19 + (value >> 4);
-
-    if (value >= 32)
-        return 15 + (value >> 3);
-
-    if (value >= 16)
-        return 11 + (value >> 2);
-
-    if (value >= 8)
-        return 7 + (value >> 1);
-
-    return value;
-
-}
-
-void light_sense_mode_tic ( event_flags_t event_flags ) {
-    bool waiting = false;
-    static display_comp_t *adc_pt = NULL;
-    uint16_t result;
-
-    if (!adc_pt) {
-        adc_pt = display_point(0, BRIGHT_DEFAULT, BLINK_NONE);
-    }
-
-    if (!waiting) {
-        adc_start_conversion(&adc_instance);
-        waiting = true;
-    }
-
-    if (adc_read(&adc_instance, &result) == STATUS_OK) {
-        waiting = false;
-        display_comp_update_pos(adc_pt, adc_value_scale(result));//(result/68) % 60);
-    }
-}
-
-void clock_mode_tic ( event_flags_t event_flags ) {
-    uint8_t hour = 0, minute = 0, second = 0;
-    static bool fast_inc = false;
-
-    uint8_t hour_prev, minute_prev, second_prev;
-
-#ifdef NOT_NOW_TIME_UPDATE_MODE
-    if (event_flags & EV_FLAG_LONG_BTN_PRESS) {
-        uint32_t button_down_ticks = main_get_button_hold_ticks();
-        if ( button_down_ticks > 5000 && button_down_ticks % 200 == 0) {
-
-            aclock_get_time(&hour, &minute, &second);
-            hour_prev = hour;
-            minute_prev = minute;
-            second_prev = second;
-
-
-            if (!fast_inc && button_down_ticks > 15000) {
-                anim_swirl(15, 50, 3, 64 );
-                fast_inc = true;
-            }
-
-            if (fast_inc) {
-                minute++;
-            } else {
-                second++;
-                if (second > 59) {
-                    second = 0;
-                    minute++;
-                }
-            }
-
-            if (minute > 59) {
-                minute = 0;
-                hour = (hour + 1) % 12;
-            }
-
-            aclock_set_time(hour, minute, second);
-            /* If time change, disable previous leds */
-            if (hour != hour_prev)
-                led_off((hour_prev%12)*5);
-            if (minute != minute_prev)
-                led_off(minute_prev);
-            if (second != second_prev)
-                led_off(second_prev);
-
-
-            led_clear_all();
-            led_on((hour%12)*5, 10);
-            led_on(minute, 6);
-            led_on(second, 1);
-
-        }
-
-    }
-
-#endif
-
-    /* Get latest time */
-    aclock_get_time(&hour, &minute, &second);
-
-    if (!second_disp_ptr)
-        second_disp_ptr = display_point(second, MIN_BRIGHT_VAL, BLINK_NONE);
-
-    if (!minute_disp_ptr)
-        minute_disp_ptr = display_point(minute, BRIGHT_DEFAULT, BLINK_NONE);
-
-    if (!hour_disp_ptr)
-        hour_disp_ptr = display_point(HOUR_POS(hour), MAX_BRIGHT_VAL, BLINK_NONE);
-
-
-    display_comp_update_pos(second_disp_ptr, second);
-    display_comp_update_pos(minute_disp_ptr, minute);
-    display_comp_update_pos(hour_disp_ptr, HOUR_POS(hour));
-
-}
-
 void main_tic( void ) {
 
-    static display_comp_t* btn_press_display_point = NULL;
-
     event_flags_t event_flags = 0;
+    bool mode_transition = false;
 
     main_globals.inactivity_ticks++;
 
@@ -422,24 +298,48 @@ void main_tic( void ) {
                 enter_sleep();
 
                 wakeup();
-                // FIXME -- should have a mode-specific "wakeup"
-                display_comp_show_all();
+
+                if (control_mode_active->on_wakeup_cb)
+                    control_mode_active->on_wakeup_cb();
+                else
+                    display_comp_show_all();
+
                 main_globals.inactivity_ticks = 0;
                 main_globals.state = RUNNING;
             }
             return;
         case RUNNING:
             /* Check for inactivity timeout */
-            if ( false && main_globals.inactivity_ticks > SLEEP_TIMEOUT_TICKS) {
+            if ( main_globals.inactivity_ticks > \
+                    control_mode_active->sleep_timeout_ticks) {
                 main_globals.state = ENTERING_SLEEP;
-                // FIXME -- should have a mode-specific "about to sleep"
-                display_comp_hide_all();
+
+                if (control_mode_active->about_to_sleep_cb)
+                    control_mode_active->about_to_sleep_cb();
+                else
+                    display_comp_hide_all();
+
                 sleep_wake_anim = anim_swirl(5, 4, 2, false);
                 return;
             }
-            /* FIXME -- multiple mode handler */
-            //clock_mode_tic(event_flags);
-            light_sense_mode_tic(event_flags);
+
+            mode_transition = control_mode_active->tic_cb(event_flags);
+
+            if (mode_transition) {
+                main_globals.state = MODE_TRANSITION;
+                main_globals.button_hold_ticks = 0;
+                mode_trans_anim = anim_swirl(2, 2, 2, false);
+
+            }
+
+            break;
+
+        case MODE_TRANSITION:
+            if (anim_is_finished(mode_trans_anim)) {
+                anim_release(mode_trans_anim);
+                control_mode_next();
+                main_globals.state = RUNNING;
+            }
 
             break;
     }
@@ -461,6 +361,41 @@ void main_terminate_in_error ( uint8_t error_code ) {
         delay_ms(100);
 
     }
+}
+
+void main_start_light_batt_sensor_read ( void ) {
+
+    port_pin_set_output_level(LIGHT_BATT_ENABLE_PIN, true);
+
+    if (!(adc_get_status(&light_sens_adc) & ADC_STATUS_RESULT_READY))
+        adc_start_conversion(&light_sens_adc);
+
+    if (!(adc_get_status(&vbatt_sens_adc) & ADC_STATUS_RESULT_READY))
+        adc_start_conversion(&vbatt_sens_adc);
+
+
+}
+
+uint16_t main_get_light_sensor_value ( void ) {
+    uint16_t result;
+
+    if (adc_read(&light_sens_adc, &result) == STATUS_OK) {
+        main_globals.light_sensor_adc_val = result;
+        adc_clear_status(&light_sens_adc, ADC_STATUS_RESULT_READY);
+    }
+
+    return main_globals.light_sensor_adc_val;
+}
+
+uint16_t main_get_vbatt_sensor_value ( void ) {
+    uint16_t result;
+
+    if (adc_read(&vbatt_sens_adc, &result) == STATUS_OK) {
+        main_globals.vbatt_sensor_adc_val = result;
+        adc_clear_status(&vbatt_sens_adc, ADC_STATUS_RESULT_READY);
+    }
+
+    return main_globals.vbatt_sensor_adc_val;
 }
 
 uint8_t main_get_multipress_count( void ) {
@@ -514,6 +449,7 @@ int main (void)
     aclock_init();
     led_controller_init();
     led_controller_enable();
+    control_init();
     display_init();
     anim_init();
 

@@ -3,8 +3,8 @@
   * author:     Richard Bryan
   */
 
-#ifndef __CONTROL_H__
-#define __CONTROL_H__
+#ifndef __MAIN_H__
+#define __MAIN_H__
 
 //___ I N C L U D E S ________________________________________________________
 
@@ -41,6 +41,24 @@ void main_terminate_in_error( uint8_t error_code);
    * @retrn None
    */
 
+void main_start_light_batt_sensor_read ( void );
+  /* @brief start an adc read of light and vbatt sensors
+   * @param None
+   * @retrn None
+   */
+
+uint16_t main_get_light_sensor_value ( void );
+  /* @brief get most recent light sensor adc value
+   * @param None
+   * @retrn None
+   */
+
+uint16_t main_get_vbatt_sensor_value ( void );
+  /* @brief get most recent vbatt sensor adc value
+   * @param None
+   * @retrn None
+   */
+
 uint8_t main_get_multipress_count( void );
   /* @brief get number of taps for a multi-tap event
    * @param None
@@ -53,4 +71,4 @@ uint32_t main_get_button_hold_ticks( void );
    * @retrn # of button ticks since long press started
    */
 
-#endif /* end of include guard: __CONTROL_H__ */
+#endif /* end of include guard: __MAIN_H__ */

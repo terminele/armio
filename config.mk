@@ -109,11 +109,12 @@ endif
 
 # List of additional C source files.
 CSRCS += \
-    src/leds.c						       	\
-    src/display.c					       	\
     src/aclock.c					       	\
     src/accel.c						       	\
     src/anim.c						       	\
+    src/control.c						       	\
+    src/display.c					       	\
+    src/leds.c						       	\
     src/asf/common/utils/interrupt/interrupt_sam_nvic.c        	\
     src/asf/common2/services/delay/sam0/systick_counter.c      	\
     src/asf/sam0/drivers/adc/adc.c                      	\
