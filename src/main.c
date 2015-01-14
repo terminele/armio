@@ -193,12 +193,14 @@ void enter_sleep( void ) {
     extint_chan_enable_callback(BUTTON_EIC_CHAN,
                     EXTINT_CALLBACK_TYPE_DETECT);
 
+    if (light_vbatt_sens_adc.hw)
+        adc_disable(&light_vbatt_sens_adc);
+
     port_pin_set_output_level(LIGHT_BATT_ENABLE_PIN, false);
     led_controller_disable();
     aclock_disable();
     //accel_disable();
     tc_disable(&main_tc);
-    //adc_disable(&light_vbatt_sens_adc);
 
     //system_ahb_clock_clear_mask( PM_AHBMASK_HPB2 | PM_AHBMASK_DSU);
 
@@ -209,6 +211,9 @@ void enter_sleep( void ) {
 void wakeup (void) {
 
     //system_ahb_clock_set_mask( PM_AHBMASK_HPB2 | PM_AHBMASK_DSU);
+
+    if (light_vbatt_sens_adc.hw)
+        adc_enable(&light_vbatt_sens_adc);
 
     extint_chan_disable_callback(BUTTON_EIC_CHAN,
                     EXTINT_CALLBACK_TYPE_DETECT);
@@ -372,7 +377,7 @@ void main_set_current_sensor ( sensor_type_t sensor ) {
 
     /* Average samples to produce each value */
     config_adc.resolution         = ADC_RESOLUTION_CUSTOM;
-    config_adc.accumulate_samples = ADC_ACCUMULATE_SAMPLES_256;
+    config_adc.accumulate_samples = ADC_ACCUMULATE_SAMPLES_1024;
     config_adc.divide_result      = ADC_DIVIDE_RESULT_16;
 
     switch(sensor) {

@@ -58,14 +58,14 @@ control_mode_t control_modes[] = {
     {
         .init_cb = NULL,
         .tic_cb = light_sense_mode_tic,
-        .sleep_timeout_ticks = 300000,
+        .sleep_timeout_ticks = 30000,
         .about_to_sleep_cb = NULL,
         .on_wakeup_cb = NULL,
     },
     {
         .init_cb = NULL,
         .tic_cb = vbatt_sense_mode_tic,
-        .sleep_timeout_ticks = 300000,
+        .sleep_timeout_ticks = 30000,
         .about_to_sleep_cb = NULL,
         .on_wakeup_cb = NULL,
     }
@@ -130,12 +130,13 @@ bool light_sense_mode_tic ( event_flags_t event_flags ) {
         adc_pt = display_point(0, BRIGHT_DEFAULT, BLINK_NONE);
     }
 
-    tick_count++;
 
     main_start_sensor_read();
 
     adc_val = main_read_current_sensor();
     display_comp_update_pos(adc_pt, adc_value_scale(adc_val));
+
+    tick_count++;
 
     return false;
 }
@@ -161,9 +162,9 @@ bool vbatt_sense_mode_tic ( event_flags_t event_flags ) {
         adc_pt = display_point(0, BRIGHT_DEFAULT, BLINK_NONE);
     }
 
-    tick_count++;
 
-    main_start_sensor_read();
+    if (tick_count % 1000 == 0)
+        main_start_sensor_read();
 
     adc_val = main_read_current_sensor();
     if (adc_val <= 2048)
@@ -172,6 +173,8 @@ bool vbatt_sense_mode_tic ( event_flags_t event_flags ) {
         adc_val = adc_val - 2048;
 
     display_comp_update_pos(adc_pt, (adc_val/34) % 60);
+
+    tick_count++;
 
     return false;
 }
