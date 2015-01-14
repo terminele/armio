@@ -29,6 +29,13 @@ bool light_sense_mode_tic ( event_flags_t event_flags );
    * @param event flags
    * @retrn None
    */
+
+bool vbatt_sense_mode_tic ( event_flags_t event_flags );
+  /* @brief main tick callback for vbatt sensor display mode
+   * @param event flags
+   * @retrn None
+   */
+
 uint8_t adc_value_scale ( uint16_t value );
   /* @brief scales an adc read quasi-logarithmically
    * for displaying on led ring
@@ -51,7 +58,14 @@ control_mode_t control_modes[] = {
     {
         .init_cb = NULL,
         .tic_cb = light_sense_mode_tic,
-        .sleep_timeout_ticks = 30000,
+        .sleep_timeout_ticks = 300000,
+        .about_to_sleep_cb = NULL,
+        .on_wakeup_cb = NULL,
+    },
+    {
+        .init_cb = NULL,
+        .tic_cb = vbatt_sense_mode_tic,
+        .sleep_timeout_ticks = 300000,
         .about_to_sleep_cb = NULL,
         .on_wakeup_cb = NULL,
     }
@@ -100,11 +114,15 @@ bool light_sense_mode_tic ( event_flags_t event_flags ) {
     uint16_t adc_val;
     static uint32_t tick_count = 0;
 
+    if (tick_count == 0)
+        main_set_current_sensor(sensor_light);
+
     if (event_flags & EV_FLAG_LONG_BTN_PRESS) {
         if (adc_pt) {
             display_comp_release(adc_pt);
             adc_pt = NULL;
         }
+        tick_count = 0;
         return true; //transition on long presses
     }
 
@@ -114,26 +132,62 @@ bool light_sense_mode_tic ( event_flags_t event_flags ) {
 
     tick_count++;
 
-    main_start_light_batt_sensor_read();
+    main_start_sensor_read();
 
-    adc_val = main_get_light_sensor_value();
+    adc_val = main_read_current_sensor();
     display_comp_update_pos(adc_pt, adc_value_scale(adc_val));
 
     return false;
 }
 
+bool vbatt_sense_mode_tic ( event_flags_t event_flags ) {
+    static display_comp_t *adc_pt = NULL;
+    uint16_t adc_val;
+    static uint32_t tick_count = 0;
+
+    if (tick_count == 0)
+        main_set_current_sensor(sensor_vbatt);
+
+    if (event_flags & EV_FLAG_LONG_BTN_PRESS) {
+        if (adc_pt) {
+            display_comp_release(adc_pt);
+            adc_pt = NULL;
+        }
+        tick_count = 0;
+        return true; //transition on long presses
+    }
+
+    if (!adc_pt) {
+        adc_pt = display_point(0, BRIGHT_DEFAULT, BLINK_NONE);
+    }
+
+    tick_count++;
+
+    main_start_sensor_read();
+
+    adc_val = main_read_current_sensor();
+    if (adc_val <= 2048)
+        adc_val;
+    else
+        adc_val = adc_val - 2048;
+
+    display_comp_update_pos(adc_pt, (adc_val/34) % 60);
+
+    return false;
+}
 bool clock_mode_tic ( event_flags_t event_flags ) {
     uint8_t hour = 0, minute = 0, second = 0;
-    static display_comp_t *second_disp_ptr = NULL;
-    static display_comp_t *minute_disp_ptr = NULL;
+    static display_comp_t *sec_disp_ptr = NULL;
+    static display_comp_t *min_disp_ptr = NULL;
     static display_comp_t *hour_disp_ptr = NULL;
 
 
     if (event_flags & EV_FLAG_LONG_BTN_PRESS) {
-        if (second_disp_ptr) {
-            display_comp_release(second_disp_ptr);
-            display_comp_release(minute_disp_ptr);
+        if (sec_disp_ptr) {
+            display_comp_release(sec_disp_ptr);
+            display_comp_release(min_disp_ptr);
             display_comp_release(hour_disp_ptr);
+            sec_disp_ptr = min_disp_ptr = hour_disp_ptr = NULL;
         }
         return true; //transition on long presses
     }
@@ -193,18 +247,18 @@ bool clock_mode_tic ( event_flags_t event_flags ) {
     /* Get latest time */
     aclock_get_time(&hour, &minute, &second);
 
-    if (!second_disp_ptr)
-        second_disp_ptr = display_point(second, MIN_BRIGHT_VAL, BLINK_NONE);
+    if (!sec_disp_ptr)
+        sec_disp_ptr = display_point(second, MIN_BRIGHT_VAL, BLINK_NONE);
 
-    if (!minute_disp_ptr)
-        minute_disp_ptr = display_point(minute, BRIGHT_DEFAULT, BLINK_NONE);
+    if (!min_disp_ptr)
+        min_disp_ptr = display_point(minute, BRIGHT_DEFAULT, BLINK_NONE);
 
     if (!hour_disp_ptr)
         hour_disp_ptr = display_point(HOUR_POS(hour), MAX_BRIGHT_VAL, BLINK_NONE);
 
 
-    display_comp_update_pos(second_disp_ptr, second);
-    display_comp_update_pos(minute_disp_ptr, minute);
+    display_comp_update_pos(sec_disp_ptr, second);
+    display_comp_update_pos(min_disp_ptr, minute);
     display_comp_update_pos(hour_disp_ptr, HOUR_POS(hour));
 
     return false;

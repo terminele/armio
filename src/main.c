@@ -24,7 +24,7 @@
 #define BUTTON_DOWN         false
 
 #define LIGHT_BATT_ENABLE_PIN       PIN_PA30
-#define VBATT_ADC_PIN                ADC_POSITIVE_INPUT_PIN0
+#define VBATT_ADC_PIN               ADC_POSITIVE_INPUT_SCALEDIOVCC
 #define LIGHT_ADC_PIN               ADC_POSITIVE_INPUT_PIN1
 
 
@@ -115,8 +115,11 @@ struct {
     /* Count of multiple quick presses in a row */
     uint8_t tap_count;
 
+    /* sensors */
+    sensor_type_t current_sensor;
     uint16_t light_sensor_adc_val;
     uint16_t vbatt_sensor_adc_val;
+
 
     main_state_t state;
 
@@ -124,27 +127,12 @@ struct {
 
 static animation_t *sleep_wake_anim = NULL;
 static animation_t *mode_trans_anim = NULL;
-static struct adc_module light_sens_adc;
-static struct adc_module vbatt_sens_adc;
+
+static struct adc_module light_vbatt_sens_adc;
 
 //___ F U N C T I O N S   ( P R I V A T E ) __________________________________
 
 
-void configure_adc(void)
-{
-	struct adc_config config_adc;
-	adc_get_config_defaults(&config_adc);
-        config_adc.reference = ADC_REFERENCE_INTVCC0;
-        config_adc.positive_input = LIGHT_ADC_PIN;
-	adc_init(&light_sens_adc, ADC, &config_adc);
-        adc_enable(&light_sens_adc);
-
-	adc_get_config_defaults(&config_adc);
-        config_adc.reference = ADC_REFERENCE_INT1V;
-        config_adc.positive_input = VBATT_ADC_PIN;
-	adc_init(&vbatt_sens_adc, ADC, &config_adc);
-	adc_enable(&vbatt_sens_adc);
-}
 
 void configure_input(void) {
     /* Configure our button as an input */
@@ -160,7 +148,6 @@ void configure_input(void) {
     port_get_config_defaults(&pin_conf);
     pin_conf.direction = PORT_PIN_DIR_OUTPUT;
     port_pin_set_config(LIGHT_BATT_ENABLE_PIN, &pin_conf);
-    port_pin_set_output_level(LIGHT_BATT_ENABLE_PIN, true);
 
   }
 
@@ -211,6 +198,7 @@ void enter_sleep( void ) {
     aclock_disable();
     //accel_disable();
     tc_disable(&main_tc);
+    //adc_disable(&light_vbatt_sens_adc);
 
     //system_ahb_clock_clear_mask( PM_AHBMASK_HPB2 | PM_AHBMASK_DSU);
 
@@ -323,9 +311,9 @@ void main_tic( void ) {
                 return;
             }
 
-            mode_transition = control_mode_active->tic_cb(event_flags);
-
-            if (mode_transition) {
+            /* Call mode's main tic loop/event handler */
+            if (control_mode_active->tic_cb(event_flags)) {
+                /* begin transition to next mode */
                 main_globals.state = MODE_TRANSITION;
                 main_globals.button_hold_ticks = 0;
                 mode_trans_anim = anim_swirl(2, 2, 2, false);
@@ -363,38 +351,71 @@ void main_terminate_in_error ( uint8_t error_code ) {
     }
 }
 
-void main_start_light_batt_sensor_read ( void ) {
+
+void main_start_sensor_read ( void ) {
 
     port_pin_set_output_level(LIGHT_BATT_ENABLE_PIN, true);
 
-    if (!(adc_get_status(&light_sens_adc) & ADC_STATUS_RESULT_READY))
-        adc_start_conversion(&light_sens_adc);
+    if (!(adc_get_status(&light_vbatt_sens_adc) & ADC_STATUS_RESULT_READY))
+        adc_start_conversion(&light_vbatt_sens_adc);
+}
 
-    if (!(adc_get_status(&vbatt_sens_adc) & ADC_STATUS_RESULT_READY))
-        adc_start_conversion(&vbatt_sens_adc);
+void main_set_current_sensor ( sensor_type_t sensor ) {
+    struct adc_config config_adc;
 
+    main_globals.current_sensor = sensor;
+
+    if (light_vbatt_sens_adc.hw)
+        adc_reset(&light_vbatt_sens_adc);
+
+    adc_get_config_defaults(&config_adc);
+
+    /* Average samples to produce each value */
+    config_adc.resolution         = ADC_RESOLUTION_CUSTOM;
+    config_adc.accumulate_samples = ADC_ACCUMULATE_SAMPLES_256;
+    config_adc.divide_result      = ADC_DIVIDE_RESULT_16;
+
+    switch(sensor) {
+        case sensor_vbatt:
+            config_adc.reference = ADC_REFERENCE_INT1V;
+            config_adc.positive_input = VBATT_ADC_PIN;
+            break;
+        case sensor_light:
+            config_adc.reference = ADC_REFERENCE_INTVCC0;
+            config_adc.positive_input = LIGHT_ADC_PIN;
+            break;
+    }
+
+    adc_init(&light_vbatt_sens_adc, ADC, &config_adc);
+    adc_enable(&light_vbatt_sens_adc);
 
 }
 
-uint16_t main_get_light_sensor_value ( void ) {
-    uint16_t result;
 
-    if (adc_read(&light_sens_adc, &result) == STATUS_OK) {
-        main_globals.light_sensor_adc_val = result;
-        adc_clear_status(&light_sens_adc, ADC_STATUS_RESULT_READY);
+uint16_t main_read_current_sensor( void ) {
+    uint16_t result;
+    uint16_t *curr_sens_adc_val_ptr;
+
+    if (main_globals.current_sensor == sensor_vbatt)
+        curr_sens_adc_val_ptr = &main_globals.vbatt_sensor_adc_val;
+    else
+        curr_sens_adc_val_ptr = &main_globals.light_sensor_adc_val;
+
+    if (adc_read(&light_vbatt_sens_adc, &result) == STATUS_OK) {
+        *curr_sens_adc_val_ptr = result;
+        adc_clear_status(&light_vbatt_sens_adc, ADC_STATUS_RESULT_READY);
+        port_pin_set_output_level(LIGHT_BATT_ENABLE_PIN, false);
     }
+
+    return *curr_sens_adc_val_ptr;
+}
+
+uint16_t main_get_light_sensor_value ( void ) {
 
     return main_globals.light_sensor_adc_val;
 }
 
 uint16_t main_get_vbatt_sensor_value ( void ) {
-    uint16_t result;
-
-    if (adc_read(&vbatt_sens_adc, &result) == STATUS_OK) {
-        main_globals.vbatt_sensor_adc_val = result;
-        adc_clear_status(&vbatt_sens_adc, ADC_STATUS_RESULT_READY);
-    }
-
     return main_globals.vbatt_sensor_adc_val;
 }
 
@@ -452,9 +473,14 @@ int main (void)
     control_init();
     display_init();
     anim_init();
-
-    configure_adc();
     //accel_init();
+
+    /* Read light and vbatt sensors on startup */
+    //main_set_current_sensor(sensor_vbatt);
+    //main_read_current_sensor();
+
+    //main_set_current_sensor(sensor_light);
+    //main_read_current_sensor();
 
 
 

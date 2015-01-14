@@ -32,6 +32,11 @@
 //___ T Y P E D E F S ________________________________________________________
 typedef uint16_t event_flags_t;
 
+typedef enum sensor_type_t {
+    sensor_vbatt,
+    sensor_light,
+} sensor_type_t;
+
 //___ V A R I A B L E S ______________________________________________________
 
 //___ P R O T O T Y P E S ____________________________________________________
@@ -41,10 +46,23 @@ void main_terminate_in_error( uint8_t error_code);
    * @retrn None
    */
 
-void main_start_light_batt_sensor_read ( void );
-  /* @brief start an adc read of light and vbatt sensors
+void main_start_sensor_read ( void );
+  /* @brief start an adc read of current sensor
    * @param None
    * @retrn None
+   */
+
+void main_set_current_sensor ( sensor_type_t sensor);
+  /* @brief set sensor to read adc values from
+   * @param None
+   * @retrn None
+   */
+
+uint16_t main_read_current_sensor( void );
+  /* @brief read adc for most recently started sensor read
+   * the current sensor is based on the most recent sensor_read() call
+   * @param None
+   * @retrn adc value for the current sensor
    */
 
 uint16_t main_get_light_sensor_value ( void );
