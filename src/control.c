@@ -65,7 +65,7 @@ control_mode_t control_modes[] = {
     {
         .init_cb = NULL,
         .tic_cb = vbatt_sense_mode_tic,
-        .sleep_timeout_ticks = 30000,
+        .sleep_timeout_ticks = 300000,
         .about_to_sleep_cb = NULL,
         .on_wakeup_cb = NULL,
     }
@@ -76,7 +76,7 @@ control_mode_t control_modes[] = {
 //___ F U N C T I O N S   ( P R I V A T E ) __________________________________
 
 
-uint8_t adc_value_scale ( uint16_t value ) {
+uint8_t adc_light_value_scale ( uint16_t value ) {
 
     if (value >= 2048)
         return (55 + (value >> 8)) % 60;
@@ -109,6 +109,32 @@ uint8_t adc_value_scale ( uint16_t value ) {
 
 }
 
+uint8_t adc_vbatt_value_scale ( uint16_t value ) {
+    /* Full */
+    if (value > 3072) //> 3V --> 3/4*4096
+        return 60;
+
+    /* Greater than 1/2 full */
+    if (value > 2965) // ~2.9V --> 2.9/4*4096
+        return 30 + 30*(value - 2965)/(3072 - 2965);
+
+    /* between 1/4 and 1/2 full */
+    if (value > 2865) // ~2.8V
+        return 15 + 15*(value - 2865)/(2965 - 2865);
+
+    /* between 1/8 and 1/4 full */
+    if (value > 2765) // ~2.75
+        return 7 + 8*(value - 2765)/(2865 - 2765);
+
+
+    if (value < 2048) // < 2V
+        return 1;
+
+    return 1 + 7*(value - 2048)/(2765 - 2048);
+
+
+}
+
 bool light_sense_mode_tic ( event_flags_t event_flags ) {
     static display_comp_t *adc_pt = NULL;
     uint16_t adc_val;
@@ -134,7 +160,7 @@ bool light_sense_mode_tic ( event_flags_t event_flags ) {
     main_start_sensor_read();
 
     adc_val = main_read_current_sensor();
-    display_comp_update_pos(adc_pt, adc_value_scale(adc_val));
+    display_comp_update_pos(adc_pt, adc_light_value_scale(adc_val));
 
     tick_count++;
 
@@ -167,12 +193,13 @@ bool vbatt_sense_mode_tic ( event_flags_t event_flags ) {
         main_start_sensor_read();
 
     adc_val = main_read_current_sensor();
-    if (adc_val <= 2048)
-        adc_val;
-    else
-        adc_val = adc_val - 2048;
+//    if (adc_val <= 2048)
+//        adc_val;
+//    else
+//        adc_val = adc_val - 2048;
 
-    display_comp_update_pos(adc_pt, (adc_val/34) % 60);
+    display_comp_update_pos(adc_pt,
+            adc_vbatt_value_scale(adc_val) % 60);
 
     tick_count++;
 
