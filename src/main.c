@@ -193,8 +193,9 @@ void enter_sleep( void ) {
     extint_chan_enable_callback(BUTTON_EIC_CHAN,
                     EXTINT_CALLBACK_TYPE_DETECT);
 
-    if (light_vbatt_sens_adc.hw)
+    if (light_vbatt_sens_adc.hw) {
         adc_disable(&light_vbatt_sens_adc);
+    }
 
     port_pin_set_output_level(LIGHT_BATT_ENABLE_PIN, false);
     led_controller_disable();
@@ -204,6 +205,9 @@ void enter_sleep( void ) {
 
     //system_ahb_clock_clear_mask( PM_AHBMASK_HPB2 | PM_AHBMASK_DSU);
 
+    /* The vbatt adc may have enabled the voltage reference, so disable
+     * it in standby to save power */
+    system_voltage_reference_disable(SYSTEM_VOLTAGE_REFERENCE_BANDGAP);
     system_sleep();
 
 }
