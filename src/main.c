@@ -266,7 +266,6 @@ event_flags_t get_button_event_flags ( void ) {
 void main_tic( void ) {
 
     event_flags_t event_flags = 0;
-    bool mode_transition = false;
 
     main_globals.inactivity_ticks++;
 
@@ -312,7 +311,7 @@ void main_tic( void ) {
                 else
                     display_comp_hide_all();
 
-                sleep_wake_anim = anim_swirl(5, 4, 2, false);
+                sleep_wake_anim = anim_swirl(0, 5, 4, 120, false);
                 return;
             }
 
@@ -321,7 +320,11 @@ void main_tic( void ) {
                 /* begin transition to next mode */
                 main_globals.state = MODE_TRANSITION;
                 main_globals.button_hold_ticks = 0;
-                mode_trans_anim = anim_swirl(2, 2, 2, false);
+                /* animate slow snake from current mode to next.
+                 * swirl distance is based on total mode count */
+                mode_trans_anim = anim_swirl(
+                        60*control_mode_index(control_mode_active)/control_mode_count(),
+                        4, 8, 60/control_mode_count(), true);
 
             }
 
@@ -481,16 +484,16 @@ int main (void)
     //accel_init();
 
     /* Read light and vbatt sensors on startup */
-    //main_set_current_sensor(sensor_vbatt);
-    //main_read_current_sensor();
+    main_set_current_sensor(sensor_vbatt);
+    main_read_current_sensor();
 
-    //main_set_current_sensor(sensor_light);
-    //main_read_current_sensor();
+    main_set_current_sensor(sensor_light);
+    main_read_current_sensor();
 
 
 
     /* Show a startup LED swirl */
-    sleep_wake_anim = anim_swirl(5, 4, 2, true);
+    sleep_wake_anim = anim_swirl(0, 5, 4, 120, true);
 
     /* get intial time */
     configure_input();

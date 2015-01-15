@@ -126,11 +126,12 @@ animation_t* anim_random( display_comp_t *disp_comp,
     return anim;
 }
 
-animation_t* anim_swirl(uint8_t len, uint16_t tick_interval,
-        uint8_t revolutions, bool clockwise) {
-    display_comp_t *disp_comp = display_snake((int8_t)len - 1, BRIGHT_DEFAULT, BLINK_NONE, len);
+animation_t* anim_swirl(uint8_t start, uint8_t len, uint16_t tick_interval,
+        uint32_t distance, bool clockwise) {
+    display_comp_t *disp_comp = display_snake(start, BRIGHT_DEFAULT,
+            BLINK_NONE, len);
     animation_t *anim = anim_rotate(disp_comp, clockwise, tick_interval,
-            revolutions * 60 * tick_interval);
+            distance * tick_interval);
 
     anim->autorelease_disp_comp = true;
 

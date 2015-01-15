@@ -66,6 +66,18 @@ void control_mode_select( uint8_t mode_index );
    * @retrn None
    */
 
+uint8_t control_mode_count( void );
+  /* @brief total number of modes
+   * @param None
+   * @retrn mode count
+   */
+
+uint8_t control_mode_index( control_mode_t* mode_ptr );
+  /* @brief index of given mode
+   * @param None
+   * @retrn index of given mode (0 to mode count - 1)
+   */
+
 void control_init( void );
   /* @brief initalize mode control module
    * @param None

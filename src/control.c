@@ -111,23 +111,23 @@ uint8_t adc_light_value_scale ( uint16_t value ) {
 
 uint8_t adc_vbatt_value_scale ( uint16_t value ) {
     /* Full */
-    if (value > 3072) //> 3V --> 3/4*4096
-        return 60;
+    if (value >= 3072) //> 3V --> 3/4*4096
+        return 59;
 
     /* Greater than 1/2 full */
-    if (value > 2965) // ~2.9V --> 2.9/4*4096
-        return 30 + 30*(value - 2965)/(3072 - 2965);
+    if (value >= 2965) // ~2.9V --> 2.9/4*4096
+        return 30 + 29*(value - 2965)/(3072 - 2965);
 
     /* between 1/4 and 1/2 full */
-    if (value > 2865) // ~2.8V
-        return 15 + 15*(value - 2865)/(2965 - 2865);
+    if (value >= 2865) // ~2.8V
+        return 15 + 14*(value - 2865)/(2965 - 2865);
 
     /* between 1/8 and 1/4 full */
-    if (value > 2765) // ~2.75
-        return 7 + 8*(value - 2765)/(2865 - 2765);
+    if (value >= 2765) // ~2.75
+        return 7 + 7*(value - 2765)/(2865 - 2765);
 
 
-    if (value < 2048) // < 2V
+    if (value <= 2048) // < 2V
         return 1;
 
     return 1 + 7*(value - 2048)/(2765 - 2048);
@@ -313,6 +313,12 @@ void control_mode_select( uint8_t mode_index ) {
 uint8_t control_mode_index( control_mode_t* mode_ptr ) {
     return mode_ptr - control_modes;
 }
+
+
+uint8_t control_mode_count( void ) {
+    return sizeof(control_modes)/sizeof(control_modes[0]);
+}
+
 
 void control_init( void ) {
 

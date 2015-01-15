@@ -61,13 +61,14 @@ animation_t* anim_random( display_comp_t *disp_comp,
    * @retrn animation reference handle
    */
 
-animation_t* anim_swirl(uint8_t len, uint16_t tick_interval,
-        uint8_t revolutions, bool clockwise);
+animation_t* anim_swirl(uint8_t start, uint8_t len, uint16_t tick_interval,
+        uint32_t distance, bool clockwise);
   /* @brief convenience function for creating and
    *  animating a finite swirling snake
+   * @param start - starting pos (0-60)
    * @param len - snake length
    * @param tick_interval - rotation rate in ticks (i.e. ms)
-   * @param revolutions - # of revolutions before finishing
+   * @param distance - # of step before finishing (i.e 60 is a full circle)
    * @param clockwise - true for clockwise rotation, false for opposite (ccw)
    * @retrn handle to swirl animation object
    */
