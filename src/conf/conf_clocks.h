@@ -78,7 +78,7 @@
 #  define CONF_CLOCK_XOSC32K_RUN_IN_STANDBY       true
 
 /* SYSTEM_CLOCK_SOURCE_OSC32K configuration - Internal 32KHz oscillator */
-#  define CONF_CLOCK_OSC32K_ENABLE                true
+#  define CONF_CLOCK_OSC32K_ENABLE                false
 #  define CONF_CLOCK_OSC32K_STARTUP_TIME          SYSTEM_OSC32K_STARTUP_130
 #  define CONF_CLOCK_OSC32K_ENABLE_1KHZ_OUTPUT    false
 #  define CONF_CLOCK_OSC32K_ENABLE_32KHZ_OUTPUT   true
