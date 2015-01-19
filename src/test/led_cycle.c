@@ -86,9 +86,6 @@ int main (void)
     led_controller_enable();
 
 
-    /* Show a startup LED swirl */
-    display_swirl(10, 200, 3, 60 );
-
     while (1) {
 
         led_set_intensity(led, ++intensity);

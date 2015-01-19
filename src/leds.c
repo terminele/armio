@@ -170,6 +170,7 @@ static struct events_resource bright_inc_event;
 
 static uint8_t brightness_ctr;      // current brightness level
 static uint16_t blink_ctr;      // current blink value
+static uint8_t bank = BANK_COUNT;
 
 /* manage led intensity number and bank number */
 static led_status_t led_status[ BANK_COUNT ][ SEGMENT_COUNT ];
@@ -178,9 +179,13 @@ static led_status_t led_status[ BANK_COUNT ][ SEGMENT_COUNT ];
 static void tc_pwm_isr ( struct tc_module *const tc_inst) {
   uint8_t segment;
   uint32_t segment_enable_mask = 0;
-  uint8_t bank;
 
-  bank = tc_get_count_value(&bank_tc_instance);
+  /* Getting the current bank index from the timer counter
+   * actually takes longer than maintaining our own global
+   * variable.  This is probably related to synchronization
+   * issues that should be investigated */
+  //bank = tc_get_count_value(&bank_tc_instance);
+  bank--;
 
   /* turn on the relevant segments */
   for( segment = 0; segment < SEGMENT_COUNT; segment++ ) {
@@ -204,6 +209,7 @@ static void tc_pwm_isr ( struct tc_module *const tc_inst) {
   /* Switch to next brightness level after each full bank cycle */
   if (bank == 0) {
     brightness_ctr++;
+    bank = BANK_COUNT;
 
     if (brightness_ctr == MAX_BRIGHT_VAL ) {
       /* a full cycle of all leds at all brightness leds has    */
