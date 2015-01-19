@@ -104,7 +104,7 @@ void comp_draw( display_comp_t* comp) {
           pos = (pos + 1 ) % 60;
           if (comp->type == dispt_snake &&
                   bright > MIN_BRIGHT_VAL)
-              bright = bright >> 1;
+              bright--;
         }
         break;
       case dispt_polygon:
@@ -259,6 +259,9 @@ void display_comp_show_all ( void ) {
 }
 
 void display_comp_update_pos ( display_comp_t *comp, int8_t pos ) {
+    if (pos == comp->pos)
+        return;
+
     comp_leds_clear(comp);
     comp->pos = pos;
 

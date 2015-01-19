@@ -264,9 +264,9 @@ bool clock_mode_tic ( event_flags_t event_flags ) {
 
 
             led_clear_all();
-            led_on((hour%12)*5, 10);
-            led_on(minute, 6);
-            led_on(second, 1);
+            led_on((hour%12)*5, MAX_BRIGHT_VAL);
+            led_on(minute, BRIGHT_DEFAULT);
+            led_on(second, 2);
 
         }
 

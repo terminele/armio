@@ -88,10 +88,11 @@ int main (void)
 
     while (1) {
 
-        led_set_intensity(led, ++intensity);
+        led_set_intensity(led, 1 + (intensity % MAX_BRIGHT_VAL));
         delay_ms(500);
         led_off(led);
         led++;
+        intensity++;
         led= led % 60;
 
 

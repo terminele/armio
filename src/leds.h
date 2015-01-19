@@ -19,16 +19,12 @@
 #include <asf.h>
 
 //___ M A C R O S ____________________________________________________________
-#define BRIGHT_RES          6       /* bit resolution */
-#define BLINK_RES           2       /* bit resolution */
+#define BRIGHT_LEVELS       7       /* bit resolution */
 
-#define BRIGHT_DEFAULT      (1 << (BRIGHT_RES - 1))
-#define BLINK_DEFAULT       0       // default blink (0 == NONE)
+#define BRIGHT_DEFAULT      4
 
-#define BLINK_FACTOR        5       /* ratio of blink units to vision persist interval */
-#define MAX_BRIGHT_VAL      ((1 << BRIGHT_RES) - 1)
-#define MIN_BRIGHT_VAL      3
-#define MAX_BLINK_VAL       (BLINK_FACTOR * (1 << BLINK_RES) - 1)
+#define MAX_BRIGHT_VAL      BRIGHT_LEVELS
+#define MIN_BRIGHT_VAL      1
 
 //___ T Y P E D E F S ________________________________________________________
 
@@ -53,13 +49,23 @@ void led_controller_enable( void );
    * @retrn None
    */
 
-void led_on( uint8_t led, uint8_t intensity );
+
+void led_set_intensity( uint8_t led, uint8_t intensity );
+  /* @brief set led intensity
+   * @param led num (0-59)
+   * @param intensity (brightness) value
+   * @retrn None
+   */
+
+static inline void led_on ( uint8_t led, uint8_t intensity ) {
+    led_set_intensity( led, intensity );
+}
   /* @brief enable the given led at the given brightness
    * @param led num (0-59)
    * @retrn None
    */
 
-void led_off( uint8_t led );
+static inline void led_off ( uint8_t led ) { led_set_intensity(led, 0 );}
   /* @brief disable the given led
    * @param led num (0-59)
    * @retrn None
@@ -71,25 +77,6 @@ void led_clear_all( void );
    * @retrn None
    */
 
-void led_set_intensity( uint8_t led, uint8_t intensity );
-  /* @brief set led intensity
-   * @param led num (0-59)
-   * @param intensity (brightness) value
-   * @retrn None
-   */
-
-void led_set_blink( uint8_t led, uint8_t blink);
-  /* @brief set led blink level
-   * @param led num (0-59)
-   * @param intensity (brightness) value
-   * @retrn None
-   */
-
-void led_set_state( uint8_t led_index, uint8_t blink, uint8_t intensity);
-  /* @brief set intensitity and blink level
-   * @param None
-   * @retrn None
-   */
 
 
 #endif /* end of include guard: __LEDS_H__ */
