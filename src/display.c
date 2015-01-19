@@ -89,18 +89,22 @@ void comp_free ( display_comp_t* ptr ) {
 
 void comp_draw( display_comp_t* comp) {
     int32_t tmp, pos;
+    uint8_t bright = comp->brightness;
     if (!comp->on) return;
 
     switch(comp->type) {
       case dispt_point:
         led_on(comp->pos, comp->brightness);
         break;
+      case dispt_snake:
       case dispt_line:
-      case dispt_snake: //TODO - snake
         pos = MOD(comp->pos - comp->length + 1, 60);
         while (pos != comp->pos) {
-          led_on(pos, comp->brightness);
+          led_on(pos, bright);
           pos = (pos + 1 ) % 60;
+          if (comp->type == dispt_snake &&
+                  bright > MIN_BRIGHT_VAL)
+              bright = bright >> 1;
         }
         break;
       case dispt_polygon:

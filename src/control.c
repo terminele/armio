@@ -65,7 +65,7 @@ control_mode_t control_modes[] = {
     {
         .init_cb = NULL,
         .tic_cb = vbatt_sense_mode_tic,
-        .sleep_timeout_ticks = 300000,
+        .sleep_timeout_ticks = 7000,
         .about_to_sleep_cb = NULL,
         .on_wakeup_cb = NULL,
     }
@@ -159,7 +159,7 @@ bool light_sense_mode_tic ( event_flags_t event_flags ) {
 
     main_start_sensor_read();
 
-    adc_val = main_read_current_sensor();
+    adc_val = main_read_current_sensor(false);
     display_comp_update_pos(adc_pt, adc_light_value_scale(adc_val));
 
     tick_count++;
@@ -185,14 +185,14 @@ bool vbatt_sense_mode_tic ( event_flags_t event_flags ) {
     }
 
     if (!adc_pt) {
-        adc_pt = display_point(0, BRIGHT_DEFAULT, BLINK_NONE);
+        adc_pt = display_point(0, 3, BLINK_NONE);
     }
 
 
-    if (tick_count % 1000 == 0)
+    if (tick_count % 1000 == 999)
         main_start_sensor_read();
 
-    adc_val = main_read_current_sensor();
+    adc_val = main_read_current_sensor(false);
 //    if (adc_val <= 2048)
 //        adc_val;
 //    else

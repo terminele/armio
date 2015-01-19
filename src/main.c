@@ -404,20 +404,25 @@ void main_set_current_sensor ( sensor_type_t sensor ) {
 }
 
 
-uint16_t main_read_current_sensor( void ) {
+uint16_t main_read_current_sensor( bool blocking ) {
     uint16_t result;
     uint16_t *curr_sens_adc_val_ptr;
+    uint8_t status;
 
     if (main_globals.current_sensor == sensor_vbatt)
         curr_sens_adc_val_ptr = &main_globals.vbatt_sensor_adc_val;
     else
         curr_sens_adc_val_ptr = &main_globals.light_sensor_adc_val;
 
-    if (adc_read(&light_vbatt_sens_adc, &result) == STATUS_OK) {
-        *curr_sens_adc_val_ptr = result;
-        adc_clear_status(&light_vbatt_sens_adc, ADC_STATUS_RESULT_READY);
-        port_pin_set_output_level(LIGHT_BATT_ENABLE_PIN, false);
-    }
+    do {
+        status = adc_read(&light_vbatt_sens_adc, &result);
+
+        if (status == STATUS_OK) {
+            *curr_sens_adc_val_ptr = result;
+            adc_clear_status(&light_vbatt_sens_adc, ADC_STATUS_RESULT_READY);
+            port_pin_set_output_level(LIGHT_BATT_ENABLE_PIN, false);
+        }
+    } while (blocking && status != STATUS_OK);
 
     return *curr_sens_adc_val_ptr;
 }
@@ -488,11 +493,14 @@ int main (void)
     //accel_init();
 
     /* Read light and vbatt sensors on startup */
+
     main_set_current_sensor(sensor_vbatt);
-    main_read_current_sensor();
+    main_start_sensor_read();
+    main_read_current_sensor(true);
 
     main_set_current_sensor(sensor_light);
-    main_read_current_sensor();
+    main_start_sensor_read();
+    main_read_current_sensor(true);
 
 
 

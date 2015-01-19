@@ -58,10 +58,10 @@ void main_set_current_sensor ( sensor_type_t sensor);
    * @retrn None
    */
 
-uint16_t main_read_current_sensor( void );
+uint16_t main_read_current_sensor( bool blocking );
   /* @brief read adc for most recently started sensor read
    * the current sensor is based on the most recent sensor_read() call
-   * @param None
+   * @param blocking - dont use cached value -- blocks until new value
    * @retrn adc value for the current sensor
    */
 
