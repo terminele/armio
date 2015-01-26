@@ -170,18 +170,6 @@ static void tc_pwm_isr ( struct tc_module *const tc_inst) {
   //bank = tc_get_count_value(&bank_tc_instance);
   bank_ctr--;
 
-  /* turn on the relevant segments */
-#ifdef NOT_NOW
-  for( segment = 0; segment < SEGMENT_COUNT; segment++ ) {
-    led_status_t status = led_status[ bank_ctr ][ segment ];
-    if (status.bright && status.bright > brightness_ctr) {
-          segment_enable_mask |= 1UL << SEGMENT_GPIO(segment);
-        //}
-      }
-  }
-#endif
-
-
   /* switch to next bank */
   BANKS_SEGMENTS_CLEAR();
 

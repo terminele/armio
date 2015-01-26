@@ -44,11 +44,44 @@ void main_tic( void ) {
     static display_comp_t* display_comp = NULL;
     static animation_t *anim = NULL;
     static int8_t polycount = 0;
+    static uint8_t step = 0;
 
     tick_cnt++;
 
     if (tick_cnt % 4000 != 1)
         return;
+
+    step++;
+
+    /* Fade in test */
+    if (step == 1) {
+        display_comp = display_point(0, 0);
+        anim = anim_fade_in(display_comp, MAX_BRIGHT_VAL, 200);
+        return;
+    }
+
+    /* Fade out test */
+    if (step == 2) {
+        anim_release(anim);
+        anim = anim_fade_out(display_comp, 300);
+        return;
+    }
+
+    /* Pulsate (fade in/out) test */
+    if (step == 3) {
+        anim_release(anim);
+        display_comp->pos = 15;
+        anim = anim_fade(display_comp, 1, MAX_BRIGHT_VAL, 100, ANIMATION_DURATION_INF);
+        return;
+    }
+
+    /* Move on to polygon tests */
+    if (step == 4) {
+        anim_stop(anim);
+        anim_release(anim);
+        display_comp_hide(display_comp);
+        display_comp_release(display_comp);
+    }
 
     polycount++;
 

@@ -20,8 +20,7 @@ typedef enum {
     anim_rotate_cw,
     anim_rotate_ccw,
     anim_rand,
-    anim_fade_in,
-    anim_fade_out
+    anim_fade_inout
 } animation_type_t;
 
 typedef struct animation_t {
@@ -32,7 +31,11 @@ typedef struct animation_t {
     uint16_t interval_counter;
     uint16_t tick_interval; //update interval in ticks
     int32_t tick_duration; //duration in ticks
+
     uint8_t step; //only applicable for rotations
+    uint8_t bright_start; //only applicable for fades
+    uint8_t bright_end; //only applicable for fades
+
     struct animation_t *next, *prev;
 
 } animation_t;
@@ -68,9 +71,46 @@ animation_t* anim_swirl(uint8_t start, uint8_t len, uint16_t tick_interval,
    * @param start - starting pos (0-60)
    * @param len - snake length
    * @param tick_interval - rotation rate in ticks (i.e. ms)
-   * @param distance - # of step before finishing (i.e 60 is a full circle)
+   * @param distance - # of steps before finishing (i.e. 60 is a full circle)
    * @param clockwise - true for clockwise rotation, false for opposite (ccw)
    * @retrn handle to swirl animation object
+   */
+
+animation_t* anim_fade(display_comp_t *disp_comp,
+        uint8_t bright_start, uint8_t bright_end, uint16_t tick_interval,
+        int16_t cycles);
+  /* @brief fade the given disp comp
+   * @param disp_comp - display component to animate
+   * @param bright_start - starting brightness level
+   * @param bright_end - ending brightness level
+   * @param tick_interval - interval between brightness steps
+   * @param cycles - # of (half) cycles to repeat. If this is 1, then
+   *    a single fade in or out occurs.  Else a series of fades in and
+   *    out occur (e.g. 6 cycles would be 3 sequences of fade in and fade
+   *    outs).  Can be ANIMATION_DURATION_INF
+   * @retrn handle to fade animation object
+   */
+
+
+static inline animation_t* anim_fade_in(display_comp_t *disp_comp,
+        uint8_t brightness, uint16_t tick_interval) {
+    return anim_fade(disp_comp, 0, brightness, tick_interval, 1);
+}
+  /* @brief fade in the given display component
+   * @param disp_comp - display component to animate
+   * @param brightness - ending brightness level
+   * @param tick_interval - interval between brightness steps
+   * @retrn handle to fade animation object
+   */
+
+static inline animation_t* anim_fade_out(display_comp_t *disp_comp,
+        uint16_t tick_interval) {
+    return anim_fade(disp_comp, disp_comp->brightness, 0, tick_interval, 1);
+}
+  /* @brief fade out the given display component
+   * @param disp_comp - display component to animate
+   * @param tick_interval - interval between brightness steps
+   * @retrn handle to fade animation object
    */
 
 static inline bool anim_is_finished ( animation_t *anim ) {

@@ -107,6 +107,17 @@ void display_comp_update_pos ( display_comp_t *ptr, int8_t pos );
    * @retrn None
    */
 
+static inline void display_comp_update_brightness ( display_comp_t *ptr,
+        uint8_t intensity) {
+    ptr->brightness = intensity;
+}
+  /* @brief update the brightness for this display component
+   * @param comp_ptr - handle to component to update
+   * @param intensity - new brightness
+   * @retrn None
+   */
+
+
 void display_comp_hide (display_comp_t *ptr);
   /* @brief hide the given component from displaying
    * @param component handle to hide

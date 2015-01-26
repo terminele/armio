@@ -58,6 +58,7 @@ void anim_free ( animation_t* ptr ) {
 
 
 void anim_update( animation_t *anim ) {
+    uint8_t tmp;
     switch(anim->type) {
         case anim_rotate_cw:
             display_comp_update_pos(anim->disp_comp,
@@ -73,9 +74,18 @@ void anim_update( animation_t *anim ) {
             display_comp_update_pos(anim->disp_comp,
                     rand() % 60);
             break;
-        case anim_fade_in:
-            break;
-        case anim_fade_out:
+        case anim_fade_inout:
+            if (anim->disp_comp->brightness == anim->bright_end) {
+                tmp = anim->bright_end;
+                anim->bright_end = anim->bright_start;
+                anim->bright_start = tmp;
+            }
+
+            display_comp_update_brightness(anim->disp_comp,
+                    anim->disp_comp->brightness < anim->bright_end ?
+                    anim->disp_comp->brightness + 1 :
+                    anim->disp_comp->brightness - 1);
+
             break;
         default:
             main_terminate_in_error( ERROR_ANIM_BAD_TYPE );
@@ -116,7 +126,6 @@ animation_t* anim_random( display_comp_t *disp_comp,
     anim->autorelease_disp_comp = false;
     anim->tick_interval = tick_interval;
     anim->disp_comp = disp_comp;
-    anim->tick_interval = tick_interval;
     anim->interval_counter = 0;
     anim->tick_duration = duration;
     anim->prev = anim->next = NULL;
@@ -133,6 +142,35 @@ animation_t* anim_swirl(uint8_t start, uint8_t len, uint16_t tick_interval,
             distance * tick_interval);
 
     anim->autorelease_disp_comp = true;
+
+    return anim;
+
+}
+
+animation_t* anim_fade(display_comp_t *disp_comp,
+        uint8_t bright_start, uint8_t bright_end, uint16_t tick_interval,
+        int16_t cycles) {
+
+    animation_t *anim = anim_alloc();
+
+    anim->type = anim_fade_inout;
+    anim->enabled = true;
+    anim->autorelease_disp_comp = false;
+    anim->disp_comp = disp_comp;
+    anim->tick_interval = tick_interval;
+    anim->interval_counter = 0;
+    anim->bright_start = bright_start;
+    anim->bright_end = bright_end;
+
+    if (cycles != ANIMATION_DURATION_INF)
+        anim->tick_duration = cycles * abs(bright_end - bright_start) * tick_interval;
+    else
+        anim->tick_duration = ANIMATION_DURATION_INF;
+
+    anim->prev = anim->next = NULL;
+    display_comp_update_brightness(disp_comp, bright_start);
+
+    DL_APPEND(head_anim_ptr, anim);
 
     return anim;
 
