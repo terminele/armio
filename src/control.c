@@ -153,7 +153,7 @@ bool light_sense_mode_tic ( event_flags_t event_flags ) {
     }
 
     if (!adc_pt) {
-        adc_pt = display_point(0, BRIGHT_DEFAULT, BLINK_NONE);
+        adc_pt = display_point(0, BRIGHT_DEFAULT);
     }
 
 
@@ -185,7 +185,7 @@ bool vbatt_sense_mode_tic ( event_flags_t event_flags ) {
     }
 
     if (!adc_pt) {
-        adc_pt = display_point(0, 3, BLINK_NONE);
+        adc_pt = display_point(0, 3);
     }
 
 
@@ -278,13 +278,13 @@ bool clock_mode_tic ( event_flags_t event_flags ) {
     aclock_get_time(&hour, &minute, &second);
 
     if (!sec_disp_ptr)
-        sec_disp_ptr = display_point(second, MIN_BRIGHT_VAL, BLINK_NONE);
+        sec_disp_ptr = display_point(second, MIN_BRIGHT_VAL);
 
     if (!min_disp_ptr)
-        min_disp_ptr = display_point(minute, BRIGHT_DEFAULT, BLINK_NONE);
+        min_disp_ptr = display_point(minute, BRIGHT_DEFAULT);
 
     if (!hour_disp_ptr)
-        hour_disp_ptr = display_point(HOUR_POS(hour), MAX_BRIGHT_VAL, BLINK_NONE);
+        hour_disp_ptr = display_point(HOUR_POS(hour), MAX_BRIGHT_VAL);
 
 
     display_comp_update_pos(sec_disp_ptr, second);

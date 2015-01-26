@@ -18,8 +18,6 @@
 
 //___ M A C R O S ____________________________________________________________
 
-#define BLINK_NONE  0
-
 //___ T Y P E D E F S ________________________________________________________
 
 typedef enum {
@@ -34,7 +32,6 @@ typedef struct display_comp_t {
   bool on;
   display_type_t type;
 
-  uint16_t blink_interval;
   uint8_t brightness;
   int8_t pos;
   int8_t length;
@@ -61,23 +58,20 @@ void display_tic(void);
    */
 
 display_comp_t* display_point ( int8_t pos,
-        uint8_t brightness, uint16_t blink_interval );
+        uint8_t brightness );
   /* @brief display a single point (led) at the given pos
    * @param pos -- led number 0-59
    * @param brightness - led intensity/brightness
-   * @param blink_interval - blink interval in milliseconds
    * @retrn handle to a display structure representing the
    *   the point being displayed
    */
 
 display_comp_t* display_line ( int8_t pos,
-        uint8_t brightness, uint16_t blink_interval,
-        int8_t length);
+        uint8_t brightness, int8_t length);
   /* @brief display a line of points (leds) starting at the given pos
    *     and ending clockwise n points from there
    * @param pos - head led number 0-59 (highest point of line clockwise)
    * @param brightness - led intensity/brightness
-   * @param blink_interval - blink interval in milliseconds
    * @param length - length of line
    * @retrn handle to a display structure representing the
    *   the line being displayed
@@ -85,25 +79,21 @@ display_comp_t* display_line ( int8_t pos,
 
 
 display_comp_t* display_snake ( int8_t pos,
-        uint8_t brightness, uint16_t blink_interval,
-        int8_t length);
+        uint8_t brightness, int8_t length);
   /* @brief same as display_line() but led intensity
    *    decreases with distance from head led
    * @param pos - head led number 0-59 (highest point of line clockwise)
    * @param brightness - led intensity/brightness
-   * @param blink_interval - blink interval in milliseconds
    * @param length - length of snake
    * @retrn handle to a display structure representing the
    *   the snake
    */
 
 display_comp_t* display_polygon ( int8_t pos,
-        uint8_t brightness, uint16_t blink_interval,
-        int8_t num_sides);
+        uint8_t brightness, int8_t num_sides);
   /* @brief display a polygon of points (leds) starting at the given pos
    * @param pos - starting vertex (led number 0-59)
    * @param brightness - led intensity/brightness
-   * @param blink_interval - blink interval in milliseconds
    * @param num sides - # of sides/vertices of polygon
    * @retrn handle to a display structure representing the
    *   the polygon being displayed

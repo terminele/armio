@@ -54,19 +54,19 @@ void main_tic( void ) {
 
     switch (polycount) {
         case 1:
-            display_comp = display_point(0, BRIGHT_DEFAULT, BLINK_NONE);
+            display_comp = display_point(0, BRIGHT_DEFAULT);
             anim = anim_random(display_comp, 10, ANIMATION_DURATION_INF);
             break;
         case 2:
             display_comp_release(display_comp);
             anim_release(anim);
-            display_comp = display_line(0, BRIGHT_DEFAULT, BLINK_NONE, 5);
+            display_comp = display_line(0, BRIGHT_DEFAULT, 5);
             anim = anim_rotate(display_comp, true, 5, ANIMATION_DURATION_INF);
             break;
         default:
             display_comp_release(display_comp);
             anim_release(anim);
-            display_comp = display_polygon(0, BRIGHT_DEFAULT, BLINK_NONE, polycount);
+            display_comp = display_polygon(0, BRIGHT_DEFAULT, polycount);
             anim = anim_rotate(display_comp, polycount % 2, 40, ANIMATION_DURATION_INF);
             polycount++;
     }

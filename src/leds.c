@@ -162,8 +162,6 @@ static uint32_t led_segment_masks[ BANK_COUNT ][ BRIGHT_LEVELS ];
 
 //___ I N T E R R U P T S  ___________________________________________________
 static void tc_pwm_isr ( struct tc_module *const tc_inst) {
-  uint8_t segment;
-  uint32_t segment_enable_mask = 0;
 
   /* Getting the current bank index from the timer counter
    * actually takes longer than maintaining our own global

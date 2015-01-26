@@ -151,14 +151,13 @@ void comp_leds_clear(  display_comp_t *comp ) {
 
 
 display_comp_t* display_point ( int8_t pos,
-        uint8_t brightness, uint16_t blink_interval ) {
+        uint8_t brightness ) {
 
     display_comp_t *comp_ptr = comp_alloc();
 
     comp_ptr->type = dispt_point;
     comp_ptr->on = true;
     comp_ptr->brightness = brightness;
-    comp_ptr->blink_interval = blink_interval;
     comp_ptr->pos = pos;
     comp_ptr->length = 1;
 
@@ -171,15 +170,13 @@ display_comp_t* display_point ( int8_t pos,
 }
 
 display_comp_t* display_line ( int8_t pos,
-        uint8_t brightness, uint16_t blink_interval,
-        int8_t length) {
+        uint8_t brightness, int8_t length) {
 
     display_comp_t *comp_ptr = comp_alloc();
 
     comp_ptr->type = dispt_line;
     comp_ptr->on = true;
     comp_ptr->brightness = brightness;
-    comp_ptr->blink_interval = blink_interval;
     comp_ptr->pos = pos;
     comp_ptr->length = length;
 
@@ -191,15 +188,13 @@ display_comp_t* display_line ( int8_t pos,
 }
 
 display_comp_t* display_snake ( int8_t pos,
-        uint8_t brightness, uint16_t blink_interval,
-        int8_t length) {
+        uint8_t brightness, int8_t length) {
 
     display_comp_t *comp_ptr = comp_alloc();
 
     comp_ptr->type = dispt_snake;
     comp_ptr->on = true;
     comp_ptr->brightness = brightness;
-    comp_ptr->blink_interval = blink_interval;
     comp_ptr->pos = pos;
     comp_ptr->length = length;
 
@@ -213,15 +208,13 @@ display_comp_t* display_snake ( int8_t pos,
 
 
 display_comp_t* display_polygon ( int8_t pos,
-        uint8_t brightness, uint16_t blink_interval,
-        int8_t num_sides) {
+        uint8_t brightness, int8_t num_sides) {
 
     display_comp_t *comp_ptr = comp_alloc();
 
     comp_ptr->type = dispt_polygon;
     comp_ptr->on = true;
     comp_ptr->brightness = brightness;
-    comp_ptr->blink_interval = blink_interval;
     comp_ptr->pos = pos;
     comp_ptr->length = num_sides;
 
