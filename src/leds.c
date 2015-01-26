@@ -6,6 +6,7 @@
 
 //___ I N C L U D E S ________________________________________________________
 #include "leds.h"
+#include <string.h>
 
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
 #define SEGMENT_COUNT           12
@@ -364,14 +365,7 @@ void led_set_intensity ( uint8_t led, uint8_t intensity ) {
 
 
 void led_clear_all( void ) {
-  uint8_t bank, i;
   /* clear (disable) all active leds */
-
   BANKS_SEGMENTS_CLEAR();
-
-  for( bank = 0; bank < BANK_COUNT; bank++ ) {
-    for( i= 0; i < BRIGHT_LEVELS; i++ ) {
-        led_segment_masks[ bank ][ i] = 0;
-    }
-  }
+  memset(led_segment_masks, 0, BANK_COUNT*BRIGHT_LEVELS*sizeof(uint32_t));
 }
