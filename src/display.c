@@ -99,13 +99,14 @@ void comp_draw( display_comp_t* comp) {
       case dispt_snake:
       case dispt_line:
         pos = MOD(comp->pos - comp->length + 1, 60);
-        while (pos != comp->pos) {
+        do {
           led_on(pos, bright);
           pos = (pos + 1 ) % 60;
           if (comp->type == dispt_snake &&
                   bright > MIN_BRIGHT_VAL)
               bright--;
-        }
+        } while (pos != (comp->pos + 1) % 60);
+
         break;
       case dispt_polygon:
         for (tmp = 0; tmp < comp->length; tmp++) {
@@ -129,10 +130,11 @@ void comp_leds_clear(  display_comp_t *comp ) {
       case dispt_snake:
       case dispt_line:
         pos = MOD(comp->pos - comp->length, 60);
-        while (pos != comp->pos) {
+
+        do {
           led_off(pos);
           pos = (pos + 1 ) % 60;
-        }
+        } while (pos != (comp->pos + 1) % 60);
         break;
       case dispt_polygon:
         for (tmp = 0; tmp < comp->length; tmp++) {
@@ -260,7 +262,36 @@ void display_comp_update_pos ( display_comp_t *comp, int8_t pos ) {
 
 }
 
+void display_comp_update_length ( display_comp_t *comp, int8_t length ) {
+
+    if (comp->type != dispt_line && comp->type != dispt_snake)
+        return;
+
+    if (comp->length == length)
+        return;
+
+    comp_leds_clear(comp);
+    comp->length = length;
+
+}
+
+void display_relative( display_comp_t* line_ptr, uint8_t origin,
+        int8_t value) {
+
+    comp_leds_clear(line_ptr);
+    if (value >= 0) {
+        line_ptr->length = value + 1;
+        line_ptr->pos = (origin + value) % 60;
+    } else {
+        value *= -1;
+        line_ptr->length = value + 1;
+        line_ptr->pos = origin;
+
+    }
+}
+
 void display_comp_release (display_comp_t *comp_ptr) {
+    if (!comp_ptr) return;
     comp_leds_clear(comp_ptr);
     DL_DELETE(head_component_ptr, comp_ptr);
     comp_free(comp_ptr);

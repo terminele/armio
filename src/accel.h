@@ -19,7 +19,7 @@
 bool accel_data_read (int16_t *x_ptr, int16_t *y_ptr, int16_t *z_ptr);
  /* @brief reads the x,y,z data of the accelerometer
    * accelerometer
-   * @param x,y,z - pointers to be filled with 16-bit acceleration data
+   * @param x,y,z - pointers to be filled with 10-bit signed acceleration data
    * @retrn true on success, false on failure
    */
 
@@ -43,4 +43,3 @@ void accel_init ( void );
    */
 
 #endif /* end of include guard: __ACCEL_H__ */
-// vim: shiftwidth=2

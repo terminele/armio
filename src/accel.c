@@ -20,7 +20,18 @@
 #define AX_REG_WHO_AM_I   0x0F
 #define WHO_IS_IT         0x33
 
-#define BITS_PER_ACCEL_VAL  10
+#define BITS_PER_ACCEL_VAL 8
+
+/* Data Rates */
+#define ODR_OFF     0x00
+#define ODR_1HZ     0x10
+#define ODR_10HZ    0x20
+#define ODR_25HZ    0x30
+#define ODR_50HZ    0x40
+#define ODR_100HZ   0x50
+#define ODR_200HZ   0x60
+#define ODR_400HZ   0x70
+
 
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 
@@ -156,10 +167,8 @@ void accel_init ( void ) {
     if (who_it_be != WHO_IS_IT)
         main_terminate_in_error(ERROR_ACCEL_BAD_ID);
 
-    if (!accel_register_write (AX_REG_CTL1, 0x7F))
+    if (!accel_register_write (AX_REG_CTL1, ODR_50HZ | 0x0F))
         main_terminate_in_error(ERROR_ACCEL_WRITE_ENABLE);
 
 
 }
-
-// vim: shiftwidth=2

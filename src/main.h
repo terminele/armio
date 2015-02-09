@@ -27,6 +27,12 @@
 #define ERROR_ANIM_BAD_TYPE             6
 #define ERROR_ASSERTION_FAIL            7
 
+/* System (main) timer */
+#define MS_PER_TICK             2
+#define MS_IN_TICKS(M)         (M/MS_PER_TICK)
+#define TICKS_IN_MS(T)         (T*MS_PER_TICK)
+#define MAIN_TIMER_TICK_US      (MS_PER_TICK*1000)
+
 #define assert(B) if (!(B)) main_terminate_in_error(ERROR_ASSERTION_FAIL)
 
 //___ T Y P E D E F S ________________________________________________________
@@ -87,6 +93,12 @@ uint32_t main_get_button_hold_ticks( void );
   /* @brief # of button ticks since long press started
    * @param None
    * @retrn # of button ticks since long press started
+   */
+
+uint32_t main_get_systime_ms( void );
+  /* @brief get system time in ms
+   * @param None
+   * @retrn sys time in ms
    */
 
 #endif /* end of include guard: __MAIN_H__ */

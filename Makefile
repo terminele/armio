@@ -387,6 +387,13 @@ else
 	)
 endif
 
+
+
+src/bin/aclock.o: .FORCE
+
+.FORCE:
+.PHONY:
+
 # Rebuild the project.
 .PHONY: rebuild
 rebuild: clean all

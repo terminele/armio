@@ -30,11 +30,10 @@
 
 #define MAIN_TIMER  TC5
 
-#define MAIN_TIMER_TICK_US      1000
-#define DEFAULT_SLEEP_TIMEOUT_TICKS     7000
+#define DEFAULT_SLEEP_TIMEOUT_TICKS     MS_IN_TICKS(7000)
 
 /* tick count before considering a button press "long" */
-#define LONG_PRESS_TICKS    2000
+#define LONG_PRESS_TICKS    MS_IN_TICKS(1500)
 
 /* max tick count between successive quick taps */
 #define QUICK_TAP_INTERVAL_TICKS    500
@@ -100,6 +99,7 @@ static struct tc_module main_tc;
 
 struct {
 
+    uint32_t systicks;
     /* Inactivity counter for sleeping.  Resets on any
      * user activity (e.g. button press)
      */
@@ -270,6 +270,7 @@ void main_tic( void ) {
 
     event_flags_t event_flags = 0;
 
+    main_globals.systicks++;
     main_globals.inactivity_ticks++;
 
     event_flags |= get_button_event_flags();
@@ -328,7 +329,7 @@ void main_tic( void ) {
                 else
                     display_comp_hide_all();
 
-                sleep_wake_anim = anim_swirl(0, 5, 4, 120, false);
+                sleep_wake_anim = anim_swirl(0, 8, MS_IN_TICKS(4), 120, false);
                 return;
             }
 
@@ -339,9 +340,10 @@ void main_tic( void ) {
                 main_globals.button_hold_ticks = 0;
                 /* animate slow snake from current mode to next.
                  * swirl distance is based on total mode count */
+                //FIXME -- doesnt look good
                 mode_trans_anim = anim_swirl(
                         60*control_mode_index(control_mode_active)/control_mode_count(),
-                        4, 8, 60/control_mode_count(), true);
+                        MS_IN_TICKS(4), 8, 60/control_mode_count(), true);
 
             }
 
@@ -360,6 +362,10 @@ void main_tic( void ) {
 
 //___ F U N C T I O N S ______________________________________________________
 
+
+uint32_t main_get_systime_ms( void ) {
+    return TICKS_IN_MS(main_globals.systicks);
+}
 
 void main_terminate_in_error ( uint8_t error_code ) {
 
@@ -503,7 +509,7 @@ int main (void)
     control_init();
     display_init();
     anim_init();
-    //accel_init();
+    accel_init();
 
     /* Read light and vbatt sensors on startup */
 
@@ -518,7 +524,7 @@ int main (void)
 
 
     /* Show a startup LED swirl */
-    sleep_wake_anim = anim_swirl(0, 5, 4, 120, true);
+    sleep_wake_anim = anim_swirl(0, 8, MS_IN_TICKS(4), 120, true);
 
     /* get intial time */
     configure_input();

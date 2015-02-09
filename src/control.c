@@ -7,10 +7,11 @@
 #include "control.h"
 #include "aclock.h"
 #include "anim.h"
+#include "accel.h"
 #include "display.h"
 
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
-#define CLOCK_MODE_SLEEP_TIMEOUT_TICKS     7000
+#define CLOCK_MODE_SLEEP_TIMEOUT_TICKS     MS_IN_TICKS(7000)
 
 /* corresponding led position for the given hour */
 #define HOUR_POS(hour) ((hour % 12) * 5)
@@ -22,18 +23,24 @@
 bool clock_mode_tic ( event_flags_t event_flags );
   /* @brief main tick callback for clock mode
    * @param event flags
-   * @retrn None
+   * @retrn flag indicating mode finish
    */
 bool light_sense_mode_tic ( event_flags_t event_flags );
   /* @brief main tick callback for light sensor display mode
    * @param event flags
-   * @retrn None
+   * @retrn flag indicating mode finish
+   */
+
+bool accel_mode_tic ( event_flags_t event_flags  );
+  /* @brief main tick callback for accel mode
+   * @param event flags
+   * @retrn flag indicating mode finish
    */
 
 bool vbatt_sense_mode_tic ( event_flags_t event_flags );
   /* @brief main tick callback for vbatt sensor display mode
    * @param event flags
-   * @retrn None
+   * @retrn flag indicating mode finish
    */
 
 uint8_t adc_value_scale ( uint16_t value );
@@ -43,11 +50,19 @@ uint8_t adc_value_scale ( uint16_t value );
    * @retrn led index to display
    */
 
+
 //___ V A R I A B L E S ______________________________________________________
 
 control_mode_t *control_mode_active = NULL;
 
 control_mode_t control_modes[] = {
+    {
+        .init_cb = NULL,
+        .tic_cb = accel_mode_tic,
+        .sleep_timeout_ticks = MS_IN_TICKS(60000),
+        .about_to_sleep_cb = NULL,
+        .on_wakeup_cb = NULL,
+    },
     {
         .init_cb = NULL,
         .tic_cb = clock_mode_tic,
@@ -58,17 +73,17 @@ control_mode_t control_modes[] = {
     {
         .init_cb = NULL,
         .tic_cb = light_sense_mode_tic,
-        .sleep_timeout_ticks = 30000,
+        .sleep_timeout_ticks = MS_IN_TICKS(10000),
         .about_to_sleep_cb = NULL,
         .on_wakeup_cb = NULL,
     },
     {
         .init_cb = NULL,
         .tic_cb = vbatt_sense_mode_tic,
-        .sleep_timeout_ticks = 7000,
+        .sleep_timeout_ticks = MS_IN_TICKS(5000),
         .about_to_sleep_cb = NULL,
         .on_wakeup_cb = NULL,
-    }
+    },
 };
 
 //___ I N T E R R U P T S  ___________________________________________________
@@ -133,6 +148,68 @@ uint8_t adc_vbatt_value_scale ( uint16_t value ) {
     return 1 + 7*(value - 2048)/(2765 - 2048);
 
 
+}
+
+bool accel_mode_tic ( event_flags_t event_flags  ) {
+    static display_comp_t *disp_x = NULL;
+    static display_comp_t *disp_y = NULL;
+    static display_comp_t *disp_z = NULL;
+    static animation_t *anim_ptr = NULL;
+    int16_t x,y,z;
+    float x_f, y_f, z_f;
+    float mag;
+    static uint32_t last_update_ms = 0;
+
+    if (main_get_systime_ms() - last_update_ms < 50) {
+        return false;
+    }
+
+    last_update_ms = main_get_systime_ms();
+
+    if (event_flags & EV_FLAG_LONG_BTN_PRESS) {
+        display_comp_release(disp_x);
+        display_comp_release(disp_y);
+        display_comp_release(disp_z);
+        disp_x = disp_y = disp_z = NULL;
+        if (anim_ptr) {
+            anim_release(anim_ptr);
+            anim_ptr = NULL;
+        }
+        return true; //transition on long presses
+    }
+
+    if (anim_ptr && !anim_is_finished(anim_ptr)) {
+
+        return false;
+    }
+
+    if (!disp_x) {
+        disp_x = display_line(20, BRIGHT_MED_LOW, 1);
+        disp_y = display_line(40, BRIGHT_MED_LOW, 1);
+        disp_z = display_line(0, BRIGHT_MED_LOW, 1);
+    }
+
+    x = y = z = 0;
+    if (!accel_data_read(&x, &y, &z)) {
+        if (anim_ptr) {
+            anim_release(anim_ptr);
+        }
+        anim_ptr = anim_swirl(0, 5, MS_IN_TICKS(16), 60, false);
+        return false;
+    }
+
+    /* Scale values  */
+    x >>= 4;
+    y >>= 4;
+    z >>= 4;
+
+
+
+    display_relative( disp_x, 20, x );
+    display_relative( disp_y, 40, y );
+    display_relative( disp_z, 0, z );
+
+    return false;
 }
 
 bool light_sense_mode_tic ( event_flags_t event_flags ) {
@@ -237,7 +314,7 @@ bool clock_mode_tic ( event_flags_t event_flags ) {
 
 
             if (!fast_inc && button_down_ticks > 15000) {
-                anim_swirl(15, 50, 3, 64 );
+                anim_swirl(15, 5, MS_IN_TICKS(4), 64 );
                 fast_inc = true;
             }
 

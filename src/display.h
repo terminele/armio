@@ -107,6 +107,21 @@ void display_comp_update_pos ( display_comp_t *ptr, int8_t pos );
    * @retrn None
    */
 
+void display_comp_update_length ( display_comp_t *ptr, int8_t length );
+  /* @brief update the length (if applicable) of the given component
+   * @param comp_ptr - handle to component to update
+   * @param new_len - new length for component
+   * @retrn None
+   */
+
+void display_relative( display_comp_t* line_ptr, uint8_t origin,
+        int8_t value);
+  /* @brief draw line ending at the given value relative to the
+   * given origin
+   * @param line to draw; origin, relative value
+   * @retrn None
+   */
+
 static inline void display_comp_update_brightness ( display_comp_t *ptr,
         uint8_t intensity) {
     ptr->brightness = intensity;
