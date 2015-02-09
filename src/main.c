@@ -98,7 +98,6 @@ void main_init( void );
 //___ V A R I A B L E S ______________________________________________________
 static struct tc_module main_tc;
 
-
 struct {
 
     /* Inactivity counter for sleeping.  Resets on any
@@ -290,10 +289,24 @@ void main_tic( void ) {
         case ENTERING_SLEEP:
             /* Wait until animation is finished to sleep */
             if (anim_is_finished(sleep_wake_anim)) {
+                uint8_t hr, sec, min, prev_hr;
                 anim_release(sleep_wake_anim);
+
+                /* Remember what time that this sleep started */
+                aclock_get_time(&hr, &sec, &min);
+                prev_hr = hr;
+
                 enter_sleep();
 
                 wakeup();
+
+                /* Only read vbatt after a long sleep so
+                 * we get an accurate estimate */
+                aclock_get_time(&hr, &sec, &min);
+                if (hr - prev_hr > 2) {
+                    main_set_current_sensor(sensor_vbatt);
+                    main_read_current_sensor(true);
+                }
 
                 if (control_mode_active->on_wakeup_cb)
                     control_mode_active->on_wakeup_cb();

@@ -8,6 +8,8 @@
 #include "leds.h"
 #include <string.h>
 
+#define SEGMENTS_H
+
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
 #define SEGMENT_COUNT           12
 #define BANK_COUNT              5
@@ -53,20 +55,58 @@
 #define BANK_GPIO( bank_number ) LED_BANK_GPIO_PINS[bank_number]
 #define SEGMENT_GPIO( seg_number ) LED_SEGMENT_GPIO_PINS[seg_number]
 
+#ifdef BANKS_H
+/* Banks are active high */
+#define BANK_ENABLE( bank_number )          \
+  PORTA.OUTSET.reg = 1UL << BANK_GPIO( bank_number )
+
+#define BANK_DISABLE( bank_number )         \
+  PORTA.OUTCLR.reg = 1UL << BANK_GPIO( bank_number )
+
+#define BANKS_CLEAR() \
+    port_group_set_output_level(&PORTA, BANK_PIN_PORT_MASK, 0 )
+
+
+#else
+
+/* Banks are active low */
 #define BANK_ENABLE( bank_number )          \
   PORTA.OUTCLR.reg = 1UL << BANK_GPIO( bank_number )
 
 #define BANK_DISABLE( bank_number )         \
   PORTA.OUTSET.reg = 1UL << BANK_GPIO( bank_number )
 
+#define BANKS_CLEAR() \
+    port_group_set_output_level(&PORTA, BANK_PIN_PORT_MASK, 0xffffffff )
+
+#endif
+
+#ifdef SEGMENTS_H
+
+/* Segments are active high */
+#define SEGMENTS_CLEAR() \
+    port_group_set_output_level(&PORTA, SEGMENT_PIN_PORT_MASK, 0 )
+
+#define SEGMENT_ENABLE( segment_number )    \
+    port_pin_set_output_level( SEGMENT_GPIO( segment_number ), true )
+
+#define SEGMENT_DISABLE( segment_number )   \
+    port_pin_set_output_level( SEGMENT_GPIO ( segment_number ), false )
+
+#else
+/* Segments are active low */
 #define SEGMENT_ENABLE( segment_number )    \
     port_pin_set_output_level( SEGMENT_GPIO( segment_number ), false )
 
 #define SEGMENT_DISABLE( segment_number )   \
     port_pin_set_output_level( SEGMENT_GPIO ( segment_number ), true )
 
+#define SEGMENTS_CLEAR() \
+    port_group_set_output_level(&PORTA, SEGMENT_PIN_PORT_MASK, 0xffffffff )
+#endif
 
-
+#define BANKS_SEGMENTS_CLEAR() \
+  BANKS_CLEAR();SEGMENTS_CLEAR()
 
 #define SEGMENT_PIN_PORT_MASK ( \
       1 << PIN_PA16	|	\
@@ -89,16 +129,9 @@
       1 << PIN_PA24     |       \
       1 << PIN_PA23 )
 
-#define SEGMENTS_CLEAR() \
-    port_group_set_output_level(&PORTA, SEGMENT_PIN_PORT_MASK, 0xffffffff )
-
-#define BANKS_CLEAR() \
-    port_group_set_output_level(&PORTA, BANK_PIN_PORT_MASK, 0xffffffff )
 
 
-#define BANKS_SEGMENTS_CLEAR() \
-    port_group_set_output_level(&PORTA, BANK_PIN_PORT_MASK | SEGMENT_PIN_PORT_MASK, \
-        0xffffffff )
+
 
 #define CURRENT_BANK() \
         ((Tc *) BANK_SELECT_TIMER)->COUNT8.COUNT.reg;
@@ -174,7 +207,12 @@ static void tc_pwm_isr ( struct tc_module *const tc_inst) {
   BANKS_SEGMENTS_CLEAR();
 
   /* Enable (toggle low) the specific led segments applying mask to "clear" register */
+#ifdef SEGMENTS_H
+  PORTA.OUTSET.reg  = led_segment_masks[bank_ctr][bright_index];
+#else
   PORTA.OUTCLR.reg  = led_segment_masks[bank_ctr][bright_index];
+#endif
+
   BANK_ENABLE( bank_ctr );
 
 

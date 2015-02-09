@@ -172,6 +172,9 @@ bool vbatt_sense_mode_tic ( event_flags_t event_flags ) {
     uint16_t adc_val;
     static uint32_t tick_count = 0;
 
+    /* FIXME - don't actually read vbatt sensor
+     * in this mode.  VBATT should only be sampled
+     * after long sleep periods */
     if (tick_count == 0)
         main_set_current_sensor(sensor_vbatt);
 

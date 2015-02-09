@@ -102,6 +102,12 @@ void main_tic( void ) {
             display_comp = display_polygon(0, BRIGHT_DEFAULT, polycount);
             anim = anim_rotate(display_comp, polycount % 2, 40, ANIMATION_DURATION_INF);
             polycount++;
+
+            if (polycount > 12) {
+                polycount = 0;
+            }
+            display_comp_release(display_comp);
+            anim_release(anim);
     }
 
 
