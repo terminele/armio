@@ -7,6 +7,7 @@
 
 //___ I N C L U D E S ________________________________________________________
 #include <asf.h>
+#include <main.h>
 
 //___ M A C R O S ____________________________________________________________
 
@@ -21,6 +22,12 @@ bool accel_data_read (int16_t *x_ptr, int16_t *y_ptr, int16_t *z_ptr);
    * accelerometer
    * @param x,y,z - pointers to be filled with 10-bit signed acceleration data
    * @retrn true on success, false on failure
+   */
+
+event_flags_t accel_event_flags( void );
+  /* @brief get any event flags from accelerometer
+   * @param None
+   * @retrn ev flags (e.g. SCLICK_X, DCLICK_Z, etc.)
    */
 
 void accel_enable ( void );

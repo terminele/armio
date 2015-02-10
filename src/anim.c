@@ -22,8 +22,7 @@ animation_t* anim_alloc ( void );
 
 void anim_free ( animation_t* ptr );
   /* @brief free an animation object
-   * @param pointer to anim to free
-   * @retrn None
+   * @param pointer to anim to free * @retrn None
    */
 
 void anim_update( animation_t *anim);
@@ -87,6 +86,9 @@ void anim_update( animation_t *anim ) {
                     anim->disp_comp->brightness - 1);
 
             break;
+        case anim_cut:
+            /* main tic will take care of this */
+            break;
         default:
             main_terminate_in_error( ERROR_ANIM_BAD_TYPE );
             break;
@@ -105,6 +107,7 @@ animation_t* anim_rotate(display_comp_t *disp_comp,
     anim->enabled = true;
     anim->disp_comp = disp_comp;
     anim->autorelease_disp_comp = false;
+    anim->autorelease_anim = false;
     anim->tick_interval = tick_interval;
     anim->interval_counter = 0;
     anim->tick_duration = duration;
@@ -124,6 +127,7 @@ animation_t* anim_random( display_comp_t *disp_comp,
     anim->type = anim_rand;
     anim->enabled = true;
     anim->autorelease_disp_comp = false;
+    anim->autorelease_anim = false;
     anim->tick_interval = tick_interval;
     anim->disp_comp = disp_comp;
     anim->interval_counter = 0;
@@ -141,6 +145,7 @@ animation_t* anim_swirl(uint8_t start, uint8_t len, uint16_t tick_interval,
     animation_t *anim = anim_rotate(disp_comp, clockwise, tick_interval,
             distance * tick_interval);
 
+    anim->autorelease_anim = false;
     anim->autorelease_disp_comp = true;
 
     return anim;
@@ -149,13 +154,14 @@ animation_t* anim_swirl(uint8_t start, uint8_t len, uint16_t tick_interval,
 
 animation_t* anim_fade(display_comp_t *disp_comp,
         uint8_t bright_start, uint8_t bright_end, uint16_t tick_interval,
-        int16_t cycles) {
+        int16_t cycles, bool autorelease) {
 
     animation_t *anim = anim_alloc();
 
     anim->type = anim_fade_inout;
     anim->enabled = true;
-    anim->autorelease_disp_comp = false;
+    anim->autorelease_disp_comp = autorelease;
+    anim->autorelease_anim = autorelease;
     anim->disp_comp = disp_comp;
     anim->tick_interval = tick_interval;
     anim->interval_counter = 0;
@@ -176,6 +182,27 @@ animation_t* anim_fade(display_comp_t *disp_comp,
 
 }
 
+animation_t* anim_cutout(display_comp_t *disp_comp,
+        uint16_t tick_duration, bool autorelease) {
+
+
+    animation_t *anim = anim_alloc();
+
+    anim->type = anim_cut;
+    anim->enabled = true;
+    anim->autorelease_disp_comp = autorelease;
+    anim->autorelease_anim = autorelease;
+    anim->disp_comp = disp_comp;
+    anim->tick_duration = tick_duration;
+    anim->interval_counter = 0;
+
+    anim->prev = anim->next = NULL;
+
+    DL_APPEND(head_anim_ptr, anim);
+
+    return anim;
+}
+
 void anim_stop( animation_t *anim) {
     anim->enabled = false;
 }
@@ -184,18 +211,25 @@ void anim_release( animation_t *anim) {
     if (anim->autorelease_disp_comp)
         display_comp_release(anim->disp_comp);
 
+    DL_DELETE(head_anim_ptr, anim);
     anim_free(anim);
 
 }
 
 void anim_tic( void ) {
     animation_t *anim = NULL;
+    animation_t *tmp = NULL;
 
-    DL_FOREACH(head_anim_ptr, anim) {
+    DL_FOREACH_SAFE(head_anim_ptr, anim, tmp) {
         if (anim->tick_duration > 0) {
             anim->tick_duration--;
             if (anim->tick_duration == 0) {
                 anim->enabled = false;
+
+                if (anim->autorelease_anim) {
+                    anim_release(anim);
+                }
+                continue;
             }
         }
 

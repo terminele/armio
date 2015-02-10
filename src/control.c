@@ -59,7 +59,7 @@ control_mode_t control_modes[] = {
     {
         .init_cb = NULL,
         .tic_cb = accel_mode_tic,
-        .sleep_timeout_ticks = MS_IN_TICKS(60000),
+        .sleep_timeout_ticks = MS_IN_TICKS(10000),
         .about_to_sleep_cb = NULL,
         .on_wakeup_cb = NULL,
     },
@@ -159,14 +159,12 @@ bool accel_mode_tic ( event_flags_t event_flags  ) {
     float x_f, y_f, z_f;
     float mag;
     static uint32_t last_update_ms = 0;
+    static uint8_t click_cnt = 0;
 
-    if (main_get_systime_ms() - last_update_ms < 50) {
-        return false;
-    }
-
-    last_update_ms = main_get_systime_ms();
-
-    if (event_flags & EV_FLAG_LONG_BTN_PRESS) {
+#ifdef NOT_NOW
+    if (event_flags & EV_FLAG_LONG_BTN_PRESS ||
+        event_flags & EV_FLAG_ACCEL_DCLICK_Z) {
+        display_comp_hide_all();
         display_comp_release(disp_x);
         display_comp_release(disp_y);
         display_comp_release(disp_z);
@@ -182,6 +180,7 @@ bool accel_mode_tic ( event_flags_t event_flags  ) {
 
         return false;
     }
+
 
     if (!disp_x) {
         disp_x = display_line(20, BRIGHT_MED_LOW, 1);
@@ -203,11 +202,49 @@ bool accel_mode_tic ( event_flags_t event_flags  ) {
     y >>= 4;
     z >>= 4;
 
-
-
     display_relative( disp_x, 20, x );
     display_relative( disp_y, 40, y );
     display_relative( disp_z, 0, z );
+#endif
+
+
+    if ( event_flags & EV_FLAG_ACCEL_SCLICK_X) {
+        anim_cutout(display_point(15, BRIGHT_MED_LOW), MS_IN_TICKS(1000),
+                true);
+
+        click_cnt++;
+        anim_cutout(display_point(click_cnt % 60, BRIGHT_MED_LOW), MS_IN_TICKS(1000),
+                true);
+    }
+
+    if (event_flags & EV_FLAG_ACCEL_SCLICK_Y) {
+        anim_cutout(display_point(45, BRIGHT_MED_LOW), MS_IN_TICKS(1000),
+                true);
+    }
+
+    if (event_flags & EV_FLAG_ACCEL_SCLICK_Z) {
+        anim_cutout(display_point(0, BRIGHT_MED_LOW), MS_IN_TICKS(1000),
+                true);
+    }
+
+    if (event_flags & EV_FLAG_ACCEL_DCLICK_X) {
+        anim_cutout(display_point(30, BRIGHT_MED_LOW), MS_IN_TICKS(1000),
+                true);
+
+    }
+
+    if (event_flags & EV_FLAG_ACCEL_DCLICK_Y) {
+        anim_cutout(display_point(50, BRIGHT_MED_LOW), MS_IN_TICKS(1000),
+                true);
+    }
+
+    if (event_flags & EV_FLAG_ACCEL_DCLICK_Z) {
+        anim_cutout(display_point(5, BRIGHT_MED_LOW), MS_IN_TICKS(1000),
+                true);
+
+        return true;
+    }
+
 
     return false;
 }
@@ -220,7 +257,8 @@ bool light_sense_mode_tic ( event_flags_t event_flags ) {
     if (tick_count == 0)
         main_set_current_sensor(sensor_light);
 
-    if (event_flags & EV_FLAG_LONG_BTN_PRESS) {
+    if (event_flags & EV_FLAG_LONG_BTN_PRESS ||
+        event_flags & EV_FLAG_ACCEL_DCLICK_Z) {
         if (adc_pt) {
             display_comp_release(adc_pt);
             adc_pt = NULL;
@@ -255,7 +293,8 @@ bool vbatt_sense_mode_tic ( event_flags_t event_flags ) {
     if (tick_count == 0)
         main_set_current_sensor(sensor_vbatt);
 
-    if (event_flags & EV_FLAG_LONG_BTN_PRESS) {
+    if (event_flags & EV_FLAG_LONG_BTN_PRESS ||
+        event_flags & EV_FLAG_ACCEL_DCLICK_Z) {
         if (adc_pt) {
             display_comp_release(adc_pt);
             adc_pt = NULL;
@@ -292,7 +331,8 @@ bool clock_mode_tic ( event_flags_t event_flags ) {
     static display_comp_t *hour_disp_ptr = NULL;
 
 
-    if (event_flags & EV_FLAG_LONG_BTN_PRESS) {
+    if (event_flags & EV_FLAG_LONG_BTN_PRESS ||
+        event_flags & EV_FLAG_ACCEL_DCLICK_Z) {
         if (sec_disp_ptr) {
             display_comp_release(sec_disp_ptr);
             display_comp_release(min_disp_ptr);

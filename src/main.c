@@ -66,7 +66,7 @@ static void configure_extint(void);
    * @param None
    * @retrn None
    */
-event_flags_t get_button_event_flags( void );
+event_flags_t button_event_flags( void );
   /* @brief check current button event flags
    * @param None
    * @retrn button event flags
@@ -199,7 +199,7 @@ void enter_sleep( void ) {
     port_pin_set_output_level(LIGHT_BATT_ENABLE_PIN, false);
     led_controller_disable();
     aclock_disable();
-    //accel_disable();
+    accel_disable();
     tc_disable(&main_tc);
 
     //system_ahb_clock_clear_mask( PM_AHBMASK_HPB2 | PM_AHBMASK_DSU);
@@ -224,11 +224,11 @@ void wakeup (void) {
     system_interrupt_enable_global();
     led_controller_enable();
     aclock_enable();
-    //accel_enable();
+    accel_enable();
     tc_enable(&main_tc);
 }
 
-event_flags_t get_button_event_flags ( void ) {
+event_flags_t button_event_flags ( void ) {
 
     event_flags_t event_flags = 0;
     bool new_btn_state = port_pin_get_input_level(BUTTON_PIN);
@@ -273,7 +273,8 @@ void main_tic( void ) {
     main_globals.systicks++;
     main_globals.inactivity_ticks++;
 
-    event_flags |= get_button_event_flags();
+    event_flags |= button_event_flags();
+    event_flags |= accel_event_flags();
 
     /* Reset inactivity if any button event occurs */
     if (event_flags != EV_FLAG_NONE) main_globals.inactivity_ticks = 0;
@@ -334,7 +335,7 @@ void main_tic( void ) {
             }
 
             /* Call mode's main tic loop/event handler */
-            if (control_mode_active->tic_cb(event_flags)) {
+            if (control_mode_active->tic_cb(event_flags)){
                 /* begin transition to next mode */
                 main_globals.state = MODE_TRANSITION;
                 main_globals.button_hold_ticks = 0;

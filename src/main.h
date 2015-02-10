@@ -16,6 +16,12 @@
 #define EV_FLAG_SINGLE_BTN_PRESS_END    1 << 1
 #define EV_FLAG_LONG_BTN_PRESS          1 << 2
 #define EV_FLAG_LONG_BTN_PRESS_END      1 << 3
+#define EV_FLAG_ACCEL_SCLICK_X          1 << 4
+#define EV_FLAG_ACCEL_SCLICK_Y          1 << 5
+#define EV_FLAG_ACCEL_SCLICK_Z          1 << 6
+#define EV_FLAG_ACCEL_DCLICK_X          1 << 7
+#define EV_FLAG_ACCEL_DCLICK_Y          1 << 8
+#define EV_FLAG_ACCEL_DCLICK_Z          1 << 9
 
 /* Error Codes */
 #define ERROR_NONE                      0
@@ -23,9 +29,11 @@
 #define ERROR_ACCEL_BAD_ID              2
 #define ERROR_ACCEL_WRITE_ENABLE        3
 #define ERROR_DISP_DRAW_BAD_COMP_TYPE   4
-#define ERROR_DISP_CLEAR_BAD_COMP_TYPE  5
-#define ERROR_ANIM_BAD_TYPE             6
-#define ERROR_ASSERTION_FAIL            7
+#define ERROR_DISP_ALLOC_FAIL           5
+#define ERROR_DISP_CLEAR_BAD_COMP_TYPE  6
+#define ERROR_ANIM_BAD_TYPE             7
+#define ERROR_ANIM_ALLOC_FAIL           8
+#define ERROR_ASSERTION_FAIL            9
 
 /* System (main) timer */
 #define MS_PER_TICK             2

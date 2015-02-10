@@ -160,7 +160,7 @@
 #  define CONF_CLOCK_GCLK_4_RUN_IN_STANDBY        false
 #  define CONF_CLOCK_GCLK_4_CLOCK_SOURCE          SYSTEM_CLOCK_SOURCE_XOSC32K
 #  define CONF_CLOCK_GCLK_4_PRESCALER             1
-#  define CONF_CLOCK_GCLK_4_OUTPUT_ENABLE         true
+#  define CONF_CLOCK_GCLK_4_OUTPUT_ENABLE         false
 
 /* Configure GCLK generator 5 */
 #  define CONF_CLOCK_GCLK_5_ENABLE                false
@@ -181,6 +181,6 @@
 #  define CONF_CLOCK_GCLK_7_RUN_IN_STANDBY        false
 #  define CONF_CLOCK_GCLK_7_CLOCK_SOURCE          SYSTEM_CLOCK_SOURCE_OSC32K
 #  define CONF_CLOCK_GCLK_7_PRESCALER             1
-#  define CONF_CLOCK_GCLK_7_OUTPUT_ENABLE         true
+#  define CONF_CLOCK_GCLK_7_OUTPUT_ENABLE         false
 
 #endif /* CONF_CLOCKS_H_INCLUDED */

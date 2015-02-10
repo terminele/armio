@@ -22,7 +22,7 @@
 
 
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
-#define MAX_ALLOCATIONS     16
+#define MAX_ALLOCATIONS     10
 #define MOD(a,b) ((a % b) < 0 ? a + b : a % b)
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 
@@ -79,7 +79,7 @@ display_comp_t *comp_alloc( void ) {
             return component_allocs + i;
     }
 
-    assert(false);
+    main_terminate_in_error(ERROR_DISP_ALLOC_FAIL);
     return NULL;
 }
 

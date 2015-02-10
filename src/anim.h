@@ -20,14 +20,12 @@ typedef enum {
     anim_rotate_cw,
     anim_rotate_ccw,
     anim_rand,
-    anim_fade_inout
+    anim_fade_inout,
+    anim_cut,
 } animation_type_t;
 
 typedef struct animation_t {
-    animation_type_t type;
     display_comp_t *disp_comp;
-    bool enabled;
-    bool autorelease_disp_comp; //for display components we allocate
     uint16_t interval_counter;
     uint16_t tick_interval; //update interval in ticks
     int32_t tick_duration; //duration in ticks
@@ -37,6 +35,11 @@ typedef struct animation_t {
     uint8_t bright_end; //only applicable for fades
 
     struct animation_t *next, *prev;
+
+    animation_type_t type;
+    bool enabled;
+    bool autorelease_disp_comp; //for display components we allocate
+    bool autorelease_anim; //for animations we should release at their ending
 
 } animation_t;
 
@@ -78,7 +81,7 @@ animation_t* anim_swirl(uint8_t start, uint8_t len, uint16_t tick_interval,
 
 animation_t* anim_fade(display_comp_t *disp_comp,
         uint8_t bright_start, uint8_t bright_end, uint16_t tick_interval,
-        int16_t cycles);
+        int16_t cycles, bool autorelease);
   /* @brief fade the given disp comp
    * @param disp_comp - display component to animate
    * @param bright_start - starting brightness level
@@ -88,28 +91,40 @@ animation_t* anim_fade(display_comp_t *disp_comp,
    *    a single fade in or out occurs.  Else a series of fades in and
    *    out occur (e.g. 6 cycles would be 3 sequences of fade in and fade
    *    outs).  Can be ANIMATION_DURATION_INF
+   * @param autorelease - if animation and display comp should be freed at completion
    * @retrn handle to fade animation object
    */
 
+animation_t* anim_cutout(display_comp_t *disp_comp,
+        uint16_t tick_duration, bool autorelease);
+  /* @brief shows the given component for the given duration, then hides it
+   * @param disp_comp - display component to animate
+   * @param tick_duration - duration that component should be shown
+   * @param autorelease - if animation and display comp should be freed at completion
+   * @retrn None
+   */
 
 static inline animation_t* anim_fade_in(display_comp_t *disp_comp,
-        uint8_t brightness, uint16_t tick_interval) {
-    return anim_fade(disp_comp, 0, brightness, tick_interval, 1);
+        uint8_t brightness, uint16_t tick_interval, bool autorelease) {
+    return anim_fade(disp_comp, 0, brightness, tick_interval, 1, autorelease);
 }
   /* @brief fade in the given display component
    * @param disp_comp - display component to animate
    * @param brightness - ending brightness level
    * @param tick_interval - interval between brightness steps
+   * @param autorelease - if animation and display comp should be freed at completion
    * @retrn handle to fade animation object
    */
 
 static inline animation_t* anim_fade_out(display_comp_t *disp_comp,
-        uint16_t tick_interval) {
-    return anim_fade(disp_comp, disp_comp->brightness, 0, tick_interval, 1);
+        uint16_t tick_interval, bool autorelease) {
+    return anim_fade(disp_comp, disp_comp->brightness, 0, tick_interval, 1,
+            autorelease);
 }
   /* @brief fade out the given display component
    * @param disp_comp - display component to animate
    * @param tick_interval - interval between brightness steps
+   * @param autorelease - if animation and display comp should be freed at completion
    * @retrn handle to fade animation object
    */
 
