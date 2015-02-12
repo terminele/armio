@@ -19,7 +19,7 @@
 #include <asf.h>
 
 //___ M A C R O S ____________________________________________________________
-#define BRIGHT_LEVELS       7       /* bit resolution */
+#define BRIGHT_LEVELS       5       /* bit resolution */
 
 #define BRIGHT_DEFAULT      4
 

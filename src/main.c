@@ -38,6 +38,11 @@
 /* max tick count between successive quick taps */
 #define QUICK_TAP_INTERVAL_TICKS    500
 
+/* Starting flash address at which to store data */
+#define NVM_ADDR_START      (1 << 15) /* assumes program size < 32KB */
+#define NVM_LOG_DATA_SIZE   (1 << 16)/* 64 KB */
+#define NVM_ADDR_MAX        (NVM_ADDR_START + NVM_LOG_DATA_SIZE)
+
 
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 
@@ -128,6 +133,10 @@ static animation_t *sleep_wake_anim = NULL;
 static animation_t *mode_trans_anim = NULL;
 
 static struct adc_module light_vbatt_sens_adc;
+
+static uint32_t nvm_row_addr = NVM_ADDR_START;
+static uint8_t nvm_row_buffer[NVMCTRL_ROW_SIZE];
+static uint16_t nvm_row_ind = 0;
 
 //___ F U N C T I O N S   ( P R I V A T E ) __________________________________
 
@@ -273,6 +282,8 @@ void main_tic( void ) {
     main_globals.systicks++;
     main_globals.inactivity_ticks++;
 
+    //main_log_data( (uint8_t *) &main_globals.systicks, sizeof(main_globals.systicks) );
+
     event_flags |= button_event_flags();
     event_flags |= accel_event_flags();
 
@@ -383,6 +394,42 @@ void main_terminate_in_error ( uint8_t error_code ) {
     }
 }
 
+void main_log_data( uint8_t *data, uint16_t length) {
+    /* Store data in NVM flash */
+    enum status_code error_code;
+    uint16_t  i, p;
+
+    if (nvm_row_addr + length >= NVM_ADDR_MAX) return;
+
+    for (i = 0; i < length; i++) {
+        nvm_row_buffer[nvm_row_ind] = data[i];
+        nvm_row_ind++;
+
+        if (nvm_row_ind == NVMCTRL_ROW_SIZE) {
+            nvm_row_ind = 0;
+
+            /* Write the full row buffer to flash */
+            /* First, erase the row */
+            do {
+		error_code = nvm_erase_row(nvm_row_addr);
+            } while (error_code == STATUS_BUSY);
+
+            /* Write each page of the row buffer */
+            for (p = 0; p < NVMCTRL_ROW_PAGES; p++) {
+                do {
+                    error_code = nvm_write_buffer(nvm_row_addr + p*NVMCTRL_PAGE_SIZE,
+                                    nvm_row_buffer + p*NVMCTRL_PAGE_SIZE,
+                                    NVMCTRL_PAGE_SIZE);
+
+                } while (error_code == STATUS_BUSY);
+            }
+
+            nvm_row_addr+=NVMCTRL_ROW_SIZE;
+        }
+
+    }
+
+}
 
 void main_start_sensor_read ( void ) {
 
@@ -406,6 +453,8 @@ void main_set_current_sensor ( sensor_type_t sensor ) {
     config_adc.resolution         = ADC_RESOLUTION_CUSTOM;
     config_adc.accumulate_samples = ADC_ACCUMULATE_SAMPLES_1024;
     config_adc.divide_result      = ADC_DIVIDE_RESULT_16;
+    config_adc.run_in_standby     = false;
+    config_adc.resolution         = ADC_RESOLUTION_12BIT;
 
     switch(sensor) {
         case sensor_vbatt:
@@ -422,7 +471,6 @@ void main_set_current_sensor ( sensor_type_t sensor ) {
     adc_enable(&light_vbatt_sens_adc);
 
 }
-
 
 uint16_t main_read_current_sensor( bool blocking ) {
     uint16_t result;
@@ -464,6 +512,7 @@ uint8_t main_get_multipress_count( void ) {
 uint32_t main_get_button_hold_ticks ( void ) {
     return main_globals.button_hold_ticks;
 }
+
 void main_init( void ) {
 
     struct tc_config config_tc;
@@ -487,6 +536,10 @@ void main_init( void ) {
     tc_init(&main_tc, MAIN_TIMER, &config_tc);
     tc_enable(&main_tc);
 
+    /* Initialize NVM controller for data storage */
+    struct nvm_config config_nvm;
+    nvm_get_config_defaults(&config_nvm);
+    nvm_set_config(&config_nvm);
 }
 
 int main (void)

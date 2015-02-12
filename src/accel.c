@@ -8,8 +8,10 @@
 
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
 
-#define AX_SDA_PIN      PINMUX_PA08C_SERCOM0_PAD0 //PIN_PA08
-#define AX_SCL_PIN      PINMUX_PA09C_SERCOM0_PAD1 //PIN_PA09
+#define AX_SDA_PIN      PIN_PA08
+#define AX_SDA_PAD      PINMUX_PA08C_SERCOM0_PAD0
+#define AX_SCL_PIN      PIN_PA09
+#define AX_SCL_PAD      PINMUX_PA09C_SERCOM0_PAD1
 #define AX_INT1_PIN     PIN_PA10
 #define AX_INT1_EIC     PIN_PA10A_EIC_EXTINT10
 #define AX_INT1_EIC_MUX MUX_PA10A_EIC_EXTINT10
@@ -34,13 +36,6 @@
 #define AX_REG_ACT_THS      0x3E
 #define AX_REG_ACT_DUR      0x3F
 
-/* Click configuration constants */
-#define CLICK_THRESHOLD     0x67
-#define CLICK_TIME_WIN      0x80
-#define CLICK_TIME_LIM      0x76
-#define CLICK_TIME_LAT      0x22
-#define WAKEUP_CLICK_THRESHOLD     0xA0
-
 #define BITS_PER_ACCEL_VAL 8
 
 /* CTRL_REG1 */
@@ -59,12 +54,21 @@
 #define ODR_100HZ   0x50
 #define ODR_200HZ   0x60
 #define ODR_400HZ   0x70
+#define ODR_1620HZ   0x80
+#define ODR_5376Z   0x90
 
 /* CTRL_REG2 */
 #define HPCLICK     0x04
+#define HPCF        0x10
 
 /* CTRL_REG3 */
 #define I1_CLICK_EN 0x80
+
+/* CTRL_REG4 */
+#define FS_2G       0x00
+#define FS_4G       0x10
+#define FS_8G       0x20
+#define FS_16G      0x30
 
 /* CTRL_REG5 */
 #define LIR_INT1    0x08
@@ -86,6 +90,24 @@
 #define CLICK_Y    0x02
 #define CLICK_X    0x01
 
+
+#define SAMPLE_INT_50HZ     20
+#define SAMPLE_INT_100HZ    10
+#define SAMPLE_INT_400HZ    (5/2)
+
+#define MS_TO_ODRS(t, sample_int) (t/sample_int)
+
+/* Click configuration constants */
+#define CLICK_THS     23 //FIXME -- set for 8G
+#define CLICK_TIME_WIN      MS_TO_ODRS(200, SAMPLE_INT_400HZ)
+#define CLICK_TIME_LIM      MS_TO_ODRS(30, SAMPLE_INT_400HZ)
+#define CLICK_TIME_LAT      MS_TO_ODRS(40, SAMPLE_INT_400HZ) //ms
+
+#define WAKEUP_CLICK_THS     35 //FIXME -- set for 8g
+#define WAKEUP_CLICK_TIME_WIN      MS_TO_ODRS(200, SAMPLE_INT_100HZ)
+#define WAKEUP_CLICK_TIME_LIM      MS_TO_ODRS(30, SAMPLE_INT_100HZ)
+#define WAKEUP_CLICK_TIME_LAT      MS_TO_ODRS(40, SAMPLE_INT_100HZ) //ms
+
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 
 //___ P R O T O T Y P E S   ( P R I V A T E ) ________________________________
@@ -94,6 +116,8 @@
 
 struct i2c_master_packet wr_packet;
 struct i2c_master_packet rd_packet;
+
+static bool enabled = false;
 
 struct i2c_master_module i2c_master_instance;
 static union {
@@ -138,8 +162,11 @@ static bool accel_register_consecutive_read (uint8_t start_reg, uint8_t count, u
 
 static void accel_extint_cb( void ) {
   /* Accel INT1 triggered */
+  if (!enabled) return;
+
   if (!int1_flag) {
     int1_flag = true;
+    /* TODO -- consider latching and doing this outside of interrupt */
     accel_register_consecutive_read(AX_REG_CLICK_SRC, 1, &click_flags.b8);
   }
 }
@@ -168,6 +195,10 @@ static void configure_interrupt ( void ) {
   extint_chan_enable_callback(AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
 }
 
+void accel_disable_interrupt( void ) {
+  extint_chan_disable_callback(AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
+}
+
 static void configure_i2c(void)
 {
     /* Initialize config structure and software module */
@@ -176,8 +207,8 @@ static void configure_i2c(void)
 
     /* Change buffer timeout to something longer */
     config_i2c_master.buffer_timeout = 65535;
-    config_i2c_master.pinmux_pad0 = AX_SDA_PIN;
-    config_i2c_master.pinmux_pad1 = AX_SCL_PIN;
+    config_i2c_master.pinmux_pad0 = AX_SDA_PAD;
+    config_i2c_master.pinmux_pad1 = AX_SCL_PAD;
     config_i2c_master.start_hold_time = I2C_MASTER_START_HOLD_TIME_400NS_800NS;
     config_i2c_master.run_in_standby = false;
 
@@ -256,21 +287,34 @@ void accel_enable ( void ) {
 
   accel_register_write (AX_REG_CTL1, ODR_400HZ | LOW_PWR_EN | X_EN | Y_EN | Z_EN);
   accel_register_write (AX_REG_CLICK_CFG, Z_DCLICK | Z_SCLICK | \
-        /*Y_DCLICK | Y_SCLICK | X_DCLICK |*/ X_SCLICK  );
-  accel_register_write (AX_REG_CLICK_THS, CLICK_THRESHOLD);
+        /*Y_DCLICK | Y_SCLICK | X_DCLICK |*/ X_SCLICK | X_DCLICK );
+  accel_register_write (AX_REG_CLICK_THS, CLICK_THS);
+
+  accel_register_write (AX_REG_TIME_WIN, CLICK_TIME_WIN);
+  accel_register_write (AX_REG_TIME_LIM, CLICK_TIME_LIM);
+  accel_register_write (AX_REG_TIME_LAT, CLICK_TIME_LAT);
+
+  enabled = true;
 }
 
 void accel_disable ( void ) {
-  accel_register_write (AX_REG_CTL1, ODR_100HZ | LOW_PWR_EN |  Z_EN);
 
-  /* Only z-axis hard single clicks should wake us up */
-  accel_register_write (AX_REG_CLICK_CFG, Z_SCLICK);
-  accel_register_write (AX_REG_CLICK_THS, WAKEUP_CLICK_THRESHOLD);
+  /* Only x-axis double clicks should wake us up */
+  accel_register_write (AX_REG_CLICK_CFG, X_DCLICK);
+  accel_register_write (AX_REG_CLICK_THS, WAKEUP_CLICK_THS);
 
-  //i2c_master_disable(&i2c_master_instance);
-  //
-  port_pin_set_output_level(PIN_PA08, true);
+  accel_register_write (AX_REG_CTL1, ODR_100HZ | LOW_PWR_EN |  X_EN);
 
+  accel_register_write (AX_REG_TIME_WIN, WAKEUP_CLICK_TIME_WIN);
+  accel_register_write (AX_REG_TIME_LIM, WAKEUP_CLICK_TIME_LIM);
+  accel_register_write (AX_REG_TIME_LAT, WAKEUP_CLICK_TIME_LAT);
+
+  /* I2C module doesnt disconnect or set SDA pin high
+   * in standby. Since there is a hardware pullup on
+   * it, set it high so power doesnt get wasted */
+  port_pin_set_output_level(AX_SDA_PIN, true);
+
+  enabled = false;
 }
 
 event_flags_t accel_event_flags( void ) {
@@ -311,29 +355,23 @@ void accel_init ( void ) {
     if (who_it_be != WHO_IS_IT)
         main_terminate_in_error(ERROR_ACCEL_BAD_ID);
 
-    if (!accel_register_write (AX_REG_CTL1, ODR_400HZ | LOW_PWR_EN | X_EN | Y_EN | Z_EN))
+    if (!accel_register_write (AX_REG_CTL1, ODR_400HZ | LOW_PWR_EN | X_EN |/* Y_EN |*/ Z_EN))
+        main_terminate_in_error(ERROR_ACCEL_WRITE_ENABLE);
+
+    /* Set scale */
+    if (!accel_register_write (AX_REG_CTL4, FS_8G))
         main_terminate_in_error(ERROR_ACCEL_WRITE_ENABLE);
 
     /* Latch interrupts */
-    //if (!accel_register_write (AX_REG_CTL5, LIR_INT1))
-    //    main_terminate_in_error(ERROR_ACCEL_WRITE_ENABLE);
+    if (!accel_register_write (AX_REG_CTL5, LIR_INT1))
+        main_terminate_in_error(ERROR_ACCEL_WRITE_ENABLE);
 
     /* Enable single and double click detection */
     if (!accel_register_write (AX_REG_CTL3, I1_CLICK_EN))
         main_terminate_in_error(ERROR_ACCEL_WRITE_ENABLE);
 
-    //if (!accel_register_write (AX_REG_CTL2, HPCLICK))
-    //    main_terminate_in_error(ERROR_ACCEL_WRITE_ENABLE);
-
-
-
-    if (!accel_register_write (AX_REG_TIME_WIN, CLICK_TIME_WIN))
-        main_terminate_in_error(ERROR_ACCEL_WRITE_ENABLE);
-
-    if (!accel_register_write (AX_REG_TIME_LIM, CLICK_TIME_LIM))
-        main_terminate_in_error(ERROR_ACCEL_WRITE_ENABLE);
-
-    if (!accel_register_write (AX_REG_TIME_LAT, CLICK_TIME_LAT))
+    /* Enable High Pass filter for Clicks */
+    if (!accel_register_write (AX_REG_CTL2, HPCLICK | HPCF))
         main_terminate_in_error(ERROR_ACCEL_WRITE_ENABLE);
 
     accel_enable();

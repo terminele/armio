@@ -12,6 +12,10 @@
 
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
 #define CLOCK_MODE_SLEEP_TIMEOUT_TICKS     MS_IN_TICKS(7000)
+#define DEFAULT_MODE_TRANS_CHK(ev_flags) \
+        (   ev_flags & EV_FLAG_LONG_BTN_PRESS || \
+            ev_flags & EV_FLAG_ACCEL_DCLICK_X \
+        )
 
 /* corresponding led position for the given hour */
 #define HOUR_POS(hour) ((hour % 12) * 5)
@@ -43,13 +47,18 @@ bool vbatt_sense_mode_tic ( event_flags_t event_flags );
    * @retrn flag indicating mode finish
    */
 
+bool tick_counter_mode_tic ( event_flags_t event_flags );
+  /* @brief display RTC seconds and main timer seconds
+   * @param event flags
+   * @retrn true on finish
+   */
+
 uint8_t adc_value_scale ( uint16_t value );
   /* @brief scales an adc read quasi-logarithmically
    * for displaying on led ring
    * @param 12-bit adc value
    * @retrn led index to display
    */
-
 
 //___ V A R I A B L E S ______________________________________________________
 
@@ -58,22 +67,8 @@ control_mode_t *control_mode_active = NULL;
 control_mode_t control_modes[] = {
     {
         .init_cb = NULL,
-        .tic_cb = accel_mode_tic,
-        .sleep_timeout_ticks = MS_IN_TICKS(10000),
-        .about_to_sleep_cb = NULL,
-        .on_wakeup_cb = NULL,
-    },
-    {
-        .init_cb = NULL,
         .tic_cb = clock_mode_tic,
         .sleep_timeout_ticks = CLOCK_MODE_SLEEP_TIMEOUT_TICKS,
-        .about_to_sleep_cb = NULL,
-        .on_wakeup_cb = NULL,
-    },
-    {
-        .init_cb = NULL,
-        .tic_cb = light_sense_mode_tic,
-        .sleep_timeout_ticks = MS_IN_TICKS(10000),
         .about_to_sleep_cb = NULL,
         .on_wakeup_cb = NULL,
     },
@@ -84,6 +79,34 @@ control_mode_t control_modes[] = {
         .about_to_sleep_cb = NULL,
         .on_wakeup_cb = NULL,
     },
+#if PHOTO_DEBUG
+    {
+        .init_cb = NULL,
+        .tic_cb = light_sense_mode_tic,
+        .sleep_timeout_ticks = MS_IN_TICKS(10000),
+        .about_to_sleep_cb = NULL,
+        .on_wakeup_cb = NULL,
+    },
+#endif
+#if ACCEL_DEBUG
+    {
+        .init_cb = NULL,
+        .tic_cb = accel_mode_tic,
+        .sleep_timeout_ticks = MS_IN_TICKS(60000),
+        .about_to_sleep_cb = NULL,
+        .on_wakeup_cb = NULL,
+    },
+#endif
+#if TICK_DEBUG
+    {
+        .init_cb = NULL,
+        .tic_cb = tick_counter_mode_tic,
+        .sleep_timeout_ticks = MS_IN_TICKS(60000),
+        .about_to_sleep_cb = NULL,
+        .on_wakeup_cb = NULL,
+    },
+#endif
+
 };
 
 //___ I N T E R R U P T S  ___________________________________________________
@@ -92,12 +115,12 @@ control_mode_t control_modes[] = {
 
 
 uint8_t adc_light_value_scale ( uint16_t value ) {
-
+    /* Assumes 12-bit adc read */
     if (value >= 2048)
         return (55 + (value >> 8)) % 60;
 
     if (value >= 1024)
-        return 47 + (value >> 7);
+        return (47 + (value >> 7)) % 60;
 
     if (value >= 512)
         return 39 + (value >> 6);
@@ -156,31 +179,22 @@ bool accel_mode_tic ( event_flags_t event_flags  ) {
     static display_comp_t *disp_z = NULL;
     static animation_t *anim_ptr = NULL;
     int16_t x,y,z;
-    float x_f, y_f, z_f;
-    float mag;
     static uint32_t last_update_ms = 0;
     static uint8_t click_cnt = 0;
+    uint32_t log_data;
 
-#ifdef NOT_NOW
-    if (event_flags & EV_FLAG_LONG_BTN_PRESS ||
-        event_flags & EV_FLAG_ACCEL_DCLICK_Z) {
-        display_comp_hide_all();
-        display_comp_release(disp_x);
-        display_comp_release(disp_y);
-        display_comp_release(disp_z);
-        disp_x = disp_y = disp_z = NULL;
-        if (anim_ptr) {
-            anim_release(anim_ptr);
-            anim_ptr = NULL;
-        }
-        return true; //transition on long presses
+    if (last_update_ms == 0) {
+        //accel_disable_interrupt();
     }
+
+    //if (main_get_systime_ms() - last_update_ms < 10) {
+    //    return false;
+    //}
 
     if (anim_ptr && !anim_is_finished(anim_ptr)) {
 
         return false;
     }
-
 
     if (!disp_x) {
         disp_x = display_line(20, BRIGHT_MED_LOW, 1);
@@ -197,16 +211,40 @@ bool accel_mode_tic ( event_flags_t event_flags  ) {
         return false;
     }
 
+#ifdef LOG_ACCEL
+    /* log x and z values for now with timestamp */
+    log_data = last_update_ms << 16 \
+            | (((int8_t) x) << 8 & 0x0000ffff) \
+            | (((int8_t) z) & 0x0000ffff);
+    if (log_data == 0xffffffff) {
+        log_data = 0xfffffffe;
+    }
+    main_log_data((uint8_t *)&log_data, sizeof(log_data));
+#endif
+
+    if (x > 80) {
+        display_comp_hide_all();
+        display_comp_release(disp_x);
+        display_comp_release(disp_y);
+        display_comp_release(disp_z);
+        disp_x = disp_y = disp_z = NULL;
+        if (anim_ptr) {
+            anim_release(anim_ptr);
+            anim_ptr = NULL;
+        }
+        return true;
+    }
+
     /* Scale values  */
-    x >>= 4;
-    y >>= 4;
-    z >>= 4;
+    x >>= 3;
+    y >>= 3;
+    z >>= 3;
 
     display_relative( disp_x, 20, x );
     display_relative( disp_y, 40, y );
     display_relative( disp_z, 0, z );
-#endif
 
+#ifdef NOT_NOW
 
     if ( event_flags & EV_FLAG_ACCEL_SCLICK_X) {
         anim_cutout(display_point(15, BRIGHT_MED_LOW), MS_IN_TICKS(1000),
@@ -231,6 +269,7 @@ bool accel_mode_tic ( event_flags_t event_flags  ) {
         anim_cutout(display_point(30, BRIGHT_MED_LOW), MS_IN_TICKS(1000),
                 true);
 
+        return true;
     }
 
     if (event_flags & EV_FLAG_ACCEL_DCLICK_Y) {
@@ -242,9 +281,8 @@ bool accel_mode_tic ( event_flags_t event_flags  ) {
         anim_cutout(display_point(5, BRIGHT_MED_LOW), MS_IN_TICKS(1000),
                 true);
 
-        return true;
     }
-
+#endif
 
     return false;
 }
@@ -258,7 +296,7 @@ bool light_sense_mode_tic ( event_flags_t event_flags ) {
         main_set_current_sensor(sensor_light);
 
     if (event_flags & EV_FLAG_LONG_BTN_PRESS ||
-        event_flags & EV_FLAG_ACCEL_DCLICK_Z) {
+        event_flags & EV_FLAG_ACCEL_DCLICK_X) {
         if (adc_pt) {
             display_comp_release(adc_pt);
             adc_pt = NULL;
@@ -294,7 +332,7 @@ bool vbatt_sense_mode_tic ( event_flags_t event_flags ) {
         main_set_current_sensor(sensor_vbatt);
 
     if (event_flags & EV_FLAG_LONG_BTN_PRESS ||
-        event_flags & EV_FLAG_ACCEL_DCLICK_Z) {
+        event_flags & EV_FLAG_ACCEL_DCLICK_X) {
         if (adc_pt) {
             display_comp_release(adc_pt);
             adc_pt = NULL;
@@ -332,7 +370,7 @@ bool clock_mode_tic ( event_flags_t event_flags ) {
 
 
     if (event_flags & EV_FLAG_LONG_BTN_PRESS ||
-        event_flags & EV_FLAG_ACCEL_DCLICK_Z) {
+        event_flags & EV_FLAG_ACCEL_DCLICK_X) {
         if (sec_disp_ptr) {
             display_comp_release(sec_disp_ptr);
             display_comp_release(min_disp_ptr);
@@ -410,6 +448,51 @@ bool clock_mode_tic ( event_flags_t event_flags ) {
     display_comp_update_pos(sec_disp_ptr, second);
     display_comp_update_pos(min_disp_ptr, minute);
     display_comp_update_pos(hour_disp_ptr, HOUR_POS(hour));
+
+    return false;
+}
+
+bool tick_counter_mode_tic ( event_flags_t event_flags ) {
+    /* This mode displays RTC second value and
+     * the second value based on the main timer.  This
+     * is useful to see if are timer interval is too small
+     * (i.e. we cant finish a main loop tick in a single
+     * timer interval )*/
+
+    /* Get latest time */
+    uint8_t hour = 0, minute = 0, second = 0;
+    static uint32_t ticks = 0;
+    static display_comp_t *sec_disp_ptr = NULL;
+    static display_comp_t *tick_sec_disp_ptr = NULL;
+
+    aclock_get_time(&hour, &minute, &second);
+
+
+    if (DEFAULT_MODE_TRANS_CHK(event_flags)) {
+
+        if (sec_disp_ptr) {
+            display_comp_release(sec_disp_ptr);
+            sec_disp_ptr =  NULL;
+        }
+
+        if (tick_sec_disp_ptr) {
+            display_comp_release(tick_sec_disp_ptr);
+            tick_sec_disp_ptr =  NULL;
+        }
+        return true; //transition on long presses
+    }
+
+    if (!sec_disp_ptr)
+        sec_disp_ptr = display_point(second, MIN_BRIGHT_VAL);
+
+    if (!tick_sec_disp_ptr)
+        tick_sec_disp_ptr = display_point(0, BRIGHT_DEFAULT);
+
+
+    ticks++;
+
+    display_comp_update_pos(sec_disp_ptr, second);
+    display_comp_update_pos(tick_sec_disp_ptr, (TICKS_IN_MS(ticks)/1000) % 60);
 
     return false;
 }

@@ -389,9 +389,7 @@ endif
 
 
 
-src/bin/aclock.o: .FORCE
 
-.FORCE:
 .PHONY:
 
 # Rebuild the project.
@@ -499,6 +497,14 @@ install: all $(target)
 .PHONY: chiperase
 chiperase:
 	$(CHIPERASE_CMD)
+
+.PHONY: dump_log
+dump_log:
+	openocd -f $(DEBUGGER_CFG) \
+	-f $(OCD_PART_CFG) \
+	-c init -c "reset init" \
+	-c "dump_image data_log.image 0x8000 0x10000" \
+	-c "shutdown"
 
 # Build Doxygen generated documentation.
 #.PHONY: doc

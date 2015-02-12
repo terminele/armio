@@ -36,7 +36,7 @@
 #define ERROR_ASSERTION_FAIL            9
 
 /* System (main) timer */
-#define MS_PER_TICK             2
+#define MS_PER_TICK             1
 #define MS_IN_TICKS(M)         (M/MS_PER_TICK)
 #define TICKS_IN_MS(T)         (T*MS_PER_TICK)
 #define MAIN_TIMER_TICK_US      (MS_PER_TICK*1000)
@@ -95,6 +95,13 @@ uint8_t main_get_multipress_count( void );
   /* @brief get number of taps for a multi-tap event
    * @param None
    * @retrn # of presses
+   */
+
+void main_log_data( uint8_t *data, uint16_t length );
+  /* @brief store data in unused flash space
+   * @param data - pointer to data array
+   * @param len - number of 32-bit words (byte count / 4) to write
+   * @retrn None
    */
 
 uint32_t main_get_button_hold_ticks( void );

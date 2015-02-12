@@ -121,6 +121,7 @@ CSRCS += \
     src/asf/sam0/drivers/events/events.c                      	\
     src/asf/sam0/drivers/extint/extint.c                      	\
     src/asf/sam0/drivers/extint/extint_callback.c             	\
+    src/asf/sam0/drivers/nvm/nvm.c		             	\
     src/asf/sam0/drivers/port/port.c                           	\
     src/asf/sam0/drivers/rtc/rtc_calendar.c		       	\
     src/asf/sam0/drivers/rtc/rtc_calendar_interrupt.c 	       	\
@@ -152,7 +153,7 @@ INC_PATH = \
     src/asf/sam0/drivers/adc				       \
     src/asf/sam0/drivers/events				       \
     src/asf/sam0/drivers/extint				       \
-    src/asf/sam0/drivers/port                                  \
+    src/asf/sam0/drivers/nvm				       \
     src/asf/sam0/drivers/port                                  \
     src/asf/sam0/drivers/rtc				       \
     src/asf/sam0/drivers/sercom                                \
@@ -228,7 +229,10 @@ CPPFLAGS = \
        -D EVENTS_INTERRUPT_HOOKS_MODE=false               \
        -D TC_ASYNC=true		 		          \
        -D SYSTICK_MODE                                    \
-       -D $(PARTD)
+       -D $(PARTD)					  \
+       -D TICK_DEBUG=false				  \
+       -D ACCEL_DEBUG=true				  \
+       -D PHOTO_DEBUG=true
 
 
 # Extra flags to use when linking

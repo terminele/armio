@@ -72,6 +72,8 @@
 // From module: PORT - GPIO Pin Control
 #include <port.h>
 
+#include <nvm.h>
+
 // From module: Part identification macros
 #include <parts.h>
 
