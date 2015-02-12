@@ -24,12 +24,6 @@ bool accel_data_read (int16_t *x_ptr, int16_t *y_ptr, int16_t *z_ptr);
    * @retrn true on success, false on failure
    */
 
-void accel_disable_interrupt( void );
-  /* @brief disable acceleration interrupts
-   * @param None
-   * @retrn None
-   */
-
 event_flags_t accel_event_flags( void );
   /* @brief get any event flags from accelerometer
    * @param None
@@ -43,7 +37,7 @@ void accel_enable ( void );
    */
 
 
-void accel_disable ( void );
+void accel_sleep ( void );
   /* @brief disable this module (i.e. sleep accelerometer)
    * @param None
    * @retrn None

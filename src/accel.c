@@ -135,7 +135,6 @@ static union {
   uint8_t b8;
 } click_flags;
 
-uint8_t int1_flag = false;
 
 //___ I N T E R R U P T S  ___________________________________________________
 
@@ -160,16 +159,6 @@ static bool accel_register_consecutive_read (uint8_t start_reg, uint8_t count, u
 
     //___ F U N C T I O N S ______________________________________________________
 
-static void accel_extint_cb( void ) {
-  /* Accel INT1 triggered */
-  if (!enabled) return;
-
-  if (!int1_flag) {
-    int1_flag = true;
-    /* TODO -- consider latching and doing this outside of interrupt */
-    accel_register_consecutive_read(AX_REG_CLICK_SRC, 1, &click_flags.b8);
-  }
-}
 
 static void configure_interrupt ( void ) {
   /* Configure our accel interrupt 1 to wake us up */
@@ -191,12 +180,6 @@ static void configure_interrupt ( void ) {
 	eint_chan_conf.wake_if_sleeping     = true;
 
   extint_chan_set_config(AX_INT1_CHAN, &eint_chan_conf);
-  extint_register_callback(accel_extint_cb, AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
-  extint_chan_enable_callback(AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
-}
-
-void accel_disable_interrupt( void ) {
-  extint_chan_disable_callback(AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
 }
 
 static void configure_i2c(void)
@@ -294,10 +277,12 @@ void accel_enable ( void ) {
   accel_register_write (AX_REG_TIME_LIM, CLICK_TIME_LIM);
   accel_register_write (AX_REG_TIME_LAT, CLICK_TIME_LAT);
 
+  extint_chan_disable_callback(AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
+
   enabled = true;
 }
 
-void accel_disable ( void ) {
+void accel_sleep ( void ) {
 
   /* Only x-axis double clicks should wake us up */
   accel_register_write (AX_REG_CLICK_CFG, X_DCLICK);
@@ -314,12 +299,15 @@ void accel_disable ( void ) {
    * it, set it high so power doesnt get wasted */
   port_pin_set_output_level(AX_SDA_PIN, true);
 
+  extint_chan_enable_callback(AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
   enabled = false;
 }
 
 event_flags_t accel_event_flags( void ) {
   event_flags_t ev_flags = EV_FLAG_NONE;
-  if (int1_flag) {
+  if (port_pin_get_input_level(AX_INT1_PIN)) {
+
+    accel_register_consecutive_read(AX_REG_CLICK_SRC, 1, &click_flags.b8);
 
     if (click_flags.dclick) {
       if (click_flags.x)
@@ -339,7 +327,6 @@ event_flags_t accel_event_flags( void ) {
 
     click_flags.b8 = 0;
 
-    int1_flag = false;
   }
 
   return ev_flags;

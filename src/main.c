@@ -208,7 +208,7 @@ void enter_sleep( void ) {
     port_pin_set_output_level(LIGHT_BATT_ENABLE_PIN, false);
     led_controller_disable();
     aclock_disable();
-    accel_disable();
+    accel_sleep();
     tc_disable(&main_tc);
 
     //system_ahb_clock_clear_mask( PM_AHBMASK_HPB2 | PM_AHBMASK_DSU);
