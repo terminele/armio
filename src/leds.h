@@ -2,7 +2,7 @@
   * modified:   2014-10-03 17:06:34
   * author:     Richard Bryan
   *
-  * interface for controlling armio leds
+  * interface for controlling leds
   *
   * The 60 LEDs are multiplexed using 17
   * pins -- 5 pins to select the 'bank' that the
@@ -19,7 +19,7 @@
 #include <asf.h>
 
 //___ M A C R O S ____________________________________________________________
-#define BRIGHT_LEVELS       5       /* bit resolution */
+#define BRIGHT_LEVELS       5
 
 #define BRIGHT_DEFAULT      4
 

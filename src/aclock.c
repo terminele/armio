@@ -91,20 +91,6 @@ void aclock_set_time( uint8_t hour, uint8_t minute, uint8_t second) {
 
 void aclock_get_time( uint8_t* hour_ptr, uint8_t* minute_ptr, uint8_t* second_ptr) {
 
-#ifdef NOT_NOW
-    struct rtc_calendar_time curr_time;
-    if (!rtc_calendar_is_syncing(&rtc_instance)) {
-      rtc_calendar_get_time(&rtc_instance, &curr_time);
-      global_state.year = curr_time.year;
-      global_state.month = curr_time.month;
-      global_state.day = curr_time.day;
-
-      global_state.hour = curr_time.hour;
-      global_state.minute = curr_time.minute;
-      global_state.second = curr_time.second;
-    }
-#endif
-
     *hour_ptr = global_state.hour;
     *minute_ptr = global_state.minute;
     *second_ptr = global_state.second;
@@ -121,6 +107,43 @@ void aclock_enable ( void ) {
   /* Make another calendar read request */
   RTC->MODE2.READREQ.reg = RTC_READREQ_RREQ;
 
+}
+
+int32_t aclock_get_timestamp ( void ) {
+    /* haphazard caculation of unix timestamp from
+     * RTC datatime.  May be wrong, but hey
+     * this isnt a critical application */
+
+#define SECONDS_PER_DAY 86400
+#define SECONDS_PER_YEAR SECONDS_PER_DAY*365
+
+  uint32_t value = (global_state.year - 1970)*SECONDS_PER_YEAR;
+
+  switch (global_state.month) {
+    case 2:
+      /* February */
+      value+=SECONDS_PER_DAY*(global_state.year % 4 ? 28 : 29);
+      break;
+    case 1:
+    case 3:
+    case 5:
+    case 7:
+    case 8:
+    case 10:
+    case 12:
+      value+=SECONDS_PER_DAY*31;
+      break;
+    default:
+      value+=SECONDS_PER_DAY*30;
+      break;
+  }
+
+  value+=global_state.day*SECONDS_PER_DAY;
+  value+=global_state.hour*3600;
+  value+=global_state.minute*60;
+  value+=global_state.second;
+
+  return value;
 }
 
 void aclock_disable ( void ) {
@@ -140,16 +163,14 @@ void aclock_init( void ) {
 
     /* Set current time */
     rtc_calendar_get_time_defaults(&initial_time);
-    initial_time.year   = global_state.year = 2014;
-    initial_time.month  = global_state.month = 10;
-    initial_time.day    =  global_state.day = 10;
+    initial_time.year   = global_state.year = __YEAR__;//2014;
+    initial_time.month  = global_state.month = __MONTH__;//10;
+    initial_time.day    =  global_state.day = __DAY__;//10;
 
     /* Use compile time for initial time */
-    initial_time.hour   = global_state.hour =  10*(__TIME__[0] - '0') +  (__TIME__[1] - '0');
-    initial_time.minute = global_state.minute = 10*(__TIME__[3] - '0') +  (__TIME__[4] - '0');
-    initial_time.second = global_state.second = 10*(__TIME__[6] - '0') +  (__TIME__[7] - '0') % 60;
-
-#pragma message "Setting intial time to " __TIME__
+    initial_time.hour   = global_state.hour =  __HOUR__;//10*(__TIME__[0] - '0') +  (__TIME__[1] - '0');
+    initial_time.minute = global_state.minute = __MIN__;//10*(__TIME__[3] - '0') +  (__TIME__[4] - '0');
+    initial_time.second = global_state.second = __SEC__;//10*(__TIME__[6] - '0') +  (__TIME__[7] - '0') % 60;
 
     /* Configure alarm to trigger at 1-second    */
     /* we only care about second since other     */

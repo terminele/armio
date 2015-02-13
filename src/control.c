@@ -219,7 +219,7 @@ bool accel_mode_tic ( event_flags_t event_flags  ) {
     if (log_data == 0xffffffff) {
         log_data = 0xfffffffe;
     }
-    main_log_data((uint8_t *)&log_data, sizeof(log_data));
+    main_log_data((uint8_t *)&log_data, sizeof(log_data), false);
 #endif
 
     if (x > 80) {

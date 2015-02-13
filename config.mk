@@ -213,6 +213,15 @@ ASFLAGS =
 # Extra flags to use when compiling.
 CFLAGS = -mtune=$(ARCH)
 
+_YEAR_=$(shell date '+%-Y')
+_MONTH_=$(shell date '+%-m')
+_DAY_=$(shell date '+%-d')
+_HOUR_=$(shell date '+%-H')
+_MIN_=$(shell date '+%-M')
+_SEC_=$(shell date '+%-S')
+
+$(info $(_YEAR_)-$(_MONTH_)-$(_DAY_)  $(_HOUR_):$(_MIN_):$(_SEC_)s)
+
 # Extra flags to use when preprocessing.
 #
 # Preprocessor symbol definitions
@@ -220,6 +229,7 @@ CFLAGS = -mtune=$(ARCH)
 #   To cancel a definition use the format "-U name".
 #
 # The most relevant symbols to define for the preprocessor are:
+
 CPPFLAGS = \
        -D I2C_MASTER_CALLBACK_MODE=false		  \
        -D ARM_MATH_CM0=true                               \
@@ -232,23 +242,29 @@ CPPFLAGS = \
        -D $(PARTD)					  \
        -D TICK_DEBUG=false				  \
        -D ACCEL_DEBUG=true				  \
-       -D PHOTO_DEBUG=true
+       -D PHOTO_DEBUG=true				  \
+       -D __YEAR__=$(_YEAR_)				  \
+       -D __MONTH__=$(_MONTH_)				  \
+       -D __DAY__=$(_DAY_)				  \
+       -D __HOUR__=$(_HOUR_)				  \
+       -D __MIN__=$(_MIN_)				  \
+       -D __SEC__=$(_SEC_)				  \
 
 
 # Extra flags to use when linking
 LDFLAGS =
 
 # Pre- and post-build commands
-PREBUILD_CMD =
+PREBUILD_CMD = touch src/aclock.c;
 ifdef test
     if [-a bin/src/main.o]; \
 	then \
-	    PREBUILD_CMD = rm bin/src/main.o; \
+	    PREBUILD_CMD += rm bin/src/main.o; \
 	fi;
 else
     if [-a bin/src/test/*.o]; \
 	then \
-	    PREBUILD_CMD = rm bin/src/test/*.o; \
+	    PREBUILD_CMD += rm bin/src/test/*.o; \
 	fi;
 endif
 

@@ -45,6 +45,12 @@ void aclock_set_time( uint8_t hour, uint8_t minute, uint8_t second);
    * @retrn None
    */
 
+int32_t aclock_get_timestamp ( void );
+  /* @brief get unix time from RTC
+   * @param None
+   * @retrn unix time
+   */
+
 void aclock_get_time( uint8_t* hour_ptr, uint8_t* minute_ptr, uint8_t* second_ptr);
   /* @brief get current time
    * @param user-provided ptrs to be filled

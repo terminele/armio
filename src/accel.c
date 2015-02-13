@@ -98,12 +98,12 @@
 #define MS_TO_ODRS(t, sample_int) (t/sample_int)
 
 /* Click configuration constants */
-#define CLICK_THS     23 //FIXME -- set for 8G
+#define CLICK_THS     43 //assumes 4g scale
 #define CLICK_TIME_WIN      MS_TO_ODRS(200, SAMPLE_INT_400HZ)
 #define CLICK_TIME_LIM      MS_TO_ODRS(30, SAMPLE_INT_400HZ)
 #define CLICK_TIME_LAT      MS_TO_ODRS(40, SAMPLE_INT_400HZ) //ms
 
-#define WAKEUP_CLICK_THS     35 //FIXME -- set for 8g
+#define WAKEUP_CLICK_THS     50 //assumes 4g scale
 #define WAKEUP_CLICK_TIME_WIN      MS_TO_ODRS(200, SAMPLE_INT_100HZ)
 #define WAKEUP_CLICK_TIME_LIM      MS_TO_ODRS(30, SAMPLE_INT_100HZ)
 #define WAKEUP_CLICK_TIME_LAT      MS_TO_ODRS(40, SAMPLE_INT_100HZ) //ms
@@ -346,7 +346,7 @@ void accel_init ( void ) {
         main_terminate_in_error(ERROR_ACCEL_WRITE_ENABLE);
 
     /* Set scale */
-    if (!accel_register_write (AX_REG_CTL4, FS_8G))
+    if (!accel_register_write (AX_REG_CTL4, FS_4G))
         main_terminate_in_error(ERROR_ACCEL_WRITE_ENABLE);
 
     /* Latch interrupts */

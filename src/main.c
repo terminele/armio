@@ -54,46 +54,48 @@ typedef enum main_state_t {
 } main_state_t;
 
 //___ P R O T O T Y P E S   ( P R I V A T E ) ________________________________
-void configure_input( void );
+static void configure_input( void );
   /* @brief configure input buttons
    * @param None
    * @retrn None
    */
 
-void setup_clock_pin_outputs( void );
+#ifdef CLOCK_OUTPUT
+static void setup_clock_pin_outputs( void );
   /* @brief multiplex clocks onto output pins
    * @param None
    * @retrn None
    */
+#endif
 
 static void configure_extint(void);
   /* @brief enable external interrupts
    * @param None
    * @retrn None
    */
-event_flags_t button_event_flags( void );
+static event_flags_t button_event_flags( void );
   /* @brief check current button event flags
    * @param None
    * @retrn button event flags
    */
-void enter_sleep( void );
+static void enter_sleep( void );
   /* @brief enter into standby sleep
    * @param None
    * @retrn None
    */
-void wakeup( void );
+static void wakeup( void );
   /* @brief wakeup from sleep (e.g. enable sleeping modules)
    * @param None
    * @retrn None
    */
 
-void main_tic ( void );
+static void main_tic ( void );
   /* @brief main control loop update function
    * @param None
    * @retrn None
    */
 
-void main_init( void );
+static void main_init( void );
   /* @brief initialize main control module
    * @param None
    * @retrn None
@@ -142,7 +144,18 @@ static uint16_t nvm_row_ind = 0;
 
 
 
-void configure_input(void) {
+static void log_vbatt (bool on_wakeup) {
+    /* Log current vbatt with timestamp */
+    int32_t time = aclock_get_timestamp();
+    uint32_t data = (on_wakeup ? 0xBEEF0000 : 0xDEAD0000);
+    main_set_current_sensor(sensor_vbatt);
+    main_start_sensor_read();
+    data+=main_read_current_sensor(true);
+    main_log_data((uint8_t *)&time, sizeof(time), true);
+    main_log_data((uint8_t *)&data, sizeof(data), true);
+}
+
+static void configure_input(void) {
     /* Configure our button as an input */
     struct port_config pin_conf;
     port_get_config_defaults(&pin_conf);
@@ -175,7 +188,7 @@ static void configure_extint(void)
 
 }
 #ifdef CLOCK_OUTPUT
-void setup_clock_pin_outputs( void ) {
+static void setup_clock_pin_outputs( void ) {
     /* For debugging purposes, multiplex our
      * clocks onto output pins.. GCLK gens 4 and 7
      * should be enabled for this to function
@@ -195,7 +208,9 @@ void setup_clock_pin_outputs( void ) {
 }
 #endif
 
-void enter_sleep( void ) {
+static void enter_sleep( void ) {
+
+    log_vbatt(false);
 
     /* Enable button callback to awake us from sleep */
     extint_chan_enable_callback(BUTTON_EIC_CHAN,
@@ -220,8 +235,7 @@ void enter_sleep( void ) {
 
 }
 
-void wakeup (void) {
-
+static void wakeup (void) {
     //system_ahb_clock_set_mask( PM_AHBMASK_HPB2 | PM_AHBMASK_DSU);
 
     if (light_vbatt_sens_adc.hw)
@@ -235,9 +249,12 @@ void wakeup (void) {
     aclock_enable();
     accel_enable();
     tc_enable(&main_tc);
+
+    log_vbatt(true);
+
 }
 
-event_flags_t button_event_flags ( void ) {
+static event_flags_t button_event_flags ( void ) {
 
     event_flags_t event_flags = 0;
     bool new_btn_state = port_pin_get_input_level(BUTTON_PIN);
@@ -275,7 +292,7 @@ event_flags_t button_event_flags ( void ) {
 }
 
 
-void main_tic( void ) {
+static void main_tic( void ) {
 
     event_flags_t event_flags = 0;
 
@@ -312,14 +329,6 @@ void main_tic( void ) {
                 enter_sleep();
 
                 wakeup();
-
-                /* Only read vbatt after a long sleep so
-                 * we get an accurate estimate */
-                aclock_get_time(&hr, &sec, &min);
-                if (hr - prev_hr > 2) {
-                    main_set_current_sensor(sensor_vbatt);
-                    main_read_current_sensor(true);
-                }
 
                 if (control_mode_active->on_wakeup_cb)
                     control_mode_active->on_wakeup_cb();
@@ -372,6 +381,37 @@ void main_tic( void ) {
     }
 }
 
+
+static void main_init( void ) {
+
+    struct tc_config config_tc;
+
+    /* Initalize main state */
+    main_globals.button_hold_ticks = 0;
+    main_globals.tap_count = 0;
+    main_globals.inactivity_ticks = 0;
+    main_globals.button_state = BUTTON_UP;
+    main_globals.state = STARTUP;
+
+    /* Configure main timer counter */
+    tc_get_config_defaults( &config_tc );
+    config_tc.clock_source = GCLK_GENERATOR_0;
+    config_tc.counter_size = TC_COUNTER_SIZE_16BIT;
+    config_tc.clock_prescaler = TC_CLOCK_PRESCALER_DIV8; //give 1us count for 8MHz clock
+    config_tc.wave_generation = TC_WAVE_GENERATION_MATCH_FREQ;
+    config_tc.counter_16_bit.compare_capture_channel[0] = MAIN_TIMER_TICK_US;
+    config_tc.counter_16_bit.value = 0;
+
+    tc_init(&main_tc, MAIN_TIMER, &config_tc);
+    tc_enable(&main_tc);
+
+    /* Initialize NVM controller for data storage */
+    struct nvm_config config_nvm;
+    nvm_get_config_defaults(&config_nvm);
+    nvm_set_config(&config_nvm);
+
+}
+
 //___ F U N C T I O N S ______________________________________________________
 
 
@@ -394,7 +434,7 @@ void main_terminate_in_error ( uint8_t error_code ) {
     }
 }
 
-void main_log_data( uint8_t *data, uint16_t length) {
+void main_log_data( uint8_t *data, uint16_t length, bool flush) {
     /* Store data in NVM flash */
     enum status_code error_code;
     uint16_t  i, p;
@@ -405,13 +445,11 @@ void main_log_data( uint8_t *data, uint16_t length) {
         nvm_row_buffer[nvm_row_ind] = data[i];
         nvm_row_ind++;
 
-        if (nvm_row_ind == NVMCTRL_ROW_SIZE) {
-            nvm_row_ind = 0;
-
+        if (nvm_row_ind == NVMCTRL_ROW_SIZE || flush) {
             /* Write the full row buffer to flash */
             /* First, erase the row */
             do {
-		error_code = nvm_erase_row(nvm_row_addr);
+                error_code = nvm_erase_row(nvm_row_addr);
             } while (error_code == STATUS_BUSY);
 
             /* Write each page of the row buffer */
@@ -423,7 +461,10 @@ void main_log_data( uint8_t *data, uint16_t length) {
 
                 } while (error_code == STATUS_BUSY);
             }
+        }
 
+        if (nvm_row_ind == NVMCTRL_ROW_SIZE) {
+            nvm_row_ind = 0;
             nvm_row_addr+=NVMCTRL_ROW_SIZE;
         }
 
@@ -513,35 +554,6 @@ uint32_t main_get_button_hold_ticks ( void ) {
     return main_globals.button_hold_ticks;
 }
 
-void main_init( void ) {
-
-    struct tc_config config_tc;
-
-    /* Initalize main state */
-    main_globals.button_hold_ticks = 0;
-    main_globals.tap_count = 0;
-    main_globals.inactivity_ticks = 0;
-    main_globals.button_state = BUTTON_UP;
-    main_globals.state = STARTUP;
-
-    /* Configure main timer counter */
-    tc_get_config_defaults( &config_tc );
-    config_tc.clock_source = GCLK_GENERATOR_0;
-    config_tc.counter_size = TC_COUNTER_SIZE_16BIT;
-    config_tc.clock_prescaler = TC_CLOCK_PRESCALER_DIV8; //give 1us count for 8MHz clock
-    config_tc.wave_generation = TC_WAVE_GENERATION_MATCH_FREQ;
-    config_tc.counter_16_bit.compare_capture_channel[0] = MAIN_TIMER_TICK_US;
-    config_tc.counter_16_bit.value = 0;
-
-    tc_init(&main_tc, MAIN_TIMER, &config_tc);
-    tc_enable(&main_tc);
-
-    /* Initialize NVM controller for data storage */
-    struct nvm_config config_nvm;
-    nvm_get_config_defaults(&config_nvm);
-    nvm_set_config(&config_nvm);
-}
-
 int main (void)
 {
 
@@ -575,6 +587,7 @@ int main (void)
     main_start_sensor_read();
     main_read_current_sensor(true);
 
+    log_vbatt(true);
 
 
     /* Show a startup LED swirl */
