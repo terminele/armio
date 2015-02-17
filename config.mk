@@ -78,16 +78,23 @@ endif
 TARGET_FLASH = bin/armio_flash.elf
 TARGET_SRAM = bin/armio_sram.elf
 
-INSTALL_CMD = openocd \
+ifeq ($(debugger), atmel-ice)
+    INSTALL_CMD = openocd \
 	    -f $(DEBUGGER_CFG) \
 	    -f $(OCD_PART_CFG) \
 	    -c "init" \
-	    -c "reset" \
-	    -c "halt" \
+	    -c "reset halt" \
 	    -c "flash write_image erase $(target)" \
 	    -c "verify_image $(target) 0x00000000 elf" \
 	    -c "reset run" \
 	    -c "shutdown"
+else
+ifeq ($(debugger), jlink)
+    INSTALL_CMD = JLinkExe utils/samd21e.jlink
+else
+$(error unuspported debugger)
+endif
+endif
 
 CHIPERASE_CMD = openocd \
 	    -f $(DEBUGGER_CFG) \
