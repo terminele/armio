@@ -23,33 +23,40 @@ def main():
         print ("Unable to open file \'{}\'".format(fname))
         return
 
-    binval = f.read(8)
     ts = []
     vs = []
     powers = []
-    while binval:
-        if struct.unpack("<IHH", binval)[0] >= 0xffffffff:
+    while True:
+        binval = f.read(8)
+
+        if not binval or struct.unpack("<IHH", binval)[0] >= 0xffffffff:
             break
 
         (t,v,p) = struct.unpack("<iHH", binval)
 
+        if len(ts) and t < ts[-1]:
+          print("Ignoring out-of-order value t={}.  expect > t: {}".format(t, ts[-1]))
+          continue
+
+        if not len(ts): tstart = t
 
         if (p == 0xbeef):
-          powers.append(1)
+          pass
         elif (p == 0xdead):
+          powers.append(3.3)
           powers.append(0)
         else:
           print("Ended after encountering ({}\t{}\t{:x})".format(t, v, p))
           break
 
-        ts.append(t)
+        ts.append((t - tstart) / 3600.0)
         vs.append(v*4.0/4096)
         print("{}\t{}\t{:x}".format(t, v, p))
 
-        binval = f.read(8)
 
-    plt.plot(ts, vs, 'r-', label='x')
-    plt.plot(ts, powers, 'b-', label='z')
+    plt.plot(ts, vs, 'r.', label='vbatt')
+    plt.plot(ts, powers, 'b-', label='on', drawstyle='steps',
+        fillstyle='bottom', alpha = 0.3)
     plt.show()
 
 if __name__ == "__main__":
