@@ -6,3 +6,4 @@ device atsamd20e14
 speed 5000
 r
 loadbin bin/armio_flash.bin,0x00000000
+exit
