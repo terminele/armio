@@ -103,10 +103,12 @@
 #define CLICK_TIME_LIM      MS_TO_ODRS(30, SAMPLE_INT_400HZ)
 #define CLICK_TIME_LAT      MS_TO_ODRS(40, SAMPLE_INT_400HZ) //ms
 
+#define SLEEP_ODR          ODR_400HZ
+#define SLEEP_SAMPLE_INT   SAMPLE_INT_400HZ
 #define WAKEUP_CLICK_THS     50 //assumes 4g scale
-#define WAKEUP_CLICK_TIME_WIN      MS_TO_ODRS(200, SAMPLE_INT_100HZ)
-#define WAKEUP_CLICK_TIME_LIM      MS_TO_ODRS(30, SAMPLE_INT_100HZ)
-#define WAKEUP_CLICK_TIME_LAT      MS_TO_ODRS(40, SAMPLE_INT_100HZ) //ms
+#define WAKEUP_CLICK_TIME_WIN      MS_TO_ODRS(200, SLEEP_SAMPLE_INT)
+#define WAKEUP_CLICK_TIME_LIM      MS_TO_ODRS(30, SLEEP_SAMPLE_INT)
+#define WAKEUP_CLICK_TIME_LAT      MS_TO_ODRS(40, SLEEP_SAMPLE_INT) //ms
 
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 
@@ -288,7 +290,7 @@ void accel_sleep ( void ) {
   accel_register_write (AX_REG_CLICK_CFG, X_DCLICK);
   accel_register_write (AX_REG_CLICK_THS, WAKEUP_CLICK_THS);
 
-  accel_register_write (AX_REG_CTL1, ODR_100HZ | LOW_PWR_EN |  X_EN);
+  accel_register_write (AX_REG_CTL1, SLEEP_ODR | LOW_PWR_EN |  X_EN);
 
   accel_register_write (AX_REG_TIME_WIN, WAKEUP_CLICK_TIME_WIN);
   accel_register_write (AX_REG_TIME_LIM, WAKEUP_CLICK_TIME_LIM);
@@ -360,6 +362,13 @@ void accel_init ( void ) {
     /* Enable High Pass filter for Clicks */
     if (!accel_register_write (AX_REG_CTL2, HPCLICK | HPCF))
         main_terminate_in_error(ERROR_ACCEL_WRITE_ENABLE);
+
+//    /* Disable sleep activity threshold and duration */
+//    if (!accel_register_write (AX_REG_ACT_THS, 0x00))
+//        main_terminate_in_error(ERROR_ACCEL_WRITE_ENABLE);
+//
+//    if (!accel_register_write (AX_REG_ACT_DUR, 0x00))
+//        main_terminate_in_error(ERROR_ACCEL_WRITE_ENABLE);
 
     accel_enable();
 

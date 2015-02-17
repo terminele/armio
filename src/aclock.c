@@ -110,25 +110,24 @@ void aclock_enable ( void ) {
 }
 
 int32_t aclock_get_timestamp ( void ) {
-    /* haphazard caculation of unix timestamp from
-     * RTC datatime.  May be wrong, but hey
-     * this isnt a critical application */
+  /* haphazard caculation of unix timestamp from
+    * RTC datatime.  May be wrong, but hey
+    * this isnt a critical application */
 
 #define SECONDS_PER_DAY 86400
 #define SECONDS_PER_YEAR SECONDS_PER_DAY*365
-    RTC->MODE2.READREQ.reg = RTC_READREQ_RREQ;
-		while (rtc_calendar_is_syncing(&rtc_instance));
-    struct rtc_calendar_time curr_time;
-    rtc_calendar_get_time(&rtc_instance, &curr_time);
-    global_state.year = curr_time.year;
-    global_state.month = curr_time.month;
-    global_state.day = curr_time.day;
+  RTC->MODE2.READREQ.reg = RTC_READREQ_RREQ;
+  while (rtc_calendar_is_syncing(&rtc_instance));
+  struct rtc_calendar_time curr_time;
+  rtc_calendar_get_time(&rtc_instance, &curr_time);
+  global_state.year = curr_time.year;
+  global_state.month = curr_time.month;
+  global_state.day = curr_time.day;
+  global_state.hour = curr_time.hour;
+  global_state.minute = curr_time.minute;
+  global_state.second = curr_time.second;
 
-    global_state.hour = curr_time.hour;
-    global_state.minute = curr_time.minute;
-    global_state.second = curr_time.second;
-
-    uint32_t value = (global_state.year - 1970)*SECONDS_PER_YEAR;
+  uint32_t value = (global_state.year - 1970)*SECONDS_PER_YEAR;
 
   switch (global_state.month) {
     /* Each case accounts for the days of

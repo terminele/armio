@@ -161,10 +161,12 @@ static void configure_input(void) {
     port_get_config_defaults(&pin_conf);
     pin_conf.direction = PORT_PIN_DIR_INPUT;
     pin_conf.input_pull = PORT_PIN_PULL_NONE;
+#ifdef ENABLE_BUTTON
     port_pin_set_config(BUTTON_PIN, &pin_conf);
 
     /* Enable interrupts for the button */
     configure_extint();
+#endif
 
     port_get_config_defaults(&pin_conf);
     pin_conf.direction = PORT_PIN_DIR_OUTPUT;
@@ -212,9 +214,11 @@ static void enter_sleep( void ) {
 
     log_vbatt(false);
 
+#ifdef ENABLE_BUTTON
     /* Enable button callback to awake us from sleep */
     extint_chan_enable_callback(BUTTON_EIC_CHAN,
                     EXTINT_CALLBACK_TYPE_DETECT);
+#endif
 
     if (light_vbatt_sens_adc.hw) {
         adc_disable(&light_vbatt_sens_adc);
@@ -241,9 +245,10 @@ static void wakeup (void) {
     if (light_vbatt_sens_adc.hw)
         adc_enable(&light_vbatt_sens_adc);
 
+#ifdef ENABLE_BUTTON
     extint_chan_disable_callback(BUTTON_EIC_CHAN,
                     EXTINT_CALLBACK_TYPE_DETECT);
-
+#endif
     system_interrupt_enable_global();
     led_controller_enable();
     aclock_enable();
@@ -257,6 +262,7 @@ static void wakeup (void) {
 static event_flags_t button_event_flags ( void ) {
 
     event_flags_t event_flags = 0;
+#ifdef ENABLE_BUTTON
     bool new_btn_state = port_pin_get_input_level(BUTTON_PIN);
 
     if (new_btn_state == BUTTON_UP &&
@@ -287,7 +293,7 @@ static event_flags_t button_event_flags ( void ) {
             }
         }
     }
-
+#endif
     return event_flags;
 }
 
@@ -410,6 +416,19 @@ static void main_init( void ) {
     nvm_get_config_defaults(&config_nvm);
     nvm_set_config(&config_nvm);
 
+    uint32_t data = 0xffffffff;
+
+    /* Set row address to first open space by
+     * iterating through log data until an
+     * empty (4 bytes of 1s) row is found */
+    while (nvm_row_addr < NVM_ADDR_MAX) {
+
+        nvm_read_buffer(nvm_row_addr, (uint8_t *) &data, sizeof(data));
+        if (data == 0xffffffff)
+            break;
+
+        nvm_row_addr+=NVMCTRL_ROW_SIZE;
+    }
 }
 
 //___ F U N C T I O N S ______________________________________________________
@@ -439,7 +458,6 @@ void main_log_data( uint8_t *data, uint16_t length, bool flush) {
     enum status_code error_code;
     uint16_t  i, p;
 
-    if (nvm_row_addr + length >= NVM_ADDR_MAX) return;
 
     for (i = 0; i < length; i++) {
         nvm_row_buffer[nvm_row_ind] = data[i];
@@ -466,6 +484,11 @@ void main_log_data( uint8_t *data, uint16_t length, bool flush) {
         if (nvm_row_ind == NVMCTRL_ROW_SIZE) {
             nvm_row_ind = 0;
             nvm_row_addr+=NVMCTRL_ROW_SIZE;
+
+            if (nvm_row_addr >= NVM_ADDR_MAX)  {
+                /* rollover to beginning of storage buffer */
+                nvm_row_addr = NVM_ADDR_START;
+            }
         }
 
     }
@@ -589,18 +612,20 @@ int main (void)
 
     log_vbatt(true);
 
-
     /* Show a startup LED swirl */
     sleep_wake_anim = anim_swirl(0, 8, MS_IN_TICKS(4), 120, true);
+
 
     /* get intial time */
     configure_input();
     system_interrupt_enable_global();
+#ifdef ENABLE_BUTTON
     while (!port_pin_get_input_level(BUTTON_PIN)) {
         //if btn down at startup, zero out time
         //and dont continue until released
         aclock_set_time(0, 0, 0);
     }
+#endif
 
     while (1) {
         if (tc_get_status(&main_tc) & TC_STATUS_COUNT_OVERFLOW) {

@@ -23,14 +23,24 @@ def main():
         print ("Unable to open file \'{}\'".format(fname))
         return
 
+    skips = 0
     ts = []
+    t_rels = []
     vs = []
     powers = []
     while True:
         binval = f.read(8)
 
-        if not binval or struct.unpack("<IHH", binval)[0] >= 0xffffffff:
-            break
+        if not binval:
+          break
+
+        if struct.unpack("<IHH", binval)[0] >= 0xffffffff:
+            skips+=1
+
+            if skips > 64:
+              break
+
+            continue
 
         (t,v,p) = struct.unpack("<iHH", binval)
 
@@ -41,21 +51,26 @@ def main():
         if not len(ts): tstart = t
 
         if (p == 0xbeef):
-          pass
-        elif (p == 0xdead):
           powers.append(3.3)
+          if len(ts) > 2:
+            print("wakes after {}s".format(t - ts[-1]))
+        elif (p == 0xdead):
           powers.append(0)
+          if len(ts) > 2:
+            print("sleeps after {}s".format(t - ts[-1]))
         else:
           print("Ended after encountering ({}\t{}\t{:x})".format(t, v, p))
           break
 
-        ts.append((t - tstart) / 3600.0)
+        ts.append(t)
+        t_rels.append(t - tstart)
         vs.append(v*4.0/4096)
         print("{}\t{}\t{:x}".format(t, v, p))
 
 
-    plt.plot(ts, vs, 'r.', label='vbatt')
-    plt.plot(ts, powers, 'b-', label='on', drawstyle='steps',
+    t_hrs = [t/3600.0 for t in t_rels]
+    plt.plot(t_hrs, vs, 'r.', label='vbatt')
+    plt.plot(t_hrs, powers, 'b-', label='on', drawstyle='steps-post',
         fillstyle='bottom', alpha = 0.3)
     plt.show()
 
