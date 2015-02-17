@@ -31,10 +31,10 @@ void aclock_sync_ready_cb ( void );
 
 
 //___ V A R I A B L E S ______________________________________________________
-struct rtc_module rtc_instance;
+static struct rtc_module rtc_instance;
 
-struct rtc_calendar_alarm_time alarm;
-aclock_state_t global_state;
+static struct rtc_calendar_alarm_time alarm;
+static aclock_state_t global_state;
 
 //___ I N T E R R U P T S  ___________________________________________________
 
@@ -116,25 +116,49 @@ int32_t aclock_get_timestamp ( void ) {
 
 #define SECONDS_PER_DAY 86400
 #define SECONDS_PER_YEAR SECONDS_PER_DAY*365
+    RTC->MODE2.READREQ.reg = RTC_READREQ_RREQ;
+		while (rtc_calendar_is_syncing(&rtc_instance));
+    struct rtc_calendar_time curr_time;
+    rtc_calendar_get_time(&rtc_instance, &curr_time);
+    global_state.year = curr_time.year;
+    global_state.month = curr_time.month;
+    global_state.day = curr_time.day;
 
-  uint32_t value = (global_state.year - 1970)*SECONDS_PER_YEAR;
+    global_state.hour = curr_time.hour;
+    global_state.minute = curr_time.minute;
+    global_state.second = curr_time.second;
+
+    uint32_t value = (global_state.year - 1970)*SECONDS_PER_YEAR;
 
   switch (global_state.month) {
-    case 2:
-      /* February */
-      value+=SECONDS_PER_DAY*(global_state.year % 4 ? 28 : 29);
-      break;
-    case 1:
-    case 3:
-    case 5:
-    case 7:
-    case 8:
-    case 10:
+    /* Each case accounts for the days of
+     * the previous month */
     case 12:
+      value+=SECONDS_PER_DAY*30;
+    case 11://30
       value+=SECONDS_PER_DAY*31;
+    case 10://31
+      value+=SECONDS_PER_DAY*30;
+    case 9://30
+      value+=SECONDS_PER_DAY*31;
+    case 8://31
+      value+=SECONDS_PER_DAY*31;
+    case 7://31
+      value+=SECONDS_PER_DAY*30;
+    case 6://30
+      value+=SECONDS_PER_DAY*31;
+    case 5://31
+      value+=SECONDS_PER_DAY*30;
+    case 4://30
+      value+=SECONDS_PER_DAY*31;
+    case 3://31
+      /* Account for february */
+      value+=SECONDS_PER_DAY*(global_state.year % 4 ? 28 : 29);
+    case 2:
+      value+=SECONDS_PER_DAY*31;
+    case 1://31
       break;
     default:
-      value+=SECONDS_PER_DAY*30;
       break;
   }
 
