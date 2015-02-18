@@ -16,7 +16,8 @@
 #define AX_INT1_EIC     PIN_PA10A_EIC_EXTINT10
 #define AX_INT1_EIC_MUX MUX_PA10A_EIC_EXTINT10
 #define AX_INT1_CHAN    10
-#define AX_ADDRESS 0x18 //0011000
+#define AX_ADDRESS0 0x18 //0011000
+#define AX_ADDRESS1 0x19 //0011001
 #define DATA_LENGTH 8
 
 #define AX_REG_OUT_X_L      0x28
@@ -116,10 +117,11 @@
 
 //___ V A R I A B L E S ______________________________________________________
 
-struct i2c_master_packet wr_packet;
-struct i2c_master_packet rd_packet;
+static struct i2c_master_packet wr_packet;
+static struct i2c_master_packet rd_packet;
 
 static bool enabled = false;
+static uint16_t i2c_addr = AX_ADDRESS0;
 
 struct i2c_master_module i2c_master_instance;
 static union {
@@ -211,7 +213,7 @@ static bool accel_register_consecutive_read (uint8_t start_reg, uint8_t count, u
 
     /* Write the register address (SUB) to the accelerometer */
     struct i2c_master_packet packet = {
-            .address     = AX_ADDRESS,
+            .address     = i2c_addr,
             .data_length = 1,
             .data = &write,
             .ten_bit_address = false,
@@ -235,7 +237,7 @@ static bool accel_register_write (uint8_t reg, uint8_t val) {
     uint8_t data[2] = {reg, val};
     /* Write the register address (SUB) to the accelerometer */
     struct i2c_master_packet packet = {
-            .address     = AX_ADDRESS,
+            .address     = i2c_addr,
             .data_length = 2,
             .data = data,
             .ten_bit_address = false,
@@ -338,8 +340,13 @@ void accel_init ( void ) {
     uint8_t who_it_be;
 
     configure_i2c();
-    if (!accel_register_consecutive_read (AX_REG_WHO_AM_I, 1, &who_it_be))
-        main_terminate_in_error(ERROR_ACCEL_READ_ID);
+
+    if (!accel_register_consecutive_read (AX_REG_WHO_AM_I, 1, &who_it_be)) {
+        /* ID read at first address failed. try other i2c address */
+        i2c_addr = AX_ADDRESS1;
+        if (!accel_register_consecutive_read (AX_REG_WHO_AM_I, 1, &who_it_be))
+          main_terminate_in_error(ERROR_ACCEL_READ_ID);
+    }
 
     if (who_it_be != WHO_IS_IT)
         main_terminate_in_error(ERROR_ACCEL_BAD_ID);
