@@ -594,7 +594,7 @@ uint16_t main_read_current_sensor( bool blocking ) {
         if (status == STATUS_OK) {
             *curr_sens_adc_val_ptr = result;
             adc_clear_status(&light_vbatt_sens_adc, ADC_STATUS_RESULT_READY);
-            port_pin_set_output_level(LIGHT_BATT_ENABLE_PIN, false);
+            //port_pin_set_output_level(LIGHT_BATT_ENABLE_PIN, false);
         }
     } while (blocking && status != STATUS_OK);
 

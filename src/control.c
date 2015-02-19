@@ -63,8 +63,8 @@ uint8_t adc_value_scale ( uint16_t value );
 //___ V A R I A B L E S ______________________________________________________
 
 control_mode_t *control_mode_active = NULL;
-
 control_mode_t control_modes[] = {
+#ifndef NO_CLOCK
     {
         .init_cb = NULL,
         .tic_cb = clock_mode_tic,
@@ -72,6 +72,7 @@ control_mode_t control_modes[] = {
         .about_to_sleep_cb = NULL,
         .on_wakeup_cb = NULL,
     },
+#endif
 #if VBATT_MODE
     {
         .init_cb = NULL,
@@ -293,7 +294,7 @@ bool accel_mode_tic ( event_flags_t event_flags  ) {
 
 bool light_sense_mode_tic ( event_flags_t event_flags ) {
     static display_comp_t *adc_pt = NULL;
-    uint16_t adc_val;
+    uint16_t adc_val = 0;
     static uint32_t tick_count = 0;
 
     if (main_get_current_sensor() != sensor_light)
