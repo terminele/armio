@@ -15,7 +15,6 @@
 
 #define MAIN_TIMER  TC5
 
-#define MAIN_TIMER_TICK_US      1000
 
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 
@@ -51,36 +50,19 @@ void main_tic( void ) {
     if (tick_cnt % 4000 != 1)
         return;
 
-    step++;
 
-    /* Fade in test */
+    /* Swirls */
+    if (step == 0) {
+        step++;
+        anim = anim_swirl(9, 10, MS_IN_TICKS(10), 296, true);
+        return;
+    }
+
     if (step == 1) {
-        display_comp = display_point(0, 0);
-        anim = anim_fade_in(display_comp, MAX_BRIGHT_VAL, 200);
-        return;
-    }
-
-    /* Fade out test */
-    if (step == 2) {
+        if (!anim_is_finished(anim)) return;
+        /* Move on to polygon tests */
+        step = 2;
         anim_release(anim);
-        anim = anim_fade_out(display_comp, 300);
-        return;
-    }
-
-    /* Pulsate (fade in/out) test */
-    if (step == 3) {
-        anim_release(anim);
-        display_comp->pos = 15;
-        anim = anim_fade(display_comp, 1, MAX_BRIGHT_VAL, 100, ANIMATION_DURATION_INF);
-        return;
-    }
-
-    /* Move on to polygon tests */
-    if (step == 4) {
-        anim_stop(anim);
-        anim_release(anim);
-        display_comp_hide(display_comp);
-        display_comp_release(display_comp);
     }
 
     polycount++;
@@ -105,9 +87,9 @@ void main_tic( void ) {
 
             if (polycount > 12) {
                 polycount = 0;
+                display_comp_release(display_comp);
+                anim_release(anim);
             }
-            display_comp_release(display_comp);
-            anim_release(anim);
     }
 
 

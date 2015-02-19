@@ -208,8 +208,10 @@ void anim_stop( animation_t *anim) {
 }
 
 void anim_release( animation_t *anim) {
-    if (anim->autorelease_disp_comp)
+    if (anim->autorelease_disp_comp) {
+        display_comp_hide(anim->disp_comp);
         display_comp_release(anim->disp_comp);
+    }
 
     DL_DELETE(head_anim_ptr, anim);
     anim_free(anim);
