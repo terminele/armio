@@ -106,7 +106,12 @@ static struct tc_module main_tc;
 
 struct {
 
+    /* System tick counter */
     uint32_t systicks;
+
+    /* Ticks since waking */
+    uint32_t waketicks;
+
     /* Inactivity counter for sleeping.  Resets on any
      * user activity (e.g. button press)
      */
@@ -242,6 +247,8 @@ static void enter_sleep( void ) {
 static void wakeup (void) {
     //system_ahb_clock_set_mask( PM_AHBMASK_HPB2 | PM_AHBMASK_DSU);
 
+    main_globals.waketicks = 0;
+
     if (light_vbatt_sens_adc.hw)
         adc_enable(&light_vbatt_sens_adc);
 
@@ -303,6 +310,7 @@ static void main_tic( void ) {
     event_flags_t event_flags = 0;
 
     main_globals.systicks++;
+    main_globals.waketicks++;
     main_globals.inactivity_ticks++;
 
     //main_log_data( (uint8_t *) &main_globals.systicks, sizeof(main_globals.systicks) );
@@ -393,6 +401,8 @@ static void main_init( void ) {
     struct tc_config config_tc;
 
     /* Initalize main state */
+    main_globals.systicks = 0;
+    main_globals.waketicks = 0;
     main_globals.button_hold_ticks = 0;
     main_globals.tap_count = 0;
     main_globals.inactivity_ticks = 0;
@@ -436,6 +446,10 @@ static void main_init( void ) {
 
 uint32_t main_get_systime_ms( void ) {
     return TICKS_IN_MS(main_globals.systicks);
+}
+
+uint32_t main_get_wake_time_ms( void ) {
+    return TICKS_IN_MS(main_globals.waketicks);
 }
 
 void main_terminate_in_error ( uint8_t error_code ) {
@@ -503,8 +517,13 @@ void main_start_sensor_read ( void ) {
         adc_start_conversion(&light_vbatt_sens_adc);
 }
 
+sensor_type_t main_get_current_sensor ( void ) {
+    return main_globals.current_sensor;
+}
+
 void main_set_current_sensor ( sensor_type_t sensor ) {
     struct adc_config config_adc;
+
 
     main_globals.current_sensor = sensor;
 

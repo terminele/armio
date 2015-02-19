@@ -249,7 +249,8 @@ CPPFLAGS = \
        -D $(PARTD)					  \
        -D TICK_DEBUG=false				  \
        -D ACCEL_DEBUG=true				  \
-       -D PHOTO_DEBUG=true				  \
+       -D PHOTO_DEBUG=false				  \
+       -D VBATT_MODE=true				  \
        -D __YEAR__=$(_YEAR_)				  \
        -D __MONTH__=$(_MONTH_)				  \
        -D __DAY__=$(_DAY_)				  \

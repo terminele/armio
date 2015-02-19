@@ -65,6 +65,11 @@ void main_start_sensor_read ( void );
    * @param None
    * @retrn None
    */
+sensor_type_t main_get_current_sensor ( void );
+  /* @brief get current sensor setting
+   * @param None
+   * @retrn None
+   */
 
 void main_set_current_sensor ( sensor_type_t sensor);
   /* @brief set sensor to read adc values from
@@ -115,6 +120,12 @@ uint32_t main_get_systime_ms( void );
   /* @brief get system time in ms
    * @param None
    * @retrn sys time in ms
+   */
+
+uint32_t main_get_wake_time_ms( void );
+  /* @brief return milliseconds passed since waking up
+   * @param None
+   * @retrn ms since wake
    */
 
 #endif /* end of include guard: __MAIN_H__ */

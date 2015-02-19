@@ -72,6 +72,7 @@ control_mode_t control_modes[] = {
         .about_to_sleep_cb = NULL,
         .on_wakeup_cb = NULL,
     },
+#if VBATT_MODE
     {
         .init_cb = NULL,
         .tic_cb = vbatt_sense_mode_tic,
@@ -79,6 +80,7 @@ control_mode_t control_modes[] = {
         .about_to_sleep_cb = NULL,
         .on_wakeup_cb = NULL,
     },
+#endif
 #if PHOTO_DEBUG
     {
         .init_cb = NULL,
@@ -180,8 +182,10 @@ bool accel_mode_tic ( event_flags_t event_flags  ) {
     static animation_t *anim_ptr = NULL;
     int16_t x,y,z;
     static uint32_t last_update_ms = 0;
+#ifdef LOG_ACCEL
     static uint8_t click_cnt = 0;
     uint32_t log_data;
+#endif
 
     if (last_update_ms == 0) {
         //accel_disable_interrupt();
@@ -222,7 +226,7 @@ bool accel_mode_tic ( event_flags_t event_flags  ) {
     main_log_data((uint8_t *)&log_data, sizeof(log_data), false);
 #endif
 
-    if (x > 80) {
+    if (event_flags & EV_FLAG_ACCEL_DCLICK_X) {
         display_comp_hide_all();
         display_comp_release(disp_x);
         display_comp_release(disp_y);
@@ -292,7 +296,7 @@ bool light_sense_mode_tic ( event_flags_t event_flags ) {
     uint16_t adc_val;
     static uint32_t tick_count = 0;
 
-    if (tick_count == 0)
+    if (main_get_current_sensor() != sensor_light)
         main_set_current_sensor(sensor_light);
 
     if (event_flags & EV_FLAG_LONG_BTN_PRESS ||
@@ -328,7 +332,7 @@ bool vbatt_sense_mode_tic ( event_flags_t event_flags ) {
     /* FIXME - don't actually read vbatt sensor
      * in this mode.  VBATT should only be sampled
      * after long sleep periods */
-    if (tick_count == 0)
+    if (main_get_current_sensor() != sensor_vbatt)
         main_set_current_sensor(sensor_vbatt);
 
     if (event_flags & EV_FLAG_LONG_BTN_PRESS ||
@@ -379,58 +383,6 @@ bool clock_mode_tic ( event_flags_t event_flags ) {
         }
         return true; //transition on long presses
     }
-
-#ifdef NOT_NOW_TIME_UPDATE_MODE
-    if (event_flags & EV_FLAG_LONG_BTN_PRESS) {
-        uint32_t button_down_ticks = main_get_button_hold_ticks();
-        if ( button_down_ticks > 5000 && button_down_ticks % 200 == 0) {
-
-            aclock_get_time(&hour, &minute, &second);
-            hour_prev = hour;
-            minute_prev = minute;
-            second_prev = second;
-
-
-            if (!fast_inc && button_down_ticks > 15000) {
-                anim_swirl(15, 5, MS_IN_TICKS(4), 64 );
-                fast_inc = true;
-            }
-
-            if (fast_inc) {
-                minute++;
-            } else {
-                second++;
-                if (second > 59) {
-                    second = 0;
-                    minute++;
-                }
-            }
-
-            if (minute > 59) {
-                minute = 0;
-                hour = (hour + 1) % 12;
-            }
-
-            aclock_set_time(hour, minute, second);
-            /* If time change, disable previous leds */
-            if (hour != hour_prev)
-                led_off((hour_prev%12)*5);
-            if (minute != minute_prev)
-                led_off(minute_prev);
-            if (second != second_prev)
-                led_off(second_prev);
-
-
-            led_clear_all();
-            led_on((hour%12)*5, MAX_BRIGHT_VAL);
-            led_on(minute, BRIGHT_DEFAULT);
-            led_on(second, 2);
-
-        }
-
-    }
-
-#endif
 
     /* Get latest time */
     aclock_get_time(&hour, &minute, &second);

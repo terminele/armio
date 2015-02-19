@@ -117,9 +117,6 @@
 
 //___ V A R I A B L E S ______________________________________________________
 
-static struct i2c_master_packet wr_packet;
-static struct i2c_master_packet rd_packet;
-
 static bool enabled = false;
 static uint16_t i2c_addr = AX_ADDRESS0;
 
