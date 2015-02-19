@@ -5,7 +5,7 @@
   * the display module is responsible for 'drawing' higher level
   * static shapes to the led rings.  It maintains a stack of
   * display components (e.g. points, lines, polygons) of varying
-  * brightness level and blink rates.  On each call to tic(), these
+  * brightness levels .  On each call to tic(), these
   * components are drawn from tail to head (i.e. the head component
   * takes precedence on any leds modified by lower priority components).
   *
@@ -98,14 +98,14 @@ void comp_draw( display_comp_t* comp) {
         break;
       case dispt_snake:
       case dispt_line:
-        pos = MOD(comp->pos - comp->length + 1, 60);
+        pos = MOD(comp->pos, 60);
         do {
           led_on(pos, bright);
-          pos = (pos + 1 ) % 60;
+          pos = (pos - 1 ) % 60;
           if (comp->type == dispt_snake &&
                   bright > MIN_BRIGHT_VAL)
               bright--;
-        } while (pos != (comp->pos + 1) % 60);
+        } while (pos != (comp->pos - comp->length) % 60);
 
         break;
       case dispt_polygon:

@@ -68,6 +68,12 @@ static void setup_clock_pin_outputs( void );
    */
 #endif
 
+static void update_vbatt_running_avg( void );
+  /* @brief update vbatt running avg based on latest read
+   * @param None
+   * @retrn None
+   */
+
 static void configure_extint(void);
   /* @brief enable external interrupts
    * @param None
@@ -130,7 +136,7 @@ struct {
     sensor_type_t current_sensor;
     uint16_t light_sensor_adc_val;
     uint16_t vbatt_sensor_adc_val;
-
+    uint16_t running_avg_vbatt;
 
     main_state_t state;
 
@@ -147,7 +153,14 @@ static uint16_t nvm_row_ind = 0;
 
 //___ F U N C T I O N S   ( P R I V A T E ) __________________________________
 
+static void update_vbatt_running_avg( void ) {
+    /* Use exponential moving average with alpha = 1/128
+     * to update vbatt level */
+    uint32_t temp;
+    temp = main_globals.running_avg_vbatt*127;
+    main_globals.running_avg_vbatt = (temp + main_globals.vbatt_sensor_adc_val)/128;
 
+}
 
 static void log_vbatt (bool on_wakeup) {
     /* Log current vbatt with timestamp */
@@ -217,7 +230,9 @@ static void setup_clock_pin_outputs( void ) {
 
 static void enter_sleep( void ) {
 
+#if LOG_USAGE
     log_vbatt(false);
+#endif
 
 #ifdef ENABLE_BUTTON
     /* Enable button callback to awake us from sleep */
@@ -262,7 +277,15 @@ static void wakeup (void) {
     accel_enable();
     tc_enable(&main_tc);
 
+    /* Update vbatt estimate on wakeup only */
+    main_set_current_sensor(sensor_vbatt);
+    main_start_sensor_read();
+    main_read_current_sensor(true);
+    update_vbatt_running_avg();
+
+#if LOG_USAGE
     log_vbatt(true);
+#endif
 
 }
 
@@ -583,8 +606,8 @@ uint16_t main_get_light_sensor_value ( void ) {
     return main_globals.light_sensor_adc_val;
 }
 
-uint16_t main_get_vbatt_sensor_value ( void ) {
-    return main_globals.vbatt_sensor_adc_val;
+uint16_t main_get_vbatt_value ( void ) {
+    return main_globals.running_avg_vbatt;
 }
 
 uint8_t main_get_multipress_count( void ) {
@@ -623,17 +646,18 @@ int main (void)
 
     main_set_current_sensor(sensor_vbatt);
     main_start_sensor_read();
-    main_read_current_sensor(true);
+    main_globals.running_avg_vbatt = main_read_current_sensor(true);
 
     main_set_current_sensor(sensor_light);
     main_start_sensor_read();
     main_read_current_sensor(true);
 
+#if LOG_USAGE
     log_vbatt(true);
+#endif
 
     /* Show a startup LED swirl */
     sleep_wake_anim = anim_swirl(0, 8, MS_IN_TICKS(4), 120, true);
-
 
     /* get intial time */
     configure_input();

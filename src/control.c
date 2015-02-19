@@ -329,11 +329,6 @@ bool vbatt_sense_mode_tic ( event_flags_t event_flags ) {
     uint16_t adc_val;
     static uint32_t tick_count = 0;
 
-    /* FIXME - don't actually read vbatt sensor
-     * in this mode.  VBATT should only be sampled
-     * after long sleep periods */
-    if (main_get_current_sensor() != sensor_vbatt)
-        main_set_current_sensor(sensor_vbatt);
 
     if (event_flags & EV_FLAG_LONG_BTN_PRESS ||
         event_flags & EV_FLAG_ACCEL_DCLICK_X) {
@@ -345,19 +340,26 @@ bool vbatt_sense_mode_tic ( event_flags_t event_flags ) {
         return true; //transition on long presses
     }
 
-    if (!adc_pt) {
-        adc_pt = display_point(0, 3);
-    }
+#if VBATT_NO_AVERAGE
+    /* don't actually read vbatt sensor
+     * in this mode.  VBATT should only be sampled
+     * after wakeup */
+    if (main_get_current_sensor() != sensor_vbatt)
+        main_set_current_sensor(sensor_vbatt);
 
 
     if (tick_count % 1000 == 999)
         main_start_sensor_read();
 
     adc_val = main_read_current_sensor(false);
-//    if (adc_val <= 2048)
-//        adc_val;
-//    else
-//        adc_val = adc_val - 2048;
+#else
+    adc_val = main_get_vbatt_value();
+#endif
+
+    if (!adc_pt) {
+        adc_pt = display_point(0, 3);
+    }
+
 
     display_comp_update_pos(adc_pt,
             adc_vbatt_value_scale(adc_val) % 60);
@@ -367,7 +369,7 @@ bool vbatt_sense_mode_tic ( event_flags_t event_flags ) {
     return false;
 }
 bool clock_mode_tic ( event_flags_t event_flags ) {
-    uint8_t hour = 0, minute = 0, second = 0;
+    uint8_t hour = 0, minute = 0, second = 0, hour_fifths=0;
     static display_comp_t *sec_disp_ptr = NULL;
     static display_comp_t *min_disp_ptr = NULL;
     static display_comp_t *hour_disp_ptr = NULL;
@@ -387,6 +389,8 @@ bool clock_mode_tic ( event_flags_t event_flags ) {
     /* Get latest time */
     aclock_get_time(&hour, &minute, &second);
 
+    hour_fifths = minute/12;
+
     if (!sec_disp_ptr)
         sec_disp_ptr = display_point(second, MIN_BRIGHT_VAL);
 
@@ -394,12 +398,14 @@ bool clock_mode_tic ( event_flags_t event_flags ) {
         min_disp_ptr = display_point(minute, BRIGHT_DEFAULT);
 
     if (!hour_disp_ptr)
-        hour_disp_ptr = display_point(HOUR_POS(hour), MAX_BRIGHT_VAL);
+        hour_disp_ptr = display_snake(HOUR_POS(hour) + hour_fifths,
+                MAX_BRIGHT_VAL, 1+hour_fifths);
 
 
     display_comp_update_pos(sec_disp_ptr, second);
     display_comp_update_pos(min_disp_ptr, minute);
-    display_comp_update_pos(hour_disp_ptr, HOUR_POS(hour));
+    display_comp_update_pos(hour_disp_ptr, HOUR_POS(hour) + hour_fifths);
+    display_comp_update_length(hour_disp_ptr, 1+hour_fifths);
 
     return false;
 }

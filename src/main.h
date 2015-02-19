@@ -90,8 +90,8 @@ uint16_t main_get_light_sensor_value ( void );
    * @retrn None
    */
 
-uint16_t main_get_vbatt_sensor_value ( void );
-  /* @brief get most recent vbatt sensor adc value
+uint16_t main_get_vbatt_value ( void );
+  /* @brief get running-averaged vbatt value
    * @param None
    * @retrn None
    */
