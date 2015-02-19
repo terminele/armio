@@ -269,6 +269,10 @@ bool accel_data_read (int16_t *x_ptr, int16_t *y_ptr, int16_t *z_ptr) {
 void accel_enable ( void ) {
   //i2c_master_enable(&i2c_master_instance);
 
+#ifdef NO_ACCEL
+    return;
+#endif
+
   accel_register_write (AX_REG_CTL1, ODR_400HZ | LOW_PWR_EN | X_EN | Y_EN | Z_EN);
   accel_register_write (AX_REG_CLICK_CFG, Z_DCLICK | Z_SCLICK | \
         /*Y_DCLICK | Y_SCLICK | X_DCLICK |*/ X_SCLICK | X_DCLICK );
@@ -285,6 +289,9 @@ void accel_enable ( void ) {
 
 void accel_sleep ( void ) {
 
+#ifdef NO_ACCEL
+    return;
+#endif
   /* Only x-axis double clicks should wake us up */
   accel_register_write (AX_REG_CLICK_CFG, X_DCLICK);
   accel_register_write (AX_REG_CLICK_THS, WAKEUP_CLICK_THS);
@@ -306,6 +313,9 @@ void accel_sleep ( void ) {
 
 event_flags_t accel_event_flags( void ) {
   event_flags_t ev_flags = EV_FLAG_NONE;
+#ifdef NO_ACCEL
+    return ev_flags;
+#endif
   if (port_pin_get_input_level(AX_INT1_PIN)) {
 
     accel_register_consecutive_read(AX_REG_CLICK_SRC, 1, &click_flags.b8);
@@ -335,6 +345,9 @@ event_flags_t accel_event_flags( void ) {
 
 void accel_init ( void ) {
     uint8_t who_it_be;
+#ifdef NO_ACCEL
+    return;
+#endif
 
     configure_i2c();
 

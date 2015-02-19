@@ -249,8 +249,8 @@ CPPFLAGS = \
        -D $(PARTD)					  \
        -D TICK_DEBUG=false				  \
        -D ACCEL_DEBUG=true				  \
-       -D PHOTO_DEBUG=false				  \
-       -D VBATT_MODE=true				  \
+       -D PHOTO_DEBUG=true				  \
+       -D VBATT_MODE=false				  \
        -D VBATT_NO_AVERAGE=false			  \
        -D LOG_USAGE=true				  \
        -D __YEAR__=$(_YEAR_)				  \
@@ -259,6 +259,8 @@ CPPFLAGS = \
        -D __HOUR__=$(_HOUR_)				  \
        -D __MIN__=$(_MIN_)				  \
        -D __SEC__=$(_SEC_)				  \
+       -D NO_ACCEL					  \
+       #-D NO_CLOCK
 
 
 # Extra flags to use when linking
