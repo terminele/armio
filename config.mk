@@ -248,7 +248,7 @@ CPPFLAGS = \
        -D SYSTICK_MODE                                    \
        -D $(PARTD)					  \
        -D TICK_DEBUG=false				  \
-       -D ACCEL_DEBUG=false				  \
+       -D ACCEL_DEBUG=true				  \
        -D PHOTO_DEBUG=true				  \
        -D VBATT_MODE=true				  \
        -D VBATT_NO_AVERAGE=true				  \

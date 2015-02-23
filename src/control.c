@@ -9,6 +9,9 @@
 #include "anim.h"
 #include "accel.h"
 #include "display.h"
+#include <math.h>
+
+#define PI 3.14159265
 
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
 #define CLOCK_MODE_SLEEP_TIMEOUT_TICKS     MS_IN_TICKS(7000)
@@ -36,6 +39,12 @@ bool light_sense_mode_tic ( event_flags_t event_flags );
    */
 
 bool accel_mode_tic ( event_flags_t event_flags  );
+  /* @brief main tick callback for accel mode
+   * @param event flags
+   * @retrn flag indicating mode finish
+   */
+
+bool accel_point_mode_tic ( event_flags_t event_flags  );
   /* @brief main tick callback for accel mode
    * @param event flags
    * @retrn flag indicating mode finish
@@ -101,6 +110,13 @@ control_mode_t control_modes[] = {
     {
         .init_cb = NULL,
         .tic_cb = accel_mode_tic,
+        .sleep_timeout_ticks = MS_IN_TICKS(60000),
+        .about_to_sleep_cb = NULL,
+        .on_wakeup_cb = NULL,
+    },
+    {
+        .init_cb = NULL,
+        .tic_cb = accel_point_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(60000),
         .about_to_sleep_cb = NULL,
         .on_wakeup_cb = NULL,
@@ -341,6 +357,42 @@ bool accel_mode_tic ( event_flags_t event_flags  ) {
     return false;
 }
 
+
+
+bool accel_point_mode_tic ( event_flags_t event_flags  ) {
+    static display_comp_t *disp_pt = NULL;
+    int16_t x,y,z;
+    static float current_led_angle = 90; //degrees
+    static int current_led = 0;
+    float angle = 0;
+
+
+    if (!disp_pt) {
+        disp_pt = display_point(0, BRIGHT_DEFAULT);
+    }
+
+    x = y = z = 0;
+    if (!accel_data_read(&x, &y, &z)) {
+        return false;
+    }
+
+    if (event_flags & EV_FLAG_ACCEL_DCLICK_X) {
+        display_comp_hide_all();
+        display_comp_release(disp_pt);
+        disp_pt = NULL;
+        return true;
+    }
+    if (abs(x) + abs(y) > 30) {
+
+        int32_t led = 15 - 30*atan2(-y, -x)/PI;
+
+        while (led < 0) led += 60;
+
+        display_comp_update_pos(disp_pt, (uint8_t) led);
+    }
+
+    return false;
+}
 bool light_sense_mode_tic ( event_flags_t event_flags ) {
     static display_comp_t *adc_pt = NULL;
     uint16_t adc_val = 0;
