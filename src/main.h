@@ -22,6 +22,12 @@
 #define EV_FLAG_ACCEL_DCLICK_X          1 << 7
 #define EV_FLAG_ACCEL_DCLICK_Y          1 << 8
 #define EV_FLAG_ACCEL_DCLICK_Z          1 << 9
+#define EV_FLAG_ACCEL_TCLICK_X          1 << 10
+#define EV_FLAG_ACCEL_TCLICK_Y          1 << 11
+#define EV_FLAG_ACCEL_TCLICK_Z          1 << 12
+#define EV_FLAG_ACCEL_QCLICK_X          1 << 13
+#define EV_FLAG_ACCEL_QCLICK_Y          1 << 14
+#define EV_FLAG_ACCEL_QCLICK_Z          1 << 15
 
 /* Error Codes */
 #define ERROR_NONE                      0
@@ -44,7 +50,7 @@
 #define assert(B) if (!(B)) main_terminate_in_error(ERROR_ASSERTION_FAIL)
 
 //___ T Y P E D E F S ________________________________________________________
-typedef uint16_t event_flags_t;
+typedef uint32_t event_flags_t;
 
 typedef enum sensor_type_t {
     sensor_vbatt,

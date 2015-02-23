@@ -53,8 +53,14 @@ bool tick_counter_mode_tic ( event_flags_t event_flags );
    * @retrn true on finish
    */
 
-uint8_t adc_value_scale ( uint16_t value );
-  /* @brief scales an adc read quasi-logarithmically
+bool event_debug_mode_tic ( event_flags_t event_flags );
+  /* @brief debug display event flags as a point
+   * @param event flags
+   * @retrn true on finish
+   */
+
+uint8_t adc_light_value_scale ( uint16_t value );
+  /* @brief scales a light adc read quasi-logarithmically
    * for displaying on led ring
    * @param 12-bit adc value
    * @retrn led index to display
@@ -105,6 +111,15 @@ control_mode_t control_modes[] = {
         .init_cb = NULL,
         .tic_cb = tick_counter_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(60000),
+        .about_to_sleep_cb = NULL,
+        .on_wakeup_cb = NULL,
+    },
+#endif
+#ifdef EVENT_DEBUG_MODE
+    {
+        .init_cb = NULL,
+        .tic_cb = event_debug_mode_tic,
+        .sleep_timeout_ticks = MS_IN_TICKS(20000),
         .about_to_sleep_cb = NULL,
         .on_wakeup_cb = NULL,
     },
@@ -174,6 +189,40 @@ uint8_t adc_vbatt_value_scale ( uint16_t value ) {
     return 1 + 7*(value - 2048)/(2765 - 2048);
 
 
+}
+
+
+bool event_debug_mode_tic ( event_flags_t event_flags  ) {
+    static display_comp_t *disp_code = NULL;
+    uint8_t pos = 0;
+    uint32_t last_event = 0;
+
+    if (!disp_code) {
+        disp_code = display_point(0, BRIGHT_DEFAULT);
+    }
+
+    /* Convert event flag bit pos to int */
+    if (!event_flags) { //&& main_get_systime_ms() - last_event > 200) {
+        display_comp_update_pos(disp_code, 0);
+        return false;
+    } else {
+        display_comp_hide(disp_code);
+    }
+
+    last_event = main_get_systime_ms();
+
+    do {
+        while (!(event_flags & 0x01)) {
+            event_flags >>= 1;
+            pos++;
+        }
+
+        anim_cutout(display_point(pos, BRIGHT_DEFAULT), MS_IN_TICKS(500), true);
+        event_flags >>= 1;
+        pos++;
+    } while (event_flags);
+
+    return false;
 }
 
 bool accel_mode_tic ( event_flags_t event_flags  ) {

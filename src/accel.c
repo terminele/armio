@@ -99,17 +99,20 @@
 #define MS_TO_ODRS(t, sample_int) (t/sample_int)
 
 /* Click configuration constants */
+
 #define CLICK_THS     43 //assumes 4g scale
 #define CLICK_TIME_WIN      MS_TO_ODRS(200, SAMPLE_INT_400HZ)
-#define CLICK_TIME_LIM      MS_TO_ODRS(30, SAMPLE_INT_400HZ)
+#define CLICK_TIME_LIM      MS_TO_ODRS(20, SAMPLE_INT_400HZ)
 #define CLICK_TIME_LAT      MS_TO_ODRS(40, SAMPLE_INT_400HZ) //ms
 
-#define SLEEP_ODR          ODR_400HZ
-#define SLEEP_SAMPLE_INT   SAMPLE_INT_400HZ
+#define SLEEP_ODR          ODR_100HZ
+#define SLEEP_SAMPLE_INT   SAMPLE_INT_100HZ
 #define WAKEUP_CLICK_THS     50 //assumes 4g scale
 #define WAKEUP_CLICK_TIME_WIN      MS_TO_ODRS(200, SLEEP_SAMPLE_INT)
-#define WAKEUP_CLICK_TIME_LIM      MS_TO_ODRS(30, SLEEP_SAMPLE_INT)
+#define WAKEUP_CLICK_TIME_LIM      MS_TO_ODRS(20, SLEEP_SAMPLE_INT)
 #define WAKEUP_CLICK_TIME_LAT      MS_TO_ODRS(40, SLEEP_SAMPLE_INT) //ms
+
+#define MULTI_CLICK_WINDOW_MS 300
 
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 
@@ -119,6 +122,13 @@
 
 static bool enabled = false;
 static uint16_t i2c_addr = AX_ADDRESS0;
+static struct {
+    uint32_t x,y,z;
+} last_click_time_ms;
+
+static struct {
+    uint32_t x,y,z;
+} click_count;
 
 struct i2c_master_module i2c_master_instance;
 static union {
@@ -135,6 +145,7 @@ static union {
 
   uint8_t b8;
 } click_flags;
+
 
 
 //___ I N T E R R U P T S  ___________________________________________________
@@ -274,8 +285,7 @@ void accel_enable ( void ) {
 #endif
 
   accel_register_write (AX_REG_CTL1, ODR_400HZ | LOW_PWR_EN | X_EN | Y_EN | Z_EN);
-  accel_register_write (AX_REG_CLICK_CFG, Z_DCLICK | Z_SCLICK | \
-        /*Y_DCLICK | Y_SCLICK | X_DCLICK |*/ X_SCLICK | X_DCLICK );
+  accel_register_write (AX_REG_CLICK_CFG, Z_SCLICK | Y_SCLICK | X_SCLICK);
   accel_register_write (AX_REG_CLICK_THS, CLICK_THS);
 
   accel_register_write (AX_REG_TIME_WIN, CLICK_TIME_WIN);
@@ -285,6 +295,76 @@ void accel_enable ( void ) {
   extint_chan_disable_callback(AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
 
   enabled = true;
+}
+
+static event_flags_t click_timeout_event_check( void ) {
+  event_flags_t ev_flags = EV_FLAG_NONE;
+
+  /* Check for click timeouts */
+
+  ///###FIXME -- duplicated code can be unified with macros
+  //
+  if (click_count.x &&
+      main_get_systime_ms() - last_click_time_ms.x > MULTI_CLICK_WINDOW_MS ) {
+
+    switch(click_count.x) {
+        case 1:
+          ev_flags |= EV_FLAG_ACCEL_SCLICK_X;
+          break;
+        case 2:
+          ev_flags |= EV_FLAG_ACCEL_DCLICK_X;
+          break;
+        case 3:
+          ev_flags |= EV_FLAG_ACCEL_TCLICK_X;
+          break;
+        case 4:
+          ev_flags |= EV_FLAG_ACCEL_QCLICK_X;
+          break;
+    }
+    click_count.x = 0;
+  }
+
+  if (click_count.y &&
+      main_get_systime_ms() - last_click_time_ms.y > MULTI_CLICK_WINDOW_MS ) {
+
+    switch(click_count.y) {
+        case 1:
+          ev_flags |= EV_FLAG_ACCEL_SCLICK_Y;
+          break;
+        case 2:
+          ev_flags |= EV_FLAG_ACCEL_DCLICK_Y;
+          break;
+        case 3:
+          ev_flags |= EV_FLAG_ACCEL_TCLICK_Y;
+          break;
+        case 4:
+          ev_flags |= EV_FLAG_ACCEL_QCLICK_Y;
+          break;
+    }
+    click_count.y = 0;
+  }
+
+  if (click_count.z &&
+      main_get_systime_ms() - last_click_time_ms.z > MULTI_CLICK_WINDOW_MS ) {
+
+    switch(click_count.z) {
+        case 1:
+          ev_flags |= EV_FLAG_ACCEL_SCLICK_Z;
+          break;
+        case 2:
+          ev_flags |= EV_FLAG_ACCEL_DCLICK_Z;
+          break;
+        case 3:
+          ev_flags |= EV_FLAG_ACCEL_TCLICK_Z;
+          break;
+        case 4:
+          ev_flags |= EV_FLAG_ACCEL_QCLICK_Z;
+          break;
+    }
+    click_count.z = 0;
+  }
+
+  return ev_flags;
 }
 
 void accel_sleep ( void ) {
@@ -313,13 +393,22 @@ void accel_sleep ( void ) {
 
 event_flags_t accel_event_flags( void ) {
   event_flags_t ev_flags = EV_FLAG_NONE;
+  static bool int_state = false;//keep track of prev interrupt state
 #ifdef NO_ACCEL
     return ev_flags;
 #endif
-  if (port_pin_get_input_level(AX_INT1_PIN)) {
 
+  ev_flags |= click_timeout_event_check();
+
+  if (port_pin_get_input_level(AX_INT1_PIN)) {
+    if (int_state) return ev_flags; //we've already handled this interrupt
+
+    int_state = true;
     accel_register_consecutive_read(AX_REG_CLICK_SRC, 1, &click_flags.b8);
 
+    if (!click_flags.ia) return ev_flags;
+
+#ifdef NOT_NOW
     if (click_flags.dclick) {
       if (click_flags.x)
         ev_flags |= EV_FLAG_ACCEL_DCLICK_X;
@@ -327,17 +416,30 @@ event_flags_t accel_event_flags( void ) {
         ev_flags |= EV_FLAG_ACCEL_DCLICK_Y;
       if (click_flags.z)
         ev_flags |= EV_FLAG_ACCEL_DCLICK_Z;
-    } else if (click_flags.sclick) {
-      if (click_flags.x)
-        ev_flags |= EV_FLAG_ACCEL_SCLICK_X;
-      if (click_flags.y)
-        ev_flags |= EV_FLAG_ACCEL_SCLICK_Y;
-      if (click_flags.z)
-        ev_flags |= EV_FLAG_ACCEL_SCLICK_Z;
+    } else
+#endif
+    if (click_flags.sclick) {
+      if (click_flags.x) {
+          last_click_time_ms.x = main_get_systime_ms();
+          click_count.x++;
+      }
+
+      if (click_flags.y) {
+          last_click_time_ms.y = main_get_systime_ms();
+          click_count.y++;
+      }
+
+      if (click_flags.z) {
+          last_click_time_ms.z = main_get_systime_ms();
+          click_count.z++;
+      }
+
     }
 
     click_flags.b8 = 0;
 
+  } else {
+    int_state = false;
   }
 
   return ev_flags;
@@ -361,7 +463,7 @@ void accel_init ( void ) {
     if (who_it_be != WHO_IS_IT)
         main_terminate_in_error(ERROR_ACCEL_BAD_ID);
 
-    if (!accel_register_write (AX_REG_CTL1, ODR_400HZ | LOW_PWR_EN | X_EN |/* Y_EN |*/ Z_EN))
+    if (!accel_register_write (AX_REG_CTL1, ODR_400HZ | LOW_PWR_EN | X_EN | Y_EN | Z_EN))
         main_terminate_in_error(ERROR_ACCEL_WRITE_ENABLE);
 
     /* Set scale */
