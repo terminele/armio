@@ -248,10 +248,10 @@ CPPFLAGS = \
        -D SYSTICK_MODE                                    \
        -D $(PARTD)					  \
        -D TICK_DEBUG=false				  \
-       -D ACCEL_DEBUG=true				  \
+       -D ACCEL_DEBUG=false				  \
        -D PHOTO_DEBUG=true				  \
-       -D VBATT_MODE=false				  \
-       -D VBATT_NO_AVERAGE=false			  \
+       -D VBATT_MODE=true				  \
+       -D VBATT_NO_AVERAGE=true				  \
        -D LOG_USAGE=true				  \
        -D __YEAR__=$(_YEAR_)				  \
        -D __MONTH__=$(_MONTH_)				  \
@@ -259,7 +259,9 @@ CPPFLAGS = \
        -D __HOUR__=$(_HOUR_)				  \
        -D __MIN__=$(_MIN_)				  \
        -D __SEC__=$(_SEC_)				  \
+       -D ENABLE_BUTTON					  \
        -D NO_ACCEL					  \
+       -D USE_WAKEUP_ALARM				  \
        #-D NO_CLOCK
 
 

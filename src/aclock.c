@@ -15,8 +15,8 @@
 
 //___ P R O T O T Y P E S   ( P R I V A T E ) ________________________________
 
-void rtc_alarm_s_callback( void );
-  /* @brief called on 1-second alarm trigger interrupt
+void rtc_alarm_minute_callback( void );
+  /* @brief minute alarm callback
    * then schedules next alarm
    * @param None
    * @retrn None
@@ -59,6 +59,20 @@ void rtc_alarm_s_callback( void ) {
 
 #endif
 
+#ifdef USE_WAKEUP_ALARM
+void rtc_alarm_minute_callback( void ) {
+
+    aclock_enable();
+
+    /* Set next alarm for a minute later */
+    alarm.time.minute += 1;
+    alarm.time.minute %= 60;
+    alarm.time.second = 0;
+
+    rtc_calendar_set_alarm(&rtc_instance, &alarm, RTC_CALENDAR_ALARM_0);
+
+}
+#endif
 
 //___ F U N C T I O N S ______________________________________________________
 
@@ -190,20 +204,14 @@ void aclock_init( void ) {
     initial_time.month  = global_state.month = __MONTH__;//10;
     initial_time.day    =  global_state.day = __DAY__;//10;
 
-    /* Use compile time for initial time */
-    initial_time.hour   = global_state.hour =  __HOUR__;//10*(__TIME__[0] - '0') +  (__TIME__[1] - '0');
+    /* Use compile time for initial time */ initial_time.hour   = global_state.hour =  __HOUR__;//10*(__TIME__[0] - '0') +  (__TIME__[1] - '0');
     initial_time.minute = global_state.minute = __MIN__;//10*(__TIME__[3] - '0') +  (__TIME__[4] - '0');
     initial_time.second = global_state.second = __SEC__;//10*(__TIME__[6] - '0') +  (__TIME__[7] - '0') % 60;
-
-    /* Configure alarm to trigger at 1-second    */
-    /* we only care about second since other     */
-    /* fields are masked so can be garbage       */
-    alarm.time.second = initial_time.second;
-    alarm.mask = RTC_CALENDAR_ALARM_MASK_SEC;
 
     config_rtc_calendar.clock_24h = true;
     config_rtc_calendar.prescaler  = RTC_CALENDAR_PRESCALER_DIV_1024;
     config_rtc_calendar.continuously_update = true;
+    config_rtc_calendar.alarm[0] = alarm;
 
     rtc_calendar_init(&rtc_instance, RTC, &config_rtc_calendar);
 
@@ -218,4 +226,17 @@ void aclock_init( void ) {
 
     rtc_calendar_enable_callback(&rtc_instance, RTC_CALENDAR_CALLBACK_SYNCRDY);
 
+#ifdef USE_WAKEUP_ALARM
+    /* Configure alarm to trigger every minute    */
+    alarm.time.second = 0;
+    alarm.time.minute = (initial_time.minute + 1) % 60;
+    alarm.mask = RTC_CALENDAR_ALARM_MASK_MIN;
+    rtc_calendar_set_alarm(&rtc_instance, &alarm, RTC_CALENDAR_ALARM_0);
+
+    /* Register ready callback */
+    rtc_calendar_register_callback( &rtc_instance,
+        rtc_alarm_minute_callback, RTC_CALENDAR_ALARM_0);
+
+    rtc_calendar_enable_callback(&rtc_instance, RTC_CALENDAR_ALARM_0);
+#endif
 }
