@@ -363,8 +363,9 @@ bool accel_point_mode_tic ( event_flags_t event_flags  ) {
     static display_comp_t *disp_pt = NULL;
     int16_t x,y,z;
     static float current_led_angle = 90; //degrees
-    static int current_led = 0;
-    float angle = 0;
+    static int8_t current_led = 0;
+    static float angular_velocity = 0; //in leds per second
+    float angle, angle_delta = 0;
 
 
     if (!disp_pt) {
@@ -382,13 +383,37 @@ bool accel_point_mode_tic ( event_flags_t event_flags  ) {
         disp_pt = NULL;
         return true;
     }
-    if (abs(x) + abs(y) > 30) {
+    if (abs(x) + abs(y) > 25) {
+        float alpha = 0.5;
 
-        int32_t led = 15 - 30*atan2(-y, -x)/PI;
+        angle = 180*atan2(-y, -x)/PI;
 
-        while (led < 0) led += 60;
+        angle_delta = angle - current_led_angle;
+
+        if (angle_delta > 180) {
+            angle_delta = angle_delta - 360;
+        }
+
+        if (angle_delta < -180) {
+            angle_delta = angle_delta + 360;
+        }
+
+        angular_velocity *= (1 - alpha);
+        angular_velocity = alpha*angle_delta * 2.0*(abs(y) + abs(x));
+
+        current_led_angle += angular_velocity/1000.0;
+
+        int32_t led = ((int32_t)(90 - current_led_angle + 0.6) % 360)/6;
+
+        while(led < 0) led+=60;
+
+        led = led % 60;
 
         display_comp_update_pos(disp_pt, (uint8_t) led);
+
+        while(current_led_angle > 180) current_led_angle-=360;
+        while(current_led_angle < -180) current_led_angle+=360;
+
     }
 
     return false;
