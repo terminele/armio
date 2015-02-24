@@ -20,15 +20,13 @@ def wta(time, data, alpha):
     result = [data[0]]
     for d, tp, tn in zip(data[1:], time, time[1:]):
         dt = tn - tp
-        print(tn)
-        print(tp)
-        print(dt)
         result.append(d*alpha*dt + result[-1]*(1-alpha*dt))
 
     return result
 
 
 if __name__ == "__main__":
+    import time
     parser = argparse.ArgumentParser(description='Analyze a usage log dump')
     parser.add_argument('dumpfile')
     args = parser.parse_args()
@@ -47,6 +45,7 @@ if __name__ == "__main__":
     deltas = []
     t_wakes = []
     v_wakes = []
+    t_offset = 0
     while True:
         binval = f.read(8)
 
@@ -57,38 +56,52 @@ if __name__ == "__main__":
             skips+=1
 
             if skips > 64:
+              print("Ending after skipping 64 values")
               break
 
             continue
 
         (t,v,p) = struct.unpack("<iHH", binval)
 
-        if len(ts) and t < ts[-1]:
-          print("Ignoring out-of-order value t={}.  expect > t: {}".format(t, ts[-1]))
+        if t < 10000:
+          print("ignoring bad time val {}".format(t))
           continue
+        if len(ts) and t + t_offset < ts[-1]:
+          if abs(t - ts[0]) < 20:
+            t_offset = ts[-1] - t
+            print("t[{}] found reset to t={} at t: {}".format(len(ts),time.ctime(t),
+            time.ctime(ts[-1])))
+          else:
+            print("t[{}] found out of order t={} at t: {}".format(len(ts),time.ctime(t),
+              time.ctime(ts[-1])))
+            t_offset = ts[-1] - t
 
-        if not len(ts): tstart = t
+        t+=t_offset
+
+        if not len(ts):
+          tstart = t
+          print("tstart is {}".format(time.ctime(t)))
 
         if (p == 0xbeef):
           powers.append(3.3)
           if len(ts) > 2:
-            print("wakes after {}s".format(t - ts[-1]))
+            #print("wakes after {}s".format(t - ts[-1]))
             v_normal = v*4.0/4096
             deltas.append(v_normal - vs[-1])
             t_wakes.append(t - tstart)
             v_wakes.append(v*4.0/4096)
         elif (p == 0xdead):
           powers.append(0)
-          if len(ts) > 2:
-            print("sleeps after {}s".format(t - ts[-1]))
+          #if len(ts) > 2:
+          #  print("sleeps after {}s".format(t - ts[-1]))
         else:
-          print("Ended after encountering ({}\t{}\t{:x})".format(t, v, p))
-          break
+          print("skipping bad value at idx {}".format(len(ts)))
+          continue
 
         ts.append(t)
         t_rels.append(t - tstart)
         vs.append(v*4.0/4096)
-        print("{}\t{}\t{:x}".format(t, v, p))
+        #print("{}\t{}\t{:x}".format(t, v, p))
 
 
     t_hrs = [t/3600.0 for t in t_rels]
