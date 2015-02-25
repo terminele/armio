@@ -13,15 +13,21 @@
 //___ M A C R O S ____________________________________________________________
 #define ANIMATION_DURATION_INF -1
 
+#define BLINK_INT_DEFAULT   MS_IN_TICKS(100)
+#define BLINK_INT_FAST      MS_IN_TICKS(50)
+#define BLINK_INT_MED       MS_IN_TICKS(200)
+#define BLINK_INT_SLOW      MS_IN_TICKS(500)
+
 //___ T Y P E D E F S ________________________________________________________
 
 typedef enum {
-    anim_unused = 0,
-    anim_rotate_cw,
-    anim_rotate_ccw,
-    anim_rand,
-    anim_fade_inout,
-    anim_cut,
+    animt_unused = 0,
+    animt_rotate_cw,
+    animt_rotate_ccw,
+    animt_rand,
+    animt_fade_inout,
+    animt_blink,
+    animt_cut,
 } animation_type_t;
 
 typedef struct animation_t {
@@ -52,7 +58,7 @@ animation_t* anim_rotate( display_comp_t *disp_comp,
   /* @brief animate the given display component rotating
    * @param clockwise - true for clockwise rotation, false for opposite (ccw)
    * @param disp_comp - display component to animate
-   * @param tick_interval - rotation rate in ticks (i.e. ms)
+   * @param tick_interval - rotation rate in ticks
    * @param duration - duration of animation in ticks or
    *    ANIMATION_DURATION_INF for indefinite animation
    * @retrn animation reference handle
@@ -73,7 +79,7 @@ animation_t* anim_swirl(uint8_t start, uint8_t len, uint16_t tick_interval,
    *  animating a finite swirling snake
    * @param start - starting pos (0-60)
    * @param len - snake length
-   * @param tick_interval - rotation rate in ticks (i.e. ms)
+   * @param tick_interval - rotation rate in ticks
    * @param distance - # of steps before finishing (i.e. 60 is a full circle)
    * @param clockwise - true for clockwise rotation, false for opposite (ccw)
    * @retrn handle to swirl animation object
@@ -100,6 +106,17 @@ animation_t* anim_cutout(display_comp_t *disp_comp,
   /* @brief shows the given component for the given duration, then hides it
    * @param disp_comp - display component to animate
    * @param tick_duration - duration that component should be shown
+   * @param autorelease - if animation and display comp should be freed at completion
+   * @retrn None
+   */
+
+animation_t* anim_blink(display_comp_t *disp_comp, uint16_t tick_interval,
+        uint16_t tick_duration, bool autorelease);
+  /* @brief blinks the component for the given duration, then hides it
+   * @param disp_comp - display component to animate
+   * @param tick_interval - blink interval in ticks
+   * @param tick_duration - duration that component should be shown (or
+   * ANIM_DURATION_INF for indefinite)
    * @param autorelease - if animation and display comp should be freed at completion
    * @retrn None
    */

@@ -16,9 +16,10 @@
 
 typedef struct {
 
-    /* Intialization routine for the control mode.
+    /* Intialization routine for the control mode
+     * called when transitioning into the mode
      * May be NULL */
-    void (*init_cb)(void);
+    void (*enter_cb)(void);
 
     /* Main loop function for the control mode.  This
      * callback is called on every "tick" (i.e.
@@ -35,15 +36,13 @@ typedef struct {
 
     /* Called just before entering sleep so the
      * mode controller can perform any cleanup
-     * functions.  May be NULL in which case
-     * display_comp_hide_all() is called */
+     * functions. */
     void (*about_to_sleep_cb)(void);
 
     /* Called just after wakeup so the
      * mode controller can perform any wakeup
-     * functions.  May be NULL in which case
-     * display_comp_show_all() is called */
-    void (*on_wakeup_cb)(void);
+     * functions. */
+    void (*wakeup_cb)(void);
 
 
 } control_mode_t;

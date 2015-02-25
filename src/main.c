@@ -39,7 +39,7 @@
 #define QUICK_TAP_INTERVAL_TICKS    500
 
 /* Starting flash address at which to store data */
-#define NVM_ADDR_START      (1 << 15) /* assumes program size < 32KB */
+#define NVM_ADDR_START      ((1 << 15) + (1 << 14)) /* assumes program size < 48KB */
 #define NVM_LOG_DATA_SIZE   (1 << 16)/* 64 KB */
 #define NVM_ADDR_MAX        (NVM_ADDR_START + NVM_LOG_DATA_SIZE)
 
@@ -143,7 +143,9 @@ struct {
 } main_globals;
 
 static animation_t *sleep_wake_anim = NULL;
-static animation_t *mode_trans_anim = NULL;
+static animation_t *mode_trans_swirl = NULL;
+static animation_t *mode_trans_blink = NULL;
+static display_comp_t *mode_disp_point = NULL;
 
 static struct adc_module light_vbatt_sens_adc;
 
@@ -162,10 +164,10 @@ static void update_vbatt_running_avg( void ) {
 
 }
 
-static void log_vbatt (bool on_wakeup) {
+static void log_vbatt (bool wakeup) {
     /* Log current vbatt with timestamp */
     int32_t time = aclock_get_timestamp();
-    uint32_t data = (on_wakeup ? 0xBEEF0000 : 0xDEAD0000);
+    uint32_t data = (wakeup ? 0xBEEF0000 : 0xDEAD0000);
     main_set_current_sensor(sensor_vbatt);
     main_start_sensor_read();
     data+=main_read_current_sensor(true);
@@ -357,21 +359,16 @@ static void main_tic( void ) {
         case ENTERING_SLEEP:
             /* Wait until animation is finished to sleep */
             if (anim_is_finished(sleep_wake_anim)) {
-                uint8_t hr, sec, min, prev_hr;
                 anim_release(sleep_wake_anim);
 
-                /* Remember what time that this sleep started */
-                aclock_get_time(&hr, &sec, &min);
-                prev_hr = hr;
-
                 enter_sleep();
-
+                //IN STANDBY MODE HERE
                 wakeup();
 
-                if (control_mode_active->on_wakeup_cb)
-                    control_mode_active->on_wakeup_cb();
-                else
-                    display_comp_show_all();
+                if (control_mode_active->wakeup_cb)
+                    control_mode_active->wakeup_cb();
+
+                display_comp_show_all();
 
                 main_globals.inactivity_ticks = 0;
                 main_globals.state = RUNNING;
@@ -385,8 +382,8 @@ static void main_tic( void ) {
 
                 if (control_mode_active->about_to_sleep_cb)
                     control_mode_active->about_to_sleep_cb();
-                else
-                    display_comp_hide_all();
+
+                display_comp_hide_all();
 
                 sleep_wake_anim = anim_swirl(0, 8, MS_IN_TICKS(4), 120, false);
                 return;
@@ -397,21 +394,41 @@ static void main_tic( void ) {
                 /* begin transition to next mode */
                 main_globals.state = MODE_TRANSITION;
                 main_globals.button_hold_ticks = 0;
-                /* animate slow snake from current mode to next.
-                 * swirl distance is based on total mode count */
-                //FIXME -- doesnt look good
-                mode_trans_anim = anim_swirl(
-                        60*control_mode_index(control_mode_active)/control_mode_count(),
-                        MS_IN_TICKS(4), 8, 60/control_mode_count(), true);
-
+                /* animate slow snake from current mode to next. */
+                if (control_mode_index(control_mode_active) == control_mode_count() - 1) {
+                    /* Control modes have looped around. calculate swirl params
+                     * to account for this */
+                    uint8_t mode_gap = 12 - control_mode_count();
+                    uint8_t distance = 5 * mode_gap;
+                    mode_trans_swirl = anim_swirl(
+                        5*control_mode_index(control_mode_active),
+                        4, MS_IN_TICKS(5 + 40/mode_gap), distance, true);
+                } else {
+                    mode_trans_swirl = anim_swirl(
+                        5*control_mode_index(control_mode_active),
+                        4, MS_IN_TICKS(40), 5, true);
+                }
             }
 
             break;
 
         case MODE_TRANSITION:
-            if (anim_is_finished(mode_trans_anim)) {
-                anim_release(mode_trans_anim);
-                control_mode_next();
+            if (mode_trans_swirl) {
+                if(anim_is_finished(mode_trans_swirl)) {
+                    anim_release(mode_trans_swirl);
+                    mode_trans_swirl = NULL;
+                    control_mode_next();
+                    mode_disp_point = display_point(
+                                5*(control_mode_index(control_mode_active)) % 60,
+                                BRIGHT_DEFAULT);
+                    mode_trans_blink = anim_blink(mode_disp_point,
+                            BLINK_INT_MED, MS_IN_TICKS(800), false);
+                }
+            } else if (mode_trans_blink && anim_is_finished(mode_trans_blink)) {
+                display_comp_release(mode_disp_point);
+                mode_disp_point = NULL;
+                anim_release(mode_trans_blink);
+                mode_trans_blink = NULL;
                 main_globals.state = RUNNING;
             }
 

@@ -451,7 +451,7 @@ $(target): $(linker_script) $(MAKEFILE_PATH) config.mk $(obj-y)
 	$(Q)$(LD) $(l_flags) $(obj-y) $(libflags-gnu-y) -o $@
 	@echo $(MSG_SIZE)
 	$(Q)$(SIZE) -Ax $@
-	$(Q)$(SIZE) -Bx $@
+	$(Q)$(SIZE) -Bd $@
 endif
 endif
 

@@ -187,7 +187,7 @@ static struct tc_module bank_tc_instance;
 static struct events_resource bank_inc_event;
 
 #define BRIGHT_INDEX_MAX    BRIGHT_LEVELS - 1
-static uint8_t bright_index = 0;      // current brightness level
+static uint8_t bright_index;      // current brightness level
 static uint16_t brightness_ctr = 1;      // counter for incrementing bright index
 static uint8_t bank_ctr = BANK_COUNT;
 

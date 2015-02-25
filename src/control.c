@@ -75,67 +75,74 @@ uint8_t adc_light_value_scale ( uint16_t value );
 
 //___ V A R I A B L E S ______________________________________________________
 
-control_mode_t *control_mode_active = NULL;
+enum {
+    INIT = 0,
+    ANIM_HOUR,
+    ANIM_MIN,
+    DISP_ALL,
+} clock_mode_state;
+
+control_mode_t *control_mode_active;
 control_mode_t control_modes[] = {
 #ifndef NO_CLOCK
     {
-        .init_cb = NULL,
+        .enter_cb = NULL,
         .tic_cb = clock_mode_tic,
         .sleep_timeout_ticks = CLOCK_MODE_SLEEP_TIMEOUT_TICKS,
         .about_to_sleep_cb = NULL,
-        .on_wakeup_cb = NULL,
+        .wakeup_cb = NULL,
     },
 #endif
 #if VBATT_MODE
     {
-        .init_cb = NULL,
+        .enter_cb = NULL,
         .tic_cb = vbatt_sense_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(5000),
         .about_to_sleep_cb = NULL,
-        .on_wakeup_cb = NULL,
+        .wakeup_cb = NULL,
     },
 #endif
 #if PHOTO_DEBUG
     {
-        .init_cb = NULL,
+        .enter_cb = NULL,
         .tic_cb = light_sense_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(10000),
         .about_to_sleep_cb = NULL,
-        .on_wakeup_cb = NULL,
+        .wakeup_cb = NULL,
     },
 #endif
 #if ACCEL_DEBUG
     {
-        .init_cb = NULL,
+        .enter_cb = NULL,
         .tic_cb = accel_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(60000),
         .about_to_sleep_cb = NULL,
-        .on_wakeup_cb = NULL,
+        .wakeup_cb = NULL,
     },
     {
-        .init_cb = NULL,
+        .enter_cb = NULL,
         .tic_cb = accel_point_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(60000),
         .about_to_sleep_cb = NULL,
-        .on_wakeup_cb = NULL,
+        .wakeup_cb = NULL,
     },
 #endif
 #if TICK_DEBUG
     {
-        .init_cb = NULL,
+        .enter_cb = NULL,
         .tic_cb = tick_counter_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(60000),
         .about_to_sleep_cb = NULL,
-        .on_wakeup_cb = NULL,
+        .wakeup_cb = NULL,
     },
 #endif
 #ifdef EVENT_DEBUG_MODE
     {
-        .init_cb = NULL,
+        .enter_cb = NULL,
         .tic_cb = event_debug_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(20000),
         .about_to_sleep_cb = NULL,
-        .on_wakeup_cb = NULL,
+        .wakeup_cb = NULL,
     },
 #endif
 
@@ -207,9 +214,8 @@ uint8_t adc_vbatt_value_scale ( uint16_t value ) {
 
 
 bool event_debug_mode_tic ( event_flags_t event_flags  ) {
-    static display_comp_t *disp_code = NULL;
+    static display_comp_t *disp_code;
     uint8_t pos = 0;
-    uint32_t last_event = 0;
 
     if (!disp_code) {
         disp_code = display_point(0, BRIGHT_DEFAULT);
@@ -223,7 +229,6 @@ bool event_debug_mode_tic ( event_flags_t event_flags  ) {
         display_comp_hide(disp_code);
     }
 
-    last_event = main_get_systime_ms();
 
     do {
         while (!(event_flags & 0x01)) {
@@ -240,10 +245,10 @@ bool event_debug_mode_tic ( event_flags_t event_flags  ) {
 }
 
 bool accel_mode_tic ( event_flags_t event_flags  ) {
-    static display_comp_t *disp_x = NULL;
-    static display_comp_t *disp_y = NULL;
-    static display_comp_t *disp_z = NULL;
-    static animation_t *anim_ptr = NULL;
+    static display_comp_t *disp_x;
+    static display_comp_t *disp_y;
+    static display_comp_t *disp_z;
+    static animation_t *anim_ptr;
     int16_t x,y,z;
     static uint32_t last_update_ms = 0;
 #ifdef LOG_ACCEL
@@ -420,17 +425,17 @@ bool clock_mode_tic ( event_flags_t event_flags ) {
     static display_comp_t *sec_disp_ptr = NULL;
     static display_comp_t *min_disp_ptr = NULL;
     static display_comp_t *hour_disp_ptr = NULL;
+    static display_comp_t *hour_anim_ptr = NULL;
 
 
     if (event_flags & EV_FLAG_LONG_BTN_PRESS ||
         event_flags & EV_FLAG_ACCEL_DCLICK_X) {
-        if (sec_disp_ptr) {
-            display_comp_release(sec_disp_ptr);
+        if (sec_disp_ptr) { display_comp_release(sec_disp_ptr);
             display_comp_release(min_disp_ptr);
             display_comp_release(hour_disp_ptr);
             sec_disp_ptr = min_disp_ptr = hour_disp_ptr = NULL;
         }
-        return true; //transition on long presses
+        return true; //transition
     }
 
     /* Get latest time */
@@ -460,7 +465,7 @@ bool clock_mode_tic ( event_flags_t event_flags ) {
 bool tick_counter_mode_tic ( event_flags_t event_flags ) {
     /* This mode displays RTC second value and
      * the second value based on the main timer.  This
-     * is useful to see if are timer interval is too small
+     * is useful to see if our timer interval is too small
      * (i.e. we cant finish a main loop tick in a single
      * timer interval )*/
 

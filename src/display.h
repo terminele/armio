@@ -5,7 +5,7 @@
   *
   * higher level control of leds
   *
-  * e.g. led blinking, glowing, patterns
+  * e.g. led points, lines, polygons
   *
   */
 

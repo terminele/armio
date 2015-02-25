@@ -43,7 +43,7 @@ animation_t* anim_alloc ( void ) {
     uint8_t i;
 
     for (i=0; i < MAX_ANIMATION_ALLOCS; i++) {
-        if (animation_allocs[i].type == anim_unused)
+        if (animation_allocs[i].type == animt_unused)
             return &(animation_allocs[i]);
     }
 
@@ -52,28 +52,28 @@ animation_t* anim_alloc ( void ) {
 }
 
 void anim_free ( animation_t* ptr ) {
-    ptr->type = anim_unused;
+    ptr->type = animt_unused;
 }
 
 
 void anim_update( animation_t *anim ) {
     uint8_t tmp;
     switch(anim->type) {
-        case anim_rotate_cw:
+        case animt_rotate_cw:
             display_comp_update_pos(anim->disp_comp,
                 (anim->disp_comp->pos + anim->step) % 60);
             break;
-        case anim_rotate_ccw:
+        case animt_rotate_ccw:
             display_comp_update_pos(anim->disp_comp,
                 anim->disp_comp->pos < anim->step ?
                     60 + anim->disp_comp->pos - anim->step :
                     anim->disp_comp->pos - anim->step);
             break;
-        case anim_rand:
+        case animt_rand:
             display_comp_update_pos(anim->disp_comp,
                     rand() % 60);
             break;
-        case anim_fade_inout:
+        case animt_fade_inout:
             if (anim->disp_comp->brightness == anim->bright_end) {
                 tmp = anim->bright_end;
                 anim->bright_end = anim->bright_start;
@@ -86,8 +86,15 @@ void anim_update( animation_t *anim ) {
                     anim->disp_comp->brightness - 1);
 
             break;
-        case anim_cut:
+        case animt_cut:
             /* main tic will take care of this */
+            break;
+        case animt_blink:
+            if (anim->disp_comp->on) {
+                display_comp_hide(anim->disp_comp);
+            } else {
+                display_comp_show(anim->disp_comp);
+            }
             break;
         default:
             main_terminate_in_error( ERROR_ANIM_BAD_TYPE );
@@ -103,7 +110,7 @@ animation_t* anim_rotate(display_comp_t *disp_comp,
         bool clockwise, uint16_t tick_interval, int32_t duration) {
     animation_t *anim = anim_alloc();
 
-    anim->type = clockwise ? anim_rotate_cw : anim_rotate_ccw;
+    anim->type = clockwise ? animt_rotate_cw : animt_rotate_ccw;
     anim->enabled = true;
     anim->disp_comp = disp_comp;
     anim->autorelease_disp_comp = false;
@@ -124,7 +131,7 @@ animation_t* anim_random( display_comp_t *disp_comp,
 
     animation_t *anim = anim_alloc();
 
-    anim->type = anim_rand;
+    anim->type = animt_rand;
     anim->enabled = true;
     anim->autorelease_disp_comp = false;
     anim->autorelease_anim = false;
@@ -158,7 +165,7 @@ animation_t* anim_fade(display_comp_t *disp_comp,
 
     animation_t *anim = anim_alloc();
 
-    anim->type = anim_fade_inout;
+    anim->type = animt_fade_inout;
     anim->enabled = true;
     anim->autorelease_disp_comp = autorelease;
     anim->autorelease_anim = autorelease;
@@ -188,11 +195,33 @@ animation_t* anim_cutout(display_comp_t *disp_comp,
 
     animation_t *anim = anim_alloc();
 
-    anim->type = anim_cut;
+    anim->type = animt_cut;
     anim->enabled = true;
     anim->autorelease_disp_comp = autorelease;
     anim->autorelease_anim = autorelease;
     anim->disp_comp = disp_comp;
+    anim->tick_duration = tick_duration;
+    anim->interval_counter = 0;
+
+    anim->prev = anim->next = NULL;
+
+    DL_APPEND(head_anim_ptr, anim);
+
+    return anim;
+}
+
+animation_t* anim_blink(display_comp_t *disp_comp, uint16_t tick_interval,
+        uint16_t tick_duration, bool autorelease) {
+
+
+    animation_t *anim = anim_alloc();
+
+    anim->type = animt_blink;
+    anim->enabled = true;
+    anim->autorelease_disp_comp = autorelease;
+    anim->autorelease_anim = autorelease;
+    anim->disp_comp = disp_comp;
+    anim->tick_interval = tick_interval;
     anim->tick_duration = tick_duration;
     anim->interval_counter = 0;
 
