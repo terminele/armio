@@ -69,12 +69,20 @@ if __name__ == "__main__":
         if len(ts) and t + t_offset < ts[-1]:
           if abs(t - ts[0]) < 20:
             t_offset = ts[-1] - t
+            ts.append(ts[-1] + -.1)
+            powers.append(-1.0) #to indicate issue at this point
+            t_rels.append(ts[-1] - tstart)
+            vs.append(0)
             print("t[{}] found reset to t={} at t: {}".format(len(ts),time.ctime(t),
             time.ctime(ts[-1])))
           else:
             print("t[{}] found out of order t={} at t: {}".format(len(ts),time.ctime(t),
               time.ctime(ts[-1])))
             t_offset = ts[-1] - t
+            ts.append(ts[-1] + -.1)
+            powers.append(-1.0) #to indicate issue at this point
+            t_rels.append(ts[-1] - tstart)
+            vs.append(0)
 
         t+=t_offset
 
@@ -114,32 +122,32 @@ if __name__ == "__main__":
 
     plt.plot(t_wakes, deltas, 'b-', label='vbatt (delta)')
     plt.show()
-
-    t_hrs = [t/3600.0 for t in t_rels]
-    vs_quarter = wma(v_wakes, 0.25)
-    vs_eighth = wma(v_wakes, 0.125)
-    vs_sixteenth = wma(v_wakes, 1/16.0)
-    vs_64 = wma(v_wakes, 1/64.0)
-    vs_128 = wma(v_wakes, 1/128.0)
-    plt.plot(t_wake_hrs, vs_quarter, 'r-', label='vbatt (alpha=1/4)')
-    plt.plot(t_wake_hrs, vs_eighth, 'b-', label='vbatt (alpha=1/8)')
-    plt.plot(t_wake_hrs, vs_64, 'g-', label='vbatt (alpha=1/64)')
-    plt.plot(t_wake_hrs, vs_128, 'y-', label='vbatt (alpha=1/128)')
-    plt.show()
-
-
-    vs_quarter = wta(t_hrs,vs, 0.25)
-    vs_eighth = wta(t_hrs,vs, 0.125)
-    vs_sixteenth = wta(t_hrs,vs, 1/16.0)
-    vs_32 = wta(t_hrs,vs, 1/32.0)
-    vs_64 = wta(t_hrs,vs, 1/64.0)
-    vs_128 = wta(t_hrs,vs, 1/128.0)
-    plt.plot(t_hrs, vs_quarter, 'r-', label='vbatt (alpha=1/4)')
-    plt.plot(t_hrs, vs_eighth, 'b-', label='vbatt (alpha=1/8)')
-    plt.plot(t_hrs, vs_sixteenth, 'g-', label='vbatt (alpha=1/64)')
-    plt.plot(t_hrs, vs_32, 'y-', label='vbatt (alpha=1/128)')
-    plt.show()
-
-    dur_hrs = t_hrs[-1] - t_hrs[0]
-    print("{} looks over {} hours".format(len(v_wakes), dur_hrs))
-    print("Look rate: {} per day".format(len(v_wakes)/(dur_hrs/24)))
+#
+#    t_hrs = [t/3600.0 for t in t_rels]
+#    vs_quarter = wma(v_wakes, 0.25)
+#    vs_eighth = wma(v_wakes, 0.125)
+#    vs_sixteenth = wma(v_wakes, 1/16.0)
+#    vs_64 = wma(v_wakes, 1/64.0)
+#    vs_128 = wma(v_wakes, 1/128.0)
+#    plt.plot(t_wake_hrs, vs_quarter, 'r-', label='vbatt (alpha=1/4)')
+#    plt.plot(t_wake_hrs, vs_eighth, 'b-', label='vbatt (alpha=1/8)')
+#    plt.plot(t_wake_hrs, vs_64, 'g-', label='vbatt (alpha=1/64)')
+#    plt.plot(t_wake_hrs, vs_128, 'y-', label='vbatt (alpha=1/128)')
+#    plt.show()
+#
+#
+#    vs_quarter = wta(t_hrs,vs, 0.25)
+#    vs_eighth = wta(t_hrs,vs, 0.125)
+#    vs_sixteenth = wta(t_hrs,vs, 1/16.0)
+#    vs_32 = wta(t_hrs,vs, 1/32.0)
+#    vs_64 = wta(t_hrs,vs, 1/64.0)
+#    vs_128 = wta(t_hrs,vs, 1/128.0)
+#    plt.plot(t_hrs, vs_quarter, 'r-', label='vbatt (alpha=1/4)')
+#    plt.plot(t_hrs, vs_eighth, 'b-', label='vbatt (alpha=1/8)')
+#    plt.plot(t_hrs, vs_sixteenth, 'g-', label='vbatt (alpha=1/64)')
+#    plt.plot(t_hrs, vs_32, 'y-', label='vbatt (alpha=1/128)')
+#    plt.show()
+#
+#    dur_hrs = t_hrs[-1] - t_hrs[0]
+#    print("{} looks over {} hours".format(len(v_wakes), dur_hrs))
+#    print("Look rate: {} per day".format(len(v_wakes)/(dur_hrs/24)))
