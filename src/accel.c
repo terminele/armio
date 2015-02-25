@@ -112,7 +112,7 @@
 #define WAKEUP_CLICK_TIME_LIM      MS_TO_ODRS(20, SLEEP_SAMPLE_INT)
 #define WAKEUP_CLICK_TIME_LAT      MS_TO_ODRS(40, SLEEP_SAMPLE_INT) //ms
 
-#define MULTI_CLICK_WINDOW_MS 300
+#define MULTI_CLICK_WINDOW_MS 220
 
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 

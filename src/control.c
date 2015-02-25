@@ -9,9 +9,7 @@
 #include "anim.h"
 #include "accel.h"
 #include "display.h"
-#include <math.h>
-
-#define PI 3.14159265
+#include "utils.h"
 
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
 #define CLOCK_MODE_SLEEP_TIMEOUT_TICKS     MS_IN_TICKS(7000)
@@ -314,46 +312,6 @@ bool accel_mode_tic ( event_flags_t event_flags  ) {
     display_relative( disp_y, 40, y );
     display_relative( disp_z, 0, z );
 
-#ifdef NOT_NOW
-
-    if ( event_flags & EV_FLAG_ACCEL_SCLICK_X) {
-        anim_cutout(display_point(15, BRIGHT_MED_LOW), MS_IN_TICKS(1000),
-                true);
-
-        click_cnt++;
-        anim_cutout(display_point(click_cnt % 60, BRIGHT_MED_LOW), MS_IN_TICKS(1000),
-                true);
-    }
-
-    if (event_flags & EV_FLAG_ACCEL_SCLICK_Y) {
-        anim_cutout(display_point(45, BRIGHT_MED_LOW), MS_IN_TICKS(1000),
-                true);
-    }
-
-    if (event_flags & EV_FLAG_ACCEL_SCLICK_Z) {
-        anim_cutout(display_point(0, BRIGHT_MED_LOW), MS_IN_TICKS(1000),
-                true);
-    }
-
-    if (event_flags & EV_FLAG_ACCEL_DCLICK_X) {
-        anim_cutout(display_point(30, BRIGHT_MED_LOW), MS_IN_TICKS(1000),
-                true);
-
-        return true;
-    }
-
-    if (event_flags & EV_FLAG_ACCEL_DCLICK_Y) {
-        anim_cutout(display_point(50, BRIGHT_MED_LOW), MS_IN_TICKS(1000),
-                true);
-    }
-
-    if (event_flags & EV_FLAG_ACCEL_DCLICK_Z) {
-        anim_cutout(display_point(5, BRIGHT_MED_LOW), MS_IN_TICKS(1000),
-                true);
-
-    }
-#endif
-
     return false;
 }
 
@@ -361,64 +319,23 @@ bool accel_mode_tic ( event_flags_t event_flags  ) {
 
 bool accel_point_mode_tic ( event_flags_t event_flags  ) {
     static display_comp_t *disp_pt = NULL;
-    int16_t x,y,z;
-    static float current_led_angle = 90; //degrees
-    static int8_t current_led = 0;
-    static float angular_velocity = 0; //in leds per second
-    float angle, angle_delta = 0;
-
 
     if (!disp_pt) {
         disp_pt = display_point(0, BRIGHT_DEFAULT);
+        utils_spin_tracker_start(30);
     }
 
-    x = y = z = 0;
-    if (!accel_data_read(&x, &y, &z)) {
-        return false;
-    }
 
     if (event_flags & EV_FLAG_ACCEL_DCLICK_X) {
         display_comp_hide_all();
         display_comp_release(disp_pt);
         disp_pt = NULL;
+        utils_spin_tracker_end();
         return true;
     }
 
-    if (abs(z) > ACCEL_VALUE_1G/2) return false;
 
-    if (abs(x) + abs(y) > 25) {
-        float alpha = 0.5;
-
-        angle = 180*atan2(-y, -x)/PI;
-
-        angle_delta = angle - current_led_angle;
-
-        if (angle_delta > 180) {
-            angle_delta = angle_delta - 360;
-        }
-
-        if (angle_delta < -180) {
-            angle_delta = angle_delta + 360;
-        }
-
-        angular_velocity *= (1 - alpha);
-        angular_velocity = alpha*angle_delta * 2.0*(abs(y) + abs(x));
-
-        current_led_angle += angular_velocity/1000.0;
-
-        int32_t led = ((int32_t)(90 - current_led_angle + 0.6) % 360)/6;
-
-        while(led < 0) led+=60;
-
-        led = led % 60;
-
-        display_comp_update_pos(disp_pt, (uint8_t) led);
-
-        while(current_led_angle > 180) current_led_angle-=360;
-        while(current_led_angle < -180) current_led_angle+=360;
-
-    }
-
+    display_comp_update_pos(disp_pt, utils_spin_tracker_update());
     return false;
 }
 bool light_sense_mode_tic ( event_flags_t event_flags ) {
