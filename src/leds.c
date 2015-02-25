@@ -9,6 +9,7 @@
 #include <string.h>
 
 #define SEGMENTS_H
+//#define BANKS_H
 
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
 #define SEGMENT_COUNT           12

@@ -248,7 +248,7 @@ CPPFLAGS = \
        -D SYSTICK_MODE                                    \
        -D $(PARTD)					  \
        -D TICK_DEBUG=false				  \
-       -D ACCEL_DEBUG=true				  \
+       -D ACCEL_DEBUG=true 				  \
        -D PHOTO_DEBUG=true				  \
        -D VBATT_MODE=true				  \
        -D VBATT_NO_AVERAGE=true				  \
@@ -259,9 +259,10 @@ CPPFLAGS = \
        -D __HOUR__=$(_HOUR_)				  \
        -D __MIN__=$(_MIN_)				  \
        -D __SEC__=$(_SEC_)				  \
-       #-D ENABLE_BUTTON					  \
        #-D NO_ACCEL					  \
        #-D USE_WAKEUP_ALARM				  \
+       #-D ENABLE_BUTTON				  \
+       #-D ENABLE_LIGHT_SENSE				  \
        #-D NO_CLOCK
 
 

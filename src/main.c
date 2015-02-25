@@ -23,7 +23,7 @@
 #define BUTTON_UP           true
 #define BUTTON_DOWN         false
 
-#define LIGHT_BATT_ENABLE_PIN       PIN_PA30
+#define LIGHT_SENSE_ENABLE_PIN       PIN_PA30
 #define VBATT_ADC_PIN               ADC_POSITIVE_INPUT_SCALEDIOVCC
 #define LIGHT_ADC_PIN               ADC_POSITIVE_INPUT_PIN1
 
@@ -178,7 +178,6 @@ static void configure_input(void) {
     struct port_config pin_conf;
     port_get_config_defaults(&pin_conf);
     pin_conf.direction = PORT_PIN_DIR_INPUT;
-    pin_conf.input_pull = PORT_PIN_PULL_NONE;
 #ifdef ENABLE_BUTTON
     port_pin_set_config(BUTTON_PIN, &pin_conf);
 
@@ -188,7 +187,8 @@ static void configure_input(void) {
 
     port_get_config_defaults(&pin_conf);
     pin_conf.direction = PORT_PIN_DIR_OUTPUT;
-    port_pin_set_config(LIGHT_BATT_ENABLE_PIN, &pin_conf);
+    port_pin_set_config(LIGHT_SENSE_ENABLE_PIN, &pin_conf);
+    port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, false);
 
   }
 
@@ -244,7 +244,8 @@ static void enter_sleep( void ) {
         adc_disable(&light_vbatt_sens_adc);
     }
 
-    port_pin_set_output_level(LIGHT_BATT_ENABLE_PIN, false);
+    port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, false);
+
     led_controller_disable();
     aclock_disable();
     accel_sleep();
@@ -462,6 +463,7 @@ static void main_init( void ) {
 
         nvm_row_addr+=NVMCTRL_ROW_SIZE;
     }
+
 }
 
 //___ F U N C T I O N S ______________________________________________________
@@ -534,7 +536,9 @@ void main_log_data( uint8_t *data, uint16_t length, bool flush) {
 
 void main_start_sensor_read ( void ) {
 
-    port_pin_set_output_level(LIGHT_BATT_ENABLE_PIN, true);
+#ifdef ENABLE_LIGHT_SENSE
+    port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, true);
+#endif
 
     if (!(adc_get_status(&light_vbatt_sens_adc) & ADC_STATUS_RESULT_READY))
         adc_start_conversion(&light_vbatt_sens_adc);
@@ -546,7 +550,6 @@ sensor_type_t main_get_current_sensor ( void ) {
 
 void main_set_current_sensor ( sensor_type_t sensor ) {
     struct adc_config config_adc;
-
 
     main_globals.current_sensor = sensor;
 
@@ -594,7 +597,7 @@ uint16_t main_read_current_sensor( bool blocking ) {
         if (status == STATUS_OK) {
             *curr_sens_adc_val_ptr = result;
             adc_clear_status(&light_vbatt_sens_adc, ADC_STATUS_RESULT_READY);
-            //port_pin_set_output_level(LIGHT_BATT_ENABLE_PIN, false);
+            //port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, false);
         }
     } while (blocking && status != STATUS_OK);
 

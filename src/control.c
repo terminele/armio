@@ -383,6 +383,9 @@ bool accel_point_mode_tic ( event_flags_t event_flags  ) {
         disp_pt = NULL;
         return true;
     }
+
+    if (abs(z) > ACCEL_VALUE_1G/2) return false;
+
     if (abs(x) + abs(y) > 25) {
         float alpha = 0.5;
 
