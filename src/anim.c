@@ -47,7 +47,7 @@ animation_t* anim_alloc ( void ) {
             return &(animation_allocs[i]);
     }
 
-    assert(false);
+    main_terminate_in_error( ERROR_ANIM_ALLOC_FAIL );
     return NULL;
 }
 

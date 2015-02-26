@@ -66,12 +66,18 @@ bool event_debug_mode_tic ( event_flags_t event_flags );
    * @retrn true on finish
    */
 
+bool anim_demo_mode_tic ( event_flags_t event_flags );
+  /* @brief animation demo mode tic
+   * @param event flags
+   * @retrn true on finish
+   */
 uint8_t adc_light_value_scale ( uint16_t value );
   /* @brief scales a light adc read quasi-logarithmically
    * for displaying on led ring
    * @param 12-bit adc value
    * @retrn led index to display
    */
+
 
 //___ V A R I A B L E S ______________________________________________________
 
@@ -141,6 +147,15 @@ control_mode_t control_modes[] = {
         .enter_cb = NULL,
         .tic_cb = event_debug_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(20000),
+        .about_to_sleep_cb = NULL,
+        .wakeup_cb = NULL,
+    },
+#endif
+#if ANIM_DEMO_MODE
+    {
+        .enter_cb = NULL,
+        .tic_cb = anim_demo_mode_tic,
+        .sleep_timeout_ticks = MS_IN_TICKS(60000),
         .about_to_sleep_cb = NULL,
         .wakeup_cb = NULL,
     },
@@ -244,6 +259,68 @@ bool event_debug_mode_tic ( event_flags_t event_flags  ) {
     return false;
 }
 
+
+bool anim_demo_mode_tic ( event_flags_t event_flags  ) {
+
+    static display_comp_t* display_comp = NULL;
+    static animation_t *anim = NULL;
+    static int8_t step = 0;
+    uint8_t polycnt;
+
+    if (DEFAULT_MODE_TRANS_CHK(event_flags)) {
+        if (display_comp) {
+            display_comp_release(display_comp);
+            display_comp = NULL;
+        }
+
+        if (anim) {
+            anim_release(anim);
+            anim = NULL;
+        }
+        return true;
+    }
+
+    if (step && main_get_systime_ms() % 4000 != 1)
+        return false;
+
+    step++;
+
+    switch (step) {
+        case 1:
+            if (display_comp)
+                display_comp_release(display_comp);
+            if (anim)
+                anim_release(anim);
+
+            display_comp = display_point(0, BRIGHT_DEFAULT);
+            anim = anim_random(display_comp, MS_IN_TICKS(10), ANIMATION_DURATION_INF);
+            break;
+        case 2:
+            display_comp_release(display_comp);
+            anim_release(anim);
+            display_comp = display_line(0, BRIGHT_DEFAULT, 5);
+            anim = anim_rotate(display_comp, true, MS_IN_TICKS(8), ANIMATION_DURATION_INF);
+            break;
+        default:
+            display_comp_release(display_comp);
+            anim_release(anim);
+            polycnt = 3 + rand() % 10;
+            display_comp = display_polygon(0, BRIGHT_DEFAULT, polycnt);
+            anim = anim_rotate(display_comp, polycnt % 2, MS_IN_TICKS(50), ANIMATION_DURATION_INF);
+            step++;
+
+            if (step > 12) {
+                step = 0;
+                display_comp_release(display_comp);
+                anim_release(anim);
+                display_comp = NULL;
+                anim = NULL;
+            }
+    }
+
+
+    return false;
+}
 bool accel_mode_tic ( event_flags_t event_flags  ) {
     static display_comp_t *disp_x;
     static display_comp_t *disp_y;

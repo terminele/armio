@@ -253,6 +253,7 @@ CPPFLAGS = \
        -D PHOTO_DEBUG=true				  \
        -D VBATT_MODE=true				  \
        -D VBATT_NO_AVERAGE=true				  \
+       -D ANIM_DEMO_MODE=true				  \
        -D LOG_USAGE=true				  \
        -D __YEAR__=$(_YEAR_)				  \
        -D __MONTH__=$(_MONTH_)				  \
@@ -260,10 +261,10 @@ CPPFLAGS = \
        -D __HOUR__=$(_HOUR_)				  \
        -D __MIN__=$(_MIN_)				  \
        -D __SEC__=$(_SEC_)				  \
+       -D ENABLE_LIGHT_SENSE				  \
+       -D USE_WAKEUP_ALARM				  \
        #-D NO_ACCEL					  \
-       #-D USE_WAKEUP_ALARM				  \
        #-D ENABLE_BUTTON				  \
-       #-D ENABLE_LIGHT_SENSE				  \
        #-D NO_CLOCK
 
 

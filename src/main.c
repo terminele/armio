@@ -142,16 +142,16 @@ struct {
 
 } main_globals;
 
-static animation_t *sleep_wake_anim = NULL;
-static animation_t *mode_trans_swirl = NULL;
-static animation_t *mode_trans_blink = NULL;
-static display_comp_t *mode_disp_point = NULL;
+static animation_t *sleep_wake_anim;
+static animation_t *mode_trans_swirl;
+static animation_t *mode_trans_blink;
+static display_comp_t *mode_disp_point;
 
 static struct adc_module light_vbatt_sens_adc;
 
 static uint32_t nvm_row_addr = NVM_ADDR_START;
 static uint8_t nvm_row_buffer[NVMCTRL_ROW_SIZE];
-static uint16_t nvm_row_ind = 0;
+static uint16_t nvm_row_ind;
 
 //___ F U N C T I O N S   ( P R I V A T E ) __________________________________
 
@@ -294,7 +294,7 @@ static void wakeup (void) {
 
 static event_flags_t button_event_flags ( void ) {
 
-    event_flags_t event_flags = 0;
+    event_flags_t event_flags;
 #ifdef ENABLE_BUTTON
     bool new_btn_state = port_pin_get_input_level(BUTTON_PIN);
 
@@ -333,7 +333,7 @@ static event_flags_t button_event_flags ( void ) {
 
 static void main_tic( void ) {
 
-    event_flags_t event_flags = 0;
+    event_flags_t event_flags;
 
     main_globals.systicks++;
     main_globals.waketicks++;
@@ -643,14 +643,8 @@ int main (void)
 {
 
     system_init();
-    system_apb_clock_clear_mask (SYSTEM_CLOCK_APB_APBB, PM_APBAMASK_WDT);
+    //system_apb_clock_clear_mask (SYSTEM_CLOCK_APB_APBB, PM_APBAMASK_WDT);
     system_set_sleepmode(SYSTEM_SLEEPMODE_STANDBY);
-
-    /* Errata 39.3.2 -- device may not wake up from
-     * standby if nvm goes to sleep.  May not be necessary
-     * for samd21e15/16 if revision E
-     */
-    //NVMCTRL->CTRLB.bit.SLEEPPRM = NVMCTRL_CTRLB_SLEEPPRM_DISABLED_Val;
 
     delay_init();
     main_init();
@@ -661,6 +655,13 @@ int main (void)
     display_init();
     anim_init();
     accel_init();
+
+
+    /* Errata 39.3.2 -- device may not wake up from
+     * standby if nvm goes to sleep.  May not be necessary
+     * for samd21e15/16 if revision E
+     */
+    NVMCTRL->CTRLB.bit.SLEEPPRM = NVMCTRL_CTRLB_SLEEPPRM_DISABLED_Val;
 
     /* Read light and vbatt sensors on startup */
 
