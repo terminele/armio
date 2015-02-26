@@ -268,15 +268,17 @@ bool anim_demo_mode_tic ( event_flags_t event_flags  ) {
     uint8_t polycnt;
 
     if (DEFAULT_MODE_TRANS_CHK(event_flags)) {
+        if (anim) {
+            anim_release(anim);
+            anim = NULL;
+        }
+
         if (display_comp) {
             display_comp_release(display_comp);
             display_comp = NULL;
         }
 
-        if (anim) {
-            anim_release(anim);
-            anim = NULL;
-        }
+        step = 0;
         return true;
     }
 
