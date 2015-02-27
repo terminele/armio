@@ -503,7 +503,7 @@ dump_log:
 	openocd -f $(DEBUGGER_CFG) \
 	-f $(OCD_PART_CFG) \
 	-c init -c "reset init" \
-	-c "dump_image data_log.image 0x8000 0x10000" \
+	-c "dump_image data_log.image 0xc000 0x10000" \
 	-c "shutdown"
 
 # Build Doxygen generated documentation.

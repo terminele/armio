@@ -64,7 +64,7 @@ void rtc_alarm_minute_callback( void ) {
 
     aclock_enable();
 
-    /* Set next alarm for a minute later */
+    /* Set next alarm */
     alarm.time.minute += 1;
     alarm.time.minute %= 60;
     alarm.time.second = 0;
@@ -143,6 +143,9 @@ int32_t aclock_get_timestamp ( void ) {
 
   uint32_t value = (global_state.year - 1970)*SECONDS_PER_YEAR;
 
+  //account for extra day in leap years
+  value += ((global_state.year - 1970)/4)*SECONDS_PER_DAY;
+
   switch (global_state.month) {
     /* Each case accounts for the days of
      * the previous month */
@@ -165,8 +168,8 @@ int32_t aclock_get_timestamp ( void ) {
     case 4://30
       value+=SECONDS_PER_DAY*31;
     case 3://31
-      /* Account for february */
-      value+=SECONDS_PER_DAY*(global_state.year % 4 ? 28 : 29);
+      //NOTE: leap year day accounted above for this year too
+      value+=SECONDS_PER_DAY*28;
     case 2:
       value+=SECONDS_PER_DAY*31;
     case 1://31

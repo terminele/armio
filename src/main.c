@@ -165,6 +165,7 @@ static void update_vbatt_running_avg( void ) {
 }
 
 static void log_vbatt (bool wakeup) {
+#if LOG_USAGE
     /* Log current vbatt with timestamp */
     int32_t time = aclock_get_timestamp();
     uint32_t data = (wakeup ? 0xBEEF0000 : 0xDEAD0000);
@@ -173,6 +174,7 @@ static void log_vbatt (bool wakeup) {
     data+=main_read_current_sensor(true);
     main_log_data((uint8_t *)&time, sizeof(time), true);
     main_log_data((uint8_t *)&data, sizeof(data), true);
+#endif
 }
 
 static void configure_input(void) {
@@ -339,8 +341,6 @@ static void main_tic( void ) {
     main_globals.waketicks++;
     main_globals.inactivity_ticks++;
 
-    //main_log_data( (uint8_t *) &main_globals.systicks, sizeof(main_globals.systicks) );
-
     event_flags |= button_event_flags();
     event_flags |= accel_event_flags();
 
@@ -462,6 +462,7 @@ static void main_init( void ) {
     tc_init(&main_tc, MAIN_TIMER, &config_tc);
     tc_enable(&main_tc);
 
+#if LOG_USAGE
     /* Initialize NVM controller for data storage */
     struct nvm_config config_nvm;
     nvm_get_config_defaults(&config_nvm);
@@ -480,6 +481,7 @@ static void main_init( void ) {
 
         nvm_row_addr+=NVMCTRL_ROW_SIZE;
     }
+#endif
 
 }
 
@@ -643,7 +645,6 @@ int main (void)
 {
 
     system_init();
-    //system_apb_clock_clear_mask (SYSTEM_CLOCK_APB_APBB, PM_APBAMASK_WDT);
     system_set_sleepmode(SYSTEM_SLEEPMODE_STANDBY);
 
     delay_init();

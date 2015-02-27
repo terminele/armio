@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 
 
 
-
 def wma(data, alpha):
     result = [data[0]]
     for d in data[1:]:
@@ -64,6 +63,7 @@ if __name__ == "__main__":
         (t,v,p) = struct.unpack("<iHH", binval)
 
         if t < 10000:
+          skips+=1
           print("ignoring bad time val {}".format(t))
           continue
         if len(ts) and t + t_offset < ts[-1]:
@@ -114,14 +114,16 @@ if __name__ == "__main__":
 
     t_hrs = [t/3600.0 for t in t_rels]
     t_wake_hrs = [t/3600.0 for t in t_wakes]
-    plt.plot(t_hrs, vs, 'r.', label='vbatt')
+    vbatt_line, = plt.plot(t_hrs, vs, 'r.', label='vbatt')
     plt.plot(t_wake_hrs, v_wakes, 'y-', label='vbatt (wake-only)')
     plt.plot(t_hrs, powers, 'b-', label='on', drawstyle='steps-post',
         fillstyle='bottom', alpha = 0.3)
+    ax2 = vbatt_line.axes.twiny()
+    ax2.plot(range(len(t_hrs)), [0 for i in range(len(t_hrs))]) #add top x-axis with indices
     plt.show()
 
-    plt.plot(t_wakes, deltas, 'b-', label='vbatt (delta)')
-    plt.show()
+#    plt.plot(t_wakes, deltas, 'b-', label='vbatt (delta)')
+#    plt.show()
 #
 #    t_hrs = [t/3600.0 for t in t_rels]
 #    vs_quarter = wma(v_wakes, 0.25)
@@ -148,6 +150,7 @@ if __name__ == "__main__":
 #    plt.plot(t_hrs, vs_32, 'y-', label='vbatt (alpha=1/128)')
 #    plt.show()
 #
-#    dur_hrs = t_hrs[-1] - t_hrs[0]
-#    print("{} looks over {} hours".format(len(v_wakes), dur_hrs))
-#    print("Look rate: {} per day".format(len(v_wakes)/(dur_hrs/24)))
+    dur_hrs = t_hrs[-1] - t_hrs[0]
+    print("{} datapts".format(len(t_hrs)))
+    print("{} looks over {} hours".format(len(v_wakes), dur_hrs))
+    print("Look rate: {} per day".format(len(v_wakes)/(dur_hrs/24)))

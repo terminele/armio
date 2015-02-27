@@ -21,6 +21,10 @@
 /* corresponding led position for the given hour */
 #define HOUR_POS(hour) ((hour % 12) * 5)
 
+/* Ticks run slow during edit mode (due to
+ * accelerometer and floating point calcs) so
+ * estimate a good tick timeout count */
+#define EDIT_FINISH_TIMEOUT_TICKS MS_IN_TICKS(2000)
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 
 //___ P R O T O T Y P E S   ( P R I V A T E ) ________________________________
@@ -30,6 +34,13 @@ bool clock_mode_tic ( event_flags_t event_flags );
    * @param event flags
    * @retrn flag indicating mode finish
    */
+
+bool time_set_mode_tic ( event_flags_t event_flags );
+  /* @brief set clock time mode
+   * @param event flags
+   * @retrn flag indicating mode finish
+   */
+
 bool light_sense_mode_tic ( event_flags_t event_flags );
   /* @brief main tick callback for light sensor display mode
    * @param event flags
@@ -98,6 +109,14 @@ control_mode_t control_modes[] = {
         .about_to_sleep_cb = NULL,
         .wakeup_cb = NULL,
     },
+    {
+        .enter_cb = NULL,
+        .tic_cb = time_set_mode_tic,
+        .sleep_timeout_ticks = MS_IN_TICKS(60000),
+        .about_to_sleep_cb = NULL,
+        .wakeup_cb = NULL,
+    },
+
 #endif
 #if VBATT_MODE
     {
@@ -508,8 +527,9 @@ bool clock_mode_tic ( event_flags_t event_flags ) {
 
 
     if (event_flags & EV_FLAG_LONG_BTN_PRESS ||
-        event_flags & EV_FLAG_ACCEL_DCLICK_X) {
-        if (sec_disp_ptr) { display_comp_release(sec_disp_ptr);
+        event_flags & EV_FLAG_ACCEL_TCLICK_X) {
+        if (sec_disp_ptr) {
+            display_comp_release(sec_disp_ptr);
             display_comp_release(min_disp_ptr);
             display_comp_release(hour_disp_ptr);
             sec_disp_ptr = min_disp_ptr = hour_disp_ptr = NULL;
@@ -537,6 +557,113 @@ bool clock_mode_tic ( event_flags_t event_flags ) {
     display_comp_update_pos(min_disp_ptr, minute);
     display_comp_update_pos(hour_disp_ptr, HOUR_POS(hour) + hour_fifths);
     display_comp_update_length(hour_disp_ptr, 1+hour_fifths);
+
+    return false;
+}
+
+bool time_set_mode_tic ( event_flags_t event_flags ) {
+    static uint8_t hour=0, minute = 0, new_minute_pos, second;
+    static uint32_t timeout = 0;
+    static bool is_editing = false;
+    static display_comp_t *min_disp_ptr = NULL;
+    static display_comp_t *hour_disp_ptr = NULL;
+    static animation_t *blink_ptr = NULL;
+
+
+    if (!is_editing && (event_flags & EV_FLAG_LONG_BTN_PRESS ||
+        event_flags & EV_FLAG_ACCEL_DCLICK_X)) {
+        if (min_disp_ptr) {
+            display_comp_release(min_disp_ptr);
+            display_comp_release(hour_disp_ptr);
+            min_disp_ptr = hour_disp_ptr = NULL;
+        }
+        if (blink_ptr) {
+            anim_release(blink_ptr);
+            blink_ptr = NULL;
+        }
+        utils_spin_tracker_end();
+        return true; //transition
+    }
+
+
+
+    if (!min_disp_ptr) {
+        /* Get latest time */
+        aclock_get_time(&hour, &minute, &second /*DONT CARE */);
+        min_disp_ptr = display_point(minute, BRIGHT_DEFAULT);
+        hour_disp_ptr = display_point(HOUR_POS(hour), MAX_BRIGHT_VAL);
+    }
+
+    if (!is_editing && !blink_ptr) {
+        /* Enter edit mode on btn bress or z-axis double-click */
+        if (event_flags & EV_FLAG_SINGLE_BTN_PRESS_END ||
+            event_flags & EV_FLAG_ACCEL_SCLICK_Z) {
+                blink_ptr = anim_blink(min_disp_ptr, BLINK_INT_FAST,
+                        MS_IN_TICKS(1200), false);
+        }
+    }
+
+
+    if (blink_ptr) {
+        if (anim_is_finished(blink_ptr)) {
+            anim_release(blink_ptr);
+            blink_ptr = NULL;
+
+            display_comp_show(min_disp_ptr);
+            if (!is_editing) {
+                /* Entering edit mode */
+                utils_spin_tracker_start( minute );
+                is_editing = true;
+            } else {
+                /* Exiting edit mode  Set updated time */
+                is_editing = false;
+                aclock_set_time(hour, minute, 0);
+            }
+        }
+        return false; //nothing should be done during animations
+    }
+
+    if (!is_editing) return false;
+
+    new_minute_pos = utils_spin_tracker_update();
+
+    if (new_minute_pos == minute) {
+        /* minute position has not changed.  Increase
+         * timeout counter */
+        timeout++;
+
+        if (timeout > EDIT_FINISH_TIMEOUT_TICKS) {
+
+            /* Start Finishing animation */
+            blink_ptr = anim_blink(min_disp_ptr, BLINK_INT_MED,
+                    MS_IN_TICKS(2000), false);
+            timeout = 0;
+            return false;
+        }
+    } else {
+
+        timeout = 0;
+        /* Check if hour should be incremented or decremented */
+        if (new_minute_pos < minute) {
+            if ( minute - new_minute_pos > 50) {
+                ///### assumes tracker pos wont update more
+                //than 10 positions in one tick
+                hour++;
+            }
+        } else {
+            if ( new_minute_pos - minute > 50) {
+                ///### assumes tracker pos wont update more
+                //than 10 positions in one tick
+                hour--;
+            }
+        }
+
+        minute = new_minute_pos;
+
+        display_comp_update_pos(min_disp_ptr, minute);
+        display_comp_update_pos(hour_disp_ptr, HOUR_POS(hour));
+    }
+
 
     return false;
 }
