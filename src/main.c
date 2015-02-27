@@ -13,6 +13,7 @@
 #include "accel.h"
 #include "aclock.h"
 #include "control.h"
+#include "utils.h"
 
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
 #define BUTTON_PIN          PIN_PA31
@@ -37,6 +38,10 @@
 
 /* max tick count between successive quick taps */
 #define QUICK_TAP_INTERVAL_TICKS    500
+
+/* covering the watch (when in watch mode) will turn off the display
+ * if the scaled reading on the light sensor drops by this much */
+#define LIGHT_SENSOR_REDUCTION_SHUTOFF  25
 
 /* Starting flash address at which to store data */
 #define NVM_ADDR_START      ((1 << 15) + (1 << 14)) /* assumes program size < 48KB */
@@ -138,6 +143,7 @@ struct {
     uint16_t vbatt_sensor_adc_val;
     uint16_t running_avg_vbatt;
 
+    uint8_t light_sensor_scaled_at_wakeup;
     main_state_t state;
 
 } main_globals;
@@ -164,8 +170,8 @@ static void update_vbatt_running_avg( void ) {
 
 }
 
-static void log_vbatt (bool wakeup) {
 #if LOG_USAGE
+static void log_vbatt (bool wakeup) {
     /* Log current vbatt with timestamp */
     int32_t time = aclock_get_timestamp();
     uint32_t data = (wakeup ? 0xBEEF0000 : 0xDEAD0000);
@@ -174,8 +180,8 @@ static void log_vbatt (bool wakeup) {
     data+=main_read_current_sensor(true);
     main_log_data((uint8_t *)&time, sizeof(time), true);
     main_log_data((uint8_t *)&data, sizeof(data), true);
-#endif
 }
+#endif
 
 static void configure_input(void) {
     /* Configure our button as an input */
@@ -296,7 +302,7 @@ static void wakeup (void) {
 
 static event_flags_t button_event_flags ( void ) {
 
-    event_flags_t event_flags;
+    event_flags_t event_flags = EV_FLAG_NONE;
 #ifdef ENABLE_BUTTON
     bool new_btn_state = port_pin_get_input_level(BUTTON_PIN);
 
@@ -335,7 +341,7 @@ static event_flags_t button_event_flags ( void ) {
 
 static void main_tic( void ) {
 
-    event_flags_t event_flags;
+    event_flags_t event_flags = EV_FLAG_NONE;
 
     main_globals.systicks++;
     main_globals.waketicks++;
@@ -362,8 +368,16 @@ static void main_tic( void ) {
                 anim_release(sleep_wake_anim);
 
                 enter_sleep();
-                //IN STANDBY MODE HERE
+
+                /* we will stay in standby mode now until an interrupt wakes us
+                 * from sleep (and we continue from this point) */
+
                 wakeup();
+
+                main_set_current_sensor(sensor_light);
+                main_start_sensor_read();
+                main_globals.light_sensor_scaled_at_wakeup \
+                    = adc_light_value_scale( main_read_current_sensor(true) );
 
                 if (control_mode_active->wakeup_cb)
                     control_mode_active->wakeup_cb();
@@ -376,6 +390,18 @@ static void main_tic( void ) {
             return;
         case RUNNING:
             /* Check for inactivity timeout */
+#if ENABLE_LIGHT_SENSE
+            if( control_mode_index(control_mode_active) == 0
+                    /* we are in time mode */ ) {
+                main_set_current_sensor(sensor_light);
+                main_start_sensor_read();
+                if ( adc_light_value_scale( main_read_current_sensor(false) ) +
+                        LIGHT_SENSOR_REDUCTION_SHUTOFF < main_globals.light_sensor_scaled_at_wakeup ) {
+                    /* sleep the watch */
+                    main_globals.inactivity_ticks = control_mode_active->sleep_timeout_ticks;
+                }
+            }
+#endif
             if ( ((event_flags & EV_FLAG_ACCEL_SCLICK_X) &&
                     control_mode_index(control_mode_active) == 0 &&
                     main_get_wake_time_ms() > 800) ||
@@ -452,6 +478,7 @@ static void main_init( void ) {
     main_globals.tap_count = 0;
     main_globals.inactivity_ticks = 0;
     main_globals.button_state = BUTTON_UP;
+    main_globals.light_sensor_scaled_at_wakeup = 0;
     main_globals.state = STARTUP;
 
     /* Configure main timer counter */
@@ -628,7 +655,6 @@ uint16_t main_read_current_sensor( bool blocking ) {
 }
 
 uint16_t main_get_light_sensor_value ( void ) {
-
     return main_globals.light_sensor_adc_val;
 }
 

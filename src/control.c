@@ -82,12 +82,6 @@ bool anim_demo_mode_tic ( event_flags_t event_flags );
    * @param event flags
    * @retrn true on finish
    */
-uint8_t adc_light_value_scale ( uint16_t value );
-  /* @brief scales a light adc read quasi-logarithmically
-   * for displaying on led ring
-   * @param 12-bit adc value
-   * @retrn led index to display
-   */
 
 
 //___ V A R I A B L E S ______________________________________________________
@@ -186,65 +180,6 @@ control_mode_t control_modes[] = {
 
 //___ F U N C T I O N S   ( P R I V A T E ) __________________________________
 
-
-uint8_t adc_light_value_scale ( uint16_t value ) {
-    /* Assumes 12-bit adc read */
-    if (value >= 2048)
-        return (55 + (value >> 8)) % 60;
-
-    if (value >= 1024)
-        return (47 + (value >> 7)) % 60;
-
-    if (value >= 512)
-        return 39 + (value >> 6);
-
-    if (value >= 256)
-        return 31 + (value >> 5);
-
-    if (value >= 128)
-        return 23 + (value >> 4);
-
-    if (value >= 64)
-        return 19 + (value >> 4);
-
-    if (value >= 32)
-        return 15 + (value >> 3);
-
-    if (value >= 16)
-        return 11 + (value >> 2);
-
-    if (value >= 8)
-        return 7 + (value >> 1);
-
-    return value;
-
-}
-
-uint8_t adc_vbatt_value_scale ( uint16_t value ) {
-    /* Full */
-    if (value >= 3072) //> 3V --> 3/4*4096
-        return 59;
-
-    /* Greater than 1/2 full */
-    if (value >= 2965) // ~2.9V --> 2.9/4*4096
-        return 30 + 29*(value - 2965)/(3072 - 2965);
-
-    /* between 1/4 and 1/2 full */
-    if (value >= 2865) // ~2.8V
-        return 15 + 14*(value - 2865)/(2965 - 2865);
-
-    /* between 1/8 and 1/4 full */
-    if (value >= 2765) // ~2.75
-        return 7 + 7*(value - 2765)/(2865 - 2765);
-
-
-    if (value <= 2048) // < 2V
-        return 1;
-
-    return 1 + 7*(value - 2048)/(2765 - 2048);
-
-
-}
 
 
 bool event_debug_mode_tic ( event_flags_t event_flags  ) {
@@ -418,8 +353,6 @@ bool accel_mode_tic ( event_flags_t event_flags  ) {
     return false;
 }
 
-
-
 bool accel_point_mode_tic ( event_flags_t event_flags  ) {
     static display_comp_t *disp_pt = NULL;
 
@@ -441,6 +374,7 @@ bool accel_point_mode_tic ( event_flags_t event_flags  ) {
     display_comp_update_pos(disp_pt, utils_spin_tracker_update());
     return false;
 }
+
 bool light_sense_mode_tic ( event_flags_t event_flags ) {
     static display_comp_t *adc_pt = NULL;
     uint16_t adc_val = 0;
@@ -523,7 +457,7 @@ bool clock_mode_tic ( event_flags_t event_flags ) {
     static display_comp_t *sec_disp_ptr = NULL;
     static display_comp_t *min_disp_ptr = NULL;
     static display_comp_t *hour_disp_ptr = NULL;
-    static display_comp_t *hour_anim_ptr = NULL;
+    //static display_comp_t *hour_anim_ptr = NULL;
 
 
     if (event_flags & EV_FLAG_LONG_BTN_PRESS ||

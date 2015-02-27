@@ -13,21 +13,21 @@
 
 /* Event Flags */
 #define EV_FLAG_NONE                    0
-#define EV_FLAG_SINGLE_BTN_PRESS_END    1 << 1
-#define EV_FLAG_LONG_BTN_PRESS          1 << 2
-#define EV_FLAG_LONG_BTN_PRESS_END      1 << 3
-#define EV_FLAG_ACCEL_SCLICK_X          1 << 4
-#define EV_FLAG_ACCEL_SCLICK_Y          1 << 5
-#define EV_FLAG_ACCEL_SCLICK_Z          1 << 6
-#define EV_FLAG_ACCEL_DCLICK_X          1 << 7
-#define EV_FLAG_ACCEL_DCLICK_Y          1 << 8
-#define EV_FLAG_ACCEL_DCLICK_Z          1 << 9
-#define EV_FLAG_ACCEL_TCLICK_X          1 << 10
-#define EV_FLAG_ACCEL_TCLICK_Y          1 << 11
-#define EV_FLAG_ACCEL_TCLICK_Z          1 << 12
-#define EV_FLAG_ACCEL_QCLICK_X          1 << 13
-#define EV_FLAG_ACCEL_QCLICK_Y          1 << 14
-#define EV_FLAG_ACCEL_QCLICK_Z          1 << 15
+#define EV_FLAG_SINGLE_BTN_PRESS_END    (1 << 1)
+#define EV_FLAG_LONG_BTN_PRESS          (1 << 2)
+#define EV_FLAG_LONG_BTN_PRESS_END      (1 << 3)
+#define EV_FLAG_ACCEL_SCLICK_X          (1 << 4)
+#define EV_FLAG_ACCEL_SCLICK_Y          (1 << 5)
+#define EV_FLAG_ACCEL_SCLICK_Z          (1 << 6)
+#define EV_FLAG_ACCEL_DCLICK_X          (1 << 7)
+#define EV_FLAG_ACCEL_DCLICK_Y          (1 << 8)
+#define EV_FLAG_ACCEL_DCLICK_Z          (1 << 9)
+#define EV_FLAG_ACCEL_TCLICK_X          (1 << 10)
+#define EV_FLAG_ACCEL_TCLICK_Y          (1 << 11)
+#define EV_FLAG_ACCEL_TCLICK_Z          (1 << 12)
+#define EV_FLAG_ACCEL_QCLICK_X          (1 << 13)
+#define EV_FLAG_ACCEL_QCLICK_Y          (1 << 14)
+#define EV_FLAG_ACCEL_QCLICK_Z          (1 << 15)
 
 /* Error Codes */
 #define ERROR_NONE                      0
