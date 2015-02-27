@@ -376,8 +376,12 @@ static void main_tic( void ) {
             return;
         case RUNNING:
             /* Check for inactivity timeout */
-            if ( main_globals.inactivity_ticks > \
+            if ( ((event_flags & EV_FLAG_ACCEL_SCLICK_X) &&
+                    control_mode_index(control_mode_active) == 0 &&
+                    main_get_wake_time_ms() > 800) ||
+                    main_globals.inactivity_ticks > \
                     control_mode_active->sleep_timeout_ticks) {
+
                 main_globals.state = ENTERING_SLEEP;
 
                 if (control_mode_active->about_to_sleep_cb)
