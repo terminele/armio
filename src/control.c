@@ -95,7 +95,6 @@ enum {
 
 control_mode_t *control_mode_active;
 control_mode_t control_modes[] = {
-#ifndef NO_CLOCK
     {
         .enter_cb = NULL,
         .tic_cb = clock_mode_tic,
@@ -103,15 +102,31 @@ control_mode_t control_modes[] = {
         .about_to_sleep_cb = NULL,
         .wakeup_cb = NULL,
     },
+#if ANIM_DEMO_MODE
     {
         .enter_cb = NULL,
-        .tic_cb = time_set_mode_tic,
-        .sleep_timeout_ticks = MS_IN_TICKS(60000),
+        .tic_cb = anim_demo_mode_tic,
+        .sleep_timeout_ticks = MS_IN_TICKS(30000),
         .about_to_sleep_cb = NULL,
         .wakeup_cb = NULL,
     },
-
 #endif
+#if PHOTO_DEBUG
+    {
+        .enter_cb = NULL,
+        .tic_cb = light_sense_mode_tic,
+        .sleep_timeout_ticks = MS_IN_TICKS(5000),
+        .about_to_sleep_cb = NULL,
+        .wakeup_cb = NULL,
+    },
+#endif
+    {
+        .enter_cb = NULL,
+        .tic_cb = accel_point_mode_tic,
+        .sleep_timeout_ticks = MS_IN_TICKS(30000),
+        .about_to_sleep_cb = NULL,
+        .wakeup_cb = NULL,
+    },
 #if VBATT_MODE
     {
         .enter_cb = NULL,
@@ -121,36 +136,18 @@ control_mode_t control_modes[] = {
         .wakeup_cb = NULL,
     },
 #endif
-#if PHOTO_DEBUG
     {
         .enter_cb = NULL,
-        .tic_cb = light_sense_mode_tic,
-        .sleep_timeout_ticks = MS_IN_TICKS(10000),
+        .tic_cb = time_set_mode_tic,
+        .sleep_timeout_ticks = MS_IN_TICKS(30000),
         .about_to_sleep_cb = NULL,
         .wakeup_cb = NULL,
     },
-#endif
 #if ACCEL_DEBUG
     {
         .enter_cb = NULL,
         .tic_cb = accel_mode_tic,
-        .sleep_timeout_ticks = MS_IN_TICKS(60000),
-        .about_to_sleep_cb = NULL,
-        .wakeup_cb = NULL,
-    },
-    {
-        .enter_cb = NULL,
-        .tic_cb = accel_point_mode_tic,
-        .sleep_timeout_ticks = MS_IN_TICKS(60000),
-        .about_to_sleep_cb = NULL,
-        .wakeup_cb = NULL,
-    },
-#endif
-#if TICK_DEBUG
-    {
-        .enter_cb = NULL,
-        .tic_cb = tick_counter_mode_tic,
-        .sleep_timeout_ticks = MS_IN_TICKS(60000),
+        .sleep_timeout_ticks = MS_IN_TICKS(15000),
         .about_to_sleep_cb = NULL,
         .wakeup_cb = NULL,
     },
@@ -164,10 +161,10 @@ control_mode_t control_modes[] = {
         .wakeup_cb = NULL,
     },
 #endif
-#if ANIM_DEMO_MODE
+#if TICK_DEBUG
     {
         .enter_cb = NULL,
-        .tic_cb = anim_demo_mode_tic,
+        .tic_cb = tick_counter_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(60000),
         .about_to_sleep_cb = NULL,
         .wakeup_cb = NULL,
@@ -462,7 +459,7 @@ bool clock_mode_tic ( event_flags_t event_flags ) {
 
     if (event_flags & EV_FLAG_LONG_BTN_PRESS ||
         event_flags & EV_FLAG_ACCEL_TCLICK_X) {
-        if (sec_disp_ptr) {
+        if (min_disp_ptr) {
             display_comp_release(sec_disp_ptr);
             display_comp_release(min_disp_ptr);
             display_comp_release(hour_disp_ptr);
@@ -475,7 +472,6 @@ bool clock_mode_tic ( event_flags_t event_flags ) {
     aclock_get_time(&hour, &minute, &second);
 
     hour_fifths = minute/12;
-
     if (!sec_disp_ptr)
         sec_disp_ptr = display_point(second, MIN_BRIGHT_VAL);
 

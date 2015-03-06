@@ -41,7 +41,7 @@
 
 /* covering the watch (when in watch mode) will turn off the display
  * if the scaled reading on the light sensor drops by this much */
-#define LIGHT_SENSOR_REDUCTION_SHUTOFF  25
+#define LIGHT_SENSOR_REDUCTION_SHUTOFF  15
 
 /* Starting flash address at which to store data */
 #define NVM_ADDR_START      ((1 << 15) + (1 << 14)) /* assumes program size < 48KB */
@@ -367,6 +367,10 @@ static void main_tic( void ) {
             if (anim_is_finished(sleep_wake_anim)) {
                 anim_release(sleep_wake_anim);
 
+                //###HACKISH FIXME -- force mode to end
+                control_mode_active->tic_cb(EV_FLAG_LONG_BTN_PRESS_END | EV_FLAG_ACCEL_DCLICK_X);
+                control_mode_select(0);
+
                 enter_sleep();
 
                 /* we will stay in standby mode now until an interrupt wakes us
@@ -493,7 +497,6 @@ static void main_init( void ) {
     tc_init(&main_tc, MAIN_TIMER, &config_tc);
     tc_enable(&main_tc);
 
-#if LOG_USAGE
     /* Initialize NVM controller for data storage */
     struct nvm_config config_nvm;
     nvm_get_config_defaults(&config_nvm);
@@ -512,7 +515,6 @@ static void main_init( void ) {
 
         nvm_row_addr+=NVMCTRL_ROW_SIZE;
     }
-#endif
 
 }
 
@@ -673,7 +675,7 @@ uint32_t main_get_button_hold_ticks ( void ) {
 
 int main (void)
 {
-
+    uint32_t reset_cause;
     system_init();
     system_set_sleepmode(SYSTEM_SLEEPMODE_STANDBY);
 
@@ -687,12 +689,15 @@ int main (void)
     anim_init();
     accel_init();
 
+    /* Log reset cause */
+    reset_cause = system_get_reset_cause();
+    reset_cause = reset_cause | 0xBADBAD00;
+    main_log_data((uint8_t *)&reset_cause, sizeof(uint32_t), true);
 
     /* Errata 39.3.2 -- device may not wake up from
-     * standby if nvm goes to sleep.  May not be necessary
-     * for samd21e15/16 if revision E
-     */
-    NVMCTRL->CTRLB.bit.SLEEPPRM = NVMCTRL_CTRLB_SLEEPPRM_DISABLED_Val;
+     * standby if nvm goes to sleep. Not needed
+     * for revision D or later */
+    //NVMCTRL->CTRLB.bit.SLEEPPRM = NVMCTRL_CTRLB_SLEEPPRM_DISABLED_Val;
 
     /* Read light and vbatt sensors on startup */
 
