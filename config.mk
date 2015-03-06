@@ -254,6 +254,7 @@ CPPFLAGS = \
        -D VBATT_MODE=false 				  \
        -D VBATT_NO_AVERAGE=false			  \
        -D ANIM_DEMO_MODE=true				  \
+       -D ENABLE_LIGHT_SENSE=true			  \
        -D LOG_USAGE=true 				  \
        -D __YEAR__=$(_YEAR_)				  \
        -D __MONTH__=$(_MONTH_)				  \

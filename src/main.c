@@ -588,7 +588,7 @@ void main_log_data( uint8_t *data, uint16_t length, bool flush) {
 
 void main_start_sensor_read ( void ) {
 
-#ifdef ENABLE_LIGHT_SENSE
+#if ENABLE_LIGHT_SENSE
     port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, true);
 #endif
 
