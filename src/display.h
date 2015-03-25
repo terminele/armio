@@ -35,7 +35,7 @@ typedef struct display_comp_t {
   uint8_t brightness;
   int8_t pos;
   int8_t length;
-
+  bool cw; //clockwise -- only applicable to snakes for now
   struct display_comp_t *next, *prev;
 
 
@@ -79,12 +79,13 @@ display_comp_t* display_line ( int8_t pos,
 
 
 display_comp_t* display_snake ( int8_t pos,
-        uint8_t brightness, int8_t length);
+        uint8_t brightness, int8_t length, bool clockwise);
   /* @brief same as display_line() but led intensity
    *    decreases with distance from head led
    * @param pos - head led number 0-59 (highest point of line clockwise)
    * @param brightness - led intensity/brightness
    * @param length - length of snake
+   * @param clockwise - true if 'head' should be clockwse ahead of tail
    * @retrn handle to a display structure representing the
    *   the snake
    */

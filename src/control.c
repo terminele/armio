@@ -86,11 +86,10 @@ bool anim_demo_mode_tic ( event_flags_t event_flags );
 
 //___ V A R I A B L E S ______________________________________________________
 
-enum {
-    INIT = 0,
-    ANIM_HOUR,
-    ANIM_MIN,
-    DISP_ALL,
+struct {
+
+    enum { INIT, ANIM_HOUR, ANIM_MIN, DISP_ALL } phase;
+
 } clock_mode_state;
 
 control_mode_t *control_mode_active;
@@ -178,7 +177,6 @@ control_mode_t control_modes[] = {
 //___ F U N C T I O N S   ( P R I V A T E ) __________________________________
 
 
-
 bool event_debug_mode_tic ( event_flags_t event_flags  ) {
     static display_comp_t *disp_code;
     uint8_t pos = 0;
@@ -209,7 +207,6 @@ bool event_debug_mode_tic ( event_flags_t event_flags  ) {
 
     return false;
 }
-
 
 bool anim_demo_mode_tic ( event_flags_t event_flags  ) {
 
@@ -480,7 +477,7 @@ bool clock_mode_tic ( event_flags_t event_flags ) {
 
     if (!hour_disp_ptr)
         hour_disp_ptr = display_snake(HOUR_POS(hour) + hour_fifths,
-                MAX_BRIGHT_VAL, 1+hour_fifths);
+                MAX_BRIGHT_VAL, 1+hour_fifths, true);
 
 
     display_comp_update_pos(sec_disp_ptr, second);

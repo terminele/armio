@@ -88,7 +88,7 @@ void comp_free ( display_comp_t* ptr ) {
 }
 
 void comp_draw( display_comp_t* comp) {
-    int32_t tmp, pos;
+    int32_t tmp, pos, pos_end;
     uint8_t bright = comp->brightness;
     if (!comp->on) return;
 
@@ -98,14 +98,19 @@ void comp_draw( display_comp_t* comp) {
         break;
       case dispt_snake:
       case dispt_line:
+
         pos = MOD(comp->pos, 60);
+        pos_end = comp->cw ? MOD(comp->pos - comp->length, 60) : \
+              MOD(comp->pos + comp->length, 60);
         do {
           led_on(pos, bright);
-          pos = (pos - 1 ) % 60;
+
+          pos = comp->cw ? MOD(pos - 1, 60) : MOD(pos + 1, 60);
           if (comp->type == dispt_snake &&
                   bright > MIN_BRIGHT_VAL)
               bright--;
-        } while (pos != (comp->pos - comp->length) % 60);
+
+        } while (pos != pos_end);
 
         break;
       case dispt_polygon:
@@ -122,19 +127,24 @@ void comp_draw( display_comp_t* comp) {
 
 
 void comp_leds_clear(  display_comp_t *comp ) {
-    int32_t tmp, pos;
+    int32_t tmp, pos, pos_end;
     switch(comp->type) {
       case dispt_point:
         led_off(comp->pos);
         break;
       case dispt_snake:
       case dispt_line:
-        pos = MOD(comp->pos - comp->length, 60);
 
+        pos = MOD(comp->pos, 60);
+        pos_end = comp->cw ? MOD(comp->pos - comp->length, 60) : \
+              MOD(comp->pos + comp->length, 60);
         do {
-          led_off(pos);
-          pos = (pos + 1 ) % 60;
-        } while (pos != (comp->pos + 1) % 60);
+
+            led_off(pos);
+            pos = comp->cw ? MOD(pos - 1, 60) : MOD(pos + 1, 60);
+
+        } while (pos != pos_end);
+
         break;
       case dispt_polygon:
         for (tmp = 0; tmp < comp->length; tmp++) {
@@ -181,6 +191,7 @@ display_comp_t* display_line ( int8_t pos,
     comp_ptr->brightness = brightness;
     comp_ptr->pos = pos;
     comp_ptr->length = length;
+    comp_ptr->cw = true;
 
     comp_ptr->next = comp_ptr->prev = NULL;
 
@@ -190,7 +201,7 @@ display_comp_t* display_line ( int8_t pos,
 }
 
 display_comp_t* display_snake ( int8_t pos,
-        uint8_t brightness, int8_t length) {
+        uint8_t brightness, int8_t length, bool clockwise) {
 
     display_comp_t *comp_ptr = comp_alloc();
 
@@ -199,6 +210,7 @@ display_comp_t* display_snake ( int8_t pos,
     comp_ptr->brightness = brightness;
     comp_ptr->pos = pos;
     comp_ptr->length = length;
+    comp_ptr->cw = clockwise;
 
     comp_ptr->next = comp_ptr->prev = NULL;
 

@@ -374,7 +374,7 @@ static void main_tic( void ) {
                 enter_sleep();
 
                 /* we will stay in standby mode now until an interrupt wakes us
-                 * from sleep (and we continue from this point) */
+                * from sleep (and we continue from this point) */
 
                 wakeup();
 
@@ -419,7 +419,7 @@ static void main_tic( void ) {
 
                 display_comp_hide_all();
 
-                sleep_wake_anim = anim_swirl(0, 8, MS_IN_TICKS(4), 120, false);
+                sleep_wake_anim = anim_swirl(0, 5, MS_IN_TICKS(5), 120, false);
                 return;
             }
 
@@ -469,7 +469,6 @@ static void main_tic( void ) {
             break;
     }
 }
-
 
 static void main_init( void ) {
 
