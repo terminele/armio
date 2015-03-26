@@ -32,6 +32,14 @@ event_flags_t accel_event_flags( void );
    * @retrn ev flags (e.g. SCLICK_X, DCLICK_Z, etc.)
    */
 
+bool accel_wakeup_check( void );
+  /* @brief confirm that the recent interrupt
+   * should fully wake us up
+   * @param None
+   * @retrn true if system should fully wakeup
+   */
+
+
 void accel_enable ( void );
   /* @brief enable this module (i.e. wakeup accelerometer)
    * @param None

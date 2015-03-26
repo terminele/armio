@@ -28,6 +28,11 @@
 #define AX_REG_CTL5         0x24
 #define AX_REG_WHO_AM_I     0x0F
 #define WHO_IS_IT           0x33
+#define AX_REG_INT1_CFG     0x30
+#define AX_REG_INT1_SRC     0x31
+#define AX_REG_INT1_THS     0x32
+#define AX_REG_INT1_DUR     0x33
+#define AX_REG_INT2_CFG     0x34
 #define AX_REG_CLICK_CFG    0x38
 #define AX_REG_CLICK_SRC    0x39
 #define AX_REG_CLICK_THS    0x3A
@@ -42,8 +47,8 @@
 /* CTRL_REG1 */
 #define X_EN        0x01
 #define Y_EN        0x02
-#define Z_EN        0x03
-#define LOW_PWR_EN  0x04
+#define Z_EN        0x04
+#define LOW_PWR_EN  0x08
 
 
 /* Data Rates */
@@ -55,7 +60,7 @@
 #define ODR_100HZ   0x50
 #define ODR_200HZ   0x60
 #define ODR_400HZ   0x70
-#define ODR_1620HZ   0x80
+#define ODR_1620HZ  0x80
 #define ODR_5376Z   0x90
 
 /* CTRL_REG2 */
@@ -64,6 +69,8 @@
 
 /* CTRL_REG3 */
 #define I1_CLICK_EN 0x80
+#define I1_AOI1_EN  0x40
+#define I1_AOI2_EN  0x20
 
 /* CTRL_REG4 */
 #define FS_2G       0x00
@@ -73,6 +80,16 @@
 
 /* CTRL_REG5 */
 #define LIR_INT1    0x08
+
+/* INT1/2 CFG */
+#define AOI_MOV     0x40
+#define AOI_POS     0xC0
+#define ZHIE        0x20
+#define ZLIE        0x10
+#define YHIE        0x08
+#define YLIE        0x04
+#define XHIE        0x02
+#define XLIE        0x01
 
 /* CLICK_CFG */
 #define Z_DCLICK   0x20
@@ -101,13 +118,18 @@
 
 /* Click configuration constants */
 
+#define ACTIVE_ODR              ODR_400HZ
+#define ACTIVE_SAMPLE_INT       SAMPLE_INT_400HZ
 #define CLICK_THS     43 //assumes 4g scale
-#define CLICK_TIME_WIN      MS_TO_ODRS(200, SAMPLE_INT_400HZ)
-#define CLICK_TIME_LIM      MS_TO_ODRS(20, SAMPLE_INT_400HZ)
-#define CLICK_TIME_LAT      MS_TO_ODRS(40, SAMPLE_INT_400HZ) //ms
+#define CLICK_TIME_WIN      MS_TO_ODRS(200, ACTIVE_SAMPLE_INT)
+#define CLICK_TIME_LIM      MS_TO_ODRS(20, ACTIVE_SAMPLE_INT)
+#define CLICK_TIME_LAT      MS_TO_ODRS(40, ACTIVE_SAMPLE_INT) //ms
 
-#define SLEEP_ODR          ODR_200HZ
-#define SLEEP_SAMPLE_INT   SAMPLE_INT_200HZ
+
+
+#define SLEEP_ODR          ODR_100HZ
+#define SLEEP_SAMPLE_INT   SAMPLE_INT_100HZ
+
 #define WAKEUP_CLICK_THS     46 //assumes 4g scale
 #define WAKEUP_CLICK_TIME_WIN      MS_TO_ODRS(200, SLEEP_SAMPLE_INT)
 #define WAKEUP_CLICK_TIME_LIM      MS_TO_ODRS(20, SLEEP_SAMPLE_INT)
@@ -189,8 +211,8 @@ static void configure_interrupt ( void ) {
   eint_chan_conf.gpio_pin_pull        = EXTINT_PULL_NONE;
   /* NOTE: cannot wake from standby with filter or edge detection ... */
   eint_chan_conf.detection_criteria   = EXTINT_DETECT_HIGH;
-	eint_chan_conf.filter_input_signal  = false;
-	eint_chan_conf.wake_if_sleeping     = true;
+  eint_chan_conf.filter_input_signal  = false;
+  eint_chan_conf.wake_if_sleeping     = true;
 
   extint_chan_set_config(AX_INT1_CHAN, &eint_chan_conf);
 }
@@ -278,6 +300,9 @@ bool accel_data_read (int16_t *x_ptr, int16_t *y_ptr, int16_t *z_ptr) {
 
 }
 
+bool accel_wakeup_check( void ) {
+  return true;
+}
 void accel_enable ( void ) {
   //i2c_master_enable(&i2c_master_instance);
 
@@ -285,7 +310,8 @@ void accel_enable ( void ) {
     return;
 #endif
 
-  accel_register_write (AX_REG_CTL1, ODR_400HZ | LOW_PWR_EN | X_EN | Y_EN | Z_EN);
+  accel_register_write (AX_REG_CTL4, FS_4G);
+  accel_register_write (AX_REG_CTL1, ACTIVE_ODR | LOW_PWR_EN | X_EN | Y_EN | Z_EN);
   accel_register_write (AX_REG_CLICK_CFG, Z_SCLICK | Y_SCLICK | X_SCLICK);
   accel_register_write (AX_REG_CLICK_THS, CLICK_THS);
 
@@ -293,6 +319,25 @@ void accel_enable ( void ) {
   accel_register_write (AX_REG_TIME_LIM, CLICK_TIME_LIM);
   accel_register_write (AX_REG_TIME_LAT, CLICK_TIME_LAT);
 
+  /* Enable single and double click detection */
+  accel_register_write (AX_REG_CTL3, I1_CLICK_EN);
+
+  /* Enable High Pass filter for Clicks */
+  accel_register_write (AX_REG_CTL2, HPCLICK | HPCF);
+
+    /* Latch interrupts */
+    //if (!accel_register_write (AX_REG_CTL5, LIR_INT1))
+    //    main_terminate_in_error(ERROR_ACCEL_WRITE_ENABLE);
+
+//    /* Disable sleep activity threshold and duration */
+//    if (!accel_register_write (AX_REG_ACT_THS, 0x00))
+//        main_terminate_in_error(ERROR_ACCEL_WRITE_ENABLE);
+//
+//    if (!accel_register_write (AX_REG_ACT_DUR, 0x00))
+//        main_terminate_in_error(ERROR_ACCEL_WRITE_ENABLE);
+
+
+  /* Callback enable is only active when sleeping */
   extint_chan_disable_callback(AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
 
   enabled = true;
@@ -377,7 +422,12 @@ void accel_sleep ( void ) {
   accel_register_write (AX_REG_CLICK_CFG, X_DCLICK);
   accel_register_write (AX_REG_CLICK_THS, WAKEUP_CLICK_THS);
 
-  accel_register_write (AX_REG_CTL1, SLEEP_ODR | LOW_PWR_EN |  X_EN);
+  //accel_register_write (AX_REG_CTL4, FS_2G); //REMOVEME
+  accel_register_write (AX_REG_CTL1, SLEEP_ODR | LOW_PWR_EN |  X_EN | Y_EN | Z_EN);
+  accel_register_write (AX_REG_CTL3,  I1_CLICK_EN );// | I1_AOI1_EN );
+  accel_register_write (AX_REG_INT1_CFG, 0x80 | XLIE | YLIE);
+  accel_register_write (AX_REG_INT1_THS, 12);
+  accel_register_write (AX_REG_INT1_DUR, 10);
 
   accel_register_write (AX_REG_TIME_WIN, WAKEUP_CLICK_TIME_WIN);
   accel_register_write (AX_REG_TIME_LIM, WAKEUP_CLICK_TIME_LIM);
@@ -402,12 +452,15 @@ event_flags_t accel_event_flags( void ) {
   ev_flags |= click_timeout_event_check();
 
   if (port_pin_get_input_level(AX_INT1_PIN)) {
+    uint8_t aoi_flags;
     if (int_state) return ev_flags; //we've already handled this interrupt
 
     int_state = true;
     accel_register_consecutive_read(AX_REG_CLICK_SRC, 1, &click_flags.b8);
+    accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &aoi_flags);
 
     if (!click_flags.ia) return ev_flags;
+    if (!click_flags.sign) return ev_flags;
 
 #ifdef NOT_NOW
     if (click_flags.dclick) {
@@ -463,32 +516,6 @@ void accel_init ( void ) {
 
     if (who_it_be != WHO_IS_IT)
         main_terminate_in_error(ERROR_ACCEL_BAD_ID);
-
-    if (!accel_register_write (AX_REG_CTL1, ODR_400HZ | LOW_PWR_EN | X_EN | Y_EN | Z_EN))
-        main_terminate_in_error(ERROR_ACCEL_WRITE_ENABLE);
-
-    /* Set scale */
-    if (!accel_register_write (AX_REG_CTL4, FS_4G))
-        main_terminate_in_error(ERROR_ACCEL_WRITE_ENABLE);
-
-    /* Latch interrupts */
-    if (!accel_register_write (AX_REG_CTL5, LIR_INT1))
-        main_terminate_in_error(ERROR_ACCEL_WRITE_ENABLE);
-
-    /* Enable single and double click detection */
-    if (!accel_register_write (AX_REG_CTL3, I1_CLICK_EN))
-        main_terminate_in_error(ERROR_ACCEL_WRITE_ENABLE);
-
-    /* Enable High Pass filter for Clicks */
-    if (!accel_register_write (AX_REG_CTL2, HPCLICK | HPCF))
-        main_terminate_in_error(ERROR_ACCEL_WRITE_ENABLE);
-
-//    /* Disable sleep activity threshold and duration */
-//    if (!accel_register_write (AX_REG_ACT_THS, 0x00))
-//        main_terminate_in_error(ERROR_ACCEL_WRITE_ENABLE);
-//
-//    if (!accel_register_write (AX_REG_ACT_DUR, 0x00))
-//        main_terminate_in_error(ERROR_ACCEL_WRITE_ENABLE);
 
     accel_enable();
 

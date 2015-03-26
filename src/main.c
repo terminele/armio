@@ -89,7 +89,7 @@ static event_flags_t button_event_flags( void );
    * @param None
    * @retrn button event flags
    */
-static void enter_sleep( void );
+static void prepare_sleep( void );
   /* @brief enter into standby sleep
    * @param None
    * @retrn None
@@ -238,7 +238,7 @@ static void setup_clock_pin_outputs( void ) {
 }
 #endif
 
-static void enter_sleep( void ) {
+static void prepare_sleep( void ) {
 
 #if LOG_USAGE
     log_vbatt(false);
@@ -258,7 +258,6 @@ static void enter_sleep( void ) {
 
     led_controller_disable();
     aclock_disable();
-    accel_sleep();
     tc_disable(&main_tc);
 
     //system_ahb_clock_clear_mask( PM_AHBMASK_HPB2 | PM_AHBMASK_DSU);
@@ -266,7 +265,6 @@ static void enter_sleep( void ) {
     /* The vbatt adc may have enabled the voltage reference, so disable
      * it in standby to save power */
     system_voltage_reference_disable(SYSTEM_VOLTAGE_REFERENCE_BANDGAP);
-    system_sleep();
 
 }
 
@@ -370,11 +368,21 @@ static void main_tic( void ) {
                 //###HACKISH FIXME -- force mode to end
                 control_mode_active->tic_cb(EV_FLAG_LONG_BTN_PRESS_END | EV_FLAG_ACCEL_DCLICK_X);
                 control_mode_select(0);
+                prepare_sleep();
 
-                enter_sleep();
-
+sleep:
+                accel_sleep();
+                system_sleep();
                 /* we will stay in standby mode now until an interrupt wakes us
                 * from sleep (and we continue from this point) */
+
+                /* Enable the acceleromter and check that we
+                 * should fully wakeup or go back to sleep */
+                accel_enable();
+
+                if (!accel_wakeup_check()) {
+                    goto sleep;
+                }
 
                 wakeup();
 
