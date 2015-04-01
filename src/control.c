@@ -15,7 +15,8 @@
 #define CLOCK_MODE_SLEEP_TIMEOUT_TICKS     MS_IN_TICKS(7000)
 #define DEFAULT_MODE_TRANS_CHK(ev_flags) \
         (   ev_flags & EV_FLAG_LONG_BTN_PRESS || \
-            ev_flags & EV_FLAG_ACCEL_DCLICK_X \
+            ev_flags & EV_FLAG_ACCEL_DCLICK_X || \
+            ev_flags & EV_FLAG_SLEEP \
         )
 
 /* corresponding led position for the given hour */
@@ -29,55 +30,55 @@
 
 //___ P R O T O T Y P E S   ( P R I V A T E ) ________________________________
 
-bool clock_mode_tic ( event_flags_t event_flags );
+bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt );
   /* @brief main tick callback for clock mode
    * @param event flags
    * @retrn flag indicating mode finish
    */
 
-bool time_set_mode_tic ( event_flags_t event_flags );
+bool time_set_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt );
   /* @brief set clock time mode
    * @param event flags
    * @retrn flag indicating mode finish
    */
 
-bool light_sense_mode_tic ( event_flags_t event_flags );
+bool light_sense_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt );
   /* @brief main tick callback for light sensor display mode
    * @param event flags
    * @retrn flag indicating mode finish
    */
 
-bool accel_mode_tic ( event_flags_t event_flags  );
+bool accel_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt );
   /* @brief main tick callback for accel mode
    * @param event flags
    * @retrn flag indicating mode finish
    */
 
-bool accel_point_mode_tic ( event_flags_t event_flags  );
+bool accel_point_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt );
   /* @brief main tick callback for accel mode
    * @param event flags
    * @retrn flag indicating mode finish
    */
 
-bool vbatt_sense_mode_tic ( event_flags_t event_flags );
+bool vbatt_sense_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt );
   /* @brief main tick callback for vbatt sensor display mode
    * @param event flags
    * @retrn flag indicating mode finish
    */
 
-bool tick_counter_mode_tic ( event_flags_t event_flags );
+bool tick_counter_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt );
   /* @brief display RTC seconds and main timer seconds
    * @param event flags
    * @retrn true on finish
    */
 
-bool event_debug_mode_tic ( event_flags_t event_flags );
+bool event_debug_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt );
   /* @brief debug display event flags as a point
    * @param event flags
    * @retrn true on finish
    */
 
-bool anim_demo_mode_tic ( event_flags_t event_flags );
+bool anim_demo_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt );
   /* @brief animation demo mode tic
    * @param event flags
    * @retrn true on finish
@@ -177,7 +178,7 @@ control_mode_t control_modes[] = {
 //___ F U N C T I O N S   ( P R I V A T E ) __________________________________
 
 
-bool event_debug_mode_tic ( event_flags_t event_flags  ) {
+bool event_debug_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     static display_comp_t *disp_code;
     uint8_t pos = 0;
 
@@ -208,7 +209,7 @@ bool event_debug_mode_tic ( event_flags_t event_flags  ) {
     return false;
 }
 
-bool anim_demo_mode_tic ( event_flags_t event_flags  ) {
+bool anim_demo_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
 
     static display_comp_t* display_comp = NULL;
     static animation_t *anim = NULL;
@@ -271,7 +272,7 @@ bool anim_demo_mode_tic ( event_flags_t event_flags  ) {
 
     return false;
 }
-bool accel_mode_tic ( event_flags_t event_flags  ) {
+bool accel_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     static display_comp_t *disp_x;
     static display_comp_t *disp_y;
     static display_comp_t *disp_z;
@@ -322,7 +323,7 @@ bool accel_mode_tic ( event_flags_t event_flags  ) {
     main_log_data((uint8_t *)&log_data, sizeof(log_data), false);
 #endif
 
-    if (event_flags & EV_FLAG_ACCEL_DCLICK_X) {
+    if (event_flags & EV_FLAG_ACCEL_DCLICK_X || event_flags & EV_FLAG_SLEEP) {
         display_comp_hide_all();
         display_comp_release(disp_x);
         display_comp_release(disp_y);
@@ -347,7 +348,7 @@ bool accel_mode_tic ( event_flags_t event_flags  ) {
     return false;
 }
 
-bool accel_point_mode_tic ( event_flags_t event_flags  ) {
+bool accel_point_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     static display_comp_t *disp_pt = NULL;
 
     if (!disp_pt) {
@@ -356,7 +357,7 @@ bool accel_point_mode_tic ( event_flags_t event_flags  ) {
     }
 
 
-    if (event_flags & EV_FLAG_ACCEL_DCLICK_X) {
+    if (event_flags & EV_FLAG_ACCEL_DCLICK_X || event_flags & EV_FLAG_SLEEP) {
         display_comp_hide_all();
         display_comp_release(disp_pt);
         disp_pt = NULL;
@@ -369,21 +370,18 @@ bool accel_point_mode_tic ( event_flags_t event_flags  ) {
     return false;
 }
 
-bool light_sense_mode_tic ( event_flags_t event_flags ) {
+bool light_sense_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     static display_comp_t *adc_pt = NULL;
     uint16_t adc_val = 0;
-    static uint32_t tick_count = 0;
 
     if (main_get_current_sensor() != sensor_light)
         main_set_current_sensor(sensor_light);
 
-    if (event_flags & EV_FLAG_LONG_BTN_PRESS ||
-        event_flags & EV_FLAG_ACCEL_DCLICK_X) {
+    if (DEFAULT_MODE_TRANS_CHK(event_flags)) {
         if (adc_pt) {
             display_comp_release(adc_pt);
             adc_pt = NULL;
         }
-        tick_count = 0;
         return true; //transition on long presses
     }
 
@@ -397,24 +395,20 @@ bool light_sense_mode_tic ( event_flags_t event_flags ) {
     adc_val = main_read_current_sensor(false);
     display_comp_update_pos(adc_pt, adc_light_value_scale(adc_val));
 
-    tick_count++;
 
     return false;
 }
 
-bool vbatt_sense_mode_tic ( event_flags_t event_flags ) {
+bool vbatt_sense_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     static display_comp_t *adc_pt = NULL;
     uint16_t adc_val;
-    static uint32_t tick_count = 0;
 
 
-    if (event_flags & EV_FLAG_LONG_BTN_PRESS ||
-        event_flags & EV_FLAG_ACCEL_DCLICK_X) {
+    if (DEFAULT_MODE_TRANS_CHK(event_flags)) {
         if (adc_pt) {
             display_comp_release(adc_pt);
             adc_pt = NULL;
         }
-        tick_count = 0;
         return true; //transition on long presses
     }
 
@@ -426,7 +420,7 @@ bool vbatt_sense_mode_tic ( event_flags_t event_flags ) {
         main_set_current_sensor(sensor_vbatt);
 
 
-    if (tick_count % 1000 == 999)
+    if (tick_cnt % 1000 == 999)
         main_start_sensor_read();
 
     adc_val = main_read_current_sensor(false);
@@ -442,11 +436,10 @@ bool vbatt_sense_mode_tic ( event_flags_t event_flags ) {
     display_comp_update_pos(adc_pt,
             adc_vbatt_value_scale(adc_val) % 60);
 
-    tick_count++;
 
     return false;
 }
-bool clock_mode_tic ( event_flags_t event_flags ) {
+bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     uint8_t hour = 0, minute = 0, second = 0, hour_fifths=0;
     static display_comp_t *sec_disp_ptr = NULL;
     static display_comp_t *min_disp_ptr = NULL;
@@ -455,7 +448,8 @@ bool clock_mode_tic ( event_flags_t event_flags ) {
 
 
     if (event_flags & EV_FLAG_LONG_BTN_PRESS ||
-        event_flags & EV_FLAG_ACCEL_TCLICK_X) {
+        event_flags & EV_FLAG_ACCEL_TCLICK_X ||
+        event_flags & EV_FLAG_SLEEP) {
         if (min_disp_ptr) {
             display_comp_release(sec_disp_ptr);
             display_comp_release(min_disp_ptr);
@@ -488,7 +482,7 @@ bool clock_mode_tic ( event_flags_t event_flags ) {
     return false;
 }
 
-bool time_set_mode_tic ( event_flags_t event_flags ) {
+bool time_set_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     static uint8_t hour=0, minute = 0, new_minute_pos, second;
     static uint32_t timeout = 0;
     static bool is_editing = false;
@@ -497,8 +491,7 @@ bool time_set_mode_tic ( event_flags_t event_flags ) {
     static animation_t *blink_ptr = NULL;
 
 
-    if (!is_editing && (event_flags & EV_FLAG_LONG_BTN_PRESS ||
-        event_flags & EV_FLAG_ACCEL_DCLICK_X)) {
+    if (!is_editing && DEFAULT_MODE_TRANS_CHK(event_flags)){
         if (min_disp_ptr) {
             display_comp_release(min_disp_ptr);
             display_comp_release(hour_disp_ptr);
@@ -595,7 +588,7 @@ bool time_set_mode_tic ( event_flags_t event_flags ) {
     return false;
 }
 
-bool tick_counter_mode_tic ( event_flags_t event_flags ) {
+bool tick_counter_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     /* This mode displays RTC second value and
      * the second value based on the main timer.  This
      * is useful to see if our timer interval is too small
@@ -604,7 +597,6 @@ bool tick_counter_mode_tic ( event_flags_t event_flags ) {
 
     /* Get latest time */
     uint8_t hour = 0, minute = 0, second = 0;
-    static uint32_t ticks = 0;
     static display_comp_t *sec_disp_ptr = NULL;
     static display_comp_t *tick_sec_disp_ptr = NULL;
 
@@ -632,10 +624,9 @@ bool tick_counter_mode_tic ( event_flags_t event_flags ) {
         tick_sec_disp_ptr = display_point(0, BRIGHT_DEFAULT);
 
 
-    ticks++;
 
     display_comp_update_pos(sec_disp_ptr, second);
-    display_comp_update_pos(tick_sec_disp_ptr, (TICKS_IN_MS(ticks)/1000) % 60);
+    display_comp_update_pos(tick_sec_disp_ptr, (TICKS_IN_MS(tick_cnt)/1000) % 60);
 
     return false;
 }

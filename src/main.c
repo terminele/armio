@@ -120,6 +120,9 @@ struct {
     /* System tick counter */
     uint32_t systicks;
 
+    /* Ticks since entering current mode */
+    uint32_t modeticks;
+
     /* Ticks since waking */
     uint32_t waketicks;
 
@@ -343,6 +346,7 @@ static void main_tic( void ) {
 
     main_globals.systicks++;
     main_globals.waketicks++;
+    main_globals.modeticks++;
     main_globals.inactivity_ticks++;
 
     event_flags |= button_event_flags();
@@ -365,9 +369,9 @@ static void main_tic( void ) {
             if (anim_is_finished(sleep_wake_anim)) {
                 anim_release(sleep_wake_anim);
 
-                //###HACKISH FIXME -- force mode to end
-                control_mode_active->tic_cb(EV_FLAG_LONG_BTN_PRESS_END | EV_FLAG_ACCEL_DCLICK_X);
-                control_mode_select(0);
+                /* Notify control mode of sleep event and reset control mode */
+                control_mode_active->tic_cb(EV_FLAG_SLEEP, main_globals.modeticks);
+                control_mode_select(CONTROL_MODE_MAIN);
                 prepare_sleep();
 
 sleep:
@@ -396,6 +400,7 @@ sleep:
 
                 display_comp_show_all();
 
+                main_globals.modeticks = 0;
                 main_globals.inactivity_ticks = 0;
                 main_globals.state = RUNNING;
             }
@@ -403,8 +408,8 @@ sleep:
         case RUNNING:
             /* Check for inactivity timeout */
 #if ENABLE_LIGHT_SENSE
-            if( control_mode_index(control_mode_active) == 0
-                    /* we are in time mode */ ) {
+            if( control_mode_index(control_mode_active) == CONTROL_MODE_MAIN) {
+                /* we are in main time display mode */
                 main_set_current_sensor(sensor_light);
                 main_start_sensor_read();
                 if ( adc_light_value_scale( main_read_current_sensor(false) ) +
@@ -432,9 +437,10 @@ sleep:
             }
 
             /* Call mode's main tic loop/event handler */
-            if (control_mode_active->tic_cb(event_flags)){
+            if (control_mode_active->tic_cb(event_flags, main_globals.modeticks)){
                 /* begin transition to next mode */
                 main_globals.state = MODE_TRANSITION;
+                main_globals.modeticks = 0;
                 main_globals.button_hold_ticks = 0;
                 /* animate slow snake from current mode to next. */
                 if (control_mode_index(control_mode_active) == control_mode_count() - 1) {
@@ -484,6 +490,7 @@ static void main_init( void ) {
 
     /* Initalize main state */
     main_globals.systicks = 0;
+    main_globals.modeticks= 0;
     main_globals.waketicks = 0;
     main_globals.button_hold_ticks = 0;
     main_globals.tap_count = 0;

@@ -14,6 +14,8 @@
 
 //___ T Y P E D E F S ________________________________________________________
 
+/* FIXME -- only tic_cb is used for right now */
+
 typedef struct {
 
     /* Intialization routine for the control mode
@@ -27,7 +29,7 @@ typedef struct {
      * any updates or respond to events.  Returns true
      * when it is finished (i.e. main module should transition
      * to next control mode) */
-    bool (*tic_cb)(event_flags_t event_flags);
+    bool (*tic_cb)(event_flags_t event_flags, uint32_t tick_cnt);
 
     /* Number of ticks of inactivity that
      * can occur in this mode before we
@@ -46,6 +48,9 @@ typedef struct {
 
 
 } control_mode_t;
+
+/* Main control mode index (i.e. time display control mode ) */
+#define CONTROL_MODE_MAIN 0
 
 //___ V A R I A B L E S ______________________________________________________
 
