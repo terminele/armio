@@ -124,12 +124,15 @@ animation_t* anim_blink(display_comp_t *disp_comp, uint16_t tick_interval,
    */
 
 animation_t* anim_yoyo(display_comp_t *disp_comp, uint8_t len,
-        uint16_t tick_interval, uint16_t tick_duration, bool autorelease);
+        uint16_t tick_interval, int16_t yos, bool autorelease);
   /* @brief displays a line yoyo'ing between length 1 and max length
    * @param disp_comp - display component to animate
    * @param len - max line length
    * @param tick_interval - interval between grow/contraction steps
-   * @param tick_duration - duration that component should be shown (or
+   * @param yos - number of grow/contractions to animate.  1 'yo' would be
+   *    a single animation of a point to a full line in one direction.  2 yos
+   *    would be a point animating to a full line then contracting back to a
+   *    point.  And so on.  May be ANIM_DURATION_INF
    * ANIM_DURATION_INF for indefinite)
    * @param autorelease - if animation and display comp should be freed at completion
    * @retrn None

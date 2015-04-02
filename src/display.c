@@ -23,7 +23,7 @@
 
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
 #define MAX_ALLOCATIONS     10
-#define MOD(a,b) ((a % b) < 0 ? a + b : a % b)
+#define MOD(a,b) (((a) % (b)) < 0 ? (((a) % (b)) + (b)) : ((a) % (b)))
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 
 //___ P R O T O T Y P E S   ( P R I V A T E ) ________________________________
@@ -87,6 +87,7 @@ void comp_free ( display_comp_t* ptr ) {
     ptr->type = dispt_unused;
 }
 
+
 void comp_draw( display_comp_t* comp) {
     int32_t tmp, pos, pos_end;
     uint8_t bright = comp->brightness;
@@ -99,18 +100,18 @@ void comp_draw( display_comp_t* comp) {
       case dispt_snake:
       case dispt_line:
 
-        pos = MOD(comp->pos, 60);
-        pos_end = comp->cw ? MOD(comp->pos + comp->length, 60) : \
-              MOD(comp->pos - comp->length, 60);
+        pos = comp->cw ? MOD(comp->pos + comp->length - 1, 60) : \
+              MOD(comp->pos - comp->length + 1, 60);
         do {
           led_on(pos, bright);
+          if (pos == comp->pos) return;
 
-          pos = comp->cw ? MOD(pos + 1, 60) : MOD(pos - 1, 60);
+          pos = comp->cw ? MOD(pos - 1, 60) : MOD(pos + 1, 60);
           if (comp->type == dispt_snake &&
                   bright > MIN_BRIGHT_VAL)
               bright--;
 
-        } while (pos != pos_end);
+        } while (true);
 
         break;
       case dispt_polygon:

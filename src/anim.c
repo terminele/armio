@@ -156,7 +156,7 @@ animation_t* anim_random( display_comp_t *disp_comp,
 
 animation_t* anim_swirl(uint8_t start, uint8_t len, uint16_t tick_interval,
         uint32_t distance, bool clockwise) {
-    display_comp_t *disp_comp = display_line(start, BRIGHT_DEFAULT, len);
+    display_comp_t *disp_comp = display_snake(start, BRIGHT_DEFAULT, len, clockwise);
     animation_t *anim = anim_rotate(disp_comp, clockwise, tick_interval,
             distance * tick_interval);
 
@@ -241,10 +241,10 @@ animation_t* anim_blink(display_comp_t *disp_comp, uint16_t tick_interval,
 }
 
 animation_t* anim_yoyo(display_comp_t *disp_comp, uint8_t len,
-        uint16_t tick_interval, uint16_t tick_duration, bool autorelease) {
+        uint16_t tick_interval, int16_t yos, bool autorelease) {
 
     //start with a line/snake of length 1
-    disp_comp->length = 1;
+    display_comp_update_length(disp_comp, 1);
 
     animation_t *anim = anim_alloc();
     anim->type = animt_yoyo;
@@ -253,7 +253,13 @@ animation_t* anim_yoyo(display_comp_t *disp_comp, uint8_t len,
     anim->autorelease_anim = autorelease;
     anim->disp_comp = disp_comp;
     anim->tick_interval = tick_interval;
-    anim->tick_duration = tick_duration;
+
+    if (yos == ANIMATION_DURATION_INF) {
+        anim->tick_duration = ANIMATION_DURATION_INF;
+    } else {
+        anim->tick_duration = tick_interval * (1 + yos * (len - 1));
+    }
+
     anim->interval_counter = 0;
     anim->len = len;
     anim->step = 0;
@@ -269,10 +275,13 @@ animation_t* anim_yoyo(display_comp_t *disp_comp, uint8_t len,
 }
 
 void anim_stop( animation_t *anim) {
-    anim->enabled = false;
+    if (anim)
+        anim->enabled = false;
 }
 
 void anim_release( animation_t *anim) {
+    if (!anim) return;
+
     if (anim->autorelease_disp_comp) {
         display_comp_hide(anim->disp_comp);
         display_comp_release(anim->disp_comp);

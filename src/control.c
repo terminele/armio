@@ -87,12 +87,6 @@ bool anim_demo_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt );
 
 //___ V A R I A B L E S ______________________________________________________
 
-struct {
-
-    enum { INIT, ANIM_HOUR, ANIM_MIN, DISP_ALL } phase;
-
-} clock_mode_state;
-
 control_mode_t *control_mode_active;
 control_mode_t control_modes[] = {
     {
@@ -441,22 +435,31 @@ bool vbatt_sense_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
 }
 bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     uint8_t hour = 0, minute = 0, second = 0, hour_fifths=0;
+
+    static enum { INIT, ANIM_HOUR_SWIRL, ANIM_HOUR_YOYO,
+        ANIM_MIN, DISP_ALL } phase = INIT;
+
     static display_comp_t *sec_disp_ptr = NULL;
     static display_comp_t *min_disp_ptr = NULL;
     static display_comp_t *hour_disp_ptr = NULL;
-    static animation_t *hour_anim_ptr = NULL;
+    static animation_t *anim_ptr = NULL;
 
 
     if (event_flags & EV_FLAG_LONG_BTN_PRESS ||
         event_flags & EV_FLAG_ACCEL_TCLICK_X ||
         event_flags & EV_FLAG_SLEEP) {
-        if (tick_cnt > 0) {
-            display_comp_release(sec_disp_ptr);
-            display_comp_release(min_disp_ptr);
-            display_comp_release(hour_disp_ptr);
-            //anim_release(hour_anim_ptr);
-            sec_disp_ptr = min_disp_ptr = hour_disp_ptr = NULL;
-        }
+
+        anim_release(anim_ptr);
+        display_comp_release(hour_disp_ptr);
+        display_comp_release(min_disp_ptr);
+        display_comp_release(sec_disp_ptr);
+        hour_disp_ptr = NULL;
+        min_disp_ptr = NULL;
+        sec_disp_ptr = NULL;
+        anim_ptr = NULL;
+
+        phase = INIT;
+
         return true; //transition
     }
 
@@ -465,20 +468,56 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
 
     hour_fifths = minute/12;
 
-    if (tick_cnt == 0) {
-        sec_disp_ptr = display_point(second, MIN_BRIGHT_VAL);
-        min_disp_ptr = display_point(minute, BRIGHT_DEFAULT);
-        hour_disp_ptr = display_snake(HOUR_POS(hour), MAX_BRIGHT_VAL,
-                hour_fifths + 1, true);
-        //hour_anim_ptr = anim_yoyo(hour_disp_ptr, hour_fifths + 1,
-        //        MS_IN_TICKS(200), ANIMATION_DURATION_INF, false);
+    switch(phase) {
+        case INIT:
+            anim_ptr = anim_swirl(0, 5, MS_IN_TICKS(15), hour*5 - 5, true);
+            phase = ANIM_HOUR_SWIRL;
+            break;
+        case ANIM_HOUR_SWIRL:
+
+            if (anim_is_finished(anim_ptr)) {
+                anim_release(anim_ptr);
+                hour_disp_ptr = display_snake(HOUR_POS(hour), MAX_BRIGHT_VAL,
+                        hour_fifths + 1, true);
+
+                anim_ptr = anim_yoyo(hour_disp_ptr, hour_fifths + 1,
+                        MS_IN_TICKS(15), 1, false);
+                phase = ANIM_HOUR_YOYO;
+            }
+            break;
+        case ANIM_HOUR_YOYO:
+            if (anim_is_finished(anim_ptr)) {
+                anim_release(anim_ptr);
+                min_disp_ptr = display_point(minute, BRIGHT_DEFAULT);
+                anim_ptr = anim_blink(min_disp_ptr, MS_IN_TICKS(400),
+                        MS_IN_TICKS(2000), false);
+
+                phase = ANIM_MIN;
+            }
+
+            break;
+        case ANIM_MIN:
+            if (anim_is_finished(anim_ptr)) {
+                anim_release(anim_ptr);
+                anim_ptr = NULL;
+
+                sec_disp_ptr = display_point(second, MIN_BRIGHT_VAL);
+
+                phase = DISP_ALL;
+            }
+            break;
+
+        case DISP_ALL:
+
+            display_comp_update_pos(sec_disp_ptr, second);
+            display_comp_update_pos(min_disp_ptr, minute);
+
+            display_comp_update_pos(hour_disp_ptr, HOUR_POS(hour));
+            display_comp_update_length(hour_disp_ptr, hour_fifths + 1);
+
+            break;
     }
 
-    display_comp_update_pos(sec_disp_ptr, second);
-    display_comp_update_pos(min_disp_ptr, minute);
-
-    display_comp_update_pos(hour_disp_ptr, HOUR_POS(hour));
-    display_comp_update_length(hour_disp_ptr, hour_fifths + 1);
     //anim_update_length(hour_anim_ptr, hour_fifths + 1);
 
     return false;

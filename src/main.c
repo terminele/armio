@@ -362,8 +362,7 @@ static void main_tic( void ) {
             if (anim_is_finished(sleep_wake_anim)) {
                 anim_release(sleep_wake_anim);
 
-                /* Notify control mode of sleep event and reset control mode */
-                control_mode_active->tic_cb(EV_FLAG_SLEEP, main_gs.modeticks);
+                /* Reset control mode to main (time display) mode */
                 control_mode_select(CONTROL_MODE_MAIN);
                 prepare_sleep();
 
@@ -420,6 +419,8 @@ sleep:
 
                 main_gs.state = ENTERING_SLEEP;
 
+                /* Notify control mode of sleep event and reset control mode */
+                control_mode_active->tic_cb(EV_FLAG_SLEEP, main_gs.modeticks);
                 if (control_mode_active->about_to_sleep_cb)
                     control_mode_active->about_to_sleep_cb();
 
