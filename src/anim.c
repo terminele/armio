@@ -157,8 +157,9 @@ animation_t* anim_random( display_comp_t *disp_comp,
 animation_t* anim_swirl(uint8_t start, uint8_t len, uint16_t tick_interval,
         uint32_t distance, bool clockwise) {
     display_comp_t *disp_comp = display_snake(start, BRIGHT_DEFAULT, len, clockwise);
+
     animation_t *anim = anim_rotate(disp_comp, clockwise, tick_interval,
-            distance * tick_interval);
+            distance > 0 ? distance * tick_interval : 1);
 
     anim->autorelease_anim = false;
     anim->autorelease_disp_comp = true;

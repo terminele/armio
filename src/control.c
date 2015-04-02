@@ -611,12 +611,16 @@ bool time_set_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
                 ///### assumes tracker pos wont update more
                 //than 10 positions in one tick
                 hour++;
+                if (hour > 12)
+                    hour = 1;
             }
         } else {
             if ( new_minute_pos - minute > 50) {
                 ///### assumes tracker pos wont update more
                 //than 10 positions in one tick
                 hour--;
+                if (hour == 0)
+                    hour = 12;
             }
         }
 
