@@ -444,16 +444,17 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     static display_comp_t *sec_disp_ptr = NULL;
     static display_comp_t *min_disp_ptr = NULL;
     static display_comp_t *hour_disp_ptr = NULL;
-    //static display_comp_t *hour_anim_ptr = NULL;
+    static animation_t *hour_anim_ptr = NULL;
 
 
     if (event_flags & EV_FLAG_LONG_BTN_PRESS ||
         event_flags & EV_FLAG_ACCEL_TCLICK_X ||
         event_flags & EV_FLAG_SLEEP) {
-        if (min_disp_ptr) {
+        if (tick_cnt > 0) {
             display_comp_release(sec_disp_ptr);
             display_comp_release(min_disp_ptr);
             display_comp_release(hour_disp_ptr);
+            //anim_release(hour_anim_ptr);
             sec_disp_ptr = min_disp_ptr = hour_disp_ptr = NULL;
         }
         return true; //transition
@@ -463,21 +464,22 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     aclock_get_time(&hour, &minute, &second);
 
     hour_fifths = minute/12;
-    if (!sec_disp_ptr)
+
+    if (tick_cnt == 0) {
         sec_disp_ptr = display_point(second, MIN_BRIGHT_VAL);
-
-    if (!min_disp_ptr)
         min_disp_ptr = display_point(minute, BRIGHT_DEFAULT);
-
-    if (!hour_disp_ptr)
-        hour_disp_ptr = display_snake(HOUR_POS(hour) + hour_fifths,
-                MAX_BRIGHT_VAL, 1+hour_fifths, true);
-
+        hour_disp_ptr = display_snake(HOUR_POS(hour), MAX_BRIGHT_VAL,
+                hour_fifths + 1, true);
+        //hour_anim_ptr = anim_yoyo(hour_disp_ptr, hour_fifths + 1,
+        //        MS_IN_TICKS(200), ANIMATION_DURATION_INF, false);
+    }
 
     display_comp_update_pos(sec_disp_ptr, second);
     display_comp_update_pos(min_disp_ptr, minute);
-    display_comp_update_pos(hour_disp_ptr, HOUR_POS(hour) + hour_fifths);
-    display_comp_update_length(hour_disp_ptr, 1+hour_fifths);
+
+    display_comp_update_pos(hour_disp_ptr, HOUR_POS(hour));
+    display_comp_update_length(hour_disp_ptr, hour_fifths + 1);
+    //anim_update_length(hour_anim_ptr, hour_fifths + 1);
 
     return false;
 }

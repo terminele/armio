@@ -130,10 +130,5 @@ uint32_t main_get_systime_ms( void );
    * @retrn sys time in ms
    */
 
-uint32_t main_get_wake_time_ms( void );
-  /* @brief return milliseconds passed since waking up
-   * @param None
-   * @retrn ms since wake
-   */
 
 #endif /* end of include guard: __MAIN_H__ */

@@ -100,12 +100,12 @@ void comp_draw( display_comp_t* comp) {
       case dispt_line:
 
         pos = MOD(comp->pos, 60);
-        pos_end = comp->cw ? MOD(comp->pos - comp->length, 60) : \
-              MOD(comp->pos + comp->length, 60);
+        pos_end = comp->cw ? MOD(comp->pos + comp->length, 60) : \
+              MOD(comp->pos - comp->length, 60);
         do {
           led_on(pos, bright);
 
-          pos = comp->cw ? MOD(pos - 1, 60) : MOD(pos + 1, 60);
+          pos = comp->cw ? MOD(pos + 1, 60) : MOD(pos - 1, 60);
           if (comp->type == dispt_snake &&
                   bright > MIN_BRIGHT_VAL)
               bright--;
@@ -136,12 +136,12 @@ void comp_leds_clear(  display_comp_t *comp ) {
       case dispt_line:
 
         pos = MOD(comp->pos, 60);
-        pos_end = comp->cw ? MOD(comp->pos - comp->length, 60) : \
-              MOD(comp->pos + comp->length, 60);
+        pos_end = comp->cw ? MOD(comp->pos + comp->length, 60) : \
+              MOD(comp->pos - comp->length, 60);
         do {
 
             led_off(pos);
-            pos = comp->cw ? MOD(pos - 1, 60) : MOD(pos + 1, 60);
+            pos = comp->cw ? MOD(pos + 1, 60) : MOD(pos - 1, 60);
 
         } while (pos != pos_end);
 

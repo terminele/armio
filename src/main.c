@@ -115,16 +115,13 @@ static void main_init( void );
 //___ V A R I A B L E S ______________________________________________________
 static struct tc_module main_tc;
 
-struct {
+static struct {
 
     /* System tick counter */
     uint32_t systicks;
 
     /* Ticks since entering current mode */
     uint32_t modeticks;
-
-    /* Ticks since waking */
-    uint32_t waketicks;
 
     /* Inactivity counter for sleeping.  Resets on any
      * user activity (e.g. button press)
@@ -149,7 +146,7 @@ struct {
     uint8_t light_sensor_scaled_at_wakeup;
     main_state_t state;
 
-} main_globals;
+} main_gs;
 
 static animation_t *sleep_wake_anim;
 static animation_t *mode_trans_swirl;
@@ -168,8 +165,8 @@ static void update_vbatt_running_avg( void ) {
     /* Use exponential moving average with alpha = 1/128
      * to update vbatt level */
     uint32_t temp;
-    temp = main_globals.running_avg_vbatt*127;
-    main_globals.running_avg_vbatt = (temp + main_globals.vbatt_sensor_adc_val)/128;
+    temp = main_gs.running_avg_vbatt*127;
+    main_gs.running_avg_vbatt = (temp + main_gs.vbatt_sensor_adc_val)/128;
 
 }
 
@@ -274,8 +271,6 @@ static void prepare_sleep( void ) {
 static void wakeup (void) {
     //system_ahb_clock_set_mask( PM_AHBMASK_HPB2 | PM_AHBMASK_DSU);
 
-    main_globals.waketicks = 0;
-
     if (light_vbatt_sens_adc.hw)
         adc_enable(&light_vbatt_sens_adc);
 
@@ -308,29 +303,29 @@ static event_flags_t button_event_flags ( void ) {
     bool new_btn_state = port_pin_get_input_level(BUTTON_PIN);
 
     if (new_btn_state == BUTTON_UP &&
-            main_globals.button_state == BUTTON_DOWN) {
+            main_gs.button_state == BUTTON_DOWN) {
         /* button has been released */
-        main_globals.button_state = BUTTON_UP;
-        if (main_globals.tap_count == 0) {
+        main_gs.button_state = BUTTON_UP;
+        if (main_gs.tap_count == 0) {
             /* End of a single button push */
-            if (main_globals.button_hold_ticks  < LONG_PRESS_TICKS ) {
+            if (main_gs.button_hold_ticks  < LONG_PRESS_TICKS ) {
                 event_flags |= EV_FLAG_SINGLE_BTN_PRESS_END;
             } else {
                 event_flags |= EV_FLAG_LONG_BTN_PRESS_END;
             }
-            main_globals.button_hold_ticks = 0;
+            main_gs.button_hold_ticks = 0;
         } else {
             /* TODO -- multi-tap support */
         }
     } else if (new_btn_state == BUTTON_DOWN &&
-            main_globals.button_state == BUTTON_UP) {
+            main_gs.button_state == BUTTON_UP) {
         /* button has been pushed down */
-        main_globals.button_state = BUTTON_DOWN;
+        main_gs.button_state = BUTTON_DOWN;
     } else {
         /* button state has not changed */
-        if (main_globals.button_state == BUTTON_DOWN) {
-            main_globals.button_hold_ticks++;
-            if (main_globals.button_hold_ticks > LONG_PRESS_TICKS) {
+        if (main_gs.button_state == BUTTON_DOWN) {
+            main_gs.button_hold_ticks++;
+            if (main_gs.button_hold_ticks > LONG_PRESS_TICKS) {
                 event_flags |= EV_FLAG_LONG_BTN_PRESS;
             }
         }
@@ -344,22 +339,20 @@ static void main_tic( void ) {
 
     event_flags_t event_flags = EV_FLAG_NONE;
 
-    main_globals.systicks++;
-    main_globals.waketicks++;
-    main_globals.modeticks++;
-    main_globals.inactivity_ticks++;
+    main_gs.systicks++;
+    main_gs.inactivity_ticks++;
 
     event_flags |= button_event_flags();
     event_flags |= accel_event_flags();
 
     /* Reset inactivity if any button event occurs */
-    if (event_flags != EV_FLAG_NONE) main_globals.inactivity_ticks = 0;
+    if (event_flags != EV_FLAG_NONE) main_gs.inactivity_ticks = 0;
 
-    switch (main_globals.state) {
+    switch (main_gs.state) {
         case STARTUP:
             /* Stay in startup until animation is finished */
             if (anim_is_finished(sleep_wake_anim)) {
-                main_globals.state = RUNNING;
+                main_gs.state = RUNNING;
                 anim_release(sleep_wake_anim);
             }
             return;
@@ -370,7 +363,7 @@ static void main_tic( void ) {
                 anim_release(sleep_wake_anim);
 
                 /* Notify control mode of sleep event and reset control mode */
-                control_mode_active->tic_cb(EV_FLAG_SLEEP, main_globals.modeticks);
+                control_mode_active->tic_cb(EV_FLAG_SLEEP, main_gs.modeticks);
                 control_mode_select(CONTROL_MODE_MAIN);
                 prepare_sleep();
 
@@ -392,7 +385,7 @@ sleep:
 
                 main_set_current_sensor(sensor_light);
                 main_start_sensor_read();
-                main_globals.light_sensor_scaled_at_wakeup \
+                main_gs.light_sensor_scaled_at_wakeup \
                     = adc_light_value_scale( main_read_current_sensor(true) );
 
                 if (control_mode_active->wakeup_cb)
@@ -400,9 +393,9 @@ sleep:
 
                 display_comp_show_all();
 
-                main_globals.modeticks = 0;
-                main_globals.inactivity_ticks = 0;
-                main_globals.state = RUNNING;
+                main_gs.modeticks = 0;
+                main_gs.inactivity_ticks = 0;
+                main_gs.state = RUNNING;
             }
             return;
         case RUNNING:
@@ -413,19 +406,19 @@ sleep:
                 main_set_current_sensor(sensor_light);
                 main_start_sensor_read();
                 if ( adc_light_value_scale( main_read_current_sensor(false) ) +
-                        LIGHT_SENSOR_REDUCTION_SHUTOFF < main_globals.light_sensor_scaled_at_wakeup ) {
+                        LIGHT_SENSOR_REDUCTION_SHUTOFF < main_gs.light_sensor_scaled_at_wakeup ) {
                     /* sleep the watch */
-                    main_globals.inactivity_ticks = control_mode_active->sleep_timeout_ticks;
+                    main_gs.inactivity_ticks = control_mode_active->sleep_timeout_ticks;
                 }
             }
 #endif
             if ( ((event_flags & EV_FLAG_ACCEL_SCLICK_X) &&
                     control_mode_index(control_mode_active) == 0 &&
-                    main_get_wake_time_ms() > 800) ||
-                    main_globals.inactivity_ticks > \
+                    TICKS_IN_MS(main_gs.modeticks) > 600) ||
+                    main_gs.inactivity_ticks > \
                     control_mode_active->sleep_timeout_ticks) {
 
-                main_globals.state = ENTERING_SLEEP;
+                main_gs.state = ENTERING_SLEEP;
 
                 if (control_mode_active->about_to_sleep_cb)
                     control_mode_active->about_to_sleep_cb();
@@ -437,11 +430,11 @@ sleep:
             }
 
             /* Call mode's main tic loop/event handler */
-            if (control_mode_active->tic_cb(event_flags, main_globals.modeticks)){
+            if (control_mode_active->tic_cb(event_flags, main_gs.modeticks++)){
                 /* begin transition to next mode */
-                main_globals.state = MODE_TRANSITION;
-                main_globals.modeticks = 0;
-                main_globals.button_hold_ticks = 0;
+                main_gs.state = MODE_TRANSITION;
+                main_gs.modeticks = 0;
+                main_gs.button_hold_ticks = 0;
                 /* animate slow snake from current mode to next. */
                 if (control_mode_index(control_mode_active) == control_mode_count() - 1) {
                     /* Control modes have looped around. calculate swirl params
@@ -477,7 +470,7 @@ sleep:
                 mode_disp_point = NULL;
                 anim_release(mode_trans_blink);
                 mode_trans_blink = NULL;
-                main_globals.state = RUNNING;
+                main_gs.state = RUNNING;
             }
 
             break;
@@ -489,15 +482,14 @@ static void main_init( void ) {
     struct tc_config config_tc;
 
     /* Initalize main state */
-    main_globals.systicks = 0;
-    main_globals.modeticks= 0;
-    main_globals.waketicks = 0;
-    main_globals.button_hold_ticks = 0;
-    main_globals.tap_count = 0;
-    main_globals.inactivity_ticks = 0;
-    main_globals.button_state = BUTTON_UP;
-    main_globals.light_sensor_scaled_at_wakeup = 0;
-    main_globals.state = STARTUP;
+    main_gs.systicks = 0;
+    main_gs.modeticks = 0;
+    main_gs.button_hold_ticks = 0;
+    main_gs.tap_count = 0;
+    main_gs.inactivity_ticks = 0;
+    main_gs.button_state = BUTTON_UP;
+    main_gs.light_sensor_scaled_at_wakeup = 0;
+    main_gs.state = STARTUP;
 
     /* Configure main timer counter */
     tc_get_config_defaults( &config_tc );
@@ -536,12 +528,9 @@ static void main_init( void ) {
 
 
 uint32_t main_get_systime_ms( void ) {
-    return TICKS_IN_MS(main_globals.systicks);
+    return TICKS_IN_MS(main_gs.systicks);
 }
 
-uint32_t main_get_wake_time_ms( void ) {
-    return TICKS_IN_MS(main_globals.waketicks);
-}
 
 void main_terminate_in_error ( uint8_t error_code ) {
 
@@ -611,13 +600,13 @@ void main_start_sensor_read ( void ) {
 }
 
 sensor_type_t main_get_current_sensor ( void ) {
-    return main_globals.current_sensor;
+    return main_gs.current_sensor;
 }
 
 void main_set_current_sensor ( sensor_type_t sensor ) {
     struct adc_config config_adc;
 
-    main_globals.current_sensor = sensor;
+    main_gs.current_sensor = sensor;
 
     if (light_vbatt_sens_adc.hw)
         adc_reset(&light_vbatt_sens_adc);
@@ -652,10 +641,10 @@ uint16_t main_read_current_sensor( bool blocking ) {
     uint16_t *curr_sens_adc_val_ptr;
     uint8_t status;
 
-    if (main_globals.current_sensor == sensor_vbatt)
-        curr_sens_adc_val_ptr = &main_globals.vbatt_sensor_adc_val;
+    if (main_gs.current_sensor == sensor_vbatt)
+        curr_sens_adc_val_ptr = &main_gs.vbatt_sensor_adc_val;
     else
-        curr_sens_adc_val_ptr = &main_globals.light_sensor_adc_val;
+        curr_sens_adc_val_ptr = &main_gs.light_sensor_adc_val;
 
     do {
         status = adc_read(&light_vbatt_sens_adc, &result);
@@ -671,20 +660,20 @@ uint16_t main_read_current_sensor( bool blocking ) {
 }
 
 uint16_t main_get_light_sensor_value ( void ) {
-    return main_globals.light_sensor_adc_val;
+    return main_gs.light_sensor_adc_val;
 }
 
 uint16_t main_get_vbatt_value ( void ) {
-    return main_globals.running_avg_vbatt;
+    return main_gs.running_avg_vbatt;
 }
 
 uint8_t main_get_multipress_count( void ) {
-    return main_globals.tap_count;
+    return main_gs.tap_count;
 }
 
 
 uint32_t main_get_button_hold_ticks ( void ) {
-    return main_globals.button_hold_ticks;
+    return main_gs.button_hold_ticks;
 }
 
 int main (void)
@@ -717,7 +706,7 @@ int main (void)
 
     main_set_current_sensor(sensor_vbatt);
     main_start_sensor_read();
-    main_globals.running_avg_vbatt = main_read_current_sensor(true);
+    main_gs.running_avg_vbatt = main_read_current_sensor(true);
 
     main_set_current_sensor(sensor_light);
     main_start_sensor_read();

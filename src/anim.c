@@ -96,6 +96,14 @@ void anim_update( animation_t *anim ) {
                 display_comp_show(anim->disp_comp);
             }
             break;
+        case animt_yoyo:
+            display_comp_update_length( anim->disp_comp,
+                    anim->disp_comp->length + anim->step);
+            if ((anim->step > 0 && anim->disp_comp->length == anim->len) ||
+                    (anim->step < 0 && anim->disp_comp->length == 1)) {
+                anim->step *= -1;
+            }
+            break;
         default:
             main_terminate_in_error( ERROR_ANIM_BAD_TYPE );
             break;
@@ -224,6 +232,34 @@ animation_t* anim_blink(display_comp_t *disp_comp, uint16_t tick_interval,
     anim->tick_interval = tick_interval;
     anim->tick_duration = tick_duration;
     anim->interval_counter = 0;
+
+    anim->prev = anim->next = NULL;
+
+    DL_APPEND(head_anim_ptr, anim);
+
+    return anim;
+}
+
+animation_t* anim_yoyo(display_comp_t *disp_comp, uint8_t len,
+        uint16_t tick_interval, uint16_t tick_duration, bool autorelease) {
+
+    //start with a line/snake of length 1
+    disp_comp->length = 1;
+
+    animation_t *anim = anim_alloc();
+    anim->type = animt_yoyo;
+    anim->enabled = true;
+    anim->autorelease_disp_comp = autorelease;
+    anim->autorelease_anim = autorelease;
+    anim->disp_comp = disp_comp;
+    anim->tick_interval = tick_interval;
+    anim->tick_duration = tick_duration;
+    anim->interval_counter = 0;
+    anim->len = len;
+    anim->step = 0;
+
+    if (len > 1)
+        anim->step = 1;
 
     anim->prev = anim->next = NULL;
 

@@ -28,6 +28,7 @@ typedef enum {
     animt_fade_inout,
     animt_blink,
     animt_cut,
+    animt_yoyo,
 } animation_type_t;
 
 typedef struct animation_t {
@@ -36,7 +37,8 @@ typedef struct animation_t {
     uint16_t tick_interval; //update interval in ticks
     int32_t tick_duration; //duration in ticks
 
-    uint8_t step; //only applicable for rotations
+    int8_t step; //only applicable for rotations and yoyos
+    uint8_t len; //only applicable for yoyos
     uint8_t bright_start; //only applicable for fades
     uint8_t bright_end; //only applicable for fades
 
@@ -121,6 +123,17 @@ animation_t* anim_blink(display_comp_t *disp_comp, uint16_t tick_interval,
    * @retrn None
    */
 
+animation_t* anim_yoyo(display_comp_t *disp_comp, uint8_t len,
+        uint16_t tick_interval, uint16_t tick_duration, bool autorelease);
+  /* @brief displays a line yoyo'ing between length 1 and max length
+   * @param disp_comp - display component to animate
+   * @param len - max line length
+   * @param tick_interval - interval between grow/contraction steps
+   * @param tick_duration - duration that component should be shown (or
+   * ANIM_DURATION_INF for indefinite)
+   * @param autorelease - if animation and display comp should be freed at completion
+   * @retrn None
+   */
 static inline animation_t* anim_fade_in(display_comp_t *disp_comp,
         uint8_t brightness, uint16_t tick_interval, bool autorelease) {
     return anim_fade(disp_comp, 0, brightness, tick_interval, 1, autorelease);
@@ -144,6 +157,10 @@ static inline animation_t* anim_fade_out(display_comp_t *disp_comp,
    * @param autorelease - if animation and display comp should be freed at completion
    * @retrn handle to fade animation object
    */
+
+static inline void anim_update_length( animation_t *anim, uint8_t length ) {
+    anim->len = length;
+}
 
 static inline bool anim_is_finished ( animation_t *anim ) {
     return !anim->enabled;
