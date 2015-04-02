@@ -449,6 +449,7 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
         event_flags & EV_FLAG_ACCEL_TCLICK_X ||
         event_flags & EV_FLAG_SLEEP) {
 
+        anim_stop(anim_ptr);
         anim_release(anim_ptr);
         display_comp_release(hour_disp_ptr);
         display_comp_release(min_disp_ptr);

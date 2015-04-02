@@ -91,7 +91,10 @@ void comp_free ( display_comp_t* ptr ) {
 void comp_draw( display_comp_t* comp) {
     int32_t tmp, pos, pos_end;
     uint8_t bright = comp->brightness;
-    if (!comp->on) return;
+    if (!comp->on) {
+      comp_leds_clear(comp);
+      return;
+    }
 
     switch(comp->type) {
       case dispt_point:
@@ -99,7 +102,6 @@ void comp_draw( display_comp_t* comp) {
         break;
       case dispt_snake:
       case dispt_line:
-
         pos = comp->cw ? MOD(comp->pos + comp->length - 1, 60) : \
               MOD(comp->pos - comp->length + 1, 60);
         do {
@@ -249,7 +251,7 @@ void display_comp_hide_all ( void ) {
   display_comp_t* comp_ptr;
 
   DL_FOREACH(head_component_ptr, comp_ptr) {
-        comp_ptr->on = false;
+    comp_ptr->on = false;
   }
 
   led_clear_all();
@@ -261,7 +263,7 @@ void display_comp_show_all ( void ) {
   display_comp_t* comp_ptr;
 
   DL_FOREACH(head_component_ptr, comp_ptr) {
-        comp_ptr->on = true;
+    comp_ptr->on = true;
   }
 
 }
