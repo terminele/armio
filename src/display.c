@@ -24,6 +24,20 @@
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
 #define MAX_ALLOCATIONS     10
 #define MOD(a,b) (((a) % (b)) < 0 ? (((a) % (b)) + (b)) : ((a) % (b)))
+
+#define LED_OFF(led) \
+    do {  \
+        led_levels[(led)] = 0; \
+        leds_updated[updated_led_count++] = led; \
+    } while (0);
+
+
+#define LED_ON(led, intensity) \
+    do {  \
+        led_levels[(led)] = intensity; \
+        leds_updated[updated_led_count++] = led; \
+    } while (0);
+
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 
 //___ P R O T O T Y P E S   ( P R I V A T E ) ________________________________
@@ -61,7 +75,9 @@ void comp_draw( display_comp_t* comp_ptr);
 
 /* statically allocate maximum number of display components */
 static display_comp_t component_allocs[MAX_ALLOCATIONS];
-
+static uint8_t led_levels[60] = {0x00};
+static uint8_t leds_updated[60] = {0xff};
+static uint8_t updated_led_count = 0;
 
 /* pointer to head of active component list */
 static display_comp_t *head_component_ptr = NULL;
@@ -89,7 +105,7 @@ void comp_free ( display_comp_t* ptr ) {
 
 
 void comp_draw( display_comp_t* comp) {
-    int32_t tmp, pos, pos_end;
+    int32_t tmp, pos;
     uint8_t bright = comp->brightness;
     if (!comp->on) {
       comp_leds_clear(comp);
@@ -98,14 +114,14 @@ void comp_draw( display_comp_t* comp) {
 
     switch(comp->type) {
       case dispt_point:
-        led_on(comp->pos, comp->brightness);
+        LED_ON(comp->pos, comp->brightness);
         break;
       case dispt_snake:
       case dispt_line:
         pos = comp->cw ? MOD(comp->pos + comp->length - 1, 60) : \
               MOD(comp->pos - comp->length + 1, 60);
         do {
-          led_on(pos, bright);
+          LED_ON(pos, bright);
           if (pos == comp->pos) return;
 
           pos = comp->cw ? MOD(pos - 1, 60) : MOD(pos + 1, 60);
@@ -119,7 +135,7 @@ void comp_draw( display_comp_t* comp) {
       case dispt_polygon:
         for (tmp = 0; tmp < comp->length; tmp++) {
             pos = (comp->pos + ((tmp*60)/comp->length)) % 60;
-            led_on(pos, comp->brightness);
+            LED_ON(pos, comp->brightness);
         }
         break;
       default:
@@ -133,7 +149,7 @@ void comp_leds_clear(  display_comp_t *comp ) {
     int32_t tmp, pos, pos_end;
     switch(comp->type) {
       case dispt_point:
-        led_off(comp->pos);
+        LED_OFF(comp->pos);
         break;
       case dispt_snake:
       case dispt_line:
@@ -143,7 +159,7 @@ void comp_leds_clear(  display_comp_t *comp ) {
               MOD(comp->pos - comp->length, 60);
         do {
 
-            led_off(pos);
+            LED_OFF(pos);
             pos = comp->cw ? MOD(pos + 1, 60) : MOD(pos - 1, 60);
 
         } while (pos != pos_end);
@@ -152,7 +168,7 @@ void comp_leds_clear(  display_comp_t *comp ) {
       case dispt_polygon:
         for (tmp = 0; tmp < comp->length; tmp++) {
             pos = comp->pos + ((tmp*60)/comp->length);
-            led_off(pos % 60);
+            LED_OFF(pos % 60);
         }
         break;
       default:
@@ -321,6 +337,18 @@ void display_tic(void) {
 
   DL_FOREACH(head_component_ptr, comp_ptr) {
     comp_draw(comp_ptr);
+  }
+
+  /* The draw/clear functions dont actually update
+   * the leds directly.  Instead they write to a
+   * local cache that we update as a batch.  This prevents
+   * conflicts when multiple display components update the same led.
+   */
+
+  while (updated_led_count) {
+      uint8_t led = leds_updated[updated_led_count - 1];
+      led_set_intensity( led, led_levels[led] );
+      updated_led_count--;
   }
 }
 

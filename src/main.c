@@ -701,7 +701,7 @@ int main (void)
     /* Errata 39.3.2 -- device may not wake up from
      * standby if nvm goes to sleep. Not needed
      * for revision D or later */
-    //NVMCTRL->CTRLB.bit.SLEEPPRM = NVMCTRL_CTRLB_SLEEPPRM_DISABLED_Val;
+    NVMCTRL->CTRLB.bit.SLEEPPRM = NVMCTRL_CTRLB_SLEEPPRM_DISABLED_Val;
 
     /* Read light and vbatt sensors on startup */
 
