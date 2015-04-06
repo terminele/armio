@@ -137,6 +137,24 @@ animation_t* anim_yoyo(display_comp_t *disp_comp, uint8_t len,
    * @param autorelease - if animation and display comp should be freed at completion
    * @retrn None
    */
+
+static inline animation_t* anim_snake_grow( uint8_t pos,
+        uint8_t len, uint16_t tick_interval, bool autorelease) {
+    display_comp_t *comp_ptr = display_snake(pos, MAX_BRIGHT_VAL,
+                        1, true);
+    animation_t *anim_ptr = anim_yoyo(comp_ptr, len, tick_interval, 1, autorelease);
+    anim_ptr->autorelease_disp_comp = true;
+    return anim_ptr;
+}
+
+  /* @brief animates a snake growing from a single point to the given length
+   * @param pos - starting position
+   * @param len - max snake length
+   * @param tick_interval - interval between grow/contraction steps
+   * @param autorelease - if animation should be freed at completion
+   * @retrn None
+   */
+
 static inline animation_t* anim_fade_in(display_comp_t *disp_comp,
         uint8_t brightness, uint16_t tick_interval, bool autorelease) {
     return anim_fade(disp_comp, 0, brightness, tick_interval, 1, autorelease);

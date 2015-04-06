@@ -22,6 +22,9 @@
 /* corresponding led position for the given hour */
 #define HOUR_POS(hour) ((hour % 12) * 5)
 
+/* Time it should take for hour animation to complete */
+#define HOUR_ANIM_DUR_MS    500
+
 /* Ticks run slow during edit mode (due to
  * accelerometer and floating point calcs) so
  * estimate a good tick timeout count */
@@ -435,7 +438,7 @@ bool vbatt_sense_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
 }
 bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     uint8_t hour = 0, minute = 0, second = 0, hour_fifths=0;
-
+    uint16_t hour_anim_tick_int;
     static enum { INIT, ANIM_HOUR_SWIRL, ANIM_HOUR_YOYO,
         ANIM_MIN, DISP_ALL } phase = INIT;
 
@@ -443,6 +446,7 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     static display_comp_t *min_disp_ptr = NULL;
     static display_comp_t *hour_disp_ptr = NULL;
     static animation_t *anim_ptr = NULL;
+
 
 
     if (event_flags & EV_FLAG_LONG_BTN_PRESS ||
@@ -468,10 +472,18 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     aclock_get_time(&hour, &minute, &second);
 
     hour_fifths = minute/12;
-
+    hour_anim_tick_int = MS_IN_TICKS(HOUR_ANIM_DUR_MS/(hour * 5));
     switch(phase) {
         case INIT:
-            anim_ptr = anim_swirl(0, 5, MS_IN_TICKS(15), hour*5 - 5, true);
+
+
+            if (hour == 1) {
+                /* For hour 1 a swirl doesnt animate, so draw a 'growing snake' */
+                anim_ptr = anim_snake_grow( 0, 5, hour_anim_tick_int, false );
+            } else {
+                anim_ptr = anim_swirl(0, 5, hour_anim_tick_int, 5*(hour - 1), true);
+            }
+
             phase = ANIM_HOUR_SWIRL;
             break;
         case ANIM_HOUR_SWIRL:
@@ -482,7 +494,7 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
                         hour_fifths + 1, true);
 
                 anim_ptr = anim_yoyo(hour_disp_ptr, hour_fifths + 1,
-                        MS_IN_TICKS(15), 1, false);
+                        hour_anim_tick_int, 1, false);
                 phase = ANIM_HOUR_YOYO;
             }
             break;
