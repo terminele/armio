@@ -426,7 +426,7 @@ sleep:
 
                 display_comp_hide_all();
 
-                sleep_wake_anim = anim_swirl(0, 5, MS_IN_TICKS(5), 120, false);
+                sleep_wake_anim = anim_swirl(0, 5, MS_IN_TICKS(5), 115, false);
                 return;
             }
 
@@ -718,7 +718,7 @@ int main (void)
 #endif
 
     /* Show a startup LED swirl */
-    sleep_wake_anim = anim_swirl(0, 8, MS_IN_TICKS(4), 120, true);
+    sleep_wake_anim = anim_swirl(0, 8, MS_IN_TICKS(4), 172, true);
 
     /* get intial time */
     configure_input();
