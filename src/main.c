@@ -271,8 +271,8 @@ static void prepare_sleep( void ) {
 static void wakeup (void) {
     //system_ahb_clock_set_mask( PM_AHBMASK_HPB2 | PM_AHBMASK_DSU);
 
-    if (light_vbatt_sens_adc.hw)
-        adc_enable(&light_vbatt_sens_adc);
+    //if (light_vbatt_sens_adc.hw)
+    //    adc_enable(&light_vbatt_sens_adc);
 
 #ifdef ENABLE_BUTTON
     extint_chan_disable_callback(BUTTON_EIC_CHAN,
@@ -285,10 +285,10 @@ static void wakeup (void) {
     tc_enable(&main_tc);
 
     /* Update vbatt estimate on wakeup only */
-    main_set_current_sensor(sensor_vbatt);
-    main_start_sensor_read();
-    main_read_current_sensor(true);
-    update_vbatt_running_avg();
+    //main_set_current_sensor(sensor_vbatt);
+    //main_start_sensor_read();
+    //main_read_current_sensor(true);
+    //update_vbatt_running_avg();
 
 #if LOG_USAGE
     log_vbatt(true);
@@ -382,10 +382,10 @@ sleep:
 
                 wakeup();
 
-                main_set_current_sensor(sensor_light);
-                main_start_sensor_read();
-                main_gs.light_sensor_scaled_at_wakeup \
-                    = adc_light_value_scale( main_read_current_sensor(true) );
+                //main_set_current_sensor(sensor_light);
+                //main_start_sensor_read();
+                //main_gs.light_sensor_scaled_at_wakeup \
+                 //   = adc_light_value_scale( main_read_current_sensor(true) );
 
                 if (control_mode_active->wakeup_cb)
                     control_mode_active->wakeup_cb();
