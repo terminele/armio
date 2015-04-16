@@ -224,7 +224,7 @@ CFLAGS = -mtune=$(ARCH)
 _YEAR_=$(shell date '+%-Y')
 _MONTH_=$(shell date '+%-m')
 _DAY_=$(shell date '+%-d')
-_HOUR_=$(shell date '+%-H')
+_HOUR_=$(shell date '+%-I')
 _MIN_=$(shell date '+%-M')
 _SEC_=$(shell date '+%-S')
 
