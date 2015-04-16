@@ -27,9 +27,9 @@
 #define EV_FLAG_ACCEL_TCLICK_Z          (1 << 12)
 #define EV_FLAG_ACCEL_QCLICK_X          (1 << 13)
 #define EV_FLAG_ACCEL_QCLICK_Y          (1 << 14)
-#define EV_FLAG_ACCEL_QCLICK_Y          (1 << 14)
 #define EV_FLAG_ACCEL_QCLICK_Z          (1 << 15)
-#define EV_FLAG_SLEEP                   (1 << 16)
+#define EV_FLAG_ACCEL_DOWN_UP           (1 << 16)
+#define EV_FLAG_SLEEP                   (1 << 17)
 
 /* Error Codes */
 #define ERROR_NONE                      0
@@ -124,11 +124,10 @@ uint32_t main_get_button_hold_ticks( void );
    * @retrn # of button ticks since long press started
    */
 
-uint32_t main_get_systime_ms( void );
-  /* @brief get system time in ms
+uint32_t main_get_waketime_ms( void );
+  /* @brief get time since last wake in ms
    * @param None
-   * @retrn sys time in ms
+   * @retrn time awake in ms
    */
-
 
 #endif /* end of include guard: __MAIN_H__ */

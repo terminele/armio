@@ -144,7 +144,7 @@ control_mode_t control_modes[] = {
     {
         .enter_cb = NULL,
         .tic_cb = accel_mode_tic,
-        .sleep_timeout_ticks = MS_IN_TICKS(15000),
+        .sleep_timeout_ticks = MS_IN_TICKS(120000),
         .about_to_sleep_cb = NULL,
         .wakeup_cb = NULL,
     },
@@ -184,7 +184,7 @@ bool event_debug_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     }
 
     /* Convert event flag bit pos to int */
-    if (!event_flags) { //&& main_get_systime_ms() - last_event > 200) {
+    if (!event_flags) {
         display_comp_update_pos(disp_code, 0);
         return false;
     } else {
@@ -228,7 +228,7 @@ bool anim_demo_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
         return true;
     }
 
-    if (step && main_get_systime_ms() % 4000 != 1)
+    if (step && main_get_waketime_ms() % 4000 != 1)
         return false;
 
     step++;
@@ -285,9 +285,11 @@ bool accel_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
         //accel_disable_interrupt();
     }
 
-    //if (main_get_systime_ms() - last_update_ms < 10) {
-    //    return false;
-    //}
+    if (main_get_waketime_ms() - last_update_ms < 10) {
+        return false;
+    }
+
+    last_update_ms = main_get_waketime_ms();
 
     if (anim_ptr && !anim_is_finished(anim_ptr)) {
 

@@ -117,11 +117,11 @@ static struct tc_module main_tc;
 
 static struct {
 
-    /* System tick counter */
-    uint32_t systicks;
-
     /* Ticks since entering current mode */
     uint32_t modeticks;
+
+    /* Ticks since last wake */
+    uint32_t waketicks;
 
     /* Inactivity counter for sleeping.  Resets on any
      * user activity (e.g. button press)
@@ -339,8 +339,8 @@ static void main_tic( void ) {
 
     event_flags_t event_flags = EV_FLAG_NONE;
 
-    main_gs.systicks++;
     main_gs.inactivity_ticks++;
+    main_gs.waketicks++;
 
     event_flags |= button_event_flags();
     event_flags |= accel_event_flags();
@@ -393,6 +393,7 @@ sleep:
                 display_comp_show_all();
 
                 main_gs.modeticks = 0;
+                main_gs.waketicks = 0;
                 main_gs.inactivity_ticks = 0;
                 main_gs.state = RUNNING;
             }
@@ -411,11 +412,19 @@ sleep:
                 }
             }
 #endif
-            if ( ((event_flags & EV_FLAG_ACCEL_SCLICK_X) &&
+            if (    /* SLEEP EVENT CHECKS */
+                    /*((event_flags & EV_FLAG_ACCEL_SCLICK_X) &&
                     control_mode_index(control_mode_active) == 0 &&
-                    TICKS_IN_MS(main_gs.modeticks) > 600) ||
+                    TICKS_IN_MS(main_gs.modeticks) > 600) ||*/
+
                     main_gs.inactivity_ticks > \
-                    control_mode_active->sleep_timeout_ticks) {
+                    control_mode_active->sleep_timeout_ticks ||
+
+                    (event_flags & EV_FLAG_ACCEL_DOWN_UP &&
+                     main_get_waketime_ms() > 500)
+
+                    ) {
+                /* A sleep event has occurred */
 
                 main_gs.state = ENTERING_SLEEP;
 
@@ -483,8 +492,8 @@ static void main_init( void ) {
     struct tc_config config_tc;
 
     /* Initalize main state */
-    main_gs.systicks = 0;
     main_gs.modeticks = 0;
+    main_gs.waketicks = 0;
     main_gs.button_hold_ticks = 0;
     main_gs.tap_count = 0;
     main_gs.inactivity_ticks = 0;
@@ -528,10 +537,9 @@ static void main_init( void ) {
 //___ F U N C T I O N S ______________________________________________________
 
 
-uint32_t main_get_systime_ms( void ) {
-    return TICKS_IN_MS(main_gs.systicks);
+uint32_t main_get_waketime_ms( void ) {
+    return TICKS_IN_MS(main_gs.waketicks);
 }
-
 
 void main_terminate_in_error ( uint8_t error_code ) {
 

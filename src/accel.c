@@ -137,6 +137,9 @@
 
 #define MULTI_CLICK_WINDOW_MS 220
 
+#define Z_DOWN_THRESHOLD -16 //assumes 4g scale
+#define Z_DOWN_DUR_MS   150
+
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 
 //___ P R O T O T Y P E S   ( P R I V A T E ) ________________________________
@@ -145,6 +148,10 @@
 
 static bool enabled = false;
 static uint16_t i2c_addr = AX_ADDRESS0;
+
+bool accel_down = false;
+int32_t accel_down_start_ms = 0;
+
 static struct {
     uint32_t x,y,z;
 } last_click_time_ms;
@@ -351,7 +358,7 @@ static event_flags_t click_timeout_event_check( void ) {
   ///###FIXME -- duplicated code can be unified with macros
   //
   if (click_count.x &&
-      main_get_systime_ms() - last_click_time_ms.x > MULTI_CLICK_WINDOW_MS ) {
+      main_get_waketime_ms() - last_click_time_ms.x > MULTI_CLICK_WINDOW_MS ) {
 
     switch(click_count.x) {
         case 1:
@@ -371,7 +378,7 @@ static event_flags_t click_timeout_event_check( void ) {
   }
 
   if (click_count.y &&
-      main_get_systime_ms() - last_click_time_ms.y > MULTI_CLICK_WINDOW_MS ) {
+      main_get_waketime_ms() - last_click_time_ms.y > MULTI_CLICK_WINDOW_MS ) {
 
     switch(click_count.y) {
         case 1:
@@ -391,7 +398,7 @@ static event_flags_t click_timeout_event_check( void ) {
   }
 
   if (click_count.z &&
-      main_get_systime_ms() - last_click_time_ms.z > MULTI_CLICK_WINDOW_MS ) {
+      main_get_waketime_ms() - last_click_time_ms.z > MULTI_CLICK_WINDOW_MS ) {
 
     switch(click_count.z) {
         case 1:
@@ -444,12 +451,28 @@ void accel_sleep ( void ) {
 
 event_flags_t accel_event_flags( void ) {
   event_flags_t ev_flags = EV_FLAG_NONE;
+  int16_t x,y,z;
   static bool int_state = false;//keep track of prev interrupt state
 #ifdef NO_ACCEL
     return ev_flags;
 #endif
 
   ev_flags |= click_timeout_event_check();
+
+  /* Check for Z UP/DOWN event */
+  accel_data_read(&x, &y, &z);
+  if (z <= Z_DOWN_THRESHOLD && !accel_down) {
+      accel_down = true;
+      accel_down_start_ms = main_get_waketime_ms();
+  } else if (z > Z_DOWN_THRESHOLD && accel_down) {
+      accel_down = false;
+      if (main_get_waketime_ms() - accel_down_start_ms > Z_DOWN_DUR_MS) {
+          /* If the z axis has been pointing down for a long enough duration
+            * and we are now returing above the threshold, then
+            * a DOWN_UP event has occured (will sleep the device usually ) */
+          return EV_FLAG_ACCEL_DOWN_UP;
+      }
+  }
 
   if (port_pin_get_input_level(AX_INT1_PIN)) {
     uint8_t aoi_flags;
@@ -474,17 +497,17 @@ event_flags_t accel_event_flags( void ) {
 #endif
     if (click_flags.sclick) {
       if (click_flags.x) {
-          last_click_time_ms.x = main_get_systime_ms();
+          last_click_time_ms.x = main_get_waketime_ms();
           click_count.x++;
       }
 
       if (click_flags.y) {
-          last_click_time_ms.y = main_get_systime_ms();
+          last_click_time_ms.y = main_get_waketime_ms();
           click_count.y++;
       }
 
       if (click_flags.z) {
-          last_click_time_ms.z = main_get_systime_ms();
+          last_click_time_ms.z = main_get_waketime_ms();
           click_count.z++;
       }
 
