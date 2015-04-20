@@ -368,17 +368,12 @@ static void main_tic( void ) {
 
 sleep:
                 accel_sleep();
-                system_sleep();
+
                 /* we will stay in standby mode now until an interrupt wakes us
                 * from sleep (and we continue from this point) */
-
-                /* Enable the acceleromter and check that we
-                 * should fully wakeup or go back to sleep */
-                accel_enable();
-
-                if (!accel_wakeup_check()) {
-                    goto sleep;
-                }
+                do {
+                    system_sleep();
+                } while(!accel_wakeup_check());
 
                 wakeup();
 
@@ -420,7 +415,7 @@ sleep:
                     main_gs.inactivity_ticks > \
                     control_mode_active->sleep_timeout_ticks ||
 
-                    (event_flags & EV_FLAG_ACCEL_DOWN_UP &&
+                    (event_flags & EV_FLAG_ACCEL_Z_LOW &&
                      main_get_waketime_ms() > 500)
 
                     ) {

@@ -137,8 +137,21 @@
 
 #define MULTI_CLICK_WINDOW_MS 220
 
-#define Z_DOWN_THRESHOLD -16 //assumes 4g scale
-#define Z_DOWN_DUR_MS   150
+#define Z_DOWN_THRESHOLD        8 //assumes 4g scale
+#define Z_DOWN_DUR_MS           100
+
+#define Z_DOWN_THRESHOLD_ABS    (Z_DOWN_THRESHOLD < 0 ? -Z_DOWN_THRESHOLD : Z_DOWN_THRESHOLD)
+#define Z_DOWN_DUR_ODR          MS_TO_ODRS(Z_DOWN_DUR_MS, SLEEP_SAMPLE_INT)
+
+/* Y_DOWN */
+#define Y_DOWN_THRESHOLD        -18 //assumes 4g scale
+#define Y_DOWN_DUR_MS           150
+
+#define Y_DOWN_THRESHOLD_ABS    (Y_DOWN_THRESHOLD < 0 ? -Y_DOWN_THRESHOLD : Y_DOWN_THRESHOLD)
+#define Y_DOWN_DUR_ODR          MS_TO_ODRS(Y_DOWN_DUR_MS, SLEEP_SAMPLE_INT)
+
+#define Z_UP_THRESHOLD          18
+#define Z_UP_DUR_ODR            MS_TO_ODRS(200, SLEEP_SAMPLE_INT)
 
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 
@@ -146,7 +159,6 @@
 
 //___ V A R I A B L E S ______________________________________________________
 
-static bool enabled = false;
 static uint16_t i2c_addr = AX_ADDRESS0;
 
 bool accel_down = false;
@@ -161,6 +173,7 @@ static struct {
 } click_count;
 
 struct i2c_master_module i2c_master_instance;
+
 static union {
   struct {
     uint8_t x:1;
@@ -176,9 +189,25 @@ static union {
   uint8_t b8;
 } click_flags;
 
+static union {
+  struct {
+    uint8_t xl:1;
+    uint8_t xh:1;
+    uint8_t yl:1;
+    uint8_t yh:1;
+    uint8_t zl:1;
+    uint8_t zh:1;
+    uint8_t ia:1;
+    uint8_t unused:1;
+  };
 
+  uint8_t b8;
+} int_flags;
+static enum {SLEEP_START, WAIT_FOR_DOWN, WAIT_FOR_UP, WAKE} wake_gesture_state;
 
 //___ I N T E R R U P T S  ___________________________________________________
+
+static void accel_isr(void);
 
 //___ F U N C T I O N S   ( P R I V A T E ) __________________________________
 
@@ -190,7 +219,8 @@ static void configure_i2c(void);
    */
 
 
-static bool accel_register_consecutive_read (uint8_t start_reg, uint8_t count, uint8_t *data_ptr);
+static bool accel_register_consecutive_read (uint8_t start_reg,
+    uint8_t count, uint8_t *data_ptr);
   /* @brief reads a series of data from consecutive registers from the
    * accelerometer
    * @param start_reg - address of first register to read
@@ -199,7 +229,14 @@ static bool accel_register_consecutive_read (uint8_t start_reg, uint8_t count, u
    * @retrn true on success, false on failure
    */
 
-    //___ F U N C T I O N S ______________________________________________________
+static bool accel_register_write (uint8_t reg, uint8_t val);
+
+/* Configuration functions for wakeup gesture recognition */
+static void sleep_start_conf( void );
+static void wait_for_down_conf( void );
+static void wait_for_up_conf( void );
+
+//___ F U N C T I O N S ______________________________________________________
 
 
 static void configure_interrupt ( void ) {
@@ -243,6 +280,27 @@ static void configure_i2c(void)
     i2c_master_enable(&i2c_master_instance);
 }
 
+
+static void sleep_start_conf( void ) {
+
+}
+
+static void wait_for_up_conf( void ) {
+  /* Configure interrupt to detect orientaiton up (Z HIGH) */
+  accel_register_write (AX_REG_INT1_CFG, AOI_POS | ZHIE);
+  accel_register_write (AX_REG_INT1_THS, Z_UP_THRESHOLD);
+  accel_register_write (AX_REG_INT1_DUR, Z_UP_DUR_ODR);
+  wake_gesture_state = WAIT_FOR_UP;
+
+}
+
+static void wait_for_down_conf( void ) {
+  /* Configure interrupt to detect orientaiton down (Y HIGH) */
+  accel_register_write (AX_REG_INT1_CFG, AOI_POS | YLIE);
+  accel_register_write (AX_REG_INT1_THS, Y_DOWN_THRESHOLD_ABS);
+  accel_register_write (AX_REG_INT1_DUR, Y_DOWN_DUR_ODR);
+  wake_gesture_state = WAIT_FOR_DOWN;
+}
 
 static bool accel_register_consecutive_read (uint8_t start_reg, uint8_t count, uint8_t *data_ptr){
 
@@ -290,6 +348,28 @@ static bool accel_register_write (uint8_t reg, uint8_t val) {
 
 }
 
+static void accel_isr(void) {
+
+  //accel_register_consecutive_read(AX_REG_CLICK_SRC, 1, &click_flags.b8);
+  accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &int_flags.b8);
+
+  if (!int_flags.ia) return; //this isr is only for AOI orientiation events
+
+  if (wake_gesture_state == WAIT_FOR_DOWN) {
+    if (int_flags.yl) {
+      wait_for_up_conf();
+    }
+  } else if (wake_gesture_state == WAIT_FOR_UP) {
+    if (int_flags.zh) {
+      wake_gesture_state = WAKE;
+      /* Disable AOI INT1 interrupt (leave CLICK enabled) */
+      accel_register_write (AX_REG_CTL3,  I1_CLICK_EN);
+    }
+  }
+
+  extint_chan_clear_detected(AX_INT1_CHAN);
+}
+
 bool accel_data_read (int16_t *x_ptr, int16_t *y_ptr, int16_t *z_ptr) {
     uint8_t reg_data[6] = {0};
     /* Read the 6 8-bit registers starting with lower 8-bits of X value */
@@ -308,7 +388,16 @@ bool accel_data_read (int16_t *x_ptr, int16_t *y_ptr, int16_t *z_ptr) {
 }
 
 bool accel_wakeup_check( void ) {
-  return true;
+
+  //if (extint_chan_is_detected(AX_INT1_CHAN)) {
+  //  accel_isr();
+  //}
+  int16_t x,y,z = 0;
+  accel_data_read(&x, &y, &z);
+
+  if (z >= Z_UP_THRESHOLD) return true;
+
+  return false;
 }
 void accel_enable ( void ) {
   //i2c_master_enable(&i2c_master_instance);
@@ -332,9 +421,8 @@ void accel_enable ( void ) {
   /* Enable High Pass filter for Clicks */
   accel_register_write (AX_REG_CTL2, HPCLICK | HPCF);
 
-    /* Latch interrupts */
-    //if (!accel_register_write (AX_REG_CTL5, LIR_INT1))
-    //    main_terminate_in_error(ERROR_ACCEL_WRITE_ENABLE);
+  /* Latch interrupts */
+ // accel_register_write (AX_REG_CTL5, LIR_INT1);
 
 //    /* Disable sleep activity threshold and duration */
 //    if (!accel_register_write (AX_REG_ACT_THS, 0x00))
@@ -345,9 +433,9 @@ void accel_enable ( void ) {
 
 
   /* Callback enable is only active when sleeping */
+  extint_unregister_callback(accel_isr, AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
   extint_chan_disable_callback(AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
 
-  enabled = true;
 }
 
 static event_flags_t click_timeout_event_check( void ) {
@@ -431,11 +519,12 @@ void accel_sleep ( void ) {
 
   //accel_register_write (AX_REG_CTL4, FS_2G); //REMOVEME
   accel_register_write (AX_REG_CTL1, SLEEP_ODR | LOW_PWR_EN |  X_EN | Y_EN | Z_EN);
-  accel_register_write (AX_REG_CTL3,  I1_CLICK_EN );// | I1_AOI1_EN );
-  accel_register_write (AX_REG_INT1_CFG, 0x80 | XLIE | YLIE);
-  accel_register_write (AX_REG_INT1_THS, 12);
-  accel_register_write (AX_REG_INT1_DUR, 10);
+  accel_register_write (AX_REG_CTL3,  I1_CLICK_EN | I1_AOI1_EN );
 
+  /* Configure interrupt to detect orientaiton down (Y HIGH) */
+  wait_for_down_conf();
+
+  /* Configure click parameters */
   accel_register_write (AX_REG_TIME_WIN, WAKEUP_CLICK_TIME_WIN);
   accel_register_write (AX_REG_TIME_LIM, WAKEUP_CLICK_TIME_LIM);
   accel_register_write (AX_REG_TIME_LAT, WAKEUP_CLICK_TIME_LAT);
@@ -445,13 +534,14 @@ void accel_sleep ( void ) {
    * it, set it high so power doesnt get wasted */
   port_pin_set_output_level(AX_SDA_PIN, true);
 
+  extint_register_callback(accel_isr, AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
   extint_chan_enable_callback(AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
-  enabled = false;
+
 }
 
 event_flags_t accel_event_flags( void ) {
   event_flags_t ev_flags = EV_FLAG_NONE;
-  int16_t x,y,z;
+  int16_t x = 0, y = 0, z = 0;
   static bool int_state = false;//keep track of prev interrupt state
 #ifdef NO_ACCEL
     return ev_flags;
@@ -459,19 +549,22 @@ event_flags_t accel_event_flags( void ) {
 
   ev_flags |= click_timeout_event_check();
 
-  /* Check for Z UP/DOWN event */
+  /* Check for Z Low event
+   * A z low event occurs when the device is not flat (z-high) for a
+   * ceratin period of time
+   */
+
   accel_data_read(&x, &y, &z);
-  if (z <= Z_DOWN_THRESHOLD && !accel_down) {
+  if (z <= Z_DOWN_THRESHOLD) {
+    if (!accel_down) {
       accel_down = true;
       accel_down_start_ms = main_get_waketime_ms();
-  } else if (z > Z_DOWN_THRESHOLD && accel_down) {
-      accel_down = false;
-      if (main_get_waketime_ms() - accel_down_start_ms > Z_DOWN_DUR_MS) {
-          /* If the z axis has been pointing down for a long enough duration
-            * and we are now returing above the threshold, then
-            * a DOWN_UP event has occured (will sleep the device usually ) */
-          return EV_FLAG_ACCEL_DOWN_UP;
-      }
+    } else if (main_get_waketime_ms() - accel_down_start_ms > Z_DOWN_DUR_MS) {
+      /* Check for accel low-z timeout */
+      return EV_FLAG_ACCEL_Z_LOW;
+    }
+  } else {
+    accel_down = false;
   }
 
   if (port_pin_get_input_level(AX_INT1_PIN)) {

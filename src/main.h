@@ -29,7 +29,8 @@
 #define EV_FLAG_ACCEL_QCLICK_Y          (1 << 14)
 #define EV_FLAG_ACCEL_QCLICK_Z          (1 << 15)
 #define EV_FLAG_ACCEL_DOWN_UP           (1 << 16)
-#define EV_FLAG_SLEEP                   (1 << 17)
+#define EV_FLAG_ACCEL_Z_LOW             (1 << 17)
+#define EV_FLAG_SLEEP                   (1 << 18)
 
 /* Error Codes */
 #define ERROR_NONE                      0
