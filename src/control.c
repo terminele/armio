@@ -12,7 +12,7 @@
 #include "utils.h"
 
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
-#define CLOCK_MODE_SLEEP_TIMEOUT_TICKS     MS_IN_TICKS(7000)
+#define CLOCK_MODE_SLEEP_TIMEOUT_TICKS     MS_IN_TICKS(6000)
 #define DEFAULT_MODE_TRANS_CHK(ev_flags) \
         (   ev_flags & EV_FLAG_LONG_BTN_PRESS || \
             ev_flags & EV_FLAG_ACCEL_DCLICK_X || \
@@ -23,7 +23,7 @@
 #define HOUR_POS(hour) ((hour % 12) * 5)
 
 /* Time it should take for hour animation to complete */
-#define HOUR_ANIM_DUR_MS    500
+#define HOUR_ANIM_DUR_MS    300
 
 /* Ticks run slow during edit mode (due to
  * accelerometer and floating point calcs) so
@@ -277,12 +277,20 @@ bool accel_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     int16_t x,y,z;
     static uint32_t last_update_ms = 0;
 #ifdef LOG_ACCEL
-    static uint8_t click_cnt = 0;
     uint32_t log_data;
 #endif
 
-    if (last_update_ms == 0) {
-        //accel_disable_interrupt();
+    if (event_flags & EV_FLAG_ACCEL_DCLICK_X || event_flags & EV_FLAG_SLEEP) {
+        display_comp_hide_all();
+        display_comp_release(disp_x);
+        display_comp_release(disp_y);
+        display_comp_release(disp_z);
+        disp_x = disp_y = disp_z = NULL;
+        if (anim_ptr) {
+            anim_release(anim_ptr);
+            anim_ptr = NULL;
+        }
+        return true;
     }
 
     if (main_get_waketime_ms() - last_update_ms < 10) {
@@ -322,18 +330,6 @@ bool accel_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     main_log_data((uint8_t *)&log_data, sizeof(log_data), false);
 #endif
 
-    if (event_flags & EV_FLAG_ACCEL_DCLICK_X || event_flags & EV_FLAG_SLEEP) {
-        display_comp_hide_all();
-        display_comp_release(disp_x);
-        display_comp_release(disp_y);
-        display_comp_release(disp_z);
-        disp_x = disp_y = disp_z = NULL;
-        if (anim_ptr) {
-            anim_release(anim_ptr);
-            anim_ptr = NULL;
-        }
-        return true;
-    }
 
     /* Scale values  */
     x >>= 3;

@@ -127,8 +127,8 @@
 
 
 
-#define SLEEP_ODR          ODR_100HZ
-#define SLEEP_SAMPLE_INT   SAMPLE_INT_100HZ
+#define SLEEP_ODR          ODR_50HZ
+#define SLEEP_SAMPLE_INT   SAMPLE_INT_50HZ
 
 #define WAKEUP_CLICK_THS     46 //assumes 4g scale
 #define WAKEUP_CLICK_TIME_WIN      MS_TO_ODRS(200, SLEEP_SAMPLE_INT)
