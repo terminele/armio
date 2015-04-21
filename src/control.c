@@ -12,7 +12,9 @@
 #include "utils.h"
 
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
-#define CLOCK_MODE_SLEEP_TIMEOUT_TICKS     MS_IN_TICKS(6000)
+#define CLOCK_MODE_SLEEP_TIMEOUT_TICKS                  MS_IN_TICKS(6000)
+#define TIME_SET_MODE_EDITING_SLEEP_TIMEOUT_TICKS       MS_IN_TICKS(80000)
+#define TIME_SET_MODE_NOEDIT_SLEEP_TIMEOUT_TICKS        MS_IN_TICKS(8000)
 #define DEFAULT_MODE_TRANS_CHK(ev_flags) \
         (   ev_flags & EV_FLAG_LONG_BTN_PRESS || \
             ev_flags & EV_FLAG_ACCEL_DCLICK_X || \
@@ -28,7 +30,8 @@
 /* Ticks run slow during edit mode (due to
  * accelerometer and floating point calcs) so
  * estimate a good tick timeout count */
-#define EDIT_FINISH_TIMEOUT_TICKS MS_IN_TICKS(2000)
+#define EDIT_FINISH_TIMEOUT_TICKS   MS_IN_TICKS(1500)
+
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 
 //___ P R O T O T Y P E S   ( P R I V A T E ) ________________________________
@@ -81,7 +84,7 @@ bool event_debug_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt );
    * @retrn true on finish
    */
 
-bool anim_demo_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt );
+bool ee_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt );
   /* @brief animation demo mode tic
    * @param event flags
    * @retrn true on finish
@@ -99,76 +102,22 @@ control_mode_t control_modes[] = {
         .about_to_sleep_cb = NULL,
         .wakeup_cb = NULL,
     },
-#if ANIM_DEMO_MODE
-    {
-        .enter_cb = NULL,
-        .tic_cb = anim_demo_mode_tic,
-        .sleep_timeout_ticks = MS_IN_TICKS(30000),
-        .about_to_sleep_cb = NULL,
-        .wakeup_cb = NULL,
-    },
-#endif
-#if PHOTO_DEBUG
-    {
-        .enter_cb = NULL,
-        .tic_cb = light_sense_mode_tic,
-        .sleep_timeout_ticks = MS_IN_TICKS(5000),
-        .about_to_sleep_cb = NULL,
-        .wakeup_cb = NULL,
-    },
-#endif
-    {
-        .enter_cb = NULL,
-        .tic_cb = accel_point_mode_tic,
-        .sleep_timeout_ticks = MS_IN_TICKS(30000),
-        .about_to_sleep_cb = NULL,
-        .wakeup_cb = NULL,
-    },
-#if VBATT_MODE
-    {
-        .enter_cb = NULL,
-        .tic_cb = vbatt_sense_mode_tic,
-        .sleep_timeout_ticks = MS_IN_TICKS(5000),
-        .about_to_sleep_cb = NULL,
-        .wakeup_cb = NULL,
-    },
-#endif
     {
         .enter_cb = NULL,
         .tic_cb = time_set_mode_tic,
-        .sleep_timeout_ticks = MS_IN_TICKS(30000),
+        .sleep_timeout_ticks = TIME_SET_MODE_EDITING_SLEEP_TIMEOUT_TICKS,
         .about_to_sleep_cb = NULL,
         .wakeup_cb = NULL,
     },
-#if ACCEL_DEBUG
     {
         .enter_cb = NULL,
-        .tic_cb = accel_mode_tic,
-        .sleep_timeout_ticks = MS_IN_TICKS(120000),
+        .tic_cb = ee_mode_tic,
+        .sleep_timeout_ticks = MS_IN_TICKS(8000),
         .about_to_sleep_cb = NULL,
         .wakeup_cb = NULL,
-    },
-#endif
-#ifdef EVENT_DEBUG_MODE
-    {
-        .enter_cb = NULL,
-        .tic_cb = event_debug_mode_tic,
-        .sleep_timeout_ticks = MS_IN_TICKS(20000),
-        .about_to_sleep_cb = NULL,
-        .wakeup_cb = NULL,
-    },
-#endif
-#if TICK_DEBUG
-    {
-        .enter_cb = NULL,
-        .tic_cb = tick_counter_mode_tic,
-        .sleep_timeout_ticks = MS_IN_TICKS(60000),
-        .about_to_sleep_cb = NULL,
-        .wakeup_cb = NULL,
-    },
-#endif
-
+    }
 };
+
 
 //___ I N T E R R U P T S  ___________________________________________________
 
@@ -206,7 +155,7 @@ bool event_debug_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     return false;
 }
 
-bool anim_demo_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
+bool ee_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
 
     static display_comp_t* display_comp = NULL;
     static animation_t *anim = NULL;
@@ -448,7 +397,8 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
 
 
     if (event_flags & EV_FLAG_LONG_BTN_PRESS ||
-        event_flags & EV_FLAG_ACCEL_TCLICK_X ||
+        event_flags & EV_FLAG_ACCEL_QCLICK_X ||
+        event_flags & EV_FLAG_ACCEL_NCLICK_X ||
         event_flags & EV_FLAG_SLEEP) {
 
         anim_stop(anim_ptr);
@@ -543,7 +493,11 @@ bool time_set_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     static animation_t *blink_ptr = NULL;
 
 
-    if (!is_editing && DEFAULT_MODE_TRANS_CHK(event_flags)){
+
+    if ( event_flags & EV_FLAG_SLEEP ||
+         event_flags & EV_FLAG_ACCEL_DCLICK_X ||
+         (!is_editing && tick_cnt > TIME_SET_MODE_NOEDIT_SLEEP_TIMEOUT_TICKS )) {
+end_mode:
         if (min_disp_ptr) {
             display_comp_release(min_disp_ptr);
             display_comp_release(hour_disp_ptr);
@@ -553,6 +507,7 @@ bool time_set_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
             anim_release(blink_ptr);
             blink_ptr = NULL;
         }
+        is_editing = false;
         utils_spin_tracker_end();
         return true; //transition
     }
@@ -562,14 +517,14 @@ bool time_set_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     if (!min_disp_ptr) {
         /* Get latest time */
         aclock_get_time(&hour, &minute, &second /*DONT CARE */);
-        min_disp_ptr = display_point(minute, BRIGHT_DEFAULT);
         hour_disp_ptr = display_point(HOUR_POS(hour), MAX_BRIGHT_VAL);
+        min_disp_ptr = display_point(minute, BRIGHT_DEFAULT);
     }
 
     if (!is_editing && !blink_ptr) {
-        /* Enter edit mode on btn bress or z-axis double-click */
+        /* Enter edit mode on btn bress or x-axis click */
         if (event_flags & EV_FLAG_SINGLE_BTN_PRESS_END ||
-            event_flags & EV_FLAG_ACCEL_SCLICK_Z) {
+            event_flags & EV_FLAG_ACCEL_SCLICK_X) {
                 blink_ptr = anim_blink(min_disp_ptr, BLINK_INT_FAST,
                         MS_IN_TICKS(1200), false);
         }
@@ -590,6 +545,7 @@ bool time_set_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
                 /* Exiting edit mode  Set updated time */
                 is_editing = false;
                 aclock_set_time(hour, minute, 0);
+                goto end_mode;
             }
         }
         return false; //nothing should be done during animations
@@ -691,7 +647,7 @@ bool tick_counter_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
 
 void control_mode_next( void )  {
     if ((unsigned int)(control_mode_active - control_modes) >= \
-            sizeof(control_modes)/sizeof(control_modes[0]) - 1) {
+            sizeof(control_modes)/sizeof(control_modes[0]) - 2) {
         control_mode_active = control_modes;
     } else {
         control_mode_active++;
@@ -709,9 +665,9 @@ uint8_t control_mode_index( control_mode_t* mode_ptr ) {
 
 
 uint8_t control_mode_count( void ) {
-    return sizeof(control_modes)/sizeof(control_modes[0]);
+    /* # of control modes (not including easter egg mode since its hidden) */
+    return sizeof(control_modes)/sizeof(control_modes[0]) - 1;
 }
-
 
 void control_init( void ) {
 

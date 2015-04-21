@@ -50,7 +50,9 @@ typedef struct {
 } control_mode_t;
 
 /* Main control mode index (i.e. time display control mode ) */
-#define CONTROL_MODE_MAIN 0
+#define CONTROL_MODE_MAIN       0
+#define CONTROL_MODE_SET_TIME   1
+#define CONTROL_MODE_EE         2
 
 //___ V A R I A B L E S ______________________________________________________
 

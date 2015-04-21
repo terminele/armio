@@ -8,6 +8,7 @@
 //___ I N C L U D E S ________________________________________________________
 #include <asf.h>
 #include "aclock.h"
+#include "main.h"
 
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
 
@@ -220,7 +221,7 @@ void aclock_init( void ) {
 
     rtc_calendar_enable(&rtc_instance);
 
-    rtc_calendar_frequency_correction(&rtc_instance, -9);//FIXME
+    rtc_calendar_frequency_correction(&rtc_instance, main_nvm_conf_data.rtc_freq_corr);
     rtc_calendar_set_time(&rtc_instance, &initial_time);
 
     /* Register sync ready callback */

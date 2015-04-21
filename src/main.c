@@ -45,8 +45,11 @@
 
 /* Starting flash address at which to store data */
 #define NVM_ADDR_START      ((1 << 15) + (1 << 14)) /* assumes program size < 48KB */
+#define NVM_CONF_ADDR       NVM_ADDR_START
+#define NVM_CONF_STORE_SIZE (64)
+#define NVM_LOG_ADDR_START  (NVM_ADDR_START + NVM_CONF_STORE_SIZE)
 #define NVM_LOG_DATA_SIZE   (1 << 16)/* 64 KB */
-#define NVM_ADDR_MAX        (NVM_ADDR_START + NVM_LOG_DATA_SIZE)
+#define NVM_LOG_ADDR_MAX        (NVM_LOG_ADDR_START + NVM_LOG_DATA_SIZE)
 
 
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
@@ -154,10 +157,12 @@ static animation_t *mode_trans_blink;
 static display_comp_t *mode_disp_point;
 
 static struct adc_module light_vbatt_sens_adc;
+nvm_conf_t main_nvm_conf_data;
 
-static uint32_t nvm_row_addr = NVM_ADDR_START;
+static uint32_t nvm_row_addr = NVM_LOG_ADDR_START;
 static uint8_t nvm_row_buffer[NVMCTRL_ROW_SIZE];
 static uint16_t nvm_row_ind;
+
 
 //___ F U N C T I O N S   ( P R I V A T E ) __________________________________
 
@@ -366,7 +371,6 @@ static void main_tic( void ) {
                 control_mode_select(CONTROL_MODE_MAIN);
                 prepare_sleep();
 
-sleep:
                 accel_sleep();
 
                 /* we will stay in standby mode now until an interrupt wakes us
@@ -436,23 +440,27 @@ sleep:
 
             /* Call mode's main tic loop/event handler */
             if (control_mode_active->tic_cb(event_flags, main_gs.modeticks++)){
-                /* begin transition to next mode */
-                main_gs.state = MODE_TRANSITION;
-                main_gs.modeticks = 0;
-                main_gs.button_hold_ticks = 0;
-                /* animate slow snake from current mode to next. */
-                if (control_mode_index(control_mode_active) == control_mode_count() - 1) {
-                    /* Control modes have looped around. calculate swirl params
-                     * to account for this */
-                    uint8_t mode_gap = 12 - control_mode_count();
-                    uint8_t distance = 5 * mode_gap;
-                    mode_trans_swirl = anim_swirl(
-                        5*control_mode_index(control_mode_active),
-                        4, MS_IN_TICKS(5 + 40/mode_gap), distance, true);
+                if (event_flags & EV_FLAG_ACCEL_NCLICK_X) {
+                    /* Enter easter egg mode */
+                    main_gs.modeticks = 0;
+                    main_gs.button_hold_ticks = 0;
+                    control_mode_select(CONTROL_MODE_EE);
                 } else {
+
+                    /* begin transition to next regular control mode */
+                    main_gs.state = MODE_TRANSITION;
+                    main_gs.modeticks = 0;
+                    main_gs.button_hold_ticks = 0;
+                    main_gs.inactivity_ticks = 0;
+
+                    /* animate slow snake from current mode to next. */
+                    uint8_t mode_gap = 60/control_mode_count();
+                    uint8_t tail_len = 4;
                     mode_trans_swirl = anim_swirl(
-                        5*control_mode_index(control_mode_active),
-                        4, MS_IN_TICKS(40), 5, true);
+                        mode_gap*control_mode_index(control_mode_active),
+                        tail_len, MS_IN_TICKS(5 + 40/control_mode_count()),
+                        mode_gap - tail_len, true);
+
                 }
             }
 
@@ -464,8 +472,9 @@ sleep:
                     anim_release(mode_trans_swirl);
                     mode_trans_swirl = NULL;
                     control_mode_next();
+                    uint8_t mode_gap = 60/control_mode_count();
                     mode_disp_point = display_point(
-                                5*(control_mode_index(control_mode_active)) % 60,
+                                mode_gap*(control_mode_index(control_mode_active)) % 60,
                                 BRIGHT_DEFAULT);
                     mode_trans_blink = anim_blink(mode_disp_point,
                             BLINK_INT_MED, MS_IN_TICKS(800), false);
@@ -518,7 +527,7 @@ static void main_init( void ) {
     /* Set row address to first open space by
      * iterating through log data until an
      * empty (4 bytes of 1s) row is found */
-    while (nvm_row_addr < NVM_ADDR_MAX) {
+    while (nvm_row_addr < NVM_LOG_ADDR_MAX) {
 
         nvm_read_buffer(nvm_row_addr, (uint8_t *) &data, sizeof(data));
         if (data == 0xffffffff)
@@ -527,6 +536,9 @@ static void main_init( void ) {
         nvm_row_addr+=NVMCTRL_ROW_SIZE;
     }
 
+    /* Read configuration data stored in nvm */
+    nvm_read_buffer(NVM_CONF_ADDR, (uint8_t *) &main_nvm_conf_data,
+            sizeof(nvm_conf_t));
 }
 
 //___ F U N C T I O N S ______________________________________________________
@@ -583,15 +595,16 @@ void main_log_data( uint8_t *data, uint16_t length, bool flush) {
             nvm_row_ind = 0;
             nvm_row_addr+=NVMCTRL_ROW_SIZE;
 
-            if (nvm_row_addr >= NVM_ADDR_MAX)  {
+            if (nvm_row_addr >= NVM_LOG_ADDR_MAX)  {
                 /* rollover to beginning of storage buffer */
-                nvm_row_addr = NVM_ADDR_START;
+                nvm_row_addr = NVM_LOG_ADDR_START;
             }
         }
 
     }
 
 }
+
 
 void main_start_sensor_read ( void ) {
 

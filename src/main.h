@@ -24,10 +24,10 @@
 #define EV_FLAG_ACCEL_DCLICK_Z          (1 << 9)
 #define EV_FLAG_ACCEL_TCLICK_X          (1 << 10)
 #define EV_FLAG_ACCEL_TCLICK_Y          (1 << 11)
-#define EV_FLAG_ACCEL_TCLICK_Z          (1 << 12)
-#define EV_FLAG_ACCEL_QCLICK_X          (1 << 13)
-#define EV_FLAG_ACCEL_QCLICK_Y          (1 << 14)
-#define EV_FLAG_ACCEL_QCLICK_Z          (1 << 15)
+#define EV_FLAG_ACCEL_QCLICK_X          (1 << 12)
+#define EV_FLAG_ACCEL_QCLICK_Y          (1 << 13)
+#define EV_FLAG_ACCEL_5CLICK_X          (1 << 14)
+#define EV_FLAG_ACCEL_NCLICK_X          (1 << 15)
 #define EV_FLAG_ACCEL_DOWN_UP           (1 << 16)
 #define EV_FLAG_ACCEL_Z_LOW             (1 << 17)
 #define EV_FLAG_SLEEP                   (1 << 18)
@@ -60,7 +60,12 @@ typedef enum sensor_type_t {
     sensor_light,
 } sensor_type_t;
 
+typedef struct {
+    /* RTC Frequency Correction value in ppm */
+    int8_t rtc_freq_corr;
+} nvm_conf_t;
 //___ V A R I A B L E S ______________________________________________________
+extern nvm_conf_t main_nvm_conf_data;
 
 //___ P R O T O T Y P E S ____________________________________________________
 void main_terminate_in_error( uint8_t error_code);

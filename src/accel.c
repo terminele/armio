@@ -461,6 +461,12 @@ static event_flags_t click_timeout_event_check( void ) {
         case 4:
           ev_flags |= EV_FLAG_ACCEL_QCLICK_X;
           break;
+        case 5:
+          ev_flags |= EV_FLAG_ACCEL_5CLICK_X;
+          break;
+        default:
+          ev_flags |= EV_FLAG_ACCEL_NCLICK_X;
+          break;
     }
     click_count.x = 0;
   }
@@ -494,12 +500,6 @@ static event_flags_t click_timeout_event_check( void ) {
           break;
         case 2:
           ev_flags |= EV_FLAG_ACCEL_DCLICK_Z;
-          break;
-        case 3:
-          ev_flags |= EV_FLAG_ACCEL_TCLICK_Z;
-          break;
-        case 4:
-          ev_flags |= EV_FLAG_ACCEL_QCLICK_Z;
           break;
     }
     click_count.z = 0;
