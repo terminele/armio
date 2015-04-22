@@ -16,6 +16,8 @@
 
 /* FIXME -- only tic_cb is used for right now */
 
+typedef bool (*tic_fun_t)(event_flags_t event_flags, uint32_t tick_cnt);
+
 typedef struct {
 
     /* Intialization routine for the control mode
@@ -29,7 +31,7 @@ typedef struct {
      * any updates or respond to events.  Returns true
      * when it is finished (i.e. main module should transition
      * to next control mode) */
-    bool (*tic_cb)(event_flags_t event_flags, uint32_t tick_cnt);
+    tic_fun_t tic_cb;
 
     /* Number of ticks of inactivity that
      * can occur in this mode before we

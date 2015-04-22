@@ -16,6 +16,7 @@
 #define TIME_SET_MODE_EDITING_SLEEP_TIMEOUT_TICKS       MS_IN_TICKS(80000)
 #define TIME_SET_MODE_NOEDIT_SLEEP_TIMEOUT_TICKS        MS_IN_TICKS(8000)
 #define EE_RUN_TIMEOUT_TICKS                            MS_IN_TICKS(2000)
+#define EE_RUN_MIN_INTERTICK                            MS_IN_TICKS(100)
 #define DEFAULT_MODE_TRANS_CHK(ev_flags) \
         (   ev_flags & EV_FLAG_LONG_BTN_PRESS || \
             ev_flags & EV_FLAG_ACCEL_DCLICK_X || \
@@ -162,9 +163,9 @@ bool ee_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     static uint32_t ee_code = 0;
     static uint32_t run_cnt = 0;
     static uint32_t last_ev_tick = 0;
-    static control_mode_t* ee_submode_tic = NULL;
+    static tic_fun_t ee_submode_tic = NULL;
 
-    if ( ev_flags & EV_FLAG_SLEEP ) {
+    if ( event_flags & EV_FLAG_SLEEP ) {
         if (anim) {
             anim_release(anim);
             anim = NULL;
@@ -175,51 +176,78 @@ bool ee_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
             display_comp = NULL;
         }
 
+        /* Give submode tic a chance to cleanup as well */
+        if (ee_submode_tic) ee_submode_tic(event_flags, tick_cnt);
+
         ee_code = 0;
         run_cnt = 0;
+        last_ev_tick = 0;
+        ee_submode_tic = NULL;
+
         return true;
     }
 
     if (tick_cnt == 0) {
-        /* Display sparkle pattern to indicate ee mode has been entered */
-        display_comp = display_point(0, BRIGHT_DEFAULT);
-        anim = anim_random(display_comp, MS_IN_TICKS(15), ANIMATION_DURATION_INF);
+        /* Display ee mode start animation */
+        display_comp = display_polygon(0, BRIGHT_DEFAULT, 3);
+        anim = anim_blink(display_comp, MS_IN_TICKS(400),
+                        ANIMATION_DURATION_INF, false);
         return false;
     }
 
-    if (tick_cnt - last_ev_tick < EE_RUN_TIMEOUT_TICKS) {
+    if (tick_cnt - last_ev_tick < EE_RUN_TIMEOUT_TICKS &&
+        tick_cnt - last_ev_tick > EE_RUN_MIN_INTERTICK) {
         switch (event_flags) {
             case EV_FLAG_ACCEL_SCLICK_X:
-                ee_code+=(1 << run_cnt);
+                ee_code+=(0x1 << 4*run_cnt);
                 run_cnt++;
+                last_ev_tick = tick_cnt;
                 break;
             case EV_FLAG_ACCEL_DCLICK_X:
-                ee_code+=(2 << run_cnt);
+                ee_code+=(0x2 << 4*run_cnt);
                 run_cnt++;
+                last_ev_tick = tick_cnt;
                 break;
             case EV_FLAG_ACCEL_TCLICK_X:
-                ee_code+=(3 << run_cnt);
+                ee_code+=(0x3 << 4*run_cnt);
                 run_cnt++;
+                last_ev_tick = tick_cnt;
                 break;
-            case EV_FLAG_ACCEL_TCLICK_X:
-                ee_code+=(4 << run_cnt);
+            case EV_FLAG_ACCEL_QCLICK_X:
+                ee_code+=(0x4 << 4*run_cnt);
                 run_cnt++;
+                last_ev_tick = tick_cnt;
+                break;
+            case EV_FLAG_ACCEL_5CLICK_X:
+                ee_code+=(0x5 << 4*run_cnt);
+                run_cnt++;
+                last_ev_tick = tick_cnt;
+                break;
+            case EV_FLAG_ACCEL_NCLICK_X:
+                ee_code+=(0x6 << 4*run_cnt);
+                run_cnt++;
+                last_ev_tick = tick_cnt;
                 break;
             case EV_FLAG_ACCEL_SCLICK_Y:
-                ee_code+=(5 << run_cnt);
+                ee_code+=(0x7 << 4*run_cnt);
                 run_cnt++;
+                last_ev_tick = tick_cnt;
                 break;
             case EV_FLAG_ACCEL_DCLICK_Y:
-                ee_code+=(6 << run_cnt);
+                ee_code+=(0x8 << 4*run_cnt);
                 run_cnt++;
+                last_ev_tick = tick_cnt;
                 break;
             case EV_FLAG_ACCEL_TCLICK_Y:
-                ee_code+=(7 << run_cnt);
+                ee_code+=(0xA << 4*run_cnt);
                 run_cnt++;
+                last_ev_tick = tick_cnt;
                 break;
-            default:
-                ee_code = 0;
-                run_cnt = 0;
+            case EV_FLAG_ACCEL_QCLICK_Y:
+                ee_code+=(0xB << 4*run_cnt);
+                run_cnt++;
+                last_ev_tick = tick_cnt;
+                break;
 
         }
 
@@ -228,29 +256,78 @@ bool ee_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     }
 
     if (tick_cnt - last_ev_tick == EE_RUN_TIMEOUT_TICKS) {
-        /* End sparkle animation */
+        uint8_t pos = 0;
+        uint8_t blink_int = MS_IN_TICKS(800);
+        /* End ee mode start animation */
         display_comp_release(display_comp);
         display_comp = NULL;
         anim_release(anim);
         anim = NULL;
 
         /* Setup EE depending on code */
-        switch (ev_code) {
-            case 3:
+        switch (ee_code) {
+            case 0x5:
+                /* Display sparkle pattern to indicate ee mode has been entered */
+                display_comp = display_point(0, BRIGHT_DEFAULT);
+                anim = anim_random(display_comp, MS_IN_TICKS(15), ANIMATION_DURATION_INF);
+                break;
+            case 0x6:
                 display_comp = display_line(0, BRIGHT_DEFAULT, 5);
                 anim = anim_rotate(display_comp, true, MS_IN_TICKS(8), ANIMATION_DURATION_INF);
                 break;
-            case 5:
+            case 0x31:
+                display_comp = display_polygon(0, BRIGHT_DEFAULT, 3);
+                anim = anim_rotate(display_comp, true, MS_IN_TICKS(30), ANIMATION_DURATION_INF);
+                break;
+            case 0x41:
                 display_comp = display_polygon(0, BRIGHT_DEFAULT, 4);
                 anim = anim_rotate(display_comp, true, MS_IN_TICKS(50), ANIMATION_DURATION_INF);
+                break;
+            case 0x51:
+                display_comp = display_polygon(0, BRIGHT_DEFAULT, 5);
+                anim = anim_rotate(display_comp, false, MS_IN_TICKS(50), ANIMATION_DURATION_INF);
+                break;
+            case 0x61:
+                display_comp = display_polygon(0, BRIGHT_DEFAULT, 12);
+                anim = anim_rotate(display_comp, false, MS_IN_TICKS(50), ANIMATION_DURATION_INF);
+                break;
+            case 0x12:
+                ee_submode_tic = accel_point_mode_tic;
+                break;
+            case 0x22:
+                ee_submode_tic = light_sense_mode_tic;
+                break;
+            case 0x32:
+                ee_submode_tic = accel_mode_tic;
+                break;
+            case 0x42:
+                ee_submode_tic = light_sense_mode_tic;
+                break;
+            case 0x52:
+                if (main_nvm_conf_data.rtc_freq_corr >= 0) {
+                    pos = main_nvm_conf_data.rtc_freq_corr % 60;
+                    blink_int = MS_IN_TICKS(800);
+                } else {
 
+                    pos = (-1*main_nvm_conf_data.rtc_freq_corr) % 60;
+                    blink_int = MS_IN_TICKS(100);
+                }
+
+                display_comp = display_point(pos, BRIGHT_DEFAULT);
+                anim = anim_blink(display_comp, blink_int, ANIMATION_DURATION_INF,
+                        false);
+                break;
             default:
-                return true;
+                display_comp = display_point(ee_code % 60, BRIGHT_DEFAULT);
+                break;
+                //return true;
         }
+
+        ee_code = 0;
 
     }
 
-    if (ee_mode_ptr) {
+    if (ee_submode_tic) {
         return ee_submode_tic(event_flags, tick_cnt);
     }
 

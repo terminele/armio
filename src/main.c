@@ -440,10 +440,18 @@ static void main_tic( void ) {
 
             /* Call mode's main tic loop/event handler */
             if (control_mode_active->tic_cb(event_flags, main_gs.modeticks++)){
-                if (event_flags & EV_FLAG_ACCEL_NCLICK_X) {
+                if (control_mode_index(control_mode_active) == CONTROL_MODE_EE) {
+                    main_gs.modeticks = 0;
+                    main_gs.button_hold_ticks = 0;
+                    main_gs.inactivity_ticks = 0;
+                    control_mode_select(CONTROL_MODE_MAIN);
+
+                }
+                else if (event_flags & EV_FLAG_ACCEL_NCLICK_X) {
                     /* Enter easter egg mode */
                     main_gs.modeticks = 0;
                     main_gs.button_hold_ticks = 0;
+                    main_gs.inactivity_ticks = 0;
                     control_mode_select(CONTROL_MODE_EE);
                 } else {
 
