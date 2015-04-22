@@ -257,7 +257,7 @@ bool ee_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
 
     if (tick_cnt - last_ev_tick == EE_RUN_TIMEOUT_TICKS) {
         uint8_t pos = 0;
-        uint8_t blink_int = MS_IN_TICKS(800);
+        uint16_t blink_int = MS_IN_TICKS(800);
         /* End ee mode start animation */
         display_comp_release(display_comp);
         display_comp = NULL;

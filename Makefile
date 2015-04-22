@@ -445,6 +445,7 @@ $(target): $(MAKEFILE_PATH) config.mk $(obj-y)
 else
 ifeq ($(target_type),elf)
 # Link the object files into an ELF file. Also make sure the target is rebuilt
+#
 # if the common Makefile.sam.in or project config.mk is changed.
 $(target): $(linker_script) $(MAKEFILE_PATH) config.mk $(obj-y)
 	@echo $(MSG_LINKING)
@@ -504,6 +505,28 @@ dump_log:
 	-f $(OCD_PART_CFG) \
 	-c init -c "reset init" \
 	-c "dump_image data_log.image 0xc000 0x10000" \
+	-c "shutdown"
+
+.PHONY: write_conf_data
+ifndef conf_data
+    $(warning defaulting conf_data to 0x00)
+    conf_data = 0x00
+endif
+ifndef conf_data_byte_cnt
+    $(warning defaulting conf_data_byte_cnt to 1)
+    conf_data_byte_cnt = 1
+endif
+sector_len = 0x2000
+write_conf_data:
+	-openocd -f $(DEBUGGER_CFG) \
+	-f $(OCD_PART_CFG) \
+	-c init -c "reset init" \
+	-c "flash erase_address 0xc000 $(sector_len)" \
+	-c "shutdown"
+	openocd -f $(DEBUGGER_CFG) \
+	-f $(OCD_PART_CFG) \
+	-c init -c "reset init" \
+	-c "flash fillb 0xc000 $(conf_data) $(conf_data_byte_cnt)" \
 	-c "shutdown"
 
 # Build Doxygen generated documentation.

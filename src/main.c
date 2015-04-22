@@ -400,6 +400,7 @@ static void main_tic( void ) {
         case RUNNING:
             /* Check for inactivity timeout */
 #if ENABLE_LIGHT_SENSE
+#ifdef NOT_NOW
             if( control_mode_index(control_mode_active) == CONTROL_MODE_MAIN) {
                 /* we are in main time display mode */
                 main_set_current_sensor(sensor_light);
@@ -410,6 +411,7 @@ static void main_tic( void ) {
                     main_gs.inactivity_ticks = control_mode_active->sleep_timeout_ticks;
                 }
             }
+#endif
 #endif
             if (    /* SLEEP EVENT CHECKS */
                     /*((event_flags & EV_FLAG_ACCEL_SCLICK_X) &&
