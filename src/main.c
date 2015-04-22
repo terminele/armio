@@ -424,7 +424,7 @@ static void main_tic( void ) {
                     main_gs.inactivity_ticks > \
                     control_mode_active->sleep_timeout_ticks ||
 
-                    (event_flags & EV_FLAG_ACCEL_Z_LOW &&
+                    (IS_CONTROL_MODE_MAIN() && event_flags & EV_FLAG_ACCEL_Z_LOW &&
                      main_get_waketime_ms() > 500)
 
                     ) {

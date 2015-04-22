@@ -56,6 +56,9 @@ typedef struct {
 #define CONTROL_MODE_SET_TIME   1
 #define CONTROL_MODE_EE         2
 
+#define IS_CONTROL_MODE_MAIN() \
+    (control_mode_index(control_mode_active) == CONTROL_MODE_MAIN)
+
 //___ V A R I A B L E S ______________________________________________________
 
 extern control_mode_t *control_mode_active;

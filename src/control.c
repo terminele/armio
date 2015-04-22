@@ -268,8 +268,7 @@ bool ee_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
         return false;
     } else if (last_tic_delta == EE_RUN_TIMEOUT_TICKS) {
         uint16_t tick_interval = ee_code > 0 ? MS_IN_TICKS(10 + 200/ee_code) : 1;
-        uint32_t duration = ee_code < 1000 ? tick_interval*ee_code : MS_IN_TICKS(5000);
-        if (ee_code == 0) duration = 1;
+        uint32_t duration = ee_code < 120 && ee_code > 0 ? tick_interval*ee_code : 1;
 
         /* At end of event run detection. Start EE indicator animation */
         anim_release(anim);
