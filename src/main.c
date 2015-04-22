@@ -341,6 +341,8 @@ static event_flags_t button_event_flags ( void ) {
 }
 
 
+//___ F U N C T I O N S ______________________________________________________
+
 static void main_tic( void ) {
 
     event_flags_t event_flags = EV_FLAG_NONE;
@@ -552,11 +554,15 @@ static void main_init( void ) {
             sizeof(nvm_conf_t));
 }
 
-//___ F U N C T I O N S ______________________________________________________
 
 
 uint32_t main_get_waketime_ms( void ) {
     return TICKS_IN_MS(main_gs.waketicks);
+}
+
+void main_inactivity_timeout_reset( void ) {
+
+    main_gs.inactivity_ticks = 0;
 }
 
 void main_terminate_in_error ( uint8_t error_code ) {

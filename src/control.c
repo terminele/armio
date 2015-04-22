@@ -15,6 +15,7 @@
 #define CLOCK_MODE_SLEEP_TIMEOUT_TICKS                  MS_IN_TICKS(6000)
 #define TIME_SET_MODE_EDITING_SLEEP_TIMEOUT_TICKS       MS_IN_TICKS(80000)
 #define TIME_SET_MODE_NOEDIT_SLEEP_TIMEOUT_TICKS        MS_IN_TICKS(8000)
+#define EE_MODE_SLEEP_TIMEOUT_TICKS                     MS_IN_TICKS(8000)
 #define EE_RUN_TIMEOUT_TICKS                            MS_IN_TICKS(2000)
 #define EE_RUN_MIN_INTERTICK                            MS_IN_TICKS(100)
 #define DEFAULT_MODE_TRANS_CHK(ev_flags) \
@@ -115,7 +116,7 @@ control_mode_t control_modes[] = {
     {
         .enter_cb = NULL,
         .tic_cb = ee_mode_tic,
-        .sleep_timeout_ticks = MS_IN_TICKS(10000),
+        .sleep_timeout_ticks = EE_MODE_SLEEP_TIMEOUT_TICKS,
         .about_to_sleep_cb = NULL,
         .wakeup_cb = NULL,
     }
@@ -168,6 +169,7 @@ bool ee_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     static uint32_t ee_code = 0;
     static uint32_t run_cnt = 0;
     static uint32_t last_ev_tick = 0;
+    uint32_t last_tic_delta = 0;
     static tic_fun_t ee_submode_tic = NULL;
 
     if ( event_flags & EV_FLAG_SLEEP ) {
@@ -189,8 +191,11 @@ bool ee_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
         last_ev_tick = 0;
         ee_submode_tic = NULL;
 
+        set_ee_sleep_timeout(EE_MODE_SLEEP_TIMEOUT_TICKS);
+
         return true;
     }
+
 
     if (tick_cnt == 0) {
         /* Display ee mode start animation */
@@ -200,8 +205,11 @@ bool ee_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
         return false;
     }
 
-    if (tick_cnt - last_ev_tick < EE_RUN_TIMEOUT_TICKS &&
-        tick_cnt - last_ev_tick > EE_RUN_MIN_INTERTICK) {
+    last_tic_delta = tick_cnt - last_ev_tick;
+
+    /* When still waiting for event run detection to end */
+    if (last_tic_delta < EE_RUN_TIMEOUT_TICKS &&
+        last_tic_delta > EE_RUN_MIN_INTERTICK) {
         switch (event_flags) {
             case EV_FLAG_ACCEL_SCLICK_X:
                 ee_code+=(0x1 << 4*run_cnt);
@@ -258,12 +266,28 @@ bool ee_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
 
 
         return false;
-    }
+    } else if (last_tic_delta == EE_RUN_TIMEOUT_TICKS) {
+        uint16_t tick_interval = ee_code > 0 ? MS_IN_TICKS(10 + 200/ee_code) : 1;
+        uint32_t duration = ee_code < 1000 ? tick_interval*ee_code : MS_IN_TICKS(5000);
+        if (ee_code == 0) duration = 1;
 
-    if (tick_cnt - last_ev_tick == EE_RUN_TIMEOUT_TICKS) {
+        /* At end of event run detection. Start EE indicator animation */
+        anim_release(anim);
+        display_comp_show(display_comp);
+        anim = anim_rotate(display_comp, true, tick_interval, duration);
+        main_inactivity_timeout_reset();
+        set_ee_sleep_timeout(MS_IN_TICKS(2000) + duration);
+
+    } else if (last_tic_delta > EE_RUN_TIMEOUT_TICKS
+            && anim && anim_is_finished(anim)) {
+        /* EE code indicator has finished.  Figure out
+         * corresponding ee code behavior if any */
         uint8_t pos = 0;
         uint16_t blink_int = MS_IN_TICKS(800);
-        /* End ee mode start animation */
+
+        main_inactivity_timeout_reset();
+        set_ee_sleep_timeout(EE_MODE_SLEEP_TIMEOUT_TICKS);
+        /* Cleanup transition animation */
         display_comp_release(display_comp);
         display_comp = NULL;
         anim_release(anim);
@@ -331,9 +355,9 @@ bool ee_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
                 //return true;
         }
 
-        ee_code = 0;
-
+            ee_code = 0;
     }
+
 
     if (ee_submode_tic) {
         return ee_submode_tic(event_flags, tick_cnt);
@@ -352,6 +376,7 @@ bool accel_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     uint32_t log_data;
 #endif
 
+    main_inactivity_timeout_reset();
     set_ee_sleep_timeout(MS_IN_TICKS(20000));
 
     if ( event_flags & EV_FLAG_SLEEP) {
@@ -418,6 +443,7 @@ bool accel_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
 }
 bool accel_point_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     static display_comp_t *disp_pt = NULL;
+    main_inactivity_timeout_reset();
 
     if (!disp_pt) {
         disp_pt = display_point(0, BRIGHT_DEFAULT);
@@ -741,9 +767,11 @@ bool tick_counter_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     static display_comp_t *sec_disp_ptr = NULL;
     static display_comp_t *tick_sec_disp_ptr = NULL;
 
-    aclock_get_time(&hour, &minute, &second);
-
+    main_inactivity_timeout_reset();
     set_ee_sleep_timeout(MS_IN_TICKS(20000));
+
+
+    aclock_get_time(&hour, &minute, &second);
 
     if (DEFAULT_MODE_TRANS_CHK(event_flags)) {
 

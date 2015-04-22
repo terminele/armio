@@ -46,8 +46,8 @@
 
 /* System (main) timer */
 #define MS_PER_TICK             1
-#define MS_IN_TICKS(M)         (M/MS_PER_TICK)
-#define TICKS_IN_MS(T)         (T*MS_PER_TICK)
+#define MS_IN_TICKS(M)         ((M)/MS_PER_TICK)
+#define TICKS_IN_MS(T)         ((T)*MS_PER_TICK)
 #define MAIN_TIMER_TICK_US      (MS_PER_TICK*1000)
 
 #define assert(B) if (!(B)) main_terminate_in_error(ERROR_ASSERTION_FAIL)
@@ -134,6 +134,12 @@ uint32_t main_get_waketime_ms( void );
   /* @brief get time since last wake in ms
    * @param None
    * @retrn time awake in ms
+   */
+
+void main_inactivity_timeout_reset( void );
+  /* @brief resets inativity timeout counter
+   * @param None
+   * @retrn None
    */
 
 #endif /* end of include guard: __MAIN_H__ */
