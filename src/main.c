@@ -24,7 +24,7 @@
 #define BUTTON_UP           true
 #define BUTTON_DOWN         false
 
-#define LIGHT_SENSE_ENABLE_PIN       PIN_PA30
+#define LIGHT_SENSE_ENABLE_PIN       PIN_PA02
 #define VBATT_ADC_PIN               ADC_POSITIVE_INPUT_SCALEDIOVCC
 #define LIGHT_ADC_PIN               ADC_POSITIVE_INPUT_PIN1
 
@@ -48,8 +48,7 @@
 #define NVM_CONF_ADDR       NVM_ADDR_START
 #define NVM_CONF_STORE_SIZE (64)
 #define NVM_LOG_ADDR_START  (NVM_ADDR_START + NVM_CONF_STORE_SIZE)
-#define NVM_LOG_DATA_SIZE   (1 << 16)/* 64 KB */
-#define NVM_LOG_ADDR_MAX        (NVM_LOG_ADDR_START + NVM_LOG_DATA_SIZE)
+#define NVM_LOG_ADDR_MAX     NVM_MAX_ADDR
 
 
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
@@ -276,8 +275,10 @@ static void prepare_sleep( void ) {
 static void wakeup (void) {
     //system_ahb_clock_set_mask( PM_AHBMASK_HPB2 | PM_AHBMASK_DSU);
 
-    //if (light_vbatt_sens_adc.hw)
-    //    adc_enable(&light_vbatt_sens_adc);
+#if ENABLE_LIGHT_SENSE
+    if (light_vbatt_sens_adc.hw)
+        adc_enable(&light_vbatt_sens_adc);
+#endif
 
 #ifdef ENABLE_BUTTON
     extint_chan_disable_callback(BUTTON_EIC_CHAN,
@@ -730,10 +731,11 @@ int main (void)
     NVMCTRL->CTRLB.bit.SLEEPPRM = NVMCTRL_CTRLB_SLEEPPRM_DISABLED_Val;
 
     /* Read light and vbatt sensors on startup */
-
+#ifdef ENABLE_VBATT
     main_set_current_sensor(sensor_vbatt);
     main_start_sensor_read();
     main_gs.running_avg_vbatt = main_read_current_sensor(true);
+#endif
 
     main_set_current_sensor(sensor_light);
     main_start_sensor_read();

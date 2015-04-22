@@ -69,6 +69,7 @@ ifeq ($(chip),samd21e17)
     UCID_SERCOM=samd21_r21_d10_d11
     UCID_CLOCK=samd21_r21
     OCD_PART_CFG = utils/samd21e17.cfg
+    NVM_MAX_ADDR = 0x1E000 #~122K
 else
 ifeq ($(chip),samd21e16)
     PART=samd21e16a
@@ -77,6 +78,7 @@ ifeq ($(chip),samd21e16)
     UCID_SERCOM=samd21_r21_d10_d11
     UCID_CLOCK=samd21_r21
     OCD_PART_CFG = utils/samd21e16.cfg
+    NVM_MAX_ADDR = 0xEA00 #~60000
 else
 $(error chip must be specified as either samd20 or samd21)
 endif
@@ -258,9 +260,8 @@ CPPFLAGS = \
        -D TC_ASYNC=true		 		          \
        -D SYSTICK_MODE                                    \
        -D $(PARTD)					  \
-       -D VBATT_MODE=false 				  \
+       -D NVM_MAX_ADDR=$(NVM_MAX_ADDR)					  \
        -D VBATT_NO_AVERAGE=false			  \
-       -D ANIM_DEMO_MODE=true				  \
        -D ENABLE_LIGHT_SENSE=true			  \
        -D LOG_USAGE=false				  \
        -D __YEAR__=$(_YEAR_)				  \
@@ -269,7 +270,8 @@ CPPFLAGS = \
        -D __HOUR__=$(_HOUR_)				  \
        -D __MIN__=$(_MIN_)				  \
        -D __SEC__=$(_SEC_)				  \
-       -D LOG_ACCEL					  \
+       -D SIMPLE_TIME_MODE 			#no blinking minute, no seconds
+       #-D LOG_ACCEL					  \
        #-D ENABLE_LIGHT_SENSE				  \
        #-D ENABLE_BUTTON				  	  \
        #-D USE_WAKEUP_ALARM				  \

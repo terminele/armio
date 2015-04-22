@@ -92,6 +92,7 @@ bool ee_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt );
    * @retrn true on finish
    */
 
+void set_ee_sleep_timeout(uint32_t timeout_ticks);
 
 //___ V A R I A B L E S ______________________________________________________
 
@@ -114,7 +115,7 @@ control_mode_t control_modes[] = {
     {
         .enter_cb = NULL,
         .tic_cb = ee_mode_tic,
-        .sleep_timeout_ticks = MS_IN_TICKS(8000),
+        .sleep_timeout_ticks = MS_IN_TICKS(10000),
         .about_to_sleep_cb = NULL,
         .wakeup_cb = NULL,
     }
@@ -155,6 +156,10 @@ bool event_debug_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     } while (event_flags);
 
     return false;
+}
+
+void set_ee_sleep_timeout(uint32_t timeout_ticks) {
+    control_modes[CONTROL_MODE_EE].sleep_timeout_ticks = timeout_ticks;
 }
 
 bool ee_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
@@ -304,6 +309,9 @@ bool ee_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
                 ee_submode_tic = light_sense_mode_tic;
                 break;
             case 0x52:
+                ee_submode_tic = tick_counter_mode_tic;
+                break;
+            case 0x53:
                 if (main_nvm_conf_data.rtc_freq_corr >= 0) {
                     pos = main_nvm_conf_data.rtc_freq_corr % 60;
                     blink_int = MS_IN_TICKS(800);
@@ -344,7 +352,9 @@ bool accel_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     uint32_t log_data;
 #endif
 
-    if (event_flags & EV_FLAG_ACCEL_DCLICK_X || event_flags & EV_FLAG_SLEEP) {
+    set_ee_sleep_timeout(MS_IN_TICKS(20000));
+
+    if ( event_flags & EV_FLAG_SLEEP) {
         display_comp_hide_all();
         display_comp_release(disp_x);
         display_comp_release(disp_y);
@@ -415,7 +425,7 @@ bool accel_point_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     }
 
 
-    if (event_flags & EV_FLAG_ACCEL_DCLICK_X || event_flags & EV_FLAG_SLEEP) {
+    if ( event_flags & EV_FLAG_SLEEP) {
         display_comp_hide_all();
         display_comp_release(disp_pt);
         disp_pt = NULL;
@@ -431,6 +441,8 @@ bool light_sense_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     static display_comp_t *adc_pt = NULL;
     uint16_t adc_val = 0;
 
+    set_ee_sleep_timeout(MS_IN_TICKS(60000));
+
     if (main_get_current_sensor() != sensor_light)
         main_set_current_sensor(sensor_light);
 
@@ -439,7 +451,7 @@ bool light_sense_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
             display_comp_release(adc_pt);
             adc_pt = NULL;
         }
-        return true; //transition on long presses
+        return true;
     }
 
     if (!adc_pt) {
@@ -562,10 +574,16 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
             if (anim_is_finished(anim_ptr)) {
                 anim_release(anim_ptr);
                 min_disp_ptr = display_point(minute, BRIGHT_DEFAULT);
+#ifdef SIMPLE_TIME_MODE
+                /* In "simple" time mode (aka walker mode), dont blink animate
+                 * the minute hand and don't show seconds */
+                anim_ptr = NULL;
+                phase = DISP_ALL;
+#else
                 anim_ptr = anim_blink(min_disp_ptr, MS_IN_TICKS(400),
                         MS_IN_TICKS(2000), false);
-
                 phase = ANIM_MIN;
+#endif
             }
 
             break;
@@ -575,14 +593,15 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
                 anim_ptr = NULL;
 
                 sec_disp_ptr = display_point(second, MIN_BRIGHT_VAL);
-
                 phase = DISP_ALL;
             }
             break;
 
         case DISP_ALL:
 
+#ifndef SIMPLE_TIME_MODE
             display_comp_update_pos(sec_disp_ptr, second);
+#endif
             display_comp_update_pos(min_disp_ptr, minute);
 
             display_comp_update_pos(hour_disp_ptr, HOUR_POS(hour));
@@ -724,6 +743,7 @@ bool tick_counter_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
 
     aclock_get_time(&hour, &minute, &second);
 
+    set_ee_sleep_timeout(MS_IN_TICKS(20000));
 
     if (DEFAULT_MODE_TRANS_CHK(event_flags)) {
 
