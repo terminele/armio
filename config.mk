@@ -43,8 +43,8 @@ PRJ_PATH = .
 ARCH = cortex-m0plus
 
 ifndef chip
-    chip=samd21
-    $(info defaulting to samd21 target)
+    chip=samd21e17
+    $(info defaulting to samd21e17 target)
 endif
 
 ifndef debugger
@@ -62,17 +62,27 @@ ifeq ($(chip),samd20)
     UCID_CLOCK=samd20
     OCD_PART_CFG = utils/samd20e.cfg
 else
-ifeq ($(chip),samd21)
+ifeq ($(chip),samd21e17)
     PART=samd21e17a
     PARTD = __SAMD21E17A__
     UCID=samd21
     UCID_SERCOM=samd21_r21_d10_d11
     UCID_CLOCK=samd21_r21
-    OCD_PART_CFG = utils/samd21e.cfg
+    OCD_PART_CFG = utils/samd21e17.cfg
+else
+ifeq ($(chip),samd21e16)
+    PART=samd21e16a
+    PARTD = __SAMD21E16A__
+    UCID=samd21
+    UCID_SERCOM=samd21_r21_d10_d11
+    UCID_CLOCK=samd21_r21
+    OCD_PART_CFG = utils/samd21e16.cfg
 else
 $(error chip must be specified as either samd20 or samd21)
 endif
 endif
+endif
+
 # Application target name. Given with suffix .a for library and .elf for a
 # standalone application.
 TARGET_FLASH = bin/armio_flash.elf
@@ -90,7 +100,7 @@ ifeq ($(debugger), atmel-ice)
 	    -c "shutdown"
 else
 ifeq ($(debugger), jlink)
-    INSTALL_CMD = JLinkExe utils/samd21e.jlink
+    INSTALL_CMD = JLinkExe utils/$(chip).jlink
 else
 $(error unuspported debugger)
 endif
@@ -248,20 +258,18 @@ CPPFLAGS = \
        -D TC_ASYNC=true		 		          \
        -D SYSTICK_MODE                                    \
        -D $(PARTD)					  \
-       -D TICK_DEBUG=false				  \
-       -D ACCEL_DEBUG=false 				  \
-       -D PHOTO_DEBUG=true				  \
        -D VBATT_MODE=false 				  \
        -D VBATT_NO_AVERAGE=false			  \
        -D ANIM_DEMO_MODE=true				  \
        -D ENABLE_LIGHT_SENSE=true			  \
-       -D LOG_USAGE=true 				  \
+       -D LOG_USAGE=false				  \
        -D __YEAR__=$(_YEAR_)				  \
        -D __MONTH__=$(_MONTH_)				  \
        -D __DAY__=$(_DAY_)				  \
        -D __HOUR__=$(_HOUR_)				  \
        -D __MIN__=$(_MIN_)				  \
        -D __SEC__=$(_SEC_)				  \
+       -D LOG_ACCEL					  \
        #-D ENABLE_LIGHT_SENSE				  \
        #-D ENABLE_BUTTON				  	  \
        #-D USE_WAKEUP_ALARM				  \

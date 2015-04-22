@@ -1,7 +1,7 @@
 /**
  * \file
  *
- * \brief Linker script for running in internal FLASH on the SAMD21E17A
+ * \brief Linker script for running in internal SRAM on the SAMD21E17A
  *
  * Copyright (c) 2014 Atmel Corporation. All rights reserved.
  *
@@ -49,8 +49,7 @@ SEARCH_DIR(.)
 /* Memory Spaces Definitions */
 MEMORY
 {
-  rom    (rx)  : ORIGIN = 0x00000000, LENGTH = 0x0000c000  /* use only 48K of 64K available*/
-  ram    (rwx) : ORIGIN = 0x20000000, LENGTH = 0x00004000 /* 16K of SRAM */
+  ram    (rwx) : ORIGIN = 0x20000000, LENGTH = 0x00004000
 }
 
 /* The stack size used by the application. NOTE: you need to adjust according to your application. */
@@ -106,15 +105,7 @@ SECTIONS
 
         . = ALIGN(4);
         _efixed = .;            /* End of text section */
-    } > rom
-
-    /* .ARM.exidx is sorted, so has to go in its own output section.  */
-    PROVIDE_HIDDEN (__exidx_start = .);
-    .ARM.exidx :
-    {
-      *(.ARM.exidx* .gnu.linkonce.armexidx.*)
-    } > rom
-    PROVIDE_HIDDEN (__exidx_end = .);
+    } > ram
 
     . = ALIGN(4);
     _etext = .;
@@ -151,6 +142,14 @@ SECTIONS
         . = ALIGN(8);
         _estack = .;
     } > ram
+
+    /* .ARM.exidx is sorted, so has to go in its own output section.  */
+    PROVIDE_HIDDEN (__exidx_start = .);
+    .ARM.exidx :
+    {
+      *(.ARM.exidx* .gnu.linkonce.armexidx.*)
+    } > ram
+    PROVIDE_HIDDEN (__exidx_end = .);
 
     . = ALIGN(4);
     _end = . ;
