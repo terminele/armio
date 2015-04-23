@@ -135,13 +135,7 @@ uint8_t adc_light_value_scale ( uint16_t value ) {
     if (value >= 32)
         return 15 + (value >> 3);
 
-    if (value >= 16)
-        return 11 + (value >> 2);
-
-    if (value >= 8)
-        return 7 + (value >> 1);
-
-    return value;
+    return value >> 1;
 }
 
 uint8_t adc_vbatt_value_scale ( uint16_t value ) {

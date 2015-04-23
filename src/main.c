@@ -165,6 +165,20 @@ static uint16_t nvm_row_ind;
 
 //___ F U N C T I O N S   ( P R I V A T E ) __________________________________
 
+void _debug_chkpt ( uint8_t code ) {
+
+    led_clear_all();
+
+    led_on(code, BRIGHT_DEFAULT);
+    delay_ms(600);
+
+    led_off(code);
+    delay_ms(300);
+
+    led_on(code, BRIGHT_DEFAULT);
+    delay_ms(600);
+}
+
 static void update_vbatt_running_avg( void ) {
     /* Use exponential moving average with alpha = 1/128
      * to update vbatt level */
@@ -254,26 +268,26 @@ static void prepare_sleep( void ) {
                     EXTINT_CALLBACK_TYPE_DETECT);
 #endif
 
+#if ENABLE_LIGHT_SENSE
     if (light_vbatt_sens_adc.hw) {
         adc_disable(&light_vbatt_sens_adc);
     }
 
     port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, false);
+#endif
 
     led_controller_disable();
     aclock_disable();
     tc_disable(&main_tc);
 
-    //system_ahb_clock_clear_mask( PM_AHBMASK_HPB2 | PM_AHBMASK_DSU);
 
     /* The vbatt adc may have enabled the voltage reference, so disable
      * it in standby to save power */
-    system_voltage_reference_disable(SYSTEM_VOLTAGE_REFERENCE_BANDGAP);
+    //system_voltage_reference_disable(SYSTEM_VOLTAGE_REFERENCE_BANDGAP);
 
 }
 
 static void wakeup (void) {
-    //system_ahb_clock_set_mask( PM_AHBMASK_HPB2 | PM_AHBMASK_DSU);
 
 #if ENABLE_LIGHT_SENSE
     if (light_vbatt_sens_adc.hw)
@@ -286,9 +300,13 @@ static void wakeup (void) {
 #endif
     system_interrupt_enable_global();
     led_controller_enable();
+    _debug_chkpt(0);
     aclock_enable();
+    _debug_chkpt(1);
     accel_enable();
+    _debug_chkpt(2);
     tc_enable(&main_tc);
+    _debug_chkpt(3);
 
     /* Update vbatt estimate on wakeup only */
     //main_set_current_sensor(sensor_vbatt);
@@ -364,7 +382,6 @@ static void main_tic( void ) {
                 anim_release(sleep_wake_anim);
             }
             return;
-
         case ENTERING_SLEEP:
             /* Wait until animation is finished to sleep */
             if (anim_is_finished(sleep_wake_anim)) {
@@ -380,7 +397,7 @@ static void main_tic( void ) {
                 * from sleep (and we continue from this point) */
                 do {
                     system_sleep();
-                } while(!accel_wakeup_check());
+                } while(false);//!accel_wakeup_check());
 
                 wakeup();
 
@@ -392,7 +409,10 @@ static void main_tic( void ) {
                 if (control_mode_active->wakeup_cb)
                     control_mode_active->wakeup_cb();
 
+                _debug_chkpt(4);
                 display_comp_show_all();
+                _debug_chkpt(5);
+                led_clear_all();
 
                 main_gs.modeticks = 0;
                 main_gs.waketicks = 0;
@@ -478,7 +498,6 @@ static void main_tic( void ) {
             }
 
             break;
-
         case MODE_TRANSITION:
             if (mode_trans_swirl) {
                 if(anim_is_finished(mode_trans_swirl)) {
@@ -627,10 +646,10 @@ void main_start_sensor_read ( void ) {
 
 #if ENABLE_LIGHT_SENSE
     port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, true);
-#endif
 
     if (!(adc_get_status(&light_vbatt_sens_adc) & ADC_STATUS_RESULT_READY))
         adc_start_conversion(&light_vbatt_sens_adc);
+#endif
 }
 
 sensor_type_t main_get_current_sensor ( void ) {
@@ -638,6 +657,7 @@ sensor_type_t main_get_current_sensor ( void ) {
 }
 
 void main_set_current_sensor ( sensor_type_t sensor ) {
+#if ENABLE_LIGHT_SENSE
     struct adc_config config_adc;
 
     main_gs.current_sensor = sensor;
@@ -667,7 +687,7 @@ void main_set_current_sensor ( sensor_type_t sensor ) {
 
     adc_init(&light_vbatt_sens_adc, ADC, &config_adc);
     adc_enable(&light_vbatt_sens_adc);
-
+#endif
 }
 
 uint16_t main_read_current_sensor( bool blocking ) {
@@ -680,6 +700,7 @@ uint16_t main_read_current_sensor( bool blocking ) {
     else
         curr_sens_adc_val_ptr = &main_gs.light_sensor_adc_val;
 
+#if ENABLE_LIGHT_SENSE
     do {
         status = adc_read(&light_vbatt_sens_adc, &result);
 
@@ -690,6 +711,7 @@ uint16_t main_read_current_sensor( bool blocking ) {
         }
     } while (blocking && status != STATUS_OK);
 
+#endif
     return *curr_sens_adc_val_ptr;
 }
 

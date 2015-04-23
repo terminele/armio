@@ -262,7 +262,7 @@ CPPFLAGS = \
        -D $(PARTD)					  \
        -D NVM_MAX_ADDR=$(NVM_MAX_ADDR)					  \
        -D VBATT_NO_AVERAGE=false			  \
-       -D ENABLE_LIGHT_SENSE=true			  \
+       -D ENABLE_LIGHT_SENSE=false			  \
        -D LOG_USAGE=false				  \
        -D __YEAR__=$(_YEAR_)				  \
        -D __MONTH__=$(_MONTH_)				  \
@@ -270,12 +270,12 @@ CPPFLAGS = \
        -D __HOUR__=$(_HOUR_)				  \
        -D __MIN__=$(_MIN_)				  \
        -D __SEC__=$(_SEC_)				  \
-       -D SIMPLE_TIME_MODE 			#no blinking minute, no seconds
+       -D SIMPLE_TIME_MODE 				  \
+       -D USE_WAKEUP_ALARM				  \
+       -D NO_ACCEL
        #-D LOG_ACCEL					  \
        #-D ENABLE_LIGHT_SENSE				  \
        #-D ENABLE_BUTTON				  	  \
-       #-D USE_WAKEUP_ALARM				  \
-       #-D NO_ACCEL					  \
 
 
 # Extra flags to use when linking

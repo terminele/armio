@@ -330,8 +330,11 @@ void led_controller_enable ( void ) {
 
   led_clear_all();
 
-  system_apb_clock_set_mask(SYSTEM_CLOCK_APB_APBC, PM_APBCMASK_TC3);
-  system_apb_clock_set_mask(SYSTEM_CLOCK_APB_APBC, PM_APBCMASK_TC4);
+  /* Errata 12227: perform a software reset of tc after waking up */
+  tc_reset(&pwm_tc_instance);
+  tc_reset(&bank_tc_instance);
+  configure_tc();
+
   tc_enable_callback(&pwm_tc_instance, TC_CALLBACK_CC_CHANNEL0);
   tc_enable(&pwm_tc_instance);
 
@@ -360,8 +363,6 @@ void led_controller_disable ( void ) {
   port_group_set_config(&PORTA, SEGMENT_PIN_PORT_MASK, &pin_conf );
   port_group_set_config(&PORTA, BANK_PIN_PORT_MASK, &pin_conf );
 
-  system_apb_clock_clear_mask(SYSTEM_CLOCK_APB_APBC, PM_APBCMASK_TC3);
-  system_apb_clock_clear_mask(SYSTEM_CLOCK_APB_APBC, PM_APBCMASK_TC4);
 
 }
 

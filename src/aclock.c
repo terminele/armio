@@ -73,6 +73,26 @@ void rtc_alarm_minute_callback( void ) {
     rtc_calendar_set_alarm(&rtc_instance, &alarm, RTC_CALENDAR_ALARM_0);
 
 }
+
+void rtc_alarm_short_callback( void ) {
+
+    aclock_enable();
+
+    /* Set next alarm */
+    //alarm.time.minute += 1;
+    //alarm.time.minute %= 60;
+    alarm.time.second += 15;
+
+    if (alarm.time.second > 59) {
+      alarm.time.minute+=1;
+      alarm.time.minute %= 60;
+      alarm.time.second %= 60;
+    }
+
+    rtc_calendar_set_alarm(&rtc_instance, &alarm, RTC_CALENDAR_ALARM_0);
+
+}
+
 #endif
 
 //___ F U N C T I O N S ______________________________________________________
@@ -239,7 +259,7 @@ void aclock_init( void ) {
 
     /* Register ready callback */
     rtc_calendar_register_callback( &rtc_instance,
-        rtc_alarm_minute_callback, RTC_CALENDAR_ALARM_0);
+        rtc_alarm_short_callback/*rtc_alarm_minute_callback*/, RTC_CALENDAR_ALARM_0);
 
     rtc_calendar_enable_callback(&rtc_instance, RTC_CALENDAR_ALARM_0);
 #endif
