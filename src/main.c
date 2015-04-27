@@ -637,7 +637,11 @@ void main_log_data( uint8_t *data, uint16_t length, bool flush) {
 void main_start_sensor_read ( void ) {
 
 #if ENABLE_LIGHT_SENSE
-    port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, true);
+    if (main_gs.current_sensor == sensor_type_t) {
+        port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, true);
+    } else {
+        port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, false);
+    }
 
     if (!(adc_get_status(&light_vbatt_sens_adc) & ADC_STATUS_RESULT_READY))
         adc_start_conversion(&light_vbatt_sens_adc);
@@ -699,7 +703,7 @@ uint16_t main_read_current_sensor( bool blocking ) {
         if (status == STATUS_OK) {
             *curr_sens_adc_val_ptr = result;
             adc_clear_status(&light_vbatt_sens_adc, ADC_STATUS_RESULT_READY);
-            //port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, false);
+            port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, false);
         }
     } while (blocking && status != STATUS_OK);
 

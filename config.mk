@@ -262,7 +262,7 @@ CPPFLAGS = \
        -D $(PARTD)					  \
        -D NVM_MAX_ADDR=$(NVM_MAX_ADDR)					  \
        -D VBATT_NO_AVERAGE=false			  \
-       -D ENABLE_LIGHT_SENSE=true			  \
+       -D ENABLE_LIGHT_SENSE=false			  \
        -D LOG_USAGE=true				  \
        -D __YEAR__=$(_YEAR_)				  \
        -D __MONTH__=$(_MONTH_)				  \
