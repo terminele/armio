@@ -188,6 +188,22 @@ static void update_vbatt_running_avg( void ) {
 
 }
 
+static void config_main_tc( void ) {
+    struct tc_config config_tc;
+
+    /* Configure main timer counter */
+    tc_get_config_defaults( &config_tc );
+    config_tc.clock_source = GCLK_GENERATOR_0;
+    config_tc.counter_size = TC_COUNTER_SIZE_16BIT;
+    config_tc.clock_prescaler = TC_CLOCK_PRESCALER_DIV8; //give 1us count for 8MHz clock
+    config_tc.wave_generation = TC_WAVE_GENERATION_MATCH_FREQ;
+    config_tc.counter_16_bit.compare_capture_channel[0] = MAIN_TIMER_TICK_US;
+    config_tc.counter_16_bit.value = 0;
+
+    tc_init(&main_tc, MAIN_TIMER, &config_tc);
+    tc_enable(&main_tc);
+}
+
 #if LOG_USAGE
 static void log_vbatt (bool wakeup) {
     /* Log current vbatt with timestamp */
@@ -298,15 +314,21 @@ static void wakeup (void) {
     extint_chan_disable_callback(BUTTON_EIC_CHAN,
                     EXTINT_CALLBACK_TYPE_DETECT);
 #endif
-    system_interrupt_enable_global();
     led_controller_enable();
     _debug_chkpt(0);
     aclock_enable();
     _debug_chkpt(1);
     accel_enable();
     _debug_chkpt(2);
+
+    /* Errata 12227: perform a software reset of tc after waking up */
+    tc_reset(&main_tc);
+    config_main_tc();
+
+
     tc_enable(&main_tc);
     _debug_chkpt(3);
+    system_interrupt_enable_global();
 
     /* Update vbatt estimate on wakeup only */
     //main_set_current_sensor(sensor_vbatt);
@@ -525,7 +547,6 @@ static void main_tic( void ) {
 
 static void main_init( void ) {
 
-    struct tc_config config_tc;
 
     /* Initalize main state */
     main_gs.modeticks = 0;
@@ -538,16 +559,7 @@ static void main_init( void ) {
     main_gs.state = STARTUP;
 
     /* Configure main timer counter */
-    tc_get_config_defaults( &config_tc );
-    config_tc.clock_source = GCLK_GENERATOR_0;
-    config_tc.counter_size = TC_COUNTER_SIZE_16BIT;
-    config_tc.clock_prescaler = TC_CLOCK_PRESCALER_DIV8; //give 1us count for 8MHz clock
-    config_tc.wave_generation = TC_WAVE_GENERATION_MATCH_FREQ;
-    config_tc.counter_16_bit.compare_capture_channel[0] = MAIN_TIMER_TICK_US;
-    config_tc.counter_16_bit.value = 0;
-
-    tc_init(&main_tc, MAIN_TIMER, &config_tc);
-    tc_enable(&main_tc);
+    config_main_tc();
 
     /* Initialize NVM controller for data storage */
     struct nvm_config config_nvm;
