@@ -165,20 +165,6 @@ static uint16_t nvm_row_ind;
 
 //___ F U N C T I O N S   ( P R I V A T E ) __________________________________
 
-void _debug_chkpt ( uint8_t code ) {
-
-    led_clear_all();
-
-    led_on(code, BRIGHT_DEFAULT);
-    delay_ms(600);
-
-    led_off(code);
-    delay_ms(300);
-
-    led_on(code, BRIGHT_DEFAULT);
-    delay_ms(600);
-}
-
 static void update_vbatt_running_avg( void ) {
     /* Use exponential moving average with alpha = 1/128
      * to update vbatt level */
@@ -299,7 +285,7 @@ static void prepare_sleep( void ) {
 
     /* The vbatt adc may have enabled the voltage reference, so disable
      * it in standby to save power */
-    //system_voltage_reference_disable(SYSTEM_VOLTAGE_REFERENCE_BANDGAP);
+    system_voltage_reference_disable(SYSTEM_VOLTAGE_REFERENCE_BANDGAP);
 
 }
 
@@ -315,11 +301,8 @@ static void wakeup (void) {
                     EXTINT_CALLBACK_TYPE_DETECT);
 #endif
     led_controller_enable();
-    _debug_chkpt(0);
     aclock_enable();
-    _debug_chkpt(1);
     accel_enable();
-    _debug_chkpt(2);
 
     /* Errata 12227: perform a software reset of tc after waking up */
     tc_reset(&main_tc);
@@ -327,14 +310,13 @@ static void wakeup (void) {
 
 
     tc_enable(&main_tc);
-    _debug_chkpt(3);
     system_interrupt_enable_global();
 
     /* Update vbatt estimate on wakeup only */
-    //main_set_current_sensor(sensor_vbatt);
-    //main_start_sensor_read();
-    //main_read_current_sensor(true);
-    //update_vbatt_running_avg();
+    main_set_current_sensor(sensor_vbatt);
+    main_start_sensor_read();
+    main_read_current_sensor(true);
+    update_vbatt_running_avg();
 
 #if LOG_USAGE
     log_vbatt(true);
@@ -419,7 +401,7 @@ static void main_tic( void ) {
                 * from sleep (and we continue from this point) */
                 do {
                     system_sleep();
-                } while(false);//!accel_wakeup_check());
+                } while(!accel_wakeup_check());
 
                 wakeup();
 
@@ -431,9 +413,7 @@ static void main_tic( void ) {
                 if (control_mode_active->wakeup_cb)
                     control_mode_active->wakeup_cb();
 
-                _debug_chkpt(4);
                 display_comp_show_all();
-                _debug_chkpt(5);
                 led_clear_all();
 
                 main_gs.modeticks = 0;
