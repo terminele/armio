@@ -4,7 +4,9 @@
 
 //___ I N C L U D E S ________________________________________________________
 #include "accel.h"
+#include "aclock.h"
 #include "main.h"
+
 
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
 
@@ -138,20 +140,21 @@
 #define MULTI_CLICK_WINDOW_MS 220
 
 #define Z_DOWN_THRESHOLD        8 //assumes 4g scale
-#define Z_DOWN_DUR_MS           100
+#define Z_DOWN_DUR_MS           200
 
 #define Z_DOWN_THRESHOLD_ABS    (Z_DOWN_THRESHOLD < 0 ? -Z_DOWN_THRESHOLD : Z_DOWN_THRESHOLD)
 #define Z_DOWN_DUR_ODR          MS_TO_ODRS(Z_DOWN_DUR_MS, SLEEP_SAMPLE_INT)
 
 /* Y_DOWN */
 #define Y_DOWN_THRESHOLD        -18 //assumes 4g scale
-#define Y_DOWN_DUR_MS           150
+#define Y_DOWN_DUR_MS           200
 
 #define Y_DOWN_THRESHOLD_ABS    (Y_DOWN_THRESHOLD < 0 ? -Y_DOWN_THRESHOLD : Y_DOWN_THRESHOLD)
 #define Y_DOWN_DUR_ODR          MS_TO_ODRS(Y_DOWN_DUR_MS, SLEEP_SAMPLE_INT)
 
-#define Z_UP_THRESHOLD          18
-#define Z_UP_DUR_ODR            MS_TO_ODRS(200, SLEEP_SAMPLE_INT)
+#define Z_UP_THRESHOLD          20
+#define Z_UP_DUR_ODR            MS_TO_ODRS(210, SLEEP_SAMPLE_INT)
+#define TURN_GESTURE_TIMEOUT_S  2
 
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 
@@ -161,8 +164,10 @@
 
 static uint16_t i2c_addr = AX_ADDRESS0;
 
-bool accel_down = false;
-int32_t accel_down_start_ms = 0;
+/* timestamp of most recent y down interrupt */
+static int32_t y_down_timestamp = 0;
+static bool accel_down = false;
+static int32_t accel_down_start_ms = 0;
 
 static struct {
     uint32_t x,y,z;
@@ -172,7 +177,7 @@ static struct {
     uint32_t x,y,z;
 } click_count;
 
-struct i2c_master_module i2c_master_instance;
+static struct i2c_master_module i2c_master_instance;
 
 static union {
   struct {
@@ -203,6 +208,7 @@ static union {
 
   uint8_t b8;
 } int_flags;
+
 static enum {SLEEP_START, WAIT_FOR_DOWN, WAIT_FOR_UP, WAKE} wake_gesture_state;
 
 //___ I N T E R R U P T S  ___________________________________________________
@@ -357,6 +363,7 @@ static void accel_isr(void) {
 
   if (wake_gesture_state == WAIT_FOR_DOWN) {
     if (int_flags.yl) {
+      y_down_timestamp  = aclock_get_timestamp();
       wait_for_up_conf();
     }
   } else if (wake_gesture_state == WAIT_FOR_UP) {
@@ -389,15 +396,36 @@ bool accel_data_read (int16_t *x_ptr, int16_t *y_ptr, int16_t *z_ptr) {
 
 bool accel_wakeup_check( void ) {
 
-  //if (extint_chan_is_detected(AX_INT1_CHAN)) {
-  //  accel_isr();
-  //}
   int16_t x,y,z = 0;
+  accel_register_consecutive_read(AX_REG_CLICK_SRC, 1, &click_flags.b8);
   accel_data_read(&x, &y, &z);
 
-  if (z >= Z_UP_THRESHOLD) return true;
+  /* Never wakeup without z-axis facing somewhat up */
+  if (z < Z_UP_THRESHOLD) return false;
 
-  return false;
+  if (int_flags.yh) return false;
+
+
+  /* See if we've had a valid "turn up" gesture to wake by
+   * checking for z high interrupt */
+  accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &int_flags.b8);
+  if (int_flags.ia && int_flags.zh) {
+    /* Make sure y-down interrupt time was recent enough to
+    * constitute a "turn up" gesture */
+    if (aclock_get_timestamp() - y_down_timestamp < TURN_GESTURE_TIMEOUT_S) {
+      return true;
+    }
+    else {
+      return false;
+    }
+  }
+
+  /* This interrupt was from a double-click event */
+  /* Unforuntately, the click flag interrupt active
+   * flag isnt working as expected */
+  //if (click_flags.ia) return true;
+
+  return true;
 }
 void accel_enable ( void ) {
   //i2c_master_enable(&i2c_master_instance);
@@ -422,7 +450,7 @@ void accel_enable ( void ) {
   accel_register_write (AX_REG_CTL2, HPCLICK | HPCF);
 
   /* Latch interrupts */
- // accel_register_write (AX_REG_CTL5, LIR_INT1);
+  //accel_register_write (AX_REG_CTL5, LIR_INT1);
 
 //    /* Disable sleep activity threshold and duration */
 //    if (!accel_register_write (AX_REG_ACT_THS, 0x00))

@@ -461,7 +461,7 @@ static void main_tic( void ) {
 
                 display_comp_hide_all();
 
-                sleep_wake_anim = anim_swirl(0, 5, MS_IN_TICKS(5), 115, false);
+                sleep_wake_anim = anim_swirl(0, 5, MS_IN_TICKS(5), 57, false);
                 return;
             }
 
