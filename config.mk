@@ -278,6 +278,9 @@ CPPFLAGS = \
        #-D LOG_ACCEL					  \
        #-D ENABLE_BUTTON				  	  \
 
+ifdef simple_time
+    CPPFLAGS+= -D SIMPLE_TIME_MODE
+endif
 
 # Extra flags to use when linking
 LDFLAGS =
