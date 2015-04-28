@@ -4,7 +4,6 @@
 
 //___ I N C L U D E S ________________________________________________________
 #include "accel.h"
-#include "aclock.h"
 #include "main.h"
 
 
@@ -87,6 +86,7 @@
 
 /* FIFO_CTRL_REG */
 #define FIFO_BYPASS     0x00
+#define FIFO_STREAM     0x80
 #define STREAM_TO_FIFO  0xC0
 
 /* FIFO_CTRL_SRC */
@@ -155,16 +155,16 @@
 #define Z_DOWN_DUR_ODR          MS_TO_ODRS(Z_DOWN_DUR_MS, SLEEP_SAMPLE_INT)
 
 /* Y_DOWN */
-#define Y_DOWN_THRESHOLD        -10 //assumes 4g scale
-#define Y_DOWN_DUR_MS           20
+#define XY_DOWN_THRESHOLD        -10 //assumes 4g scale
+#define XY_DOWN_DUR_MS           20
 //#define Y_DOWN_THRESHOLD        -18 //assumes 4g scale
 //#define Y_DOWN_DUR_MS           200
 
-#define Y_DOWN_THRESHOLD_ABS    (Y_DOWN_THRESHOLD < 0 ? -Y_DOWN_THRESHOLD : Y_DOWN_THRESHOLD)
-#define Y_DOWN_DUR_ODR          MS_TO_ODRS(Y_DOWN_DUR_MS, SLEEP_SAMPLE_INT)
+#define XY_DOWN_THRESHOLD_ABS    (XY_DOWN_THRESHOLD < 0 ? -XY_DOWN_THRESHOLD : XY_DOWN_THRESHOLD)
+#define XY_DOWN_DUR_ODR          MS_TO_ODRS(XY_DOWN_DUR_MS, SLEEP_SAMPLE_INT)
 
 #define Z_UP_THRESHOLD          18
-#define Z_UP_DUR_ODR            MS_TO_ODRS(200, SLEEP_SAMPLE_INT)
+#define Z_UP_DUR_ODR            MS_TO_ODRS(150, SLEEP_SAMPLE_INT)
 #define TURN_GESTURE_TIMEOUT_S  5
 
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
@@ -176,7 +176,6 @@
 static uint16_t i2c_addr = AX_ADDRESS0;
 
 /* timestamp of most recent y down interrupt */
-static int32_t y_down_timestamp = 0;
 static bool accel_down = false;
 static int32_t accel_down_start_ms = 0;
 
@@ -299,7 +298,7 @@ static void configure_i2c(void)
 
 static void wait_for_up_conf( void ) {
   /* Configure interrupt to detect movement up (Z HIGH) */
-  accel_register_write (AX_REG_INT1_CFG, AOI_POS | ZHIE);
+  accel_register_write (AX_REG_INT1_CFG, AOI_MOV | ZHIE);
   accel_register_write (AX_REG_INT1_THS, Z_UP_THRESHOLD);
   accel_register_write (AX_REG_INT1_DUR, Z_UP_DUR_ODR);
   wake_gesture_state = WAIT_FOR_UP;
@@ -308,9 +307,9 @@ static void wait_for_up_conf( void ) {
 
 static void wait_for_down_conf( void ) {
   /* Configure interrupt to detect orientaiton down (Y HIGH) */
-  accel_register_write (AX_REG_INT1_CFG, AOI_POS | YLIE );
-  accel_register_write (AX_REG_INT1_THS, Y_DOWN_THRESHOLD_ABS);
-  accel_register_write (AX_REG_INT1_DUR, Y_DOWN_DUR_ODR);
+  accel_register_write (AX_REG_INT1_CFG, AOI_MOV | YLIE | XLIE );
+  accel_register_write (AX_REG_INT1_THS, XY_DOWN_THRESHOLD_ABS);
+  accel_register_write (AX_REG_INT1_DUR, XY_DOWN_DUR_ODR);
   wake_gesture_state = WAIT_FOR_DOWN;
 }
 
@@ -373,9 +372,8 @@ static void accel_isr(void) {
   if (!int_flags.ia) return;
 
   if (wake_gesture_state == WAIT_FOR_DOWN) {
-    if (int_flags.yl) {
-      //y_down_timestamp  = aclock_get_timestamp();
-      accel_register_write (AX_REG_FIFO_CTL, STREAM_TO_FIFO );
+    if (int_flags.yl || int_flags.xl ) {
+      accel_register_write (AX_REG_FIFO_CTL, FIFO_STREAM );
       wait_for_up_conf();
     }
   } else if (wake_gesture_state == WAIT_FOR_UP) {
@@ -398,15 +396,14 @@ static void accel_isr(void) {
 
       /* Make sure y-down interrupt time was recent enough to
       * constitute a "turn up" gesture */
-      //if (true || aclock_get_timestamp() - y_down_timestamp < TURN_GESTURE_TIMEOUT_S) {
-      if ( y_sum < 0  ) {
+      if ( y_sum < -15 || x_sum < -15  ) {
         wake_gesture_state = WAKE_TURN_UP;
         /* Disable AOI INT1 interrupt (leave CLICK enabled) */
         accel_register_write (AX_REG_CTL3,  I1_CLICK_EN);
         accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS );
       }
       else {
-        accel_register_write (AX_REG_FIFO_CTL, STREAM_TO_FIFO );
+        accel_register_write (AX_REG_FIFO_CTL, FIFO_STREAM );
         wait_for_down_conf();
       }
     }
@@ -447,7 +444,7 @@ bool accel_wakeup_check( void ) {
     if (z > Z_UP_THRESHOLD)  {
       return true;
     } else {
-      accel_register_write (AX_REG_FIFO_CTL, STREAM_TO_FIFO );
+      accel_register_write (AX_REG_FIFO_CTL, FIFO_STREAM );
       return false;
     }
 
@@ -587,7 +584,7 @@ void accel_sleep ( void ) {
   accel_register_write (AX_REG_CTL3,  I1_CLICK_EN | I1_AOI1_EN );
 
   /* Enable STREAM to FIFO mode so previous values can be read after an INT */
-  accel_register_write (AX_REG_FIFO_CTL, STREAM_TO_FIFO);
+  accel_register_write (AX_REG_FIFO_CTL, FIFO_STREAM);
 
   /* Configure interrupt to detect orientaiton down (Y LOW) */
   wait_for_down_conf();

@@ -50,6 +50,15 @@
 #define NVM_LOG_ADDR_START  (NVM_ADDR_START + NVM_CONF_STORE_SIZE)
 #define NVM_LOG_ADDR_MAX     NVM_MAX_ADDR
 
+#if LOG_USAGE
+    #define LOG_WAKEUP() \
+        log_vbatt(true)
+    #define LOG_SLEEP() \
+        log_vbatt(false)
+#else
+    #define LOG_WAKEUP()
+    #define LOG_SLEEP()
+#endif
 
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 
@@ -260,9 +269,7 @@ static void setup_clock_pin_outputs( void ) {
 
 static void prepare_sleep( void ) {
 
-#if LOG_USAGE
-    log_vbatt(false);
-#endif
+    LOG_SLEEP();
 
 #ifdef ENABLE_BUTTON
     /* Enable button callback to awake us from sleep */
@@ -318,9 +325,7 @@ static void wakeup (void) {
     main_read_current_sensor(true);
     update_vbatt_running_avg();
 
-#if LOG_USAGE
-    log_vbatt(true);
-#endif
+    LOG_WAKEUP();
 
 }
 
@@ -780,9 +785,7 @@ int main (void)
     port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, false);
 #endif
 
-#if LOG_USAGE
-    log_vbatt(true);
-#endif
+    LOG_WAKEUP();
 
     /* Show a startup LED swirl */
     sleep_wake_anim = anim_swirl(0, 8, MS_IN_TICKS(4), 172, true);
