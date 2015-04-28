@@ -381,23 +381,46 @@ static void accel_isr(void) {
       /* Read FIFO to determine if a turn-up gesture occurred */
       uint8_t fifo_depth;
       int16_t x = 0, y = 0, z = 0;
+      int16_t x_p = 0, y_p = 0, z_p = 0;
+      int16_t dx = 0, dy = 0, dz = 0;
       int16_t x_sum = 0, y_sum = 0, z_sum = 0;
 
       accel_register_consecutive_read( AX_REG_FIFO_SRC, 1, &fifo_depth );
       fifo_depth = fifo_depth & FIFO_SIZE;
 
-      while (fifo_depth--) {
+      /* First read outside loop to initialize prev values for delta calc */
+      accel_data_read(&x, &y, &z);
+      x_sum = x;
+      y_sum = y;
+      z_sum = z;
+
+      while (--fifo_depth) {
+        x_p = x; y_p = y; z_p = z;
         accel_data_read(&x, &y, &z);
         x_sum+=x;
         y_sum+=y;
         z_sum+=z;
 
+        dx += x - x_p;
+        dy += y - y_p;
+        dz += z - z_p;
+
+        //if (dx + dy > 25) {
+        //  wake_gesture_state = WAKE_TURN_UP;
+        //  break;
+        //}
+        if ( y_sum + x_sum < -25  ) {
+          wake_gesture_state = WAKE_TURN_UP;
+          break;
+        }
+
       }
 
       /* Make sure y-down interrupt time was recent enough to
       * constitute a "turn up" gesture */
-      if ( y_sum < -15 || x_sum < -15  ) {
-        wake_gesture_state = WAKE_TURN_UP;
+      //if ( y_sum < -20 || x_sum < -20  ) {
+      if ( wake_gesture_state == WAKE_TURN_UP) {
+
         /* Disable AOI INT1 interrupt (leave CLICK enabled) */
         accel_register_write (AX_REG_CTL3,  I1_CLICK_EN);
         accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS );
