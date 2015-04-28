@@ -62,6 +62,9 @@ if __name__ == "__main__":
 
         (t,v,p) = struct.unpack("<iHH", binval)
 
+        if p != 0xbeef and p !=0xdead:
+            skips+=1
+            print("ignoring bad beef code '{0:#x}'".format(p))
         if t < 10000:
           skips+=1
           print("ignoring bad time val {}".format(t))

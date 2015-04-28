@@ -28,6 +28,8 @@
 #define AX_REG_CTL3         0x22
 #define AX_REG_CTL4         0x23
 #define AX_REG_CTL5         0x24
+#define AX_REG_FIFO_CTL     0x2E
+#define AX_REG_FIFO_SRC     0x2F
 #define AX_REG_WHO_AM_I     0x0F
 #define WHO_IS_IT           0x33
 #define AX_REG_INT1_CFG     0x30
@@ -82,6 +84,13 @@
 
 /* CTRL_REG5 */
 #define LIR_INT1    0x08
+
+/* FIFO_CTRL_REG */
+#define FIFO_BYPASS     0x00
+#define STREAM_TO_FIFO  0xC0
+
+/* FIFO_CTRL_SRC */
+#define FIFO_SIZE       0x0F
 
 /* INT1/2 CFG */
 #define AOI_MOV     0x40
@@ -146,15 +155,17 @@
 #define Z_DOWN_DUR_ODR          MS_TO_ODRS(Z_DOWN_DUR_MS, SLEEP_SAMPLE_INT)
 
 /* Y_DOWN */
-#define Y_DOWN_THRESHOLD        -18 //assumes 4g scale
-#define Y_DOWN_DUR_MS           200
+#define Y_DOWN_THRESHOLD        -10 //assumes 4g scale
+#define Y_DOWN_DUR_MS           20
+//#define Y_DOWN_THRESHOLD        -18 //assumes 4g scale
+//#define Y_DOWN_DUR_MS           200
 
 #define Y_DOWN_THRESHOLD_ABS    (Y_DOWN_THRESHOLD < 0 ? -Y_DOWN_THRESHOLD : Y_DOWN_THRESHOLD)
 #define Y_DOWN_DUR_ODR          MS_TO_ODRS(Y_DOWN_DUR_MS, SLEEP_SAMPLE_INT)
 
-#define Z_UP_THRESHOLD          20
-#define Z_UP_DUR_ODR            MS_TO_ODRS(210, SLEEP_SAMPLE_INT)
-#define TURN_GESTURE_TIMEOUT_S  2
+#define Z_UP_THRESHOLD          18
+#define Z_UP_DUR_ODR            MS_TO_ODRS(200, SLEEP_SAMPLE_INT)
+#define TURN_GESTURE_TIMEOUT_S  5
 
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 
@@ -209,7 +220,7 @@ static union {
   uint8_t b8;
 } int_flags;
 
-static enum {SLEEP_START, WAIT_FOR_DOWN, WAIT_FOR_UP, WAKE} wake_gesture_state;
+static enum {SLEEP_START, WAIT_FOR_DOWN, WAIT_FOR_UP, WAKE_DCLICK, WAKE_TURN_UP} wake_gesture_state;
 
 //___ I N T E R R U P T S  ___________________________________________________
 
@@ -238,7 +249,6 @@ static bool accel_register_consecutive_read (uint8_t start_reg,
 static bool accel_register_write (uint8_t reg, uint8_t val);
 
 /* Configuration functions for wakeup gesture recognition */
-static void sleep_start_conf( void );
 static void wait_for_down_conf( void );
 static void wait_for_up_conf( void );
 
@@ -287,12 +297,8 @@ static void configure_i2c(void)
 }
 
 
-static void sleep_start_conf( void ) {
-
-}
-
 static void wait_for_up_conf( void ) {
-  /* Configure interrupt to detect orientaiton up (Z HIGH) */
+  /* Configure interrupt to detect movement up (Z HIGH) */
   accel_register_write (AX_REG_INT1_CFG, AOI_POS | ZHIE);
   accel_register_write (AX_REG_INT1_THS, Z_UP_THRESHOLD);
   accel_register_write (AX_REG_INT1_DUR, Z_UP_DUR_ODR);
@@ -302,7 +308,7 @@ static void wait_for_up_conf( void ) {
 
 static void wait_for_down_conf( void ) {
   /* Configure interrupt to detect orientaiton down (Y HIGH) */
-  accel_register_write (AX_REG_INT1_CFG, AOI_POS | YLIE);
+  accel_register_write (AX_REG_INT1_CFG, AOI_POS | YLIE );
   accel_register_write (AX_REG_INT1_THS, Y_DOWN_THRESHOLD_ABS);
   accel_register_write (AX_REG_INT1_DUR, Y_DOWN_DUR_ODR);
   wake_gesture_state = WAIT_FOR_DOWN;
@@ -356,21 +362,53 @@ static bool accel_register_write (uint8_t reg, uint8_t val) {
 
 static void accel_isr(void) {
 
-  //accel_register_consecutive_read(AX_REG_CLICK_SRC, 1, &click_flags.b8);
+  accel_register_consecutive_read(AX_REG_CLICK_SRC, 1, &click_flags.b8);
   accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &int_flags.b8);
 
-  if (!int_flags.ia) return; //this isr is only for AOI orientiation events
+  if (click_flags.ia) {
+    wake_gesture_state = WAKE_DCLICK;
+    return;
+  }
+
+  if (!int_flags.ia) return;
 
   if (wake_gesture_state == WAIT_FOR_DOWN) {
     if (int_flags.yl) {
-      y_down_timestamp  = aclock_get_timestamp();
+      //y_down_timestamp  = aclock_get_timestamp();
+      accel_register_write (AX_REG_FIFO_CTL, STREAM_TO_FIFO );
       wait_for_up_conf();
     }
   } else if (wake_gesture_state == WAIT_FOR_UP) {
     if (int_flags.zh) {
-      wake_gesture_state = WAKE;
-      /* Disable AOI INT1 interrupt (leave CLICK enabled) */
-      accel_register_write (AX_REG_CTL3,  I1_CLICK_EN);
+      /* Read FIFO to determine if a turn-up gesture occurred */
+      uint8_t fifo_depth;
+      int16_t x = 0, y = 0, z = 0;
+      int16_t x_sum = 0, y_sum = 0, z_sum = 0;
+
+      accel_register_consecutive_read( AX_REG_FIFO_SRC, 1, &fifo_depth );
+      fifo_depth = fifo_depth & FIFO_SIZE;
+
+      while (fifo_depth--) {
+        accel_data_read(&x, &y, &z);
+        x_sum+=x;
+        y_sum+=y;
+        z_sum+=z;
+
+      }
+
+      /* Make sure y-down interrupt time was recent enough to
+      * constitute a "turn up" gesture */
+      //if (true || aclock_get_timestamp() - y_down_timestamp < TURN_GESTURE_TIMEOUT_S) {
+      if ( y_sum < 0  ) {
+        wake_gesture_state = WAKE_TURN_UP;
+        /* Disable AOI INT1 interrupt (leave CLICK enabled) */
+        accel_register_write (AX_REG_CTL3,  I1_CLICK_EN);
+        accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS );
+      }
+      else {
+        accel_register_write (AX_REG_FIFO_CTL, STREAM_TO_FIFO );
+        wait_for_down_conf();
+      }
     }
   }
 
@@ -397,35 +435,28 @@ bool accel_data_read (int16_t *x_ptr, int16_t *y_ptr, int16_t *z_ptr) {
 bool accel_wakeup_check( void ) {
 
   int16_t x,y,z = 0;
-  accel_register_consecutive_read(AX_REG_CLICK_SRC, 1, &click_flags.b8);
-  accel_data_read(&x, &y, &z);
+  if (wake_gesture_state == WAKE_TURN_UP) {
+    return true;
 
-  /* Never wakeup without z-axis facing somewhat up */
-  if (z < Z_UP_THRESHOLD) return false;
-
-  if (int_flags.yh) return false;
-
-
-  /* See if we've had a valid "turn up" gesture to wake by
-   * checking for z high interrupt */
-  accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &int_flags.b8);
-  if (int_flags.ia && int_flags.zh) {
-    /* Make sure y-down interrupt time was recent enough to
-    * constitute a "turn up" gesture */
-    if (aclock_get_timestamp() - y_down_timestamp < TURN_GESTURE_TIMEOUT_S) {
-      return true;
-    }
-    else {
-      return false;
-    }
   }
 
-  /* This interrupt was from a double-click event */
-  /* Unforuntately, the click flag interrupt active
-   * flag isnt working as expected */
-  //if (click_flags.ia) return true;
+  if (wake_gesture_state == WAKE_DCLICK) {
+    accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS );
+    accel_data_read(&x, &y, &z);
+    /* Dont wakeup on click without z-axis facing somewhat up */
+    if (z > Z_UP_THRESHOLD)  {
+      return true;
+    } else {
+      accel_register_write (AX_REG_FIFO_CTL, STREAM_TO_FIFO );
+      return false;
+    }
 
-  return true;
+
+  }
+  //accel_register_consecutive_read(AX_REG_CLICK_SRC, 1, &click_flags.b8);
+  //accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &int_flags.b8);
+
+  return false;
 }
 void accel_enable ( void ) {
   //i2c_master_enable(&i2c_master_instance);
@@ -449,8 +480,11 @@ void accel_enable ( void ) {
   /* Enable High Pass filter for Clicks */
   accel_register_write (AX_REG_CTL2, HPCLICK | HPCF);
 
+  /* Disable FIFO mode */
+  accel_register_write (AX_REG_FIFO_CTL,  FIFO_BYPASS );
+
   /* Latch interrupts */
-  //accel_register_write (AX_REG_CTL5, LIR_INT1);
+  accel_register_write (AX_REG_CTL5, LIR_INT1);
 
 //    /* Disable sleep activity threshold and duration */
 //    if (!accel_register_write (AX_REG_ACT_THS, 0x00))
@@ -537,10 +571,13 @@ static event_flags_t click_timeout_event_check( void ) {
 }
 
 void accel_sleep ( void ) {
+  int16_t x = 0, y = 0, z = 0;
 
 #ifdef NO_ACCEL
     return;
 #endif
+  accel_data_read(&x, &y, &z);
+
   /* Only x-axis double clicks should wake us up */
   accel_register_write (AX_REG_CLICK_CFG, X_DCLICK);
   accel_register_write (AX_REG_CLICK_THS, WAKEUP_CLICK_THS);
@@ -549,7 +586,10 @@ void accel_sleep ( void ) {
   accel_register_write (AX_REG_CTL1, SLEEP_ODR | LOW_PWR_EN |  X_EN | Y_EN | Z_EN);
   accel_register_write (AX_REG_CTL3,  I1_CLICK_EN | I1_AOI1_EN );
 
-  /* Configure interrupt to detect orientaiton down (Y HIGH) */
+  /* Enable STREAM to FIFO mode so previous values can be read after an INT */
+  accel_register_write (AX_REG_FIFO_CTL, STREAM_TO_FIFO);
+
+  /* Configure interrupt to detect orientaiton down (Y LOW) */
   wait_for_down_conf();
 
   /* Configure click parameters */

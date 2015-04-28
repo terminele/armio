@@ -103,7 +103,6 @@ void comp_free ( display_comp_t* ptr ) {
     ptr->type = dispt_unused;
 }
 
-
 void comp_draw( display_comp_t* comp) {
     int32_t tmp, pos;
     uint8_t bright = comp->brightness;
@@ -237,7 +236,6 @@ display_comp_t* display_snake ( int8_t pos,
 
     return comp_ptr;
 }
-
 
 
 display_comp_t* display_polygon ( int8_t pos,

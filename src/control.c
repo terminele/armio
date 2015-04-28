@@ -359,7 +359,14 @@ bool ee_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
 
 
     if (ee_submode_tic) {
-        return ee_submode_tic(event_flags, tick_cnt);
+      if(ee_submode_tic(event_flags, tick_cnt)) {
+          /* submode is finished */
+        ee_submode_tic = NULL;
+        ee_code = 0;
+        run_cnt = 0;
+        last_ev_tick = 0;
+        return true;
+      }
     }
 
     return false;
@@ -471,6 +478,10 @@ bool light_sense_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     if (main_get_current_sensor() != sensor_light)
         main_set_current_sensor(sensor_light);
 
+    if (tick_cnt % 10  == 0) {
+      main_start_sensor_read();
+    }
+
     if (DEFAULT_MODE_TRANS_CHK(event_flags)) {
         if (adc_pt) {
             display_comp_release(adc_pt);
@@ -484,7 +495,6 @@ bool light_sense_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     }
 
 
-    main_start_sensor_read();
 
     adc_val = main_read_current_sensor(false);
     display_comp_update_pos(adc_pt, adc_light_value_scale(adc_val));

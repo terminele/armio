@@ -190,7 +190,7 @@ static struct events_resource bank_inc_event;
 static uint8_t bright_index;      // current brightness level
 static uint16_t brightness_ctr = 1;      // counter for incrementing bright index
 static uint8_t bank_ctr = BANK_COUNT;
-
+static uint8_t max_brightness = MAX_BRIGHT_VAL;
 static uint8_t led_intensities[ BANK_COUNT ][ SEGMENT_COUNT ];
 static uint32_t led_segment_masks[ BANK_COUNT ][ BRIGHT_LEVELS ];
 
@@ -375,12 +375,11 @@ void led_set_intensity ( uint8_t led, uint8_t intensity ) {
   uint8_t i;
 
 
-  if (intensity == led_intensities[bank][segment]) return;
 
   led_intensities[bank][segment] = intensity;
 
   for (i = 0; i < BRIGHT_LEVELS; i++) {
-      if (intensity > i)
+      if (intensity > i && i < max_brightness)
         led_segment_masks[ bank ][ i ] |= 1UL << segment_gpio;
       else
         led_segment_masks[ bank ][ i ] &= ~(1UL << segment_gpio);
@@ -394,4 +393,8 @@ void led_clear_all( void ) {
   /* clear (disable) all active leds */
   BANKS_SEGMENTS_CLEAR();
   memset(led_segment_masks, 0, BANK_COUNT*BRIGHT_LEVELS*sizeof(uint32_t));
+}
+
+void led_set_max_brightness( uint8_t brightness ) {
+    max_brightness = brightness;
 }

@@ -366,7 +366,7 @@ static event_flags_t button_event_flags ( void ) {
 //___ F U N C T I O N S ______________________________________________________
 
 static void main_tic( void ) {
-
+    static uint8_t brightness = MAX_BRIGHT_VAL;
     event_flags_t event_flags = EV_FLAG_NONE;
 
     main_gs.inactivity_ticks++;
@@ -377,6 +377,18 @@ static void main_tic( void ) {
 
     /* Reset inactivity if any button event occurs */
     if (event_flags != EV_FLAG_NONE) main_gs.inactivity_ticks = 0;
+
+#ifdef NOT_NOW
+    if (event_flags & EV_FLAG_ACCEL_DCLICK_Y) {
+        if (brightness == MAX_BRIGHT_VAL) {
+            brightness = MIN_BRIGHT_VAL;
+        } else {
+            brightness+=1;
+        }
+
+        led_set_max_brightness( brightness );
+    }
+#endif
 
     switch (main_gs.state) {
         case STARTUP:
@@ -447,7 +459,7 @@ static void main_tic( void ) {
                     control_mode_active->sleep_timeout_ticks ||
 
                     (IS_CONTROL_MODE_MAIN() && event_flags & EV_FLAG_ACCEL_Z_LOW &&
-                     main_get_waketime_ms() > 500)
+                     main_get_waketime_ms() > 300)
 
                     ) {
                 /* A sleep event has occurred */
@@ -637,7 +649,7 @@ void main_log_data( uint8_t *data, uint16_t length, bool flush) {
 void main_start_sensor_read ( void ) {
 
 #if ENABLE_LIGHT_SENSE
-    if (main_gs.current_sensor == sensor_type_t) {
+    if (main_gs.current_sensor == sensor_light) {
         port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, true);
     } else {
         port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, false);
@@ -703,7 +715,7 @@ uint16_t main_read_current_sensor( bool blocking ) {
         if (status == STATUS_OK) {
             *curr_sens_adc_val_ptr = result;
             adc_clear_status(&light_vbatt_sens_adc, ADC_STATUS_RESULT_READY);
-            port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, false);
+            //port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, false);
         }
     } while (blocking && status != STATUS_OK);
 
@@ -745,14 +757,14 @@ int main (void)
     accel_init();
 
     /* Log reset cause */
-    reset_cause = system_get_reset_cause();
-    reset_cause = reset_cause | 0xBADBAD00;
-    main_log_data((uint8_t *)&reset_cause, sizeof(uint32_t), true);
+    //reset_cause = system_get_reset_cause();
+    //reset_cause = reset_cause | 0xBADBAD00;
+    //main_log_data((uint8_t *)&reset_cause, sizeof(uint32_t), true);
 
     /* Errata 39.3.2 -- device may not wake up from
      * standby if nvm goes to sleep. Not needed
      * for revision D or later */
-    NVMCTRL->CTRLB.bit.SLEEPPRM = NVMCTRL_CTRLB_SLEEPPRM_DISABLED_Val;
+    //NVMCTRL->CTRLB.bit.SLEEPPRM = NVMCTRL_CTRLB_SLEEPPRM_DISABLED_Val;
 
     /* Read light and vbatt sensors on startup */
 #ifdef ENABLE_VBATT
@@ -761,9 +773,12 @@ int main (void)
     main_gs.running_avg_vbatt = main_read_current_sensor(true);
 #endif
 
+#ifdef ENABLE_LIGHT_SENSE
     main_set_current_sensor(sensor_light);
     main_start_sensor_read();
     main_read_current_sensor(true);
+    port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, false);
+#endif
 
 #if LOG_USAGE
     log_vbatt(true);

@@ -83,6 +83,10 @@ void led_clear_all( void );
    * @retrn None
    */
 
-
+void led_set_max_brightness( uint8_t brightness);
+  /* @brief set global max brightness
+   * @param brightness level
+   * @retrn None
+   */
 
 #endif /* end of include guard: __LEDS_H__ */
