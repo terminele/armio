@@ -156,7 +156,7 @@
 
 /* Y_DOWN */
 #define XY_DOWN_THRESHOLD        -10 //assumes 4g scale
-#define XY_DOWN_DUR_MS           20
+#define XY_DOWN_DUR_MS           50
 //#define Y_DOWN_THRESHOLD        -18 //assumes 4g scale
 //#define Y_DOWN_DUR_MS           200
 
@@ -409,11 +409,15 @@ static void accel_isr(void) {
         //  wake_gesture_state = WAKE_TURN_UP;
         //  break;
         //}
-        if ( y_sum + x_sum < -25  ) {
+        if ( y_sum + x_sum < -22  ) {
           wake_gesture_state = WAKE_TURN_UP;
           break;
         }
 
+        if ( y_sum < -15 || dy > 20 ) {
+          wake_gesture_state = WAKE_TURN_UP;
+          break;
+        }
       }
 
       /* Make sure y-down interrupt time was recent enough to
@@ -545,6 +549,18 @@ static event_flags_t click_timeout_event_check( void ) {
           break;
         case 5:
           ev_flags |= EV_FLAG_ACCEL_5CLICK_X;
+          break;
+        case 6:
+          ev_flags |= EV_FLAG_ACCEL_6CLICK_X;
+          break;
+        case 7:
+          ev_flags |= EV_FLAG_ACCEL_7CLICK_X;
+          break;
+        case 8:
+          ev_flags |= EV_FLAG_ACCEL_8CLICK_X;
+          break;
+        case 9:
+          ev_flags |= EV_FLAG_ACCEL_9CLICK_X;
           break;
         default:
           ev_flags |= EV_FLAG_ACCEL_NCLICK_X;

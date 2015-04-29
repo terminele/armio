@@ -16,7 +16,7 @@
 #define TIME_SET_MODE_EDITING_SLEEP_TIMEOUT_TICKS       MS_IN_TICKS(80000)
 #define TIME_SET_MODE_NOEDIT_SLEEP_TIMEOUT_TICKS        MS_IN_TICKS(8000)
 #define EE_MODE_SLEEP_TIMEOUT_TICKS                     MS_IN_TICKS(8000)
-#define EE_RUN_TIMEOUT_TICKS                            MS_IN_TICKS(2000)
+#define EE_RUN_TIMEOUT_TICKS                            MS_IN_TICKS(3000)
 #define EE_RUN_MIN_INTERTICK                            MS_IN_TICKS(100)
 #define DEFAULT_MODE_TRANS_CHK(ev_flags) \
         (   ev_flags & EV_FLAG_LONG_BTN_PRESS || \
@@ -87,6 +87,10 @@ bool event_debug_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt );
    * @retrn true on finish
    */
 
+bool digit_disp_mode_tic( event_flags_t event_flags, uint32_t tick_cnt );
+
+bool char_disp_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt );
+
 bool ee_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt );
   /* @brief animation demo mode tic
    * @param event flags
@@ -122,6 +126,7 @@ control_mode_t control_modes[] = {
     }
 };
 
+static uint32_t disp_vals[5];
 
 //___ I N T E R R U P T S  ___________________________________________________
 
@@ -173,31 +178,15 @@ bool ee_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     static tic_fun_t ee_submode_tic = NULL;
 
     if ( event_flags & EV_FLAG_SLEEP ) {
-        if (anim) {
-            anim_release(anim);
-            anim = NULL;
-        }
 
-        if (display_comp) {
-            display_comp_release(display_comp);
-            display_comp = NULL;
-        }
+      /* Give submode tic a chance to cleanup as well */
+      if (ee_submode_tic) ee_submode_tic(event_flags, tick_cnt);
 
-        /* Give submode tic a chance to cleanup as well */
-        if (ee_submode_tic) ee_submode_tic(event_flags, tick_cnt);
-
-        ee_code = 0;
-        run_cnt = 0;
-        last_ev_tick = 0;
-        ee_submode_tic = NULL;
-
-        set_ee_sleep_timeout(EE_MODE_SLEEP_TIMEOUT_TICKS);
-
-        return true;
+      goto finish;
     }
 
 
-    if (tick_cnt == 0) {
+    if (tick_cnt == 0 && ee_submode_tic == NULL) {
         /* Display ee mode start animation */
         display_comp = display_polygon(0, BRIGHT_DEFAULT, 3);
         anim = anim_blink(display_comp, MS_IN_TICKS(400),
@@ -236,34 +225,33 @@ bool ee_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
                 run_cnt++;
                 last_ev_tick = tick_cnt;
                 break;
-            case EV_FLAG_ACCEL_NCLICK_X:
+            case EV_FLAG_ACCEL_6CLICK_X:
                 ee_code+=(0x6 << 4*run_cnt);
                 run_cnt++;
                 last_ev_tick = tick_cnt;
                 break;
-            case EV_FLAG_ACCEL_SCLICK_Y:
+            case EV_FLAG_ACCEL_7CLICK_X:
                 ee_code+=(0x7 << 4*run_cnt);
                 run_cnt++;
                 last_ev_tick = tick_cnt;
                 break;
-            case EV_FLAG_ACCEL_DCLICK_Y:
+            case EV_FLAG_ACCEL_8CLICK_X:
                 ee_code+=(0x8 << 4*run_cnt);
                 run_cnt++;
                 last_ev_tick = tick_cnt;
                 break;
-            case EV_FLAG_ACCEL_TCLICK_Y:
+            case EV_FLAG_ACCEL_9CLICK_X:
                 ee_code+=(0xA << 4*run_cnt);
                 run_cnt++;
                 last_ev_tick = tick_cnt;
                 break;
-            case EV_FLAG_ACCEL_QCLICK_Y:
+            case EV_FLAG_ACCEL_SCLICK_Y:
                 ee_code+=(0xB << 4*run_cnt);
                 run_cnt++;
                 last_ev_tick = tick_cnt;
                 break;
 
         }
-
 
         return false;
     } else if (last_tic_delta == EE_RUN_TIMEOUT_TICKS) {
@@ -302,6 +290,42 @@ bool ee_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
             case 0x6:
                 display_comp = display_line(0, BRIGHT_DEFAULT, 5);
                 anim = anim_rotate(display_comp, true, MS_IN_TICKS(8), ANIMATION_DURATION_INF);
+                break;
+            case 0x413:
+                disp_vals[0] =  562951413UL;
+                disp_vals[1] =  323979853UL;
+                disp_vals[2] =  833462648UL;
+                disp_vals[3] =  882059723UL;
+                disp_vals[4] =  939617914UL;
+
+                ee_submode_tic = digit_disp_mode_tic;
+                break;
+            case 0x72:
+                disp_vals[0] =  281828172UL;
+                disp_vals[1] =  325409548UL;
+                disp_vals[2] =  747820635UL;
+                disp_vals[3] =  942662531UL;
+                disp_vals[4] =  907427577UL;
+
+                ee_submode_tic = digit_disp_mode_tic;
+                break;
+            case 0x63:
+                disp_vals[0] =  108030918UL;
+                disp_vals[1] =  1802000418UL;
+                disp_vals[2] =  140125UL;
+                disp_vals[3] =  0;
+                disp_vals[4] =  0;
+
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 0x68:
+                disp_vals[0] =  9035768;
+                disp_vals[1] =  0;
+                disp_vals[2] =  0;
+                disp_vals[3] =  0;
+                disp_vals[4] =  0;
+
+                ee_submode_tic = digit_disp_mode_tic;
                 break;
             case 0x31:
                 display_comp = display_polygon(0, BRIGHT_DEFAULT, 3);
@@ -350,6 +374,7 @@ bool ee_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
                 break;
             default:
                 display_comp = display_point(ee_code % 60, BRIGHT_DEFAULT);
+                set_ee_sleep_timeout(MS_IN_TICKS(3000));
                 break;
                 //return true;
         }
@@ -360,16 +385,33 @@ bool ee_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
 
     if (ee_submode_tic) {
       if(ee_submode_tic(event_flags, tick_cnt)) {
-          /* submode is finished */
-        ee_submode_tic = NULL;
-        ee_code = 0;
-        run_cnt = 0;
-        last_ev_tick = 0;
-        return true;
+        /* submode is finished */
+        goto finish;
       }
     }
 
     return false;
+
+finish:
+
+    if (anim) {
+        anim_release(anim);
+        anim = NULL;
+    }
+
+    if (display_comp) {
+        display_comp_release(display_comp);
+        display_comp = NULL;
+    }
+
+    ee_code = 0;
+    run_cnt = 0;
+    last_ev_tick = 0;
+    ee_submode_tic = NULL;
+
+    set_ee_sleep_timeout(EE_MODE_SLEEP_TIMEOUT_TICKS);
+
+    return true;
 }
 bool accel_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     static display_comp_t *disp_x;
@@ -382,8 +424,7 @@ bool accel_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     uint32_t log_data;
 #endif
 
-    main_inactivity_timeout_reset();
-    set_ee_sleep_timeout(MS_IN_TICKS(20000));
+    set_ee_sleep_timeout(MS_IN_TICKS(40000));
 
     if ( event_flags & EV_FLAG_SLEEP) {
         display_comp_hide_all();
@@ -449,7 +490,7 @@ bool accel_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
 }
 bool accel_point_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     static display_comp_t *disp_pt = NULL;
-    main_inactivity_timeout_reset();
+    set_ee_sleep_timeout(MS_IN_TICKS(20000));
 
     if (!disp_pt) {
         disp_pt = display_point(0, BRIGHT_DEFAULT);
@@ -457,7 +498,9 @@ bool accel_point_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     }
 
 
-    if ( event_flags & EV_FLAG_SLEEP) {
+    if ( event_flags & EV_FLAG_SLEEP ||
+         event_flags & EV_FLAG_ACCEL_QCLICK_X ||
+         event_flags & EV_FLAG_ACCEL_TCLICK_X ) {
         display_comp_hide_all();
         display_comp_release(disp_pt);
         disp_pt = NULL;
@@ -557,6 +600,11 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
 
     if (event_flags & EV_FLAG_LONG_BTN_PRESS ||
         event_flags & EV_FLAG_ACCEL_QCLICK_X ||
+        event_flags & EV_FLAG_ACCEL_5CLICK_X ||
+        event_flags & EV_FLAG_ACCEL_6CLICK_X ||
+        event_flags & EV_FLAG_ACCEL_7CLICK_X ||
+        event_flags & EV_FLAG_ACCEL_8CLICK_X ||
+        event_flags & EV_FLAG_ACCEL_9CLICK_X ||
         event_flags & EV_FLAG_ACCEL_NCLICK_X ||
         event_flags & EV_FLAG_SLEEP) {
 
@@ -663,19 +711,7 @@ bool time_set_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     if ( event_flags & EV_FLAG_SLEEP ||
          event_flags & EV_FLAG_ACCEL_DCLICK_X ||
          (!is_editing && tick_cnt > TIME_SET_MODE_NOEDIT_SLEEP_TIMEOUT_TICKS )) {
-end_mode:
-        if (min_disp_ptr) {
-            display_comp_release(min_disp_ptr);
-            display_comp_release(hour_disp_ptr);
-            min_disp_ptr = hour_disp_ptr = NULL;
-        }
-        if (blink_ptr) {
-            anim_release(blink_ptr);
-            blink_ptr = NULL;
-        }
-        is_editing = false;
-        utils_spin_tracker_end();
-        return true; //transition
+      goto finish;
     }
 
     if (!min_disp_ptr) {
@@ -709,7 +745,7 @@ end_mode:
                 /* Exiting edit mode  Set updated time */
                 is_editing = false;
                 aclock_set_time(hour, minute, 0);
-                goto end_mode;
+                goto finish;
             }
         }
         return false; //nothing should be done during animations
@@ -762,6 +798,20 @@ end_mode:
 
 
     return false;
+
+finish:
+    if (min_disp_ptr) {
+        display_comp_release(min_disp_ptr);
+        display_comp_release(hour_disp_ptr);
+        min_disp_ptr = hour_disp_ptr = NULL;
+    }
+    if (blink_ptr) {
+        anim_release(blink_ptr);
+        blink_ptr = NULL;
+    }
+    is_editing = false;
+    utils_spin_tracker_end();
+    return true; //transition
 }
 
 bool tick_counter_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
@@ -776,7 +826,6 @@ bool tick_counter_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     static display_comp_t *sec_disp_ptr = NULL;
     static display_comp_t *tick_sec_disp_ptr = NULL;
 
-    main_inactivity_timeout_reset();
     set_ee_sleep_timeout(MS_IN_TICKS(20000));
 
 
@@ -808,6 +857,113 @@ bool tick_counter_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     display_comp_update_pos(tick_sec_disp_ptr, (TICKS_IN_MS(tick_cnt)/1000) % 60);
 
     return false;
+}
+
+
+bool char_disp_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
+#define CHARS_PER_UINT32  5UL
+#define MAX_CHARS               25UL
+    static display_comp_t *char_disp_ptr = NULL;
+    static uint32_t char_idx = 0;
+    static uint32_t val = 0;
+    static uint32_t divisor = 1;
+    static uint32_t last_update_tic = 0;
+
+    set_ee_sleep_timeout(MS_IN_TICKS(20000));
+
+
+    if ( event_flags & EV_FLAG_SLEEP ||
+         event_flags & EV_FLAG_ACCEL_QCLICK_X) {
+      goto finish;
+    }
+
+    if (tick_cnt - last_update_tic > 1000) {
+      val = (disp_vals[char_idx/CHARS_PER_UINT32] / divisor) % 100;
+
+      char_idx++;
+      divisor*=100;
+      last_update_tic = tick_cnt;
+
+      if (char_idx % CHARS_PER_UINT32 == 0) {
+        divisor = 1;
+      }
+      if (char_idx == MAX_CHARS) {
+        goto finish;
+      }
+    }
+
+
+    if (!char_disp_ptr) {
+        char_disp_ptr = display_point(val, BRIGHT_DEFAULT);
+    }
+
+    display_comp_update_pos(char_disp_ptr, val);
+
+
+    return false;
+
+finish:
+    if (char_disp_ptr) {
+      display_comp_release(char_disp_ptr);
+      char_disp_ptr = NULL;
+    }
+
+    char_idx = 0;
+    divisor = 1;
+    last_update_tic = 0;
+    return true;
+}
+
+bool digit_disp_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
+    static display_comp_t *digit_disp_ptr = NULL;
+    static uint32_t digit_idx = 0;
+    static uint32_t divisor = 1;
+    static uint32_t last_update_tic = 0;
+    static uint32_t digit = 0;
+#define DIGITS_PER_UINT32   9UL
+#define MAX_DIGITS          45UL
+
+    set_ee_sleep_timeout(MS_IN_TICKS(25000));
+
+
+
+    if ( event_flags & EV_FLAG_SLEEP ||
+         event_flags & EV_FLAG_ACCEL_QCLICK_X) {
+      goto finish;
+    }
+
+    if (tick_cnt - last_update_tic > 1000) {
+      digit = (disp_vals[digit_idx/DIGITS_PER_UINT32] / divisor) % 10;
+      digit_idx++;
+      divisor*=10;
+      last_update_tic = tick_cnt;
+
+      if (digit_idx % DIGITS_PER_UINT32 == 0) {
+        divisor = 1;
+      }
+      if (digit_idx == MAX_DIGITS) {
+        goto finish;
+      }
+    }
+
+    if (!digit_disp_ptr) {
+        digit_disp_ptr = display_point(digit * 5, BRIGHT_DEFAULT);
+    }
+
+    display_comp_update_pos(digit_disp_ptr, digit * 5);
+
+    return false;
+
+finish:
+    if (digit_disp_ptr) {
+      display_comp_release(digit_disp_ptr);
+      digit_disp_ptr = NULL;
+    }
+
+    digit_idx = 0;
+    divisor = 1;
+    last_update_tic = 0;
+    return true;
 }
 
 //___ F U N C T I O N S ______________________________________________________

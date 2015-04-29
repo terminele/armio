@@ -491,7 +491,11 @@ static void main_tic( void ) {
                     control_mode_select(CONTROL_MODE_MAIN);
 
                 }
-                else if (event_flags & EV_FLAG_ACCEL_NCLICK_X) {
+                else if (event_flags & EV_FLAG_ACCEL_6CLICK_X ||
+                         event_flags & EV_FLAG_ACCEL_7CLICK_X ||
+                         event_flags & EV_FLAG_ACCEL_8CLICK_X ||
+                         event_flags & EV_FLAG_ACCEL_9CLICK_X ||
+                         event_flags & EV_FLAG_ACCEL_NCLICK_X  ) {
                     /* Enter easter egg mode */
                     main_gs.modeticks = 0;
                     main_gs.button_hold_ticks = 0;
