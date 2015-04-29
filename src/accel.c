@@ -164,8 +164,8 @@
 #define XY_DOWN_THRESHOLD_ABS    (XY_DOWN_THRESHOLD < 0 ? -XY_DOWN_THRESHOLD : XY_DOWN_THRESHOLD)
 #define XY_DOWN_DUR_ODR          MS_TO_ODRS(XY_DOWN_DUR_MS, SLEEP_SAMPLE_INT)
 
-#define Z_UP_THRESHOLD          18
-#define Z_UP_DUR_ODR            MS_TO_ODRS(150, SLEEP_SAMPLE_INT)
+#define Z_UP_THRESHOLD          17
+#define Z_UP_DUR_ODR            MS_TO_ODRS(100, SLEEP_SAMPLE_INT)
 #define TURN_GESTURE_TIMEOUT_S  5
 
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
@@ -304,7 +304,7 @@ static void configure_i2c(void)
 
 static void wait_for_up_conf( void ) {
   /* Configure interrupt to detect movement up (Z HIGH) */
-  accel_register_write (AX_REG_FIFO_CTL, FIFO_STREAM);
+  accel_register_write (AX_REG_FIFO_CTL, STREAM_TO_FIFO);
   accel_register_write (AX_REG_INT1_CFG, AOI_MOV | ZHIE);
   accel_register_write (AX_REG_INT1_THS, Z_UP_THRESHOLD);
   accel_register_write (AX_REG_INT1_DUR, Z_UP_DUR_ODR);
@@ -315,7 +315,7 @@ static void wait_for_up_conf( void ) {
 static void wait_for_down_conf( void ) {
   /* Configure interrupt to detect orientaiton down (Y HIGH) */
   accel_register_write (AX_REG_FIFO_CTL, FIFO_STREAM );
-  accel_register_write (AX_REG_INT1_CFG, AOI_MOV | YLIE | XLIE );
+  accel_register_write (AX_REG_INT1_CFG, AOI_POS | YLIE | XLIE );
   accel_register_write (AX_REG_INT1_THS, XY_DOWN_THRESHOLD_ABS);
   accel_register_write (AX_REG_INT1_DUR, XY_DOWN_DUR_ODR);
   wake_gesture_state = WAIT_FOR_DOWN;
@@ -493,7 +493,7 @@ bool accel_wakeup_check( void ) {
     if (z > Z_UP_THRESHOLD)  {
       return true;
     } else {
-      accel_register_write (AX_REG_FIFO_CTL, FIFO_STREAM );
+      wait_for_up_conf();
       return false;
     }
 
@@ -647,9 +647,6 @@ void accel_sleep ( void ) {
   /* Enable STREAM to FIFO mode so previous values can be read after an INT */
   accel_register_write (AX_REG_FIFO_CTL, FIFO_STREAM);
 
-  /* Configure interrupt to detect orientaiton down (Y LOW) */
-  wait_for_down_conf();
-
   /* Configure click parameters */
   accel_register_write (AX_REG_TIME_WIN, WAKEUP_CLICK_TIME_WIN);
   accel_register_write (AX_REG_TIME_LIM, WAKEUP_CLICK_TIME_LIM);
@@ -663,6 +660,12 @@ void accel_sleep ( void ) {
   extint_register_callback(accel_isr, AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
   extint_chan_enable_callback(AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
 
+  /* Configure interrupt for next wakeup event */
+  if (x > XY_DOWN_THRESHOLD && y > XY_DOWN_THRESHOLD ) {
+    wait_for_down_conf();
+  } else {
+    wait_for_up_conf();
+  }
 }
 
 event_flags_t accel_event_flags( void ) {

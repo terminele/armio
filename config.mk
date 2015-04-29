@@ -279,7 +279,7 @@ CPPFLAGS = \
        #-D ENABLE_BUTTON				  	  \
 
 ifdef simple_time
-    CPPFLAGS+= -D SIMPLE_TIME_MODE
+    CPPFLAGS += -D SIMPLE_TIME_MODE=true
 endif
 
 # Extra flags to use when linking
