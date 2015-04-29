@@ -46,7 +46,7 @@
 /* Starting flash address at which to store data */
 #define NVM_ADDR_START      ((1 << 15) + (1 << 14)) /* assumes program size < 48KB */
 #define NVM_CONF_ADDR       NVM_ADDR_START
-#define NVM_CONF_STORE_SIZE (64)
+#define NVM_CONF_STORE_SIZE NVMCTRL_ROW_SIZE
 #define NVM_LOG_ADDR_START  (NVM_ADDR_START + NVM_CONF_STORE_SIZE)
 #define NVM_LOG_ADDR_MAX     NVM_MAX_ADDR
 
@@ -395,6 +395,12 @@ static void main_tic( void ) {
     }
 #endif
 
+    if (event_flags & EV_FLAG_ACCEL_DCLICK_X) {
+        uint32_t code = 0xDCDCDCDC;
+        main_log_data((uint8_t *) &code, sizeof(uint32_t), true);
+
+    }
+
     switch (main_gs.state) {
         case STARTUP:
             /* Stay in startup until animation is finished */
@@ -406,6 +412,7 @@ static void main_tic( void ) {
         case ENTERING_SLEEP:
             /* Wait until animation is finished to sleep */
             if (anim_is_finished(sleep_wake_anim)) {
+                uint8_t i = 0;
                 anim_release(sleep_wake_anim);
 
                 /* Reset control mode to main (time display) mode */
@@ -421,6 +428,19 @@ static void main_tic( void ) {
                 } while(!accel_wakeup_check());
 
                 wakeup();
+
+                if (ax_fifo_depth != 32) {
+                    uint32_t val = 0xBADD0000 | (0x0000FFFF & ax_fifo_depth);
+                    main_log_data (&val, sizeof(uint32_t), true);
+                } else {
+                    uint32_t code = 0xAAAAAAAA;
+                    main_log_data((uint8_t *) &code, sizeof(uint32_t), false);
+                    main_log_data((uint8_t *)ax_fifo, 6*ax_fifo_depth, false);
+                    code = 0xEEEEEEEE;
+                    main_log_data((uint8_t *) &code, sizeof(uint32_t), true);
+                }
+
+                ax_fifo_depth = 0;
 
                 //main_set_current_sensor(sensor_light);
                 //main_start_sensor_read();
@@ -773,7 +793,7 @@ int main (void)
     /* Errata 39.3.2 -- device may not wake up from
      * standby if nvm goes to sleep. Not needed
      * for revision D or later */
-    //NVMCTRL->CTRLB.bit.SLEEPPRM = NVMCTRL_CTRLB_SLEEPPRM_DISABLED_Val;
+    NVMCTRL->CTRLB.bit.SLEEPPRM = NVMCTRL_CTRLB_SLEEPPRM_DISABLED_Val;
 
     /* Read light and vbatt sensors on startup */
 #ifdef ENABLE_VBATT
@@ -794,9 +814,9 @@ int main (void)
     /* Show a startup LED swirl */
     sleep_wake_anim = anim_swirl(0, 8, MS_IN_TICKS(4), 172, true);
 
-    /* get intial time */
     configure_input();
     system_interrupt_enable_global();
+
 #ifdef ENABLE_BUTTON
     while (!port_pin_get_input_level(BUTTON_PIN)) {
         //if btn down at startup, zero out time

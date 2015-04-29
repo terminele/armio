@@ -83,6 +83,7 @@
 
 /* CTRL_REG5 */
 #define LIR_INT1    0x08
+#define FIFO_EN     0x40
 
 /* FIFO_CTRL_REG */
 #define FIFO_BYPASS     0x00
@@ -90,7 +91,7 @@
 #define STREAM_TO_FIFO  0xC0
 
 /* FIFO_CTRL_SRC */
-#define FIFO_SIZE       0x0F
+#define FIFO_SIZE       0x1F
 
 /* INT1/2 CFG */
 #define AOI_MOV     0x40
@@ -173,6 +174,9 @@
 
 //___ V A R I A B L E S ______________________________________________________
 
+int16_t ax_fifo[32][3] = {{0}};
+uint8_t ax_fifo_depth = 0;
+
 static uint16_t i2c_addr = AX_ADDRESS0;
 
 /* timestamp of most recent y down interrupt */
@@ -251,6 +255,8 @@ static bool accel_register_write (uint8_t reg, uint8_t val);
 static void wait_for_down_conf( void );
 static void wait_for_up_conf( void );
 
+void accel_fifo_read ( void );
+
 //___ F U N C T I O N S ______________________________________________________
 
 
@@ -298,6 +304,7 @@ static void configure_i2c(void)
 
 static void wait_for_up_conf( void ) {
   /* Configure interrupt to detect movement up (Z HIGH) */
+  accel_register_write (AX_REG_FIFO_CTL, FIFO_STREAM);
   accel_register_write (AX_REG_INT1_CFG, AOI_MOV | ZHIE);
   accel_register_write (AX_REG_INT1_THS, Z_UP_THRESHOLD);
   accel_register_write (AX_REG_INT1_DUR, Z_UP_DUR_ODR);
@@ -307,6 +314,7 @@ static void wait_for_up_conf( void ) {
 
 static void wait_for_down_conf( void ) {
   /* Configure interrupt to detect orientaiton down (Y HIGH) */
+  accel_register_write (AX_REG_FIFO_CTL, FIFO_STREAM );
   accel_register_write (AX_REG_INT1_CFG, AOI_MOV | YLIE | XLIE );
   accel_register_write (AX_REG_INT1_THS, XY_DOWN_THRESHOLD_ABS);
   accel_register_write (AX_REG_INT1_DUR, XY_DOWN_DUR_ODR);
@@ -373,30 +381,27 @@ static void accel_isr(void) {
 
   if (wake_gesture_state == WAIT_FOR_DOWN) {
     if (int_flags.yl || int_flags.xl ) {
-      accel_register_write (AX_REG_FIFO_CTL, FIFO_STREAM );
       wait_for_up_conf();
     }
   } else if (wake_gesture_state == WAIT_FOR_UP) {
     if (int_flags.zh) {
       /* Read FIFO to determine if a turn-up gesture occurred */
-      uint8_t fifo_depth;
+      uint8_t i;
       int16_t x = 0, y = 0, z = 0;
       int16_t x_p = 0, y_p = 0, z_p = 0;
       int16_t dx = 0, dy = 0, dz = 0;
       int16_t x_sum = 0, y_sum = 0, z_sum = 0;
+      uint32_t data;
 
-      accel_register_consecutive_read( AX_REG_FIFO_SRC, 1, &fifo_depth );
-      fifo_depth = fifo_depth & FIFO_SIZE;
 
-      /* First read outside loop to initialize prev values for delta calc */
-      accel_data_read(&x, &y, &z);
-      x_sum = x;
-      y_sum = y;
-      z_sum = z;
+      accel_fifo_read();
 
-      while (--fifo_depth) {
+      for (i = 0; i < ax_fifo_depth; i++) {
         x_p = x; y_p = y; z_p = z;
-        accel_data_read(&x, &y, &z);
+        x = ax_fifo[i][0];
+        y = ax_fifo[i][1];
+        z = ax_fifo[i][2];
+
         x_sum+=x;
         y_sum+=y;
         z_sum+=z;
@@ -405,19 +410,21 @@ static void accel_isr(void) {
         dy += y - y_p;
         dz += z - z_p;
 
+
         //if (dx + dy > 25) {
         //  wake_gesture_state = WAKE_TURN_UP;
         //  break;
         //}
-        if ( y_sum + x_sum < -22  ) {
-          wake_gesture_state = WAKE_TURN_UP;
-          break;
-        }
-
-        if ( y_sum < -15 || dy > 20 ) {
-          wake_gesture_state = WAKE_TURN_UP;
-          break;
-        }
+        wake_gesture_state = WAKE_TURN_UP;
+//        if ( y_sum + x_sum < -22  ) {
+//          wake_gesture_state = WAKE_TURN_UP;
+//          break;
+//        }
+//
+//        if ( y_sum < -15 || dy > 20 ) {
+//          wake_gesture_state = WAKE_TURN_UP;
+//          break;
+//        }
       }
 
       /* Make sure y-down interrupt time was recent enough to
@@ -430,7 +437,6 @@ static void accel_isr(void) {
         accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS );
       }
       else {
-        accel_register_write (AX_REG_FIFO_CTL, FIFO_STREAM );
         wait_for_down_conf();
       }
     }
@@ -456,6 +462,21 @@ bool accel_data_read (int16_t *x_ptr, int16_t *y_ptr, int16_t *z_ptr) {
 
 }
 
+void accel_fifo_read ( void ) {
+
+
+    /* Read fifo depth first (should be 0x1f usually ) */
+    accel_register_consecutive_read( AX_REG_FIFO_SRC, 1, &ax_fifo_depth );
+    /* Note: STM's FSS FIFO Size register reports the size off-by-1
+      * (i.e. as an index instead of actual size).  So a value of 31 means
+      * there the depth is 32 and so on */
+    ax_fifo_depth = 1 + (ax_fifo_depth & FIFO_SIZE);
+
+    if (!accel_register_consecutive_read (AX_REG_OUT_X_L, 6*ax_fifo_depth,(uint8_t *) ax_fifo)) {
+      ax_fifo_depth = 0;
+    }
+}
+
 bool accel_wakeup_check( void ) {
 
   int16_t x,y,z = 0;
@@ -467,6 +488,7 @@ bool accel_wakeup_check( void ) {
   if (wake_gesture_state == WAKE_DCLICK) {
     accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS );
     accel_data_read(&x, &y, &z);
+
     /* Dont wakeup on click without z-axis facing somewhat up */
     if (z > Z_UP_THRESHOLD)  {
       return true;
@@ -507,8 +529,8 @@ void accel_enable ( void ) {
   /* Disable FIFO mode */
   accel_register_write (AX_REG_FIFO_CTL,  FIFO_BYPASS );
 
-  /* Latch interrupts */
-  accel_register_write (AX_REG_CTL5, LIR_INT1);
+  /* Latch interrupts and enable FIFO */
+  accel_register_write (AX_REG_CTL5, LIR_INT1 | FIFO_EN);
 
 //    /* Disable sleep activity threshold and duration */
 //    if (!accel_register_write (AX_REG_ACT_THS, 0x00))
