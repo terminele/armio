@@ -6,8 +6,8 @@
 #define __ACCEL_H__
 
 //___ I N C L U D E S ________________________________________________________
-#include <asf.h>
-#include <main.h>
+#include "asf.h"
+#include "main.h"
 
 //___ M A C R O S ____________________________________________________________
 

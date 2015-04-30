@@ -9,6 +9,23 @@
 
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
 
+#define ACCEL_ERROR_TIMEOUT             ((uint32_t) 1)
+#define ACCEL_ERROR_SELF_TEST(test)    (((uint32_t) 2) \
+    | (((uint32_t) test)<<8))
+#define ACCEL_ERROR_WRITE_EN            ((uint32_t) 3)
+#define ACCEL_ERROR_READ_ID             ((uint32_t) 4)
+#define ACCEL_ERROR_WRONG_ID(id)       (((uint32_t) 5) \
+    | (((uint32_t) id)<<8) )
+
+
+#ifndef ABS
+#define ABS(a)       ( a < 0 ? -1 * a : a )
+#endif
+
+#ifndef USE_SELF_TEST
+#define USE_SELF_TEST       false
+#endif
+
 #define AX_SDA_PIN      PIN_PA08
 #define AX_SDA_PAD      PINMUX_PA08C_SERCOM0_PAD0
 #define AX_SCL_PIN      PIN_PA09
@@ -27,6 +44,7 @@
 #define AX_REG_CTL3         0x22
 #define AX_REG_CTL4         0x23
 #define AX_REG_CTL5         0x24
+#define AX_STATUS_REG       0x27
 #define AX_REG_FIFO_CTL     0x2E
 #define AX_REG_FIFO_SRC     0x2F
 #define AX_REG_WHO_AM_I     0x0F
@@ -80,9 +98,15 @@
 #define FS_4G       0x10
 #define FS_8G       0x20
 #define FS_16G      0x30
+#define STEST_TEST1     0x04
+#define STEST_TEST0     0x02
+#define STEST_NORMAL    0x00
 
 /* CTRL_REG5 */
 #define LIR_INT1    0x08
+
+/* STATUS_REG */
+#define ZYXDA       0x08
 
 /* FIFO_CTRL_REG */
 #define FIFO_BYPASS     0x00
@@ -136,8 +160,6 @@
 #define CLICK_TIME_LIM      MS_TO_ODRS(20, ACTIVE_SAMPLE_INT)
 #define CLICK_TIME_LAT      MS_TO_ODRS(40, ACTIVE_SAMPLE_INT) //ms
 
-
-
 #define SLEEP_ODR          ODR_100HZ
 #define SLEEP_SAMPLE_INT   SAMPLE_INT_100HZ
 
@@ -170,6 +192,40 @@
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 
 //___ P R O T O T Y P E S   ( P R I V A T E ) ________________________________
+static void configure_i2c(void);
+  /* @brief setup the i2c module to communicate with accelerometer
+   * accelerometer
+   * @param
+   * @retrn none
+   */
+
+
+static bool accel_register_consecutive_read (uint8_t start_reg,
+    uint8_t count, uint8_t *data_ptr);
+  /* @brief reads a series of data from consecutive registers from the
+   * accelerometer
+   * @param start_reg - address of first register to read
+   *        count -  # of consecutive registers to read
+   *        data  -  pointer to array of data to be filled with reg values
+   * @retrn true on success, false on failure
+   */
+
+static bool accel_register_write (uint8_t reg, uint8_t val);
+
+/* Configuration functions for wakeup gesture recognition */
+static void wait_for_down_conf( void );
+static void wait_for_up_conf( void );
+
+static void run_self_test( void );
+  /* @brief run the self test on the acceleration module
+   *        expect an output change of between 17 and 360, defined by
+   *        OUTPUT[LSb](self-test enabled) - OUTPUT[LSb](self-test disabled)
+   *        where 1LSB=4mg at 10bit representation and +/- 2g full scale
+   *        sign is defined in CTRL_REG4 (0x23)
+   * @param None
+   * @retrn None
+   */
+
 
 //___ V A R I A B L E S ______________________________________________________
 
@@ -226,34 +282,6 @@ static enum {SLEEP_START, WAIT_FOR_DOWN, WAIT_FOR_UP, WAKE_DCLICK, WAKE_TURN_UP}
 static void accel_isr(void);
 
 //___ F U N C T I O N S   ( P R I V A T E ) __________________________________
-
-static void configure_i2c(void);
-  /* @brief setup the i2c module to communicate with accelerometer
-   * accelerometer
-   * @param
-   * @retrn none
-   */
-
-
-static bool accel_register_consecutive_read (uint8_t start_reg,
-    uint8_t count, uint8_t *data_ptr);
-  /* @brief reads a series of data from consecutive registers from the
-   * accelerometer
-   * @param start_reg - address of first register to read
-   *        count -  # of consecutive registers to read
-   *        data  -  pointer to array of data to be filled with reg values
-   * @retrn true on success, false on failure
-   */
-
-static bool accel_register_write (uint8_t reg, uint8_t val);
-
-/* Configuration functions for wakeup gesture recognition */
-static void wait_for_down_conf( void );
-static void wait_for_up_conf( void );
-
-//___ F U N C T I O N S ______________________________________________________
-
-
 static void configure_interrupt ( void ) {
   /* Configure our accel interrupt 1 to wake us up */
   struct port_config pin_conf;
@@ -295,14 +323,12 @@ static void configure_i2c(void) {
   i2c_master_enable(&i2c_master_instance);
 }
 
-
 static void wait_for_up_conf( void ) {
   /* Configure interrupt to detect movement up (Z HIGH) */
   accel_register_write (AX_REG_INT1_CFG, AOI_MOV | ZHIE);
   accel_register_write (AX_REG_INT1_THS, Z_UP_THRESHOLD);
   accel_register_write (AX_REG_INT1_DUR, Z_UP_DUR_ODR);
   wake_gesture_state = WAIT_FOR_UP;
-
 }
 
 static void wait_for_down_conf( void ) {
@@ -364,7 +390,6 @@ static bool accel_register_write (uint8_t reg, uint8_t val) {
 }
 
 static void accel_isr(void) {
-
   accel_register_consecutive_read(AX_REG_CLICK_SRC, 1, &click_flags.b8);
   accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &int_flags.b8);
 
@@ -409,10 +434,11 @@ static void accel_isr(void) {
         dy += y - y_p;
         dz += z - z_p;
 
-        //if (dx + dy > 25) {
-        //  wake_gesture_state = WAKE_TURN_UP;
-        //  break;
-        //}
+        if ( 0 && (dx + dy > 25)) {
+          wake_gesture_state = WAKE_TURN_UP;
+          break;
+        }
+
         if ( y_sum + x_sum < -22  ) {
           wake_gesture_state = WAKE_TURN_UP;
           break;
@@ -442,6 +468,92 @@ static void accel_isr(void) {
   extint_chan_clear_detected(AX_INT1_CHAN);
 }
 
+static void run_self_test( void ) {
+  int16_t x0, y0, z0;
+  int16_t x1, y1, z1;
+  uint8_t reg4_default;
+  uint8_t status_reg;
+  int16_t stest_low = 17;
+  int16_t stest_high = 360;
+  uint32_t timeout;
+  const uint32_t default_to = 0x10;
+
+  uint8_t st_failure;
+
+  accel_register_consecutive_read( AX_REG_CTL4, 1, &reg4_default );
+
+  /* set acceleration resoultion to +/- 2g */
+  accel_register_write( AX_REG_CTL4, FS_2G | STEST_NORMAL );
+
+  /* clear fifo data, then read xyz0 */
+  accel_data_read( &x0, &y0, &z0 );     /* clear existing data */
+  timeout = default_to;
+  do {
+    accel_register_consecutive_read( AX_STATUS_REG, 1, &status_reg );
+  } while( !(status_reg & ZYXDA) && --timeout );
+  if( timeout == 0 ) {
+    main_terminate_in_error( error_group_accel, ACCEL_ERROR_TIMEOUT );
+  }
+  accel_data_read( &x0, &y0, &z0 );
+
+  accel_register_write( AX_REG_CTL4, FS_2G | STEST_TEST1 );
+  /* test data is obtained after 2 samples in low power and normal mode
+   * or 8 samples in high resolution mode */
+
+  /* clear fifo data, then read xyz1 */
+  accel_data_read( &x1, &y1, &z1 );
+  timeout = default_to;
+  do {
+    accel_register_consecutive_read( AX_STATUS_REG, 1, &status_reg );
+  } while( !(status_reg & ZYXDA) && --timeout );
+  if( timeout == 0 ) {
+    main_terminate_in_error( error_group_accel, ACCEL_ERROR_TIMEOUT );
+  }
+  accel_data_read( &x1, &y1, &z1 );
+  timeout = default_to;
+  do {
+    accel_register_consecutive_read( AX_STATUS_REG, 1, &status_reg );
+  } while( !(status_reg & ZYXDA) && --timeout );
+
+  if( timeout == 0 ) {
+    main_terminate_in_error( error_group_accel, ACCEL_ERROR_TIMEOUT );
+  }
+  accel_data_read( &x1, &y1, &z1 );
+
+  x1 <<= 10 - BITS_PER_ACCEL_VAL;
+  x0 <<= 10 - BITS_PER_ACCEL_VAL;
+  y1 <<= 10 - BITS_PER_ACCEL_VAL;
+  y0 <<= 10 - BITS_PER_ACCEL_VAL;
+  z0 <<= 10 - BITS_PER_ACCEL_VAL;
+  z1 <<= 10 - BITS_PER_ACCEL_VAL;
+
+  /* check for failure modes on self test */
+  st_failure = 0;
+  if ( ABS(x1 - x0) < stest_low ) {             /* fail x self test low */
+    st_failure |= (1<<0);
+  } else if ( ABS(x1 - x0) > stest_high ) {     /* fail x self test high */
+    st_failure |= (1<<1);
+  }
+  if ( ABS(y1 - y0) < stest_low ) {             /* fail y self test low */
+    st_failure |= (1<<2);
+  } else if ( ABS(y1 - y0) > stest_high ) {     /* fail y self test high */
+    st_failure |= (1<<3);
+  }
+  if ( ABS(z1 - z0) < stest_low ) {             /* fail z self test low */
+    st_failure |= (1<<4);
+  } else if ( ABS(z1 - z0) > stest_high ) {     /* fail z self test high */
+    st_failure |= (1<<5);
+  }
+
+  accel_register_write( AX_REG_CTL4, reg4_default );
+
+  if( st_failure ) {
+    main_terminate_in_error( error_group_accel,
+        ACCEL_ERROR_SELF_TEST( st_failure ) );
+  }
+}
+
+//___ F U N C T I O N S ______________________________________________________
 bool accel_data_read (int16_t *x_ptr, int16_t *y_ptr, int16_t *z_ptr) {
   uint8_t reg_data[6] = {0};
   /* Read the 6 8-bit registers starting with lower 8-bits of X value */
@@ -460,7 +572,6 @@ bool accel_data_read (int16_t *x_ptr, int16_t *y_ptr, int16_t *z_ptr) {
 }
 
 bool accel_wakeup_check( void ) {
-
   int16_t x,y,z = 0;
   if (wake_gesture_state == WAKE_TURN_UP) {
     return true;
@@ -492,7 +603,9 @@ void accel_enable ( void ) {
 #endif
 
   accel_register_write (AX_REG_CTL4, FS_4G);
-  accel_register_write (AX_REG_CTL1, ACTIVE_ODR | LOW_PWR_EN | X_EN | Y_EN | Z_EN);
+  accel_register_write ( AX_REG_CTL1,
+      ( ACTIVE_ODR | X_EN | Y_EN | Z_EN |
+        ( BITS_PER_ACCEL_VAL == 8 ? LOW_PWR_EN : 0 ) ) );
   accel_register_write (AX_REG_CLICK_CFG, Z_SCLICK | Y_SCLICK | X_SCLICK);
   accel_register_write (AX_REG_CLICK_THS, CLICK_THS);
 
@@ -512,30 +625,29 @@ void accel_enable ( void ) {
   /* Latch interrupts */
   accel_register_write (AX_REG_CTL5, LIR_INT1);
 
-//    /* Disable sleep activity threshold and duration */
-//    if (!accel_register_write (AX_REG_ACT_THS, 0x00))
-//        main_terminate_in_error(ERROR_ACCEL_WRITE_ENABLE);
-//
-//    if (!accel_register_write (AX_REG_ACT_DUR, 0x00))
-//        main_terminate_in_error(ERROR_ACCEL_WRITE_ENABLE);
+#ifdef NOT_NOW
+  /* Disable sleep activity threshold and duration */
+  if (!accel_register_write (AX_REG_ACT_THS, 0x00)) {
+      main_terminate_in_error( error_group_accel, ACCEL_ERROR_WRITE_EN );
+  }
 
+  if (!accel_register_write (AX_REG_ACT_DUR, 0x00)) {
+      main_terminate_in_error( error_group_accel, ACCEL_ERROR_WRITE_EN );
+  }
+#endif
 
   /* Callback enable is only active when sleeping */
   extint_unregister_callback(accel_isr, AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
   extint_chan_disable_callback(AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
-
 }
 
 static event_flags_t click_timeout_event_check( void ) {
   event_flags_t ev_flags = EV_FLAG_NONE;
 
   /* Check for click timeouts */
-
   ///###FIXME -- duplicated code can be unified with macros
-  //
-  if (click_count.x &&
+  if ( click_count.x &&
       main_get_waketime_ms() - last_click_time_ms.x > MULTI_CLICK_WINDOW_MS ) {
-
     switch(click_count.x) {
       case 1:
         ev_flags |= EV_FLAG_ACCEL_SCLICK_X;
@@ -571,9 +683,8 @@ static event_flags_t click_timeout_event_check( void ) {
     click_count.x = 0;
   }
 
-  if (click_count.y &&
+  if ( click_count.y &&
       main_get_waketime_ms() - last_click_time_ms.y > MULTI_CLICK_WINDOW_MS ) {
-
     switch(click_count.y) {
       case 1:
         ev_flags |= EV_FLAG_ACCEL_SCLICK_Y;
@@ -591,9 +702,8 @@ static event_flags_t click_timeout_event_check( void ) {
     click_count.y = 0;
   }
 
-  if (click_count.z &&
+  if ( click_count.z &&
       main_get_waketime_ms() - last_click_time_ms.z > MULTI_CLICK_WINDOW_MS ) {
-
     switch(click_count.z) {
       case 1:
         ev_flags |= EV_FLAG_ACCEL_SCLICK_Z;
@@ -620,14 +730,15 @@ void accel_sleep ( void ) {
   accel_register_write (AX_REG_CLICK_CFG, X_DCLICK);
   accel_register_write (AX_REG_CLICK_THS, WAKEUP_CLICK_THS);
 
-  //accel_register_write (AX_REG_CTL4, FS_2G); //REMOVEME
-  accel_register_write (AX_REG_CTL1, SLEEP_ODR | LOW_PWR_EN |  X_EN | Y_EN | Z_EN);
+  accel_register_write ( AX_REG_CTL1,
+      ( SLEEP_ODR | X_EN | Y_EN | Z_EN |
+        ( BITS_PER_ACCEL_VAL == 8 ? LOW_PWR_EN : 0 ) ) );
   accel_register_write (AX_REG_CTL3,  I1_CLICK_EN | I1_AOI1_EN );
 
   /* Enable STREAM to FIFO mode so previous values can be read after an INT */
   accel_register_write (AX_REG_FIFO_CTL, FIFO_STREAM);
 
-  /* Configure interrupt to detect orientaiton down (Y LOW) */
+  /* Configure interrupt to detect orientation down (Y LOW) */
   wait_for_down_conf();
 
   /* Configure click parameters */
@@ -642,7 +753,6 @@ void accel_sleep ( void ) {
 
   extint_register_callback(accel_isr, AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
   extint_chan_enable_callback(AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
-
 }
 
 event_flags_t accel_event_flags( void ) {
@@ -657,7 +767,7 @@ event_flags_t accel_event_flags( void ) {
 
   /* Check for Z Low event
    * * A z low event occurs when the device is not flat (z-high) for a
-   * * ceratin period of time
+   * * certain period of time
    * */
 
   accel_data_read(&x, &y, &z);
@@ -733,13 +843,19 @@ void accel_init ( void ) {
     /* ID read at first address failed. try other i2c address */
     i2c_addr = AX_ADDRESS1;
     if (!accel_register_consecutive_read (AX_REG_WHO_AM_I, 1, &who_it_be))
-      main_terminate_in_error(ERROR_ACCEL_READ_ID);
+      main_terminate_in_error( error_group_accel, ACCEL_ERROR_READ_ID );
   }
 
-  if (who_it_be != WHO_IS_IT)
-    main_terminate_in_error(ERROR_ACCEL_BAD_ID);
+  if (who_it_be != WHO_IS_IT) {
+    main_terminate_in_error( error_group_accel,
+        ACCEL_ERROR_WRONG_ID( who_it_be ) );
+  }
 
   accel_enable();
+
+  if( USE_SELF_TEST ) {
+    run_self_test(  );
+  }
 
   configure_interrupt();
 }

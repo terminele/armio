@@ -582,17 +582,34 @@ void main_inactivity_timeout_reset( void ) {
   main_gs.inactivity_ticks = 0;
 }
 
-void main_terminate_in_error ( uint8_t error_code ) {
+void main_terminate_in_error ( error_group_code_t error_group, uint32_t subcode ) {
   /* Display error code led */
   led_clear_all();
+  uint8_t i;
+
+  /* display the subcode (lowest 3 bytes aligned with 6, 8, 10 hr marks) */
+  for( i = 0; i < 8; i++ ) {
+    if( subcode & (((uint32_t) 1)<<i) ) {
+      led_on( i + 30, BRIGHT_DEFAULT );
+    }
+  }
+  for( i = 8; i < 16; i++ ) {
+    if( subcode & (((uint32_t) 1)<<i) ) {
+      led_on( i + 32, BRIGHT_DEFAULT );
+    }
+  }
+  for( i = 16; i < 24; i++ ) {
+    if( subcode & (((uint32_t) 1)<<i) ) {
+      led_on( i + 34, BRIGHT_DEFAULT );
+    }
+  }
 
   /* blink error code indefinitely */
-  while(1) {
-    led_on(error_code, BRIGHT_DEFAULT);
+  while( 1 ) {
+    led_on( ((uint8_t) error_group) * 5, BRIGHT_DEFAULT );
     delay_ms(100);
-    led_off(error_code);
+    led_off( ((uint8_t) error_group) * 5 );
     delay_ms(100);
-
   }
 }
 
