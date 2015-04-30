@@ -87,7 +87,8 @@ def qpaint( h=None, m=None ):
     app = QApplication( sys.argv )
     label = QLabel( )
     label.setPixmap( QPixmap.fromImage( paint_time( h, m ) ) )
-    label.show( )
+    label.setFixedSize( 600, 600 )
+    label.showNormal( )
     sys.exit( app.exec_() )
 
 if __name__ == "__main__":
