@@ -180,7 +180,7 @@ static bool accel_down = false;
 static int32_t accel_down_start_ms = 0;
 
 static struct {
-    uint32_t x,y,z;
+  uint32_t x,y,z;
 } last_click_time_ms;
 
 static struct {
@@ -276,24 +276,23 @@ static void configure_interrupt ( void ) {
   extint_chan_set_config(AX_INT1_CHAN, &eint_chan_conf);
 }
 
-static void configure_i2c(void)
-{
-    /* Initialize config structure and software module */
-    struct i2c_master_config config_i2c_master;
-    i2c_master_get_config_defaults(&config_i2c_master);
+static void configure_i2c(void) {
+  /* Initialize config structure and software module */
+  struct i2c_master_config config_i2c_master;
+  i2c_master_get_config_defaults(&config_i2c_master);
 
-    /* Change buffer timeout to something longer */
-    config_i2c_master.baud_rate = I2C_MASTER_BAUD_RATE_400KHZ;
-    config_i2c_master.buffer_timeout = 65535;
-    config_i2c_master.pinmux_pad0 = AX_SDA_PAD;
-    config_i2c_master.pinmux_pad1 = AX_SCL_PAD;
-    config_i2c_master.start_hold_time = I2C_MASTER_START_HOLD_TIME_400NS_800NS;
-    config_i2c_master.run_in_standby = false;
+  /* Change buffer timeout to something longer */
+  config_i2c_master.baud_rate = I2C_MASTER_BAUD_RATE_400KHZ;
+  config_i2c_master.buffer_timeout = 65535;
+  config_i2c_master.pinmux_pad0 = AX_SDA_PAD;
+  config_i2c_master.pinmux_pad1 = AX_SCL_PAD;
+  config_i2c_master.start_hold_time = I2C_MASTER_START_HOLD_TIME_400NS_800NS;
+  config_i2c_master.run_in_standby = false;
 
-    /* Initialize and enable device with config */
-    while(i2c_master_init(&i2c_master_instance, SERCOM0, &config_i2c_master) != STATUS_OK);
+  /* Initialize and enable device with config */
+  while(i2c_master_init(&i2c_master_instance, SERCOM0, &config_i2c_master) != STATUS_OK);
 
-    i2c_master_enable(&i2c_master_instance);
+  i2c_master_enable(&i2c_master_instance);
 }
 
 
@@ -314,50 +313,54 @@ static void wait_for_down_conf( void ) {
   wake_gesture_state = WAIT_FOR_DOWN;
 }
 
-static bool accel_register_consecutive_read (uint8_t start_reg, uint8_t count, uint8_t *data_ptr){
+static bool accel_register_consecutive_read (uint8_t start_reg, uint8_t count,
+    uint8_t *data_ptr) {
 
-    /* register address is 7 LSBs, MSB indicates consecutive or single read */
-    uint8_t write = start_reg | (count > 1 ? 1 << 7 : 0);
+  /* register address is 7 LSBs, MSB indicates consecutive or single read */
+  uint8_t write = start_reg | (count > 1 ? 1 << 7 : 0);
 
-    /* Write the register address (SUB) to the accelerometer */
-    struct i2c_master_packet packet = {
-            .address     = i2c_addr,
-            .data_length = 1,
-            .data = &write,
-            .ten_bit_address = false,
-            .high_speed      = false,
-            .hs_master_code  = 0x0,
-    };
+  /* Write the register address (SUB) to the accelerometer */
+  struct i2c_master_packet packet = {
+    .address     = i2c_addr,
+    .data_length = 1,
+    .data = &write,
+    .ten_bit_address = false,
+    .high_speed      = false,
+    .hs_master_code  = 0x0,
+  };
 
-    if (STATUS_OK != i2c_master_write_packet_wait_no_stop ( &i2c_master_instance, &packet))
-        return false;
+  if ( STATUS_OK != i2c_master_write_packet_wait_no_stop (
+        &i2c_master_instance, &packet ) ) {
+    return false;
+  }
 
-    packet.data = data_ptr;
-    packet.data_length = count;
+  packet.data = data_ptr;
+  packet.data_length = count;
 
-    if (STATUS_OK != i2c_master_read_packet_wait ( &i2c_master_instance, &packet ))
-        return false;
+  if (STATUS_OK != i2c_master_read_packet_wait ( &i2c_master_instance, &packet )) {
+    return false;
+  }
 
-    return true;
+  return true;
 }
 
 static bool accel_register_write (uint8_t reg, uint8_t val) {
-    uint8_t data[2] = {reg, val};
-    /* Write the register address (SUB) to the accelerometer */
-    struct i2c_master_packet packet = {
-            .address     = i2c_addr,
-            .data_length = 2,
-            .data = data,
-            .ten_bit_address = false,
-            .high_speed      = false,
-            .hs_master_code  = 0x0,
-    };
+  uint8_t data[2] = {reg, val};
+  /* Write the register address (SUB) to the accelerometer */
+  struct i2c_master_packet packet = {
+    .address     = i2c_addr,
+    .data_length = 2,
+    .data = data,
+    .ten_bit_address = false,
+    .high_speed      = false,
+    .hs_master_code  = 0x0,
+  };
 
-    if (STATUS_OK != i2c_master_write_packet_wait ( &i2c_master_instance, &packet))
-        return false;
+  if (STATUS_OK != i2c_master_write_packet_wait ( &i2c_master_instance, &packet)) {
+    return false;
+  }
 
-    return true;
-
+  return true;
 }
 
 static void accel_isr(void) {
@@ -429,8 +432,7 @@ static void accel_isr(void) {
         /* Disable AOI INT1 interrupt (leave CLICK enabled) */
         accel_register_write (AX_REG_CTL3,  I1_CLICK_EN);
         accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS );
-      }
-      else {
+      } else {
         accel_register_write (AX_REG_FIFO_CTL, FIFO_STREAM );
         wait_for_down_conf();
       }
@@ -441,20 +443,20 @@ static void accel_isr(void) {
 }
 
 bool accel_data_read (int16_t *x_ptr, int16_t *y_ptr, int16_t *z_ptr) {
-    uint8_t reg_data[6] = {0};
-    /* Read the 6 8-bit registers starting with lower 8-bits of X value */
-    if (!accel_register_consecutive_read (AX_REG_OUT_X_L, 6, reg_data))
-        return false; //failure
+  uint8_t reg_data[6] = {0};
+  /* Read the 6 8-bit registers starting with lower 8-bits of X value */
+  if (!accel_register_consecutive_read (AX_REG_OUT_X_L, 6, reg_data)) {
+    return false; //failure
+  }
 
-    *x_ptr = (int16_t)reg_data[0] | (((int16_t)reg_data[1]) << 8);
-    *x_ptr = *x_ptr >> (16 - BITS_PER_ACCEL_VAL);
-    *y_ptr = (int16_t)reg_data[2] | (((int16_t)reg_data[3]) << 8);
-    *y_ptr = *y_ptr >> (16 - BITS_PER_ACCEL_VAL);
-    *z_ptr = (int16_t)reg_data[4] | (((int16_t)reg_data[5]) << 8);
-    *z_ptr = *z_ptr >> (16 - BITS_PER_ACCEL_VAL);
+  *x_ptr = (int16_t)reg_data[0] | (((int16_t)reg_data[1]) << 8);
+  *x_ptr = *x_ptr >> (16 - BITS_PER_ACCEL_VAL);
+  *y_ptr = (int16_t)reg_data[2] | (((int16_t)reg_data[3]) << 8);
+  *y_ptr = *y_ptr >> (16 - BITS_PER_ACCEL_VAL);
+  *z_ptr = (int16_t)reg_data[4] | (((int16_t)reg_data[5]) << 8);
+  *z_ptr = *z_ptr >> (16 - BITS_PER_ACCEL_VAL);
 
-    return true;
-
+  return true;
 }
 
 bool accel_wakeup_check( void ) {
@@ -462,7 +464,6 @@ bool accel_wakeup_check( void ) {
   int16_t x,y,z = 0;
   if (wake_gesture_state == WAKE_TURN_UP) {
     return true;
-
   }
 
   if (wake_gesture_state == WAKE_DCLICK) {
@@ -476,18 +477,18 @@ bool accel_wakeup_check( void ) {
       return false;
     }
 
-
   }
   //accel_register_consecutive_read(AX_REG_CLICK_SRC, 1, &click_flags.b8);
   //accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &int_flags.b8);
 
   return false;
 }
+
 void accel_enable ( void ) {
   //i2c_master_enable(&i2c_master_instance);
 
 #ifdef NO_ACCEL
-    return;
+  return;
 #endif
 
   accel_register_write (AX_REG_CTL4, FS_4G);
@@ -536,36 +537,36 @@ static event_flags_t click_timeout_event_check( void ) {
       main_get_waketime_ms() - last_click_time_ms.x > MULTI_CLICK_WINDOW_MS ) {
 
     switch(click_count.x) {
-        case 1:
-          ev_flags |= EV_FLAG_ACCEL_SCLICK_X;
-          break;
-        case 2:
-          ev_flags |= EV_FLAG_ACCEL_DCLICK_X;
-          break;
-        case 3:
-          ev_flags |= EV_FLAG_ACCEL_TCLICK_X;
-          break;
-        case 4:
-          ev_flags |= EV_FLAG_ACCEL_QCLICK_X;
-          break;
-        case 5:
-          ev_flags |= EV_FLAG_ACCEL_5CLICK_X;
-          break;
-        case 6:
-          ev_flags |= EV_FLAG_ACCEL_6CLICK_X;
-          break;
-        case 7:
-          ev_flags |= EV_FLAG_ACCEL_7CLICK_X;
-          break;
-        case 8:
-          ev_flags |= EV_FLAG_ACCEL_8CLICK_X;
-          break;
-        case 9:
-          ev_flags |= EV_FLAG_ACCEL_9CLICK_X;
-          break;
-        default:
-          ev_flags |= EV_FLAG_ACCEL_NCLICK_X;
-          break;
+      case 1:
+        ev_flags |= EV_FLAG_ACCEL_SCLICK_X;
+        break;
+      case 2:
+        ev_flags |= EV_FLAG_ACCEL_DCLICK_X;
+        break;
+      case 3:
+        ev_flags |= EV_FLAG_ACCEL_TCLICK_X;
+        break;
+      case 4:
+        ev_flags |= EV_FLAG_ACCEL_QCLICK_X;
+        break;
+      case 5:
+        ev_flags |= EV_FLAG_ACCEL_5CLICK_X;
+        break;
+      case 6:
+        ev_flags |= EV_FLAG_ACCEL_6CLICK_X;
+        break;
+      case 7:
+        ev_flags |= EV_FLAG_ACCEL_7CLICK_X;
+        break;
+      case 8:
+        ev_flags |= EV_FLAG_ACCEL_8CLICK_X;
+        break;
+      case 9:
+        ev_flags |= EV_FLAG_ACCEL_9CLICK_X;
+        break;
+      default:
+        ev_flags |= EV_FLAG_ACCEL_NCLICK_X;
+        break;
     }
     click_count.x = 0;
   }
@@ -574,18 +575,18 @@ static event_flags_t click_timeout_event_check( void ) {
       main_get_waketime_ms() - last_click_time_ms.y > MULTI_CLICK_WINDOW_MS ) {
 
     switch(click_count.y) {
-        case 1:
-          ev_flags |= EV_FLAG_ACCEL_SCLICK_Y;
-          break;
-        case 2:
-          ev_flags |= EV_FLAG_ACCEL_DCLICK_Y;
-          break;
-        case 3:
-          ev_flags |= EV_FLAG_ACCEL_TCLICK_Y;
-          break;
-        case 4:
-          ev_flags |= EV_FLAG_ACCEL_QCLICK_Y;
-          break;
+      case 1:
+        ev_flags |= EV_FLAG_ACCEL_SCLICK_Y;
+        break;
+      case 2:
+        ev_flags |= EV_FLAG_ACCEL_DCLICK_Y;
+        break;
+      case 3:
+        ev_flags |= EV_FLAG_ACCEL_TCLICK_Y;
+        break;
+      case 4:
+        ev_flags |= EV_FLAG_ACCEL_QCLICK_Y;
+        break;
     }
     click_count.y = 0;
   }
@@ -594,12 +595,12 @@ static event_flags_t click_timeout_event_check( void ) {
       main_get_waketime_ms() - last_click_time_ms.z > MULTI_CLICK_WINDOW_MS ) {
 
     switch(click_count.z) {
-        case 1:
-          ev_flags |= EV_FLAG_ACCEL_SCLICK_Z;
-          break;
-        case 2:
-          ev_flags |= EV_FLAG_ACCEL_DCLICK_Z;
-          break;
+      case 1:
+        ev_flags |= EV_FLAG_ACCEL_SCLICK_Z;
+        break;
+      case 2:
+        ev_flags |= EV_FLAG_ACCEL_DCLICK_Z;
+        break;
     }
     click_count.z = 0;
   }
@@ -611,7 +612,7 @@ void accel_sleep ( void ) {
   int16_t x = 0, y = 0, z = 0;
 
 #ifdef NO_ACCEL
-    return;
+  return;
 #endif
   accel_data_read(&x, &y, &z);
 
@@ -649,15 +650,15 @@ event_flags_t accel_event_flags( void ) {
   int16_t x = 0, y = 0, z = 0;
   static bool int_state = false;//keep track of prev interrupt state
 #ifdef NO_ACCEL
-    return ev_flags;
+  return ev_flags;
 #endif
 
   ev_flags |= click_timeout_event_check();
 
   /* Check for Z Low event
-   * A z low event occurs when the device is not flat (z-high) for a
-   * ceratin period of time
-   */
+   * * A z low event occurs when the device is not flat (z-high) for a
+   * * ceratin period of time
+   * */
 
   accel_data_read(&x, &y, &z);
   if (z <= Z_DOWN_THRESHOLD) {
@@ -693,23 +694,23 @@ event_flags_t accel_event_flags( void ) {
         ev_flags |= EV_FLAG_ACCEL_DCLICK_Z;
     } else
 #endif
-    if (click_flags.sclick) {
-      if (click_flags.x) {
+      if (click_flags.sclick) {
+        if (click_flags.x) {
           last_click_time_ms.x = main_get_waketime_ms();
           click_count.x++;
-      }
+        }
 
-      if (click_flags.y) {
+        if (click_flags.y) {
           last_click_time_ms.y = main_get_waketime_ms();
           click_count.y++;
-      }
+        }
 
-      if (click_flags.z) {
+        if (click_flags.z) {
           last_click_time_ms.z = main_get_waketime_ms();
           click_count.z++;
-      }
+        }
 
-    }
+      }
 
     click_flags.b8 = 0;
 
@@ -721,26 +722,26 @@ event_flags_t accel_event_flags( void ) {
 }
 
 void accel_init ( void ) {
-    uint8_t who_it_be;
+  uint8_t who_it_be;
 #ifdef NO_ACCEL
-    return;
+  return;
 #endif
 
-    configure_i2c();
+  configure_i2c();
 
-    if (!accel_register_consecutive_read (AX_REG_WHO_AM_I, 1, &who_it_be)) {
-        /* ID read at first address failed. try other i2c address */
-        i2c_addr = AX_ADDRESS1;
-        if (!accel_register_consecutive_read (AX_REG_WHO_AM_I, 1, &who_it_be))
-          main_terminate_in_error(ERROR_ACCEL_READ_ID);
-    }
+  if (!accel_register_consecutive_read (AX_REG_WHO_AM_I, 1, &who_it_be)) {
+    /* ID read at first address failed. try other i2c address */
+    i2c_addr = AX_ADDRESS1;
+    if (!accel_register_consecutive_read (AX_REG_WHO_AM_I, 1, &who_it_be))
+      main_terminate_in_error(ERROR_ACCEL_READ_ID);
+  }
 
-    if (who_it_be != WHO_IS_IT)
-        main_terminate_in_error(ERROR_ACCEL_BAD_ID);
+  if (who_it_be != WHO_IS_IT)
+    main_terminate_in_error(ERROR_ACCEL_BAD_ID);
 
-    accel_enable();
+  accel_enable();
 
-    configure_interrupt();
+  configure_interrupt();
 }
 
 // vim:shiftwidth=2

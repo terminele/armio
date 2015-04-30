@@ -5,7 +5,7 @@
  *
  */
 
-#include <asf.h>
+#include "asf/asf.h"
 #include "display.h"
 #include "anim.h"
 #include "main.h"
@@ -61,7 +61,6 @@
 #endif
 
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
-
 typedef enum main_state_t {
   STARTUP = 0,
   RUNNING,
@@ -415,8 +414,8 @@ static void main_tic( void ) {
 
         //main_set_current_sensor(sensor_light);
         //main_start_sensor_read();
-        //main_gs.light_sensor_scaled_at_wakeup \
-        //   = adc_light_value_scale( main_read_current_sensor(true) );
+        //main_gs.light_sensor_scaled_at_wakeup = adc_light_value_scale(
+        //    main_read_current_sensor(true) );
 
         if (control_mode_active->wakeup_cb)
           control_mode_active->wakeup_cb();
@@ -733,7 +732,9 @@ uint32_t main_get_button_hold_ticks ( void ) {
 }
 
 int main (void) {
-  uint32_t reset_cause;
+  PM_RCAUSE_Type rcause_bf;
+  //uint32_t reset_cause;
+
   system_init();
   system_set_sleepmode(SYSTEM_SLEEPMODE_STANDBY);
 
@@ -748,8 +749,11 @@ int main (void) {
   accel_init();
 
   /* Log reset cause */
-  //reset_cause = system_get_reset_cause();
-  //reset_cause = reset_cause | 0xBADBAD00;
+  rcause_bf.reg = system_get_reset_cause();
+  if( rcause_bf.bit.POR || rcause_bf.bit.BOD12 || rcause_bf.bit.BOD33 ) {
+    /* TODO : jump into set time mode instead of general startup */
+  }
+  //reset_cause = ((uint32_t) 0xBADBAD00) | ((uint32_t) rcause_bf.reg);
   //main_log_data((uint8_t *)&reset_cause, sizeof(uint32_t), true);
 
   /* Errata 39.3.2 -- device may not wake up from
