@@ -41,13 +41,25 @@ def broken_pilpaint( ):
     blend1 = Image.blend( FACE, LED0, 1 )
     base.paste( LED0, mask=0 )
 
+def get_led( i ):
+    led = QImage( FP_LED_BASE + "{}.png".format(i) )
+    if led.isNull():
+        sys.stderr.write( "Failed to read image for led %i\n" % i )
+        sys.exit( 1 )
+    return led
+
+def paint_snake(painter, pos = 0, length = 5):
+
+    opacity = 1
+    for i in range(length):
+        led = get_led(pos + length - i -1)
+        painter.setOpacity(opacity)
+        painter.drawImage(0,0, led)
+        opacity-=0.2
+
+    return painter
+
 def paint_time( h=None, m=None ):
-    def get_led( i ):
-        led = QImage( FP_LED_BASE + "{}.png".format(i) )
-        if led.isNull():
-            sys.stderr.write( "Failed to read image for led %i\n" % i )
-            sys.exit( 1 )
-        return led
 
     if h is None:
         h = int(time.localtime().tm_hour)
@@ -70,15 +82,17 @@ def paint_time( h=None, m=None ):
     painter.setOpacity( 0.75 )
     painter.drawImage( 0, 0, led )
 
+    length = m*5 // 60 + 1
+    paint_snake(painter, h*5, length)
     # draw the hour LED's
-    h_fade = range( h * 5, h * 5 + (m * 5) // 60 + 1 )
-    for i in h_fade:
-        if i == m:
-            continue
-        led = get_led( i )
-        painter.setOpacity( (i - h_fade[0] + 1) / len( h_fade ) )
-        painter.drawImage( 0, 0, led )
-
+#    h_fade = range( h * 5, h * 5 + (m * 5) // 60 + 1 )
+#    for i in h_fade:
+#        if i == m:
+#            continue
+#        led = get_led( i )
+#        painter.setOpacity( (i - h_fade[0] + 1) / len( h_fade ) )
+#        painter.drawImage( 0, 0, led )
+#
     painter.end()
 
     return watch
@@ -89,6 +103,52 @@ def qpaint( h=None, m=None ):
     label.setPixmap( QPixmap.fromImage( paint_time( h, m ) ) )
     label.setFixedSize( 600, 600 )
     label.showNormal( )
+    sys.exit( app.exec_() )
+
+def save_pixmap(pixmap, name):
+    file = QFile("graphics/images/"+ name + ".png")
+    pixmap.save(file, "PNG")
+
+def qpaint( h=None, m=None ):
+    app = QApplication( sys.argv )
+    imgcnt = 0
+    watch = QImage( FP_FACE )
+    if watch.isNull():
+        sys.stderr.write( "Failed to read background image: %s\n" % FP_FACE )
+        sys.exit( 1 )
+
+
+    ###draw hour animation pixmaps
+    for i in range(h*5 - 4):
+        # configure a painter for the 'watch' image
+        watch = QImage( FP_FACE )
+        painter = QPainter()
+        painter.begin( watch )
+        paint_snake( painter, i, 5 )
+        painter.end()
+        pixmap = QPixmap.fromImage(watch)
+        save_pixmap(pixmap, "{}_{}_{}".format(h, m, imgcnt))
+        imgcnt+=1
+
+    ###draw hour 'growing' pixmaps
+    final_len = m*5 // 60 + 1
+    for i in range(final_len):
+        watch = QImage( FP_FACE )
+        painter = QPainter()
+        painter.begin( watch )
+        paint_snake( painter, h*5, i + 1 )
+        painter.end()
+        pixmap = QPixmap.fromImage(watch)
+
+        save_pixmap(pixmap, "{}_{}_{}".format(h, m, imgcnt))
+        imgcnt+=1
+
+
+    pixmap = QPixmap.fromImage(paint_time(h, m))
+    save_pixmap(pixmap, "{}_{}".format(h, m))
+
+
+    QTimer.singleShot(1, app.exit)
     sys.exit( app.exec_() )
 
 if __name__ == "__main__":
