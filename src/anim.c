@@ -321,3 +321,5 @@ void anim_tic( void ) {
 
 void anim_init( void ) {
 }
+
+// vim:shiftwidth=2

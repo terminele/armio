@@ -264,3 +264,5 @@ void aclock_init( void ) {
     rtc_calendar_enable_callback(&rtc_instance, RTC_CALENDAR_ALARM_0);
 #endif
 }
+
+// vim:shiftwidth=2

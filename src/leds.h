@@ -90,3 +90,5 @@ void led_set_max_brightness( uint8_t brightness);
    */
 
 #endif /* end of include guard: __LEDS_H__ */
+
+// vim:shiftwidth=2

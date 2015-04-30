@@ -66,3 +66,5 @@ void aclock_init( void );
 
 
 #endif /* end of include guard: __CLOCK_H__ */
+
+// vim:shiftwidth=2

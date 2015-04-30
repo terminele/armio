@@ -742,3 +742,5 @@ void accel_init ( void ) {
 
     configure_interrupt();
 }
+
+// vim:shiftwidth=2

@@ -398,3 +398,5 @@ void led_clear_all( void ) {
 void led_set_max_brightness( uint8_t brightness ) {
     max_brightness = brightness;
 }
+
+// vim:shiftwidth=2

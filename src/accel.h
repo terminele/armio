@@ -60,3 +60,5 @@ void accel_init ( void );
    */
 
 #endif /* end of include guard: __ACCEL_H__ */
+
+// vim:shiftwidth=2

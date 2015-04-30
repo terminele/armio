@@ -147,3 +147,5 @@ void main_inactivity_timeout_reset( void );
    */
 
 #endif /* end of include guard: __MAIN_H__ */
+
+// vim:shiftwidth=2

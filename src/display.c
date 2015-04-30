@@ -356,3 +356,5 @@ void display_init(void) {
         component_allocs[i].type = dispt_unused;
     }
 }
+
+// vim:shiftwidth=2

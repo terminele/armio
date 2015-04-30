@@ -815,3 +815,5 @@ int main (void)
     }
 
 }
+
+// vim:shiftwidth=2

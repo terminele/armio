@@ -97,3 +97,5 @@ void control_init( void );
 
 
 #endif /* end of include guard: __CONTROL_H__ */
+
+// vim:shiftwidth=2

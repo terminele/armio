@@ -57,3 +57,5 @@ uint8_t adc_vbatt_value_scale ( uint16_t value );
 
 
 #endif /* end of include guard: __UTILS_H__ */
+
+// vim:shiftwidth=2
