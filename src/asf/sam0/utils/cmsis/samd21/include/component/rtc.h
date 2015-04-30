@@ -60,10 +60,10 @@ typedef union {
     uint16_t SWRST:1;          /*!< bit:      0  Software Reset                     */
     uint16_t ENABLE:1;         /*!< bit:      1  Enable                             */
     uint16_t MODE:2;           /*!< bit:  2.. 3  Operating Mode                     */
-    uint16_t :3;               /*!< bit:  4.. 6  Reserved                           */
+    unsigned short int :3;               /*!< bit:  4.. 6  Reserved                           */
     uint16_t MATCHCLR:1;       /*!< bit:      7  Clear on Match                     */
     uint16_t PRESCALER:4;      /*!< bit:  8..11  Prescaler                          */
-    uint16_t :4;               /*!< bit: 12..15  Reserved                           */
+    unsigned short int :4;               /*!< bit: 12..15  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint16_t reg;                /*!< Type      used for register access              */
 } RTC_MODE0_CTRL_Type;
@@ -121,9 +121,9 @@ typedef union {
     uint16_t SWRST:1;          /*!< bit:      0  Software Reset                     */
     uint16_t ENABLE:1;         /*!< bit:      1  Enable                             */
     uint16_t MODE:2;           /*!< bit:  2.. 3  Operating Mode                     */
-    uint16_t :4;               /*!< bit:  4.. 7  Reserved                           */
+    unsigned short int :4;               /*!< bit:  4.. 7  Reserved                           */
     uint16_t PRESCALER:4;      /*!< bit:  8..11  Prescaler                          */
-    uint16_t :4;               /*!< bit: 12..15  Reserved                           */
+    unsigned short int :4;               /*!< bit: 12..15  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint16_t reg;                /*!< Type      used for register access              */
 } RTC_MODE1_CTRL_Type;
@@ -179,11 +179,11 @@ typedef union {
     uint16_t SWRST:1;          /*!< bit:      0  Software Reset                     */
     uint16_t ENABLE:1;         /*!< bit:      1  Enable                             */
     uint16_t MODE:2;           /*!< bit:  2.. 3  Operating Mode                     */
-    uint16_t :2;               /*!< bit:  4.. 5  Reserved                           */
+    unsigned short int :2;               /*!< bit:  4.. 5  Reserved                           */
     uint16_t CLKREP:1;         /*!< bit:      6  Clock Representation               */
     uint16_t MATCHCLR:1;       /*!< bit:      7  Clear on Match                     */
     uint16_t PRESCALER:4;      /*!< bit:  8..11  Prescaler                          */
-    uint16_t :4;               /*!< bit: 12..15  Reserved                           */
+    unsigned short int :4;               /*!< bit: 12..15  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint16_t reg;                /*!< Type      used for register access              */
 } RTC_MODE2_CTRL_Type;
@@ -241,7 +241,7 @@ typedef union {
 typedef union {
   struct {
     uint16_t ADDR:6;           /*!< bit:  0.. 5  Address                            */
-    uint16_t :8;               /*!< bit:  6..13  Reserved                           */
+    unsigned short int :8;               /*!< bit:  6..13  Reserved                           */
     uint16_t RCONT:1;          /*!< bit:     14  Read Continuously                  */
     uint16_t RREQ:1;           /*!< bit:     15  Read Request                       */
   } bit;                       /*!< Structure used for bit  access                  */
@@ -274,13 +274,13 @@ typedef union {
     uint16_t PEREO6:1;         /*!< bit:      6  Periodic Interval 6 Event Output Enable */
     uint16_t PEREO7:1;         /*!< bit:      7  Periodic Interval 7 Event Output Enable */
     uint16_t CMPEO0:1;         /*!< bit:      8  Compare 0 Event Output Enable      */
-    uint16_t :6;               /*!< bit:  9..14  Reserved                           */
+    unsigned short int :6;               /*!< bit:  9..14  Reserved                           */
     uint16_t OVFEO:1;          /*!< bit:     15  Overflow Event Output Enable       */
   } bit;                       /*!< Structure used for bit  access                  */
   struct {
     uint16_t PEREO:8;          /*!< bit:  0.. 7  Periodic Interval x Event Output Enable */
     uint16_t CMPEO:1;          /*!< bit:      8  Compare x Event Output Enable      */
-    uint16_t :7;               /*!< bit:  9..15  Reserved                           */
+    unsigned short int :7;               /*!< bit:  9..15  Reserved                           */
   } vec;                       /*!< Structure used for vec  access                  */
   uint16_t reg;                /*!< Type      used for register access              */
 } RTC_MODE0_EVCTRL_Type;
@@ -331,13 +331,13 @@ typedef union {
     uint16_t PEREO7:1;         /*!< bit:      7  Periodic Interval 7 Event Output Enable */
     uint16_t CMPEO0:1;         /*!< bit:      8  Compare 0 Event Output Enable      */
     uint16_t CMPEO1:1;         /*!< bit:      9  Compare 1 Event Output Enable      */
-    uint16_t :5;               /*!< bit: 10..14  Reserved                           */
+    unsigned short int :5;               /*!< bit: 10..14  Reserved                           */
     uint16_t OVFEO:1;          /*!< bit:     15  Overflow Event Output Enable       */
   } bit;                       /*!< Structure used for bit  access                  */
   struct {
     uint16_t PEREO:8;          /*!< bit:  0.. 7  Periodic Interval x Event Output Enable */
     uint16_t CMPEO:2;          /*!< bit:  8.. 9  Compare x Event Output Enable      */
-    uint16_t :6;               /*!< bit: 10..15  Reserved                           */
+    unsigned short int :6;               /*!< bit: 10..15  Reserved                           */
   } vec;                       /*!< Structure used for vec  access                  */
   uint16_t reg;                /*!< Type      used for register access              */
 } RTC_MODE1_EVCTRL_Type;
@@ -389,13 +389,13 @@ typedef union {
     uint16_t PEREO6:1;         /*!< bit:      6  Periodic Interval 6 Event Output Enable */
     uint16_t PEREO7:1;         /*!< bit:      7  Periodic Interval 7 Event Output Enable */
     uint16_t ALARMEO0:1;       /*!< bit:      8  Alarm 0 Event Output Enable        */
-    uint16_t :6;               /*!< bit:  9..14  Reserved                           */
+    unsigned short int :6;               /*!< bit:  9..14  Reserved                           */
     uint16_t OVFEO:1;          /*!< bit:     15  Overflow Event Output Enable       */
   } bit;                       /*!< Structure used for bit  access                  */
   struct {
     uint16_t PEREO:8;          /*!< bit:  0.. 7  Periodic Interval x Event Output Enable */
     uint16_t ALARMEO:1;        /*!< bit:      8  Alarm x Event Output Enable        */
-    uint16_t :7;               /*!< bit:  9..15  Reserved                           */
+    unsigned short int :7;               /*!< bit:  9..15  Reserved                           */
   } vec;                       /*!< Structure used for vec  access                  */
   uint16_t reg;                /*!< Type      used for register access              */
 } RTC_MODE2_EVCTRL_Type;
@@ -437,13 +437,13 @@ typedef union {
 typedef union {
   struct {
     uint8_t  CMP0:1;           /*!< bit:      0  Compare 0 Interrupt Enable         */
-    uint8_t  :5;               /*!< bit:  1.. 5  Reserved                           */
+    unsigned char  :5;               /*!< bit:  1.. 5  Reserved                           */
     uint8_t  SYNCRDY:1;        /*!< bit:      6  Synchronization Ready Interrupt Enable */
     uint8_t  OVF:1;            /*!< bit:      7  Overflow Interrupt Enable          */
   } bit;                       /*!< Structure used for bit  access                  */
   struct {
     uint8_t  CMP:1;            /*!< bit:      0  Compare x Interrupt Enable         */
-    uint8_t  :7;               /*!< bit:  1.. 7  Reserved                           */
+    unsigned char  :7;               /*!< bit:  1.. 7  Reserved                           */
   } vec;                       /*!< Structure used for vec  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } RTC_MODE0_INTENCLR_Type;
@@ -469,13 +469,13 @@ typedef union {
   struct {
     uint8_t  CMP0:1;           /*!< bit:      0  Compare 0 Interrupt Enable         */
     uint8_t  CMP1:1;           /*!< bit:      1  Compare 1 Interrupt Enable         */
-    uint8_t  :4;               /*!< bit:  2.. 5  Reserved                           */
+    unsigned char  :4;               /*!< bit:  2.. 5  Reserved                           */
     uint8_t  SYNCRDY:1;        /*!< bit:      6  Synchronization Ready Interrupt Enable */
     uint8_t  OVF:1;            /*!< bit:      7  Overflow Interrupt Enable          */
   } bit;                       /*!< Structure used for bit  access                  */
   struct {
     uint8_t  CMP:2;            /*!< bit:  0.. 1  Compare x Interrupt Enable         */
-    uint8_t  :6;               /*!< bit:  2.. 7  Reserved                           */
+    unsigned char  :6;               /*!< bit:  2.. 7  Reserved                           */
   } vec;                       /*!< Structure used for vec  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } RTC_MODE1_INTENCLR_Type;
@@ -502,13 +502,13 @@ typedef union {
 typedef union {
   struct {
     uint8_t  ALARM0:1;         /*!< bit:      0  Alarm 0 Interrupt Enable           */
-    uint8_t  :5;               /*!< bit:  1.. 5  Reserved                           */
+    unsigned char  :5;               /*!< bit:  1.. 5  Reserved                           */
     uint8_t  SYNCRDY:1;        /*!< bit:      6  Synchronization Ready Interrupt Enable */
     uint8_t  OVF:1;            /*!< bit:      7  Overflow Interrupt Enable          */
   } bit;                       /*!< Structure used for bit  access                  */
   struct {
     uint8_t  ALARM:1;          /*!< bit:      0  Alarm x Interrupt Enable           */
-    uint8_t  :7;               /*!< bit:  1.. 7  Reserved                           */
+    unsigned char  :7;               /*!< bit:  1.. 7  Reserved                           */
   } vec;                       /*!< Structure used for vec  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } RTC_MODE2_INTENCLR_Type;
@@ -533,13 +533,13 @@ typedef union {
 typedef union {
   struct {
     uint8_t  CMP0:1;           /*!< bit:      0  Compare 0 Interrupt Enable         */
-    uint8_t  :5;               /*!< bit:  1.. 5  Reserved                           */
+    unsigned char  :5;               /*!< bit:  1.. 5  Reserved                           */
     uint8_t  SYNCRDY:1;        /*!< bit:      6  Synchronization Ready Interrupt Enable */
     uint8_t  OVF:1;            /*!< bit:      7  Overflow Interrupt Enable          */
   } bit;                       /*!< Structure used for bit  access                  */
   struct {
     uint8_t  CMP:1;            /*!< bit:      0  Compare x Interrupt Enable         */
-    uint8_t  :7;               /*!< bit:  1.. 7  Reserved                           */
+    unsigned char  :7;               /*!< bit:  1.. 7  Reserved                           */
   } vec;                       /*!< Structure used for vec  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } RTC_MODE0_INTENSET_Type;
@@ -565,13 +565,13 @@ typedef union {
   struct {
     uint8_t  CMP0:1;           /*!< bit:      0  Compare 0 Interrupt Enable         */
     uint8_t  CMP1:1;           /*!< bit:      1  Compare 1 Interrupt Enable         */
-    uint8_t  :4;               /*!< bit:  2.. 5  Reserved                           */
+    unsigned char  :4;               /*!< bit:  2.. 5  Reserved                           */
     uint8_t  SYNCRDY:1;        /*!< bit:      6  Synchronization Ready Interrupt Enable */
     uint8_t  OVF:1;            /*!< bit:      7  Overflow Interrupt Enable          */
   } bit;                       /*!< Structure used for bit  access                  */
   struct {
     uint8_t  CMP:2;            /*!< bit:  0.. 1  Compare x Interrupt Enable         */
-    uint8_t  :6;               /*!< bit:  2.. 7  Reserved                           */
+    unsigned char  :6;               /*!< bit:  2.. 7  Reserved                           */
   } vec;                       /*!< Structure used for vec  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } RTC_MODE1_INTENSET_Type;
@@ -598,13 +598,13 @@ typedef union {
 typedef union {
   struct {
     uint8_t  ALARM0:1;         /*!< bit:      0  Alarm 0 Interrupt Enable           */
-    uint8_t  :5;               /*!< bit:  1.. 5  Reserved                           */
+    unsigned char  :5;               /*!< bit:  1.. 5  Reserved                           */
     uint8_t  SYNCRDY:1;        /*!< bit:      6  Synchronization Ready Interrupt Enable */
     uint8_t  OVF:1;            /*!< bit:      7  Overflow Interrupt Enable          */
   } bit;                       /*!< Structure used for bit  access                  */
   struct {
     uint8_t  ALARM:1;          /*!< bit:      0  Alarm x Interrupt Enable           */
-    uint8_t  :7;               /*!< bit:  1.. 7  Reserved                           */
+    unsigned char  :7;               /*!< bit:  1.. 7  Reserved                           */
   } vec;                       /*!< Structure used for vec  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } RTC_MODE2_INTENSET_Type;
@@ -629,13 +629,13 @@ typedef union {
 typedef union {
   struct {
     uint8_t  CMP0:1;           /*!< bit:      0  Compare 0                          */
-    uint8_t  :5;               /*!< bit:  1.. 5  Reserved                           */
+    unsigned char  :5;               /*!< bit:  1.. 5  Reserved                           */
     uint8_t  SYNCRDY:1;        /*!< bit:      6  Synchronization Ready              */
     uint8_t  OVF:1;            /*!< bit:      7  Overflow                           */
   } bit;                       /*!< Structure used for bit  access                  */
   struct {
     uint8_t  CMP:1;            /*!< bit:      0  Compare x                          */
-    uint8_t  :7;               /*!< bit:  1.. 7  Reserved                           */
+    unsigned char  :7;               /*!< bit:  1.. 7  Reserved                           */
   } vec;                       /*!< Structure used for vec  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } RTC_MODE0_INTFLAG_Type;
@@ -661,13 +661,13 @@ typedef union {
   struct {
     uint8_t  CMP0:1;           /*!< bit:      0  Compare 0                          */
     uint8_t  CMP1:1;           /*!< bit:      1  Compare 1                          */
-    uint8_t  :4;               /*!< bit:  2.. 5  Reserved                           */
+    unsigned char  :4;               /*!< bit:  2.. 5  Reserved                           */
     uint8_t  SYNCRDY:1;        /*!< bit:      6  Synchronization Ready              */
     uint8_t  OVF:1;            /*!< bit:      7  Overflow                           */
   } bit;                       /*!< Structure used for bit  access                  */
   struct {
     uint8_t  CMP:2;            /*!< bit:  0.. 1  Compare x                          */
-    uint8_t  :6;               /*!< bit:  2.. 7  Reserved                           */
+    unsigned char  :6;               /*!< bit:  2.. 7  Reserved                           */
   } vec;                       /*!< Structure used for vec  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } RTC_MODE1_INTFLAG_Type;
@@ -694,13 +694,13 @@ typedef union {
 typedef union {
   struct {
     uint8_t  ALARM0:1;         /*!< bit:      0  Alarm 0                            */
-    uint8_t  :5;               /*!< bit:  1.. 5  Reserved                           */
+    unsigned char  :5;               /*!< bit:  1.. 5  Reserved                           */
     uint8_t  SYNCRDY:1;        /*!< bit:      6  Synchronization Ready              */
     uint8_t  OVF:1;            /*!< bit:      7  Overflow                           */
   } bit;                       /*!< Structure used for bit  access                  */
   struct {
     uint8_t  ALARM:1;          /*!< bit:      0  Alarm x                            */
-    uint8_t  :7;               /*!< bit:  1.. 7  Reserved                           */
+    unsigned char  :7;               /*!< bit:  1.. 7  Reserved                           */
   } vec;                       /*!< Structure used for vec  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } RTC_MODE2_INTFLAG_Type;
@@ -724,7 +724,7 @@ typedef union {
 #if !(defined(__ASSEMBLY__) || defined(__IAR_SYSTEMS_ASM__))
 typedef union {
   struct {
-    uint8_t  :7;               /*!< bit:  0.. 6  Reserved                           */
+    unsigned char  :7;               /*!< bit:  0.. 6  Reserved                           */
     uint8_t  SYNCBUSY:1;       /*!< bit:      7  Synchronization Busy               */
   } bit;                       /*!< Structure used for bit  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
@@ -743,7 +743,7 @@ typedef union {
 typedef union {
   struct {
     uint8_t  DBGRUN:1;         /*!< bit:      0  Run During Debug                   */
-    uint8_t  :7;               /*!< bit:  1.. 7  Reserved                           */
+    unsigned char  :7;               /*!< bit:  1.. 7  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } RTC_DBGCTRL_Type;
@@ -950,7 +950,7 @@ typedef union {
 typedef union {
   struct {
     uint8_t  SEL:3;            /*!< bit:  0.. 2  Alarm Mask Selection               */
-    uint8_t  :5;               /*!< bit:  3.. 7  Reserved                           */
+    unsigned char  :5;               /*!< bit:  3.. 7  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } RTC_MODE2_MASK_Type;

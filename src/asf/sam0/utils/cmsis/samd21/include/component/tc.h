@@ -60,13 +60,13 @@ typedef union {
     uint16_t SWRST:1;          /*!< bit:      0  Software Reset                     */
     uint16_t ENABLE:1;         /*!< bit:      1  Enable                             */
     uint16_t MODE:2;           /*!< bit:  2.. 3  TC Mode                            */
-    uint16_t :1;               /*!< bit:      4  Reserved                           */
+    unsigned short int :1;               /*!< bit:      4  Reserved                           */
     uint16_t WAVEGEN:2;        /*!< bit:  5.. 6  Waveform Generation Operation      */
-    uint16_t :1;               /*!< bit:      7  Reserved                           */
+    unsigned short int :1;               /*!< bit:      7  Reserved                           */
     uint16_t PRESCALER:3;      /*!< bit:  8..10  Prescaler                          */
     uint16_t RUNSTDBY:1;       /*!< bit:     11  Run in Standby                     */
     uint16_t PRESCSYNC:2;      /*!< bit: 12..13  Prescaler and Counter Synchronization */
-    uint16_t :2;               /*!< bit: 14..15  Reserved                           */
+    unsigned short int :2;               /*!< bit: 14..15  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint16_t reg;                /*!< Type      used for register access              */
 } TC_CTRLA_Type;
@@ -136,7 +136,7 @@ typedef union {
 typedef union {
   struct {
     uint16_t ADDR:5;           /*!< bit:  0.. 4  Address                            */
-    uint16_t :9;               /*!< bit:  5..13  Reserved                           */
+    unsigned short int :9;               /*!< bit:  5..13  Reserved                           */
     uint16_t RCONT:1;          /*!< bit:     14  Read Continuously                  */
     uint16_t RREQ:1;           /*!< bit:     15  Read Request                       */
   } bit;                       /*!< Structure used for bit  access                  */
@@ -161,9 +161,9 @@ typedef union {
 typedef union {
   struct {
     uint8_t  DIR:1;            /*!< bit:      0  Counter Direction                  */
-    uint8_t  :1;               /*!< bit:      1  Reserved                           */
+    unsigned char  :1;               /*!< bit:      1  Reserved                           */
     uint8_t  ONESHOT:1;        /*!< bit:      2  One-Shot                           */
-    uint8_t  :3;               /*!< bit:  3.. 5  Reserved                           */
+    unsigned char  :3;               /*!< bit:  3.. 5  Reserved                           */
     uint8_t  CMD:2;            /*!< bit:  6.. 7  Command                            */
   } bit;                       /*!< Structure used for bit  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
@@ -193,9 +193,9 @@ typedef union {
 typedef union {
   struct {
     uint8_t  DIR:1;            /*!< bit:      0  Counter Direction                  */
-    uint8_t  :1;               /*!< bit:      1  Reserved                           */
+    unsigned char  :1;               /*!< bit:      1  Reserved                           */
     uint8_t  ONESHOT:1;        /*!< bit:      2  One-Shot                           */
-    uint8_t  :3;               /*!< bit:  3.. 5  Reserved                           */
+    unsigned char  :3;               /*!< bit:  3.. 5  Reserved                           */
     uint8_t  CMD:2;            /*!< bit:  6.. 7  Command                            */
   } bit;                       /*!< Structure used for bit  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
@@ -226,16 +226,16 @@ typedef union {
   struct {
     uint8_t  INVEN0:1;         /*!< bit:      0  Output Waveform 0 Invert Enable    */
     uint8_t  INVEN1:1;         /*!< bit:      1  Output Waveform 1 Invert Enable    */
-    uint8_t  :2;               /*!< bit:  2.. 3  Reserved                           */
+    unsigned char  :2;               /*!< bit:  2.. 3  Reserved                           */
     uint8_t  CPTEN0:1;         /*!< bit:      4  Capture Channel 0 Enable           */
     uint8_t  CPTEN1:1;         /*!< bit:      5  Capture Channel 1 Enable           */
-    uint8_t  :2;               /*!< bit:  6.. 7  Reserved                           */
+    unsigned char  :2;               /*!< bit:  6.. 7  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   struct {
     uint8_t  INVEN:2;          /*!< bit:  0.. 1  Output Waveform x Invert Enable    */
-    uint8_t  :2;               /*!< bit:  2.. 3  Reserved                           */
+    unsigned char  :2;               /*!< bit:  2.. 3  Reserved                           */
     uint8_t  CPTEN:2;          /*!< bit:  4.. 5  Capture Channel x Enable           */
-    uint8_t  :2;               /*!< bit:  6.. 7  Reserved                           */
+    unsigned char  :2;               /*!< bit:  6.. 7  Reserved                           */
   } vec;                       /*!< Structure used for vec  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } TC_CTRLC_Type;
@@ -265,7 +265,7 @@ typedef union {
 typedef union {
   struct {
     uint8_t  DBGRUN:1;         /*!< bit:      0  Debug Run Mode                     */
-    uint8_t  :7;               /*!< bit:  1.. 7  Reserved                           */
+    unsigned char  :7;               /*!< bit:  1.. 7  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } TC_DBGCTRL_Type;
@@ -283,20 +283,20 @@ typedef union {
 typedef union {
   struct {
     uint16_t EVACT:3;          /*!< bit:  0.. 2  Event Action                       */
-    uint16_t :1;               /*!< bit:      3  Reserved                           */
+    unsigned short int :1;               /*!< bit:      3  Reserved                           */
     uint16_t TCINV:1;          /*!< bit:      4  TC Inverted Event Input            */
     uint16_t TCEI:1;           /*!< bit:      5  TC Event Input                     */
-    uint16_t :2;               /*!< bit:  6.. 7  Reserved                           */
+    unsigned short int :2;               /*!< bit:  6.. 7  Reserved                           */
     uint16_t OVFEO:1;          /*!< bit:      8  Overflow/Underflow Event Output Enable */
-    uint16_t :3;               /*!< bit:  9..11  Reserved                           */
+    unsigned short int :3;               /*!< bit:  9..11  Reserved                           */
     uint16_t MCEO0:1;          /*!< bit:     12  Match or Capture Channel 0 Event Output Enable */
     uint16_t MCEO1:1;          /*!< bit:     13  Match or Capture Channel 1 Event Output Enable */
-    uint16_t :2;               /*!< bit: 14..15  Reserved                           */
+    unsigned short int :2;               /*!< bit: 14..15  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   struct {
-    uint16_t :12;              /*!< bit:  0..11  Reserved                           */
+    unsigned short int :12;              /*!< bit:  0..11  Reserved                           */
     uint16_t MCEO:2;           /*!< bit: 12..13  Match or Capture Channel x Event Output Enable */
-    uint16_t :2;               /*!< bit: 14..15  Reserved                           */
+    unsigned short int :2;               /*!< bit: 14..15  Reserved                           */
   } vec;                       /*!< Structure used for vec  access                  */
   uint16_t reg;                /*!< Type      used for register access              */
 } TC_EVCTRL_Type;
@@ -341,16 +341,16 @@ typedef union {
   struct {
     uint8_t  OVF:1;            /*!< bit:      0  Overflow Interrupt Enable          */
     uint8_t  ERR:1;            /*!< bit:      1  Error Interrupt Enable             */
-    uint8_t  :1;               /*!< bit:      2  Reserved                           */
+    unsigned char  :1;               /*!< bit:      2  Reserved                           */
     uint8_t  SYNCRDY:1;        /*!< bit:      3  Synchronization Ready Interrupt Enable */
     uint8_t  MC0:1;            /*!< bit:      4  Match or Capture Channel 0 Interrupt Enable */
     uint8_t  MC1:1;            /*!< bit:      5  Match or Capture Channel 1 Interrupt Enable */
-    uint8_t  :2;               /*!< bit:  6.. 7  Reserved                           */
+    unsigned char  :2;               /*!< bit:  6.. 7  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   struct {
-    uint8_t  :4;               /*!< bit:  0.. 3  Reserved                           */
+    unsigned char  :4;               /*!< bit:  0.. 3  Reserved                           */
     uint8_t  MC:2;             /*!< bit:  4.. 5  Match or Capture Channel x Interrupt Enable */
-    uint8_t  :2;               /*!< bit:  6.. 7  Reserved                           */
+    unsigned char  :2;               /*!< bit:  6.. 7  Reserved                           */
   } vec;                       /*!< Structure used for vec  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } TC_INTENCLR_Type;
@@ -380,16 +380,16 @@ typedef union {
   struct {
     uint8_t  OVF:1;            /*!< bit:      0  Overflow Interrupt Enable          */
     uint8_t  ERR:1;            /*!< bit:      1  Error Interrupt Enable             */
-    uint8_t  :1;               /*!< bit:      2  Reserved                           */
+    unsigned char  :1;               /*!< bit:      2  Reserved                           */
     uint8_t  SYNCRDY:1;        /*!< bit:      3  Synchronization Ready Interrupt Enable */
     uint8_t  MC0:1;            /*!< bit:      4  Match or Capture Channel 0 Interrupt Enable */
     uint8_t  MC1:1;            /*!< bit:      5  Match or Capture Channel 1 Interrupt Enable */
-    uint8_t  :2;               /*!< bit:  6.. 7  Reserved                           */
+    unsigned char  :2;               /*!< bit:  6.. 7  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   struct {
-    uint8_t  :4;               /*!< bit:  0.. 3  Reserved                           */
+    unsigned char  :4;               /*!< bit:  0.. 3  Reserved                           */
     uint8_t  MC:2;             /*!< bit:  4.. 5  Match or Capture Channel x Interrupt Enable */
-    uint8_t  :2;               /*!< bit:  6.. 7  Reserved                           */
+    unsigned char  :2;               /*!< bit:  6.. 7  Reserved                           */
   } vec;                       /*!< Structure used for vec  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } TC_INTENSET_Type;
@@ -419,16 +419,16 @@ typedef union {
   struct {
     uint8_t  OVF:1;            /*!< bit:      0  Overflow                           */
     uint8_t  ERR:1;            /*!< bit:      1  Error                              */
-    uint8_t  :1;               /*!< bit:      2  Reserved                           */
+    unsigned char  :1;               /*!< bit:      2  Reserved                           */
     uint8_t  SYNCRDY:1;        /*!< bit:      3  Synchronization Ready              */
     uint8_t  MC0:1;            /*!< bit:      4  Match or Capture Channel 0         */
     uint8_t  MC1:1;            /*!< bit:      5  Match or Capture Channel 1         */
-    uint8_t  :2;               /*!< bit:  6.. 7  Reserved                           */
+    unsigned char  :2;               /*!< bit:  6.. 7  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   struct {
-    uint8_t  :4;               /*!< bit:  0.. 3  Reserved                           */
+    unsigned char  :4;               /*!< bit:  0.. 3  Reserved                           */
     uint8_t  MC:2;             /*!< bit:  4.. 5  Match or Capture Channel x         */
-    uint8_t  :2;               /*!< bit:  6.. 7  Reserved                           */
+    unsigned char  :2;               /*!< bit:  6.. 7  Reserved                           */
   } vec;                       /*!< Structure used for vec  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } TC_INTFLAG_Type;
@@ -456,10 +456,10 @@ typedef union {
 #if !(defined(__ASSEMBLY__) || defined(__IAR_SYSTEMS_ASM__))
 typedef union {
   struct {
-    uint8_t  :3;               /*!< bit:  0.. 2  Reserved                           */
+    unsigned char  :3;               /*!< bit:  0.. 2  Reserved                           */
     uint8_t  STOP:1;           /*!< bit:      3  Stop                               */
     uint8_t  SLAVE:1;          /*!< bit:      4  Slave                              */
-    uint8_t  :2;               /*!< bit:  5.. 6  Reserved                           */
+    unsigned char  :2;               /*!< bit:  5.. 6  Reserved                           */
     uint8_t  SYNCBUSY:1;       /*!< bit:      7  Synchronization Busy               */
   } bit;                       /*!< Structure used for bit  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
