@@ -64,7 +64,7 @@ for i in $(seq 0 $BLINK_CNT); do
 done;
 
 #show full time on for a bit
-FULL_TIME_ON_DELAY=500
+FULL_TIME_ON_DELAY=200
 CMD+="-delay $FULL_TIME_ON_DELAY "
 CMD+=$IMG_DIR$IMG_FNAME_BASE
 CMD+=".png"
