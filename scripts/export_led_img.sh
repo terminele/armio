@@ -9,7 +9,7 @@
 #      id="g20789"
 
 IMG_FILE=./graphics/DECKO_pcb_layers.svg
-EXPORT_LED_DIR=./graphics/led_export
+EXPORT_LED_DIR=./graphics/images
 EXPORT_LED_BASE=$EXPORT_LED_DIR/led
 OPACITY=0
 
@@ -29,7 +29,11 @@ mkdir -p $EXPORT_LED_DIR
 
 leds_off;
 
-inkscape -f $IMG_FILE -C -e $EXPORT_LED_DIR/background.png
+inkscape -f $IMG_FILE -C -e $EXPORT_LED_DIR/face.png
+
+EXP_NAME=$EXPORT_LED_BASE
+EXP_NAME+=.png
+inkscape -f $IMG_FILE -C -e $EXP_NAME -j -i LED0 -y $OPACITY
 
 leds_on;
 

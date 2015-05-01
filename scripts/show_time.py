@@ -20,8 +20,8 @@ import sys
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
-IMGDIR = [".", "graphics", "led_export"]
-FN_FACE = "background.png"
+IMGDIR = [".", "graphics", "images"]
+FN_FACE = "face.png"
 FN_LED_BASE = "led"
 
 
