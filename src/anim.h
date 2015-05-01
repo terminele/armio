@@ -216,3 +216,5 @@ void anim_init( void );
 
 
 #endif /* end of include guard: __ANIM_H__ */
+
+// vim:shiftwidth=2

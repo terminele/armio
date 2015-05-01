@@ -161,3 +161,5 @@ uint8_t adc_vbatt_value_scale ( uint16_t value ) {
 
     return 1 + 7*(value - 2048)/(2765 - 2048);
 }
+
+// vim:shiftwidth=2

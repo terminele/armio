@@ -59,24 +59,24 @@ typedef union {
   struct {
     uint32_t SWRST:1;          /*!< bit:      0  Software Reset                     */
     uint32_t ENABLE:1;         /*!< bit:      1  Enable                             */
-    uint32_t :3;               /*!< bit:  2.. 4  Reserved                           */
+    unsigned long int :3;               /*!< bit:  2.. 4  Reserved                           */
     uint32_t RESOLUTION:2;     /*!< bit:  5.. 6  Enhanced Resolution                */
-    uint32_t :1;               /*!< bit:      7  Reserved                           */
+    unsigned long int :1;               /*!< bit:      7  Reserved                           */
     uint32_t PRESCALER:3;      /*!< bit:  8..10  Prescaler                          */
     uint32_t RUNSTDBY:1;       /*!< bit:     11  Run in Standby                     */
     uint32_t PRESCSYNC:2;      /*!< bit: 12..13  Prescaler and Counter Synchronization Selection */
     uint32_t ALOCK:1;          /*!< bit:     14  Auto Lock                          */
-    uint32_t :9;               /*!< bit: 15..23  Reserved                           */
+    unsigned long int :9;               /*!< bit: 15..23  Reserved                           */
     uint32_t CPTEN0:1;         /*!< bit:     24  Capture Channel 0 Enable           */
     uint32_t CPTEN1:1;         /*!< bit:     25  Capture Channel 1 Enable           */
     uint32_t CPTEN2:1;         /*!< bit:     26  Capture Channel 2 Enable           */
     uint32_t CPTEN3:1;         /*!< bit:     27  Capture Channel 3 Enable           */
-    uint32_t :4;               /*!< bit: 28..31  Reserved                           */
+    unsigned long int :4;               /*!< bit: 28..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   struct {
-    uint32_t :24;              /*!< bit:  0..23  Reserved                           */
+    unsigned long int :24;              /*!< bit:  0..23  Reserved                           */
     uint32_t CPTEN:4;          /*!< bit: 24..27  Capture Channel x Enable           */
-    uint32_t :4;               /*!< bit: 28..31  Reserved                           */
+    unsigned long int :4;               /*!< bit: 28..31  Reserved                           */
   } vec;                       /*!< Structure used for vec  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } TCC_CTRLA_Type;
@@ -259,7 +259,7 @@ typedef union {
     uint32_t CC1:1;            /*!< bit:      9  Compare Channel Buffer 1 Busy      */
     uint32_t CC2:1;            /*!< bit:     10  Compare Channel Buffer 2 Busy      */
     uint32_t CC3:1;            /*!< bit:     11  Compare Channel Buffer 3 Busy      */
-    uint32_t :4;               /*!< bit: 12..15  Reserved                           */
+    unsigned long int :4;               /*!< bit: 12..15  Reserved                           */
     uint32_t PATTB:1;          /*!< bit:     16  Pattern Buffer Busy                */
     uint32_t WAVEB:1;          /*!< bit:     17  Wave Buffer Busy                   */
     uint32_t PERB:1;           /*!< bit:     18  Period Buffer Busy                 */
@@ -267,14 +267,14 @@ typedef union {
     uint32_t CCB1:1;           /*!< bit:     20  Compare Channel Buffer 1 Busy      */
     uint32_t CCB2:1;           /*!< bit:     21  Compare Channel Buffer 2 Busy      */
     uint32_t CCB3:1;           /*!< bit:     22  Compare Channel Buffer 3 Busy      */
-    uint32_t :9;               /*!< bit: 23..31  Reserved                           */
+    unsigned long int :9;               /*!< bit: 23..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   struct {
-    uint32_t :8;               /*!< bit:  0.. 7  Reserved                           */
+    unsigned long int :8;               /*!< bit:  0.. 7  Reserved                           */
     uint32_t CC:4;             /*!< bit:  8..11  Compare Channel Buffer x Busy      */
-    uint32_t :7;               /*!< bit: 12..18  Reserved                           */
+    unsigned long int :7;               /*!< bit: 12..18  Reserved                           */
     uint32_t CCB:4;            /*!< bit: 19..22  Compare Channel Buffer x Busy      */
-    uint32_t :9;               /*!< bit: 23..31  Reserved                           */
+    unsigned long int :9;               /*!< bit: 23..31  Reserved                           */
   } vec;                       /*!< Structure used for vec  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } TCC_SYNCBUSY_Type;
@@ -334,7 +334,7 @@ typedef union {
 typedef union {
   struct {
     uint32_t SRC:2;            /*!< bit:  0.. 1  FaultA Source                      */
-    uint32_t :1;               /*!< bit:      2  Reserved                           */
+    unsigned long int :1;               /*!< bit:      2  Reserved                           */
     uint32_t KEEP:1;           /*!< bit:      3  FaultA Keeper                      */
     uint32_t QUAL:1;           /*!< bit:      4  FaultA Qualification               */
     uint32_t BLANK:2;          /*!< bit:  5.. 6  FaultA Blanking Mode               */
@@ -342,10 +342,10 @@ typedef union {
     uint32_t HALT:2;           /*!< bit:  8.. 9  FaultA Halt Mode                   */
     uint32_t CHSEL:2;          /*!< bit: 10..11  FaultA Capture Channel             */
     uint32_t CAPTURE:3;        /*!< bit: 12..14  FaultA Capture Action              */
-    uint32_t :1;               /*!< bit:     15  Reserved                           */
+    unsigned long int :1;               /*!< bit:     15  Reserved                           */
     uint32_t BLANKVAL:8;       /*!< bit: 16..23  FaultA Blanking Time               */
     uint32_t FILTERVAL:4;      /*!< bit: 24..27  FaultA Filter Value                */
-    uint32_t :4;               /*!< bit: 28..31  Reserved                           */
+    unsigned long int :4;               /*!< bit: 28..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } TCC_FCTRLA_Type;
@@ -434,7 +434,7 @@ typedef union {
 typedef union {
   struct {
     uint32_t SRC:2;            /*!< bit:  0.. 1  FaultB Source                      */
-    uint32_t :1;               /*!< bit:      2  Reserved                           */
+    unsigned long int :1;               /*!< bit:      2  Reserved                           */
     uint32_t KEEP:1;           /*!< bit:      3  FaultB Keeper                      */
     uint32_t QUAL:1;           /*!< bit:      4  FaultB Qualification               */
     uint32_t BLANK:2;          /*!< bit:  5.. 6  FaultB Blanking Mode               */
@@ -442,10 +442,10 @@ typedef union {
     uint32_t HALT:2;           /*!< bit:  8.. 9  FaultB Halt Mode                   */
     uint32_t CHSEL:2;          /*!< bit: 10..11  FaultB Capture Channel             */
     uint32_t CAPTURE:3;        /*!< bit: 12..14  FaultB Capture Action              */
-    uint32_t :1;               /*!< bit:     15  Reserved                           */
+    unsigned long int :1;               /*!< bit:     15  Reserved                           */
     uint32_t BLANKVAL:8;       /*!< bit: 16..23  FaultB Blanking Time               */
     uint32_t FILTERVAL:4;      /*!< bit: 24..27  FaultB Filter Value                */
-    uint32_t :4;               /*!< bit: 28..31  Reserved                           */
+    unsigned long int :4;               /*!< bit: 28..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } TCC_FCTRLB_Type;
@@ -534,19 +534,19 @@ typedef union {
 typedef union {
   struct {
     uint32_t OTMX:2;           /*!< bit:  0.. 1  Output Matrix                      */
-    uint32_t :6;               /*!< bit:  2.. 7  Reserved                           */
+    unsigned long int :6;               /*!< bit:  2.. 7  Reserved                           */
     uint32_t DTIEN0:1;         /*!< bit:      8  Dead-time Insertion Generator 0 Enable */
     uint32_t DTIEN1:1;         /*!< bit:      9  Dead-time Insertion Generator 1 Enable */
     uint32_t DTIEN2:1;         /*!< bit:     10  Dead-time Insertion Generator 2 Enable */
     uint32_t DTIEN3:1;         /*!< bit:     11  Dead-time Insertion Generator 3 Enable */
-    uint32_t :4;               /*!< bit: 12..15  Reserved                           */
+    unsigned long int :4;               /*!< bit: 12..15  Reserved                           */
     uint32_t DTLS:8;           /*!< bit: 16..23  Dead-time Low Side Outputs Value   */
     uint32_t DTHS:8;           /*!< bit: 24..31  Dead-time High Side Outputs Value  */
   } bit;                       /*!< Structure used for bit  access                  */
   struct {
-    uint32_t :8;               /*!< bit:  0.. 7  Reserved                           */
+    unsigned long int :8;               /*!< bit:  0.. 7  Reserved                           */
     uint32_t DTIEN:4;          /*!< bit:  8..11  Dead-time Insertion Generator x Enable */
-    uint32_t :20;              /*!< bit: 12..31  Reserved                           */
+    unsigned long int :20;              /*!< bit: 12..31  Reserved                           */
   } vec;                       /*!< Structure used for vec  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } TCC_WEXCTRL_Type;
@@ -612,7 +612,7 @@ typedef union {
     uint32_t NRE:8;            /*!< bit:  0.. 7  Non-Recoverable State x Output Enable */
     uint32_t NRV:8;            /*!< bit:  8..15  Non-Recoverable State x Output Value */
     uint32_t INVEN:8;          /*!< bit: 16..23  Output Waveform x Inversion        */
-    uint32_t :8;               /*!< bit: 24..31  Reserved                           */
+    unsigned long int :8;               /*!< bit: 24..31  Reserved                           */
   } vec;                       /*!< Structure used for vec  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } TCC_DRVCTRL_Type;
@@ -691,9 +691,9 @@ typedef union {
 typedef union {
   struct {
     uint8_t  DBGRUN:1;         /*!< bit:      0  Debug Running Mode                 */
-    uint8_t  :1;               /*!< bit:      1  Reserved                           */
+    unsigned char  :1;               /*!< bit:      1  Reserved                           */
     uint8_t  FDDBD:1;          /*!< bit:      2  Fault Detection on Debug Break Detection */
-    uint8_t  :5;               /*!< bit:  3.. 7  Reserved                           */
+    unsigned char  :5;               /*!< bit:  3.. 7  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } TCC_DBGCTRL_Type;
@@ -718,7 +718,7 @@ typedef union {
     uint32_t OVFEO:1;          /*!< bit:      8  Overflow/Underflow Output Event Enable */
     uint32_t TRGEO:1;          /*!< bit:      9  Retrigger Output Event Enable      */
     uint32_t CNTEO:1;          /*!< bit:     10  Timer/counter Output Event Enable  */
-    uint32_t :1;               /*!< bit:     11  Reserved                           */
+    unsigned long int :1;               /*!< bit:     11  Reserved                           */
     uint32_t TCINV0:1;         /*!< bit:     12  Inverted Event 0 Input Enable      */
     uint32_t TCINV1:1;         /*!< bit:     13  Inverted Event 1 Input Enable      */
     uint32_t TCEI0:1;          /*!< bit:     14  Timer/counter Event 0 Input Enable */
@@ -727,21 +727,21 @@ typedef union {
     uint32_t MCEI1:1;          /*!< bit:     17  Match or Capture Channel 1 Event Input Enable */
     uint32_t MCEI2:1;          /*!< bit:     18  Match or Capture Channel 2 Event Input Enable */
     uint32_t MCEI3:1;          /*!< bit:     19  Match or Capture Channel 3 Event Input Enable */
-    uint32_t :4;               /*!< bit: 20..23  Reserved                           */
+    unsigned long int :4;               /*!< bit: 20..23  Reserved                           */
     uint32_t MCEO0:1;          /*!< bit:     24  Match or Capture Channel 0 Event Output Enable */
     uint32_t MCEO1:1;          /*!< bit:     25  Match or Capture Channel 1 Event Output Enable */
     uint32_t MCEO2:1;          /*!< bit:     26  Match or Capture Channel 2 Event Output Enable */
     uint32_t MCEO3:1;          /*!< bit:     27  Match or Capture Channel 3 Event Output Enable */
-    uint32_t :4;               /*!< bit: 28..31  Reserved                           */
+    unsigned long int :4;               /*!< bit: 28..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   struct {
-    uint32_t :12;              /*!< bit:  0..11  Reserved                           */
+    unsigned long int :12;              /*!< bit:  0..11  Reserved                           */
     uint32_t TCINV:2;          /*!< bit: 12..13  Inverted Event x Input Enable      */
     uint32_t TCEI:2;           /*!< bit: 14..15  Timer/counter Event x Input Enable */
     uint32_t MCEI:4;           /*!< bit: 16..19  Match or Capture Channel x Event Input Enable */
-    uint32_t :4;               /*!< bit: 20..23  Reserved                           */
+    unsigned long int :4;               /*!< bit: 20..23  Reserved                           */
     uint32_t MCEO:4;           /*!< bit: 24..27  Match or Capture Channel x Event Output Enable */
-    uint32_t :4;               /*!< bit: 28..31  Reserved                           */
+    unsigned long int :4;               /*!< bit: 28..31  Reserved                           */
   } vec;                       /*!< Structure used for vec  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } TCC_EVCTRL_Type;
@@ -849,7 +849,7 @@ typedef union {
     uint32_t TRG:1;            /*!< bit:      1  Retrigger Interrupt Enable         */
     uint32_t CNT:1;            /*!< bit:      2  Counter Interrupt Enable           */
     uint32_t ERR:1;            /*!< bit:      3  Error Interrupt Enable             */
-    uint32_t :7;               /*!< bit:  4..10  Reserved                           */
+    unsigned long int :7;               /*!< bit:  4..10  Reserved                           */
     uint32_t DFS:1;            /*!< bit:     11  Non-recoverable Debug Fault Interrupt Enable */
     uint32_t FAULTA:1;         /*!< bit:     12  Recoverable FaultA Interrupt Enable */
     uint32_t FAULTB:1;         /*!< bit:     13  Recoverable FaultB Interrupt Enable */
@@ -859,12 +859,12 @@ typedef union {
     uint32_t MC1:1;            /*!< bit:     17  Match or Capture Channel 1 Interrupt Enable */
     uint32_t MC2:1;            /*!< bit:     18  Match or Capture Channel 2 Interrupt Enable */
     uint32_t MC3:1;            /*!< bit:     19  Match or Capture Channel 3 Interrupt Enable */
-    uint32_t :12;              /*!< bit: 20..31  Reserved                           */
+    unsigned long int :12;              /*!< bit: 20..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   struct {
-    uint32_t :16;              /*!< bit:  0..15  Reserved                           */
+    unsigned long int :16;              /*!< bit:  0..15  Reserved                           */
     uint32_t MC:4;             /*!< bit: 16..19  Match or Capture Channel x Interrupt Enable */
-    uint32_t :12;              /*!< bit: 20..31  Reserved                           */
+    unsigned long int :12;              /*!< bit: 20..31  Reserved                           */
   } vec;                       /*!< Structure used for vec  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } TCC_INTENCLR_Type;
@@ -912,7 +912,7 @@ typedef union {
     uint32_t TRG:1;            /*!< bit:      1  Retrigger Interrupt Enable         */
     uint32_t CNT:1;            /*!< bit:      2  Counter Interrupt Enable           */
     uint32_t ERR:1;            /*!< bit:      3  Error Interrupt Enable             */
-    uint32_t :7;               /*!< bit:  4..10  Reserved                           */
+    unsigned long int :7;               /*!< bit:  4..10  Reserved                           */
     uint32_t DFS:1;            /*!< bit:     11  Non-Recoverable Debug Fault Interrupt Enable */
     uint32_t FAULTA:1;         /*!< bit:     12  Recoverable FaultA Interrupt Enable */
     uint32_t FAULTB:1;         /*!< bit:     13  Recoverable FaultB Interrupt Enable */
@@ -922,12 +922,12 @@ typedef union {
     uint32_t MC1:1;            /*!< bit:     17  Match or Capture Channel 1 Interrupt Enable */
     uint32_t MC2:1;            /*!< bit:     18  Match or Capture Channel 2 Interrupt Enable */
     uint32_t MC3:1;            /*!< bit:     19  Match or Capture Channel 3 Interrupt Enable */
-    uint32_t :12;              /*!< bit: 20..31  Reserved                           */
+    unsigned long int :12;              /*!< bit: 20..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   struct {
-    uint32_t :16;              /*!< bit:  0..15  Reserved                           */
+    unsigned long int :16;              /*!< bit:  0..15  Reserved                           */
     uint32_t MC:4;             /*!< bit: 16..19  Match or Capture Channel x Interrupt Enable */
-    uint32_t :12;              /*!< bit: 20..31  Reserved                           */
+    unsigned long int :12;              /*!< bit: 20..31  Reserved                           */
   } vec;                       /*!< Structure used for vec  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } TCC_INTENSET_Type;
@@ -975,7 +975,7 @@ typedef union {
     uint32_t TRG:1;            /*!< bit:      1  Retrigger                          */
     uint32_t CNT:1;            /*!< bit:      2  Counter                            */
     uint32_t ERR:1;            /*!< bit:      3  Error                              */
-    uint32_t :7;               /*!< bit:  4..10  Reserved                           */
+    unsigned long int :7;               /*!< bit:  4..10  Reserved                           */
     uint32_t DFS:1;            /*!< bit:     11  Non-Recoverable Debug Fault        */
     uint32_t FAULTA:1;         /*!< bit:     12  Recoverable FaultA                 */
     uint32_t FAULTB:1;         /*!< bit:     13  Recoverable FaultB                 */
@@ -985,12 +985,12 @@ typedef union {
     uint32_t MC1:1;            /*!< bit:     17  Match or Capture 1                 */
     uint32_t MC2:1;            /*!< bit:     18  Match or Capture 2                 */
     uint32_t MC3:1;            /*!< bit:     19  Match or Capture 3                 */
-    uint32_t :12;              /*!< bit: 20..31  Reserved                           */
+    unsigned long int :12;              /*!< bit: 20..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   struct {
-    uint32_t :16;              /*!< bit:  0..15  Reserved                           */
+    unsigned long int :16;              /*!< bit:  0..15  Reserved                           */
     uint32_t MC:4;             /*!< bit: 16..19  Match or Capture x                 */
-    uint32_t :12;              /*!< bit: 20..31  Reserved                           */
+    unsigned long int :12;              /*!< bit: 20..31  Reserved                           */
   } vec;                       /*!< Structure used for vec  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } TCC_INTFLAG_Type;
@@ -1036,9 +1036,9 @@ typedef union {
   struct {
     uint32_t STOP:1;           /*!< bit:      0  Stop                               */
     uint32_t IDX:1;            /*!< bit:      1  Ramp                               */
-    uint32_t :1;               /*!< bit:      2  Reserved                           */
+    unsigned long int :1;               /*!< bit:      2  Reserved                           */
     uint32_t DFS:1;            /*!< bit:      3  Non-Recoverable Debug Fault State  */
-    uint32_t :1;               /*!< bit:      4  Reserved                           */
+    unsigned long int :1;               /*!< bit:      4  Reserved                           */
     uint32_t PATTBV:1;         /*!< bit:      5  Pattern Buffer Valid               */
     uint32_t WAVEBV:1;         /*!< bit:      6  Wave Buffer Valid                  */
     uint32_t PERBV:1;          /*!< bit:      7  Period Buffer Valid                */
@@ -1054,19 +1054,19 @@ typedef union {
     uint32_t CCBV1:1;          /*!< bit:     17  Compare Channel 1 Buffer Valid     */
     uint32_t CCBV2:1;          /*!< bit:     18  Compare Channel 2 Buffer Valid     */
     uint32_t CCBV3:1;          /*!< bit:     19  Compare Channel 3 Buffer Valid     */
-    uint32_t :4;               /*!< bit: 20..23  Reserved                           */
+    unsigned long int :4;               /*!< bit: 20..23  Reserved                           */
     uint32_t CMP0:1;           /*!< bit:     24  Compare Channel 0 Value            */
     uint32_t CMP1:1;           /*!< bit:     25  Compare Channel 1 Value            */
     uint32_t CMP2:1;           /*!< bit:     26  Compare Channel 2 Value            */
     uint32_t CMP3:1;           /*!< bit:     27  Compare Channel 3 Value            */
-    uint32_t :4;               /*!< bit: 28..31  Reserved                           */
+    unsigned long int :4;               /*!< bit: 28..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   struct {
-    uint32_t :16;              /*!< bit:  0..15  Reserved                           */
+    unsigned long int :16;              /*!< bit:  0..15  Reserved                           */
     uint32_t CCBV:4;           /*!< bit: 16..19  Compare Channel x Buffer Valid     */
-    uint32_t :4;               /*!< bit: 20..23  Reserved                           */
+    unsigned long int :4;               /*!< bit: 20..23  Reserved                           */
     uint32_t CMP:4;            /*!< bit: 24..27  Compare Channel x Value            */
-    uint32_t :4;               /*!< bit: 28..31  Reserved                           */
+    unsigned long int :4;               /*!< bit: 28..31  Reserved                           */
   } vec;                       /*!< Structure used for vec  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } TCC_STATUS_Type;
@@ -1132,7 +1132,7 @@ typedef union {
 typedef union {
   struct {
     uint32_t COUNT:24;         /*!< bit:  0..23  Count Value                        */
-    uint32_t :8;               /*!< bit: 24..31  Reserved                           */
+    unsigned long int :8;               /*!< bit: 24..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } TCC_COUNT_Type;
@@ -1223,34 +1223,34 @@ typedef union {
 typedef union {
   struct {
     uint32_t WAVEGEN:3;        /*!< bit:  0.. 2  Waveform Generation                */
-    uint32_t :1;               /*!< bit:      3  Reserved                           */
+    unsigned long int :1;               /*!< bit:      3  Reserved                           */
     uint32_t RAMP:2;           /*!< bit:  4.. 5  Ramp Mode                          */
-    uint32_t :1;               /*!< bit:      6  Reserved                           */
+    unsigned long int :1;               /*!< bit:      6  Reserved                           */
     uint32_t CIPEREN:1;        /*!< bit:      7  Circular period Enable             */
     uint32_t CICCEN0:1;        /*!< bit:      8  Circular Channel 0 Enable          */
     uint32_t CICCEN1:1;        /*!< bit:      9  Circular Channel 1 Enable          */
     uint32_t CICCEN2:1;        /*!< bit:     10  Circular Channel 2 Enable          */
     uint32_t CICCEN3:1;        /*!< bit:     11  Circular Channel 3 Enable          */
-    uint32_t :4;               /*!< bit: 12..15  Reserved                           */
+    unsigned long int :4;               /*!< bit: 12..15  Reserved                           */
     uint32_t POL0:1;           /*!< bit:     16  Channel 0 Polarity                 */
     uint32_t POL1:1;           /*!< bit:     17  Channel 1 Polarity                 */
     uint32_t POL2:1;           /*!< bit:     18  Channel 2 Polarity                 */
     uint32_t POL3:1;           /*!< bit:     19  Channel 3 Polarity                 */
-    uint32_t :4;               /*!< bit: 20..23  Reserved                           */
+    unsigned long int :4;               /*!< bit: 20..23  Reserved                           */
     uint32_t SWAP0:1;          /*!< bit:     24  Swap DTI Output Pair 0             */
     uint32_t SWAP1:1;          /*!< bit:     25  Swap DTI Output Pair 1             */
     uint32_t SWAP2:1;          /*!< bit:     26  Swap DTI Output Pair 2             */
     uint32_t SWAP3:1;          /*!< bit:     27  Swap DTI Output Pair 3             */
-    uint32_t :4;               /*!< bit: 28..31  Reserved                           */
+    unsigned long int :4;               /*!< bit: 28..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   struct {
-    uint32_t :8;               /*!< bit:  0.. 7  Reserved                           */
+    unsigned long int :8;               /*!< bit:  0.. 7  Reserved                           */
     uint32_t CICCEN:4;         /*!< bit:  8..11  Circular Channel x Enable          */
-    uint32_t :4;               /*!< bit: 12..15  Reserved                           */
+    unsigned long int :4;               /*!< bit: 12..15  Reserved                           */
     uint32_t POL:4;            /*!< bit: 16..19  Channel x Polarity                 */
-    uint32_t :4;               /*!< bit: 20..23  Reserved                           */
+    unsigned long int :4;               /*!< bit: 20..23  Reserved                           */
     uint32_t SWAP:4;           /*!< bit: 24..27  Swap DTI Output Pair x             */
-    uint32_t :4;               /*!< bit: 28..31  Reserved                           */
+    unsigned long int :4;               /*!< bit: 28..31  Reserved                           */
   } vec;                       /*!< Structure used for vec  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } TCC_WAVE_Type;
@@ -1327,7 +1327,7 @@ typedef union {
 typedef union {
   struct {
     uint32_t PER:24;           /*!< bit:  0..23  Period Value                       */
-    uint32_t :8;               /*!< bit: 24..31  Reserved                           */
+    unsigned long int :8;               /*!< bit: 24..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } TCC_PER_Type;
@@ -1346,7 +1346,7 @@ typedef union {
 typedef union {
   struct {
     uint32_t CC:24;            /*!< bit:  0..23  Compare and Capture value          */
-    uint32_t :8;               /*!< bit: 24..31  Reserved                           */
+    unsigned long int :8;               /*!< bit: 24..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } TCC_CC_Type;
@@ -1437,34 +1437,34 @@ typedef union {
 typedef union {
   struct {
     uint32_t WAVEGENB:3;       /*!< bit:  0.. 2  Waveform Generation Buffer         */
-    uint32_t :1;               /*!< bit:      3  Reserved                           */
+    unsigned long int :1;               /*!< bit:      3  Reserved                           */
     uint32_t RAMPB:2;          /*!< bit:  4.. 5  Ramp Mode Buffer                   */
-    uint32_t :1;               /*!< bit:      6  Reserved                           */
+    unsigned long int :1;               /*!< bit:      6  Reserved                           */
     uint32_t CIPERENB:1;       /*!< bit:      7  Circular Period Enable Buffer      */
     uint32_t CICCENB0:1;       /*!< bit:      8  Circular Channel 0 Enable Buffer   */
     uint32_t CICCENB1:1;       /*!< bit:      9  Circular Channel 1 Enable Buffer   */
     uint32_t CICCENB2:1;       /*!< bit:     10  Circular Channel 2 Enable Buffer   */
     uint32_t CICCENB3:1;       /*!< bit:     11  Circular Channel 3 Enable Buffer   */
-    uint32_t :4;               /*!< bit: 12..15  Reserved                           */
+    unsigned long int :4;               /*!< bit: 12..15  Reserved                           */
     uint32_t POLB0:1;          /*!< bit:     16  Channel 0 Polarity Buffer          */
     uint32_t POLB1:1;          /*!< bit:     17  Channel 1 Polarity Buffer          */
     uint32_t POLB2:1;          /*!< bit:     18  Channel 2 Polarity Buffer          */
     uint32_t POLB3:1;          /*!< bit:     19  Channel 3 Polarity Buffer          */
-    uint32_t :4;               /*!< bit: 20..23  Reserved                           */
+    unsigned long int :4;               /*!< bit: 20..23  Reserved                           */
     uint32_t SWAPB0:1;         /*!< bit:     24  Swap DTI Output Pair 0 Buffer      */
     uint32_t SWAPB1:1;         /*!< bit:     25  Swap DTI Output Pair 1 Buffer      */
     uint32_t SWAPB2:1;         /*!< bit:     26  Swap DTI Output Pair 2 Buffer      */
     uint32_t SWAPB3:1;         /*!< bit:     27  Swap DTI Output Pair 3 Buffer      */
-    uint32_t :4;               /*!< bit: 28..31  Reserved                           */
+    unsigned long int :4;               /*!< bit: 28..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   struct {
-    uint32_t :8;               /*!< bit:  0.. 7  Reserved                           */
+    unsigned long int :8;               /*!< bit:  0.. 7  Reserved                           */
     uint32_t CICCENB:4;        /*!< bit:  8..11  Circular Channel x Enable Buffer   */
-    uint32_t :4;               /*!< bit: 12..15  Reserved                           */
+    unsigned long int :4;               /*!< bit: 12..15  Reserved                           */
     uint32_t POLB:4;           /*!< bit: 16..19  Channel x Polarity Buffer          */
-    uint32_t :4;               /*!< bit: 20..23  Reserved                           */
+    unsigned long int :4;               /*!< bit: 20..23  Reserved                           */
     uint32_t SWAPB:4;          /*!< bit: 24..27  Swap DTI Output Pair x Buffer      */
-    uint32_t :4;               /*!< bit: 28..31  Reserved                           */
+    unsigned long int :4;               /*!< bit: 28..31  Reserved                           */
   } vec;                       /*!< Structure used for vec  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } TCC_WAVEB_Type;
@@ -1535,7 +1535,7 @@ typedef union {
 typedef union {
   struct {
     uint32_t PERB:24;          /*!< bit:  0..23  Period Value                       */
-    uint32_t :8;               /*!< bit: 24..31  Reserved                           */
+    unsigned long int :8;               /*!< bit: 24..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } TCC_PERB_Type;
@@ -1554,7 +1554,7 @@ typedef union {
 typedef union {
   struct {
     uint32_t CCB:24;           /*!< bit:  0..23  Compare and Capture buffer value   */
-    uint32_t :8;               /*!< bit: 24..31  Reserved                           */
+    unsigned long int :8;               /*!< bit: 24..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } TCC_CCB_Type;

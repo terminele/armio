@@ -996,3 +996,5 @@ void control_init( void ) {
 
     control_mode_active = control_modes;
 }
+
+// vim:shiftwidth=2

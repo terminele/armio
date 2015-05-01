@@ -15,28 +15,34 @@
   */
 
 //___ I N C L U D E S ________________________________________________________
-#include <asf.h>
+#include "asf/asf.h"
 #include "display.h"
 #include "utlist.h"
 #include "main.h"
 
 
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
+#define DISP_ERROR_MALLOC_FAIL              ((uint32_t) 1)
+#define DISP_ERROR_DRAW_BAD_TYPE( type )   (((uint32_t) 2) \
+    | (((uint32_t) type)<<8))
+#define DISP_ERROR_CLEAR_BAD_TYPE( type )  (((uint32_t) 3) \
+    | (((uint32_t) type)<<8))
+
 #define MAX_ALLOCATIONS     10
 #define MOD(a,b) (((a) % (b)) < 0 ? (((a) % (b)) + (b)) : ((a) % (b)))
 
 #define LED_OFF(led) \
-    do {  \
-        led_levels[(led)] = 0; \
-        leds_updated[updated_led_count++] = led; \
-    } while (0);
+  do {  \
+    led_levels[(led)] = 0; \
+    leds_updated[updated_led_count++] = led; \
+  } while (0);
 
 
 #define LED_ON(led, intensity) \
-    do {  \
-        led_levels[(led)] = intensity; \
-        leds_updated[updated_led_count++] = led; \
-    } while (0);
+  do {  \
+    led_levels[(led)] = intensity; \
+    leds_updated[updated_led_count++] = led; \
+  } while (0);
 
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 
@@ -88,177 +94,177 @@ static display_comp_t *head_component_ptr = NULL;
 //___ F U N C T I O N S   ( P R I V A T E ) __________________________________
 
 display_comp_t *comp_alloc( void ) {
-    uint8_t i;
+  uint8_t i;
 
-    for (i=0; i < MAX_ALLOCATIONS; i++) {
-        if (component_allocs[i].type == dispt_unused)
-            return component_allocs + i;
-    }
+  for (i=0; i < MAX_ALLOCATIONS; i++) {
+    if (component_allocs[i].type == dispt_unused)
+      return component_allocs + i;
+  }
 
-    main_terminate_in_error(ERROR_DISP_ALLOC_FAIL);
-    return NULL;
+  main_terminate_in_error( error_group_disp, DISP_ERROR_MALLOC_FAIL );
+  return NULL;
 }
 
 void comp_free ( display_comp_t* ptr ) {
-    ptr->type = dispt_unused;
+  ptr->type = dispt_unused;
 }
 
 void comp_draw( display_comp_t* comp) {
-    int32_t tmp, pos;
-    uint8_t bright = comp->brightness;
-    if (!comp->on) {
-      comp_leds_clear(comp);
-      return;
-    }
+  int32_t tmp, pos;
+  uint8_t bright = comp->brightness;
+  if (!comp->on) {
+    comp_leds_clear(comp);
+    return;
+  }
 
-    switch(comp->type) {
-      case dispt_point:
-        LED_ON(comp->pos, comp->brightness);
-        break;
-      case dispt_snake:
-      case dispt_line:
-        pos = comp->cw ? MOD(comp->pos + comp->length - 1, 60) : \
-              MOD(comp->pos - comp->length + 1, 60);
-        do {
-          LED_ON(pos, bright);
-          if (pos == comp->pos) return;
+  switch(comp->type) {
+    case dispt_point:
+      LED_ON(comp->pos, comp->brightness);
+      break;
+    case dispt_snake:
+    case dispt_line:
+      pos = comp->cw ? MOD(comp->pos + comp->length - 1, 60) : \
+            MOD(comp->pos - comp->length + 1, 60);
+      do {
+        LED_ON(pos, bright);
+        if (pos == comp->pos) return;
 
-          pos = comp->cw ? MOD(pos - 1, 60) : MOD(pos + 1, 60);
-          if (comp->type == dispt_snake &&
-                  bright > MIN_BRIGHT_VAL)
-              bright--;
+        pos = comp->cw ? MOD(pos - 1, 60) : MOD(pos + 1, 60);
+        if (comp->type == dispt_snake &&
+            bright > MIN_BRIGHT_VAL)
+          bright--;
 
-        } while (true);
+      } while (true);
 
-        break;
-      case dispt_polygon:
-        for (tmp = 0; tmp < comp->length; tmp++) {
-            pos = (comp->pos + ((tmp*60)/comp->length)) % 60;
-            LED_ON(pos, comp->brightness);
-        }
-        break;
-      default:
-        main_terminate_in_error( ERROR_DISP_DRAW_BAD_COMP_TYPE );
-        break;
-    }
+      break;
+    case dispt_polygon:
+      for (tmp = 0; tmp < comp->length; tmp++) {
+        pos = (comp->pos + ((tmp*60)/comp->length)) % 60;
+        LED_ON(pos, comp->brightness);
+      }
+      break;
+    default:
+      main_terminate_in_error( error_group_disp,
+          DISP_ERROR_DRAW_BAD_TYPE( comp->type ) );
+      break;
+  }
 }
 
 
 void comp_leds_clear(  display_comp_t *comp ) {
-    int32_t tmp, pos, pos_end;
-    switch(comp->type) {
-      case dispt_point:
-        LED_OFF(comp->pos);
-        break;
-      case dispt_snake:
-      case dispt_line:
+  int32_t tmp, pos, pos_end;
+  switch(comp->type) {
+    case dispt_point:
+      LED_OFF(comp->pos);
+      break;
+    case dispt_snake:
+    case dispt_line:
 
-        pos = MOD(comp->pos, 60);
-        pos_end = comp->cw ? MOD(comp->pos + comp->length, 60) : \
-              MOD(comp->pos - comp->length, 60);
-        do {
+      pos = MOD(comp->pos, 60);
+      pos_end = comp->cw ? MOD(comp->pos + comp->length, 60) : \
+                MOD(comp->pos - comp->length, 60);
+      do {
 
-            LED_OFF(pos);
-            pos = comp->cw ? MOD(pos + 1, 60) : MOD(pos - 1, 60);
+        LED_OFF(pos);
+        pos = comp->cw ? MOD(pos + 1, 60) : MOD(pos - 1, 60);
 
-        } while (pos != pos_end);
+      } while (pos != pos_end);
 
-        break;
-      case dispt_polygon:
-        for (tmp = 0; tmp < comp->length; tmp++) {
-            pos = comp->pos + ((tmp*60)/comp->length);
-            LED_OFF(pos % 60);
-        }
-        break;
-      default:
-        main_terminate_in_error( ERROR_DISP_CLEAR_BAD_COMP_TYPE );
-        break;
-    }
-
+      break;
+    case dispt_polygon:
+      for (tmp = 0; tmp < comp->length; tmp++) {
+        pos = comp->pos + ((tmp*60)/comp->length);
+        LED_OFF(pos % 60);
+      }
+      break;
+    default:
+      main_terminate_in_error( error_group_disp,
+          DISP_ERROR_CLEAR_BAD_TYPE( comp->type ) );
+      break;
+  }
 }
 
 //___ F U N C T I O N S ______________________________________________________
 
-
 display_comp_t* display_point ( int8_t pos,
-        uint8_t brightness ) {
+    uint8_t brightness ) {
 
-    display_comp_t *comp_ptr = comp_alloc();
+  display_comp_t *comp_ptr = comp_alloc();
 
-    comp_ptr->type = dispt_point;
-    comp_ptr->on = true;
-    comp_ptr->brightness = brightness;
-    comp_ptr->pos = pos;
-    comp_ptr->length = 1;
+  comp_ptr->type = dispt_point;
+  comp_ptr->on = true;
+  comp_ptr->brightness = brightness;
+  comp_ptr->pos = pos;
+  comp_ptr->length = 1;
 
-    comp_ptr->next = comp_ptr->prev = NULL;
+  comp_ptr->next = comp_ptr->prev = NULL;
 
-    DL_APPEND(head_component_ptr, comp_ptr);
+  DL_APPEND(head_component_ptr, comp_ptr);
 
-    return comp_ptr;
+  return comp_ptr;
 
 }
 
 display_comp_t* display_line ( int8_t pos,
-        uint8_t brightness, int8_t length) {
+    uint8_t brightness, int8_t length) {
 
-    display_comp_t *comp_ptr = comp_alloc();
+  display_comp_t *comp_ptr = comp_alloc();
 
-    comp_ptr->type = dispt_line;
-    comp_ptr->on = true;
-    comp_ptr->brightness = brightness;
-    comp_ptr->pos = pos;
-    comp_ptr->length = length;
-    comp_ptr->cw = true;
+  comp_ptr->type = dispt_line;
+  comp_ptr->on = true;
+  comp_ptr->brightness = brightness;
+  comp_ptr->pos = pos;
+  comp_ptr->length = length;
+  comp_ptr->cw = true;
 
-    comp_ptr->next = comp_ptr->prev = NULL;
+  comp_ptr->next = comp_ptr->prev = NULL;
 
-    DL_APPEND(head_component_ptr, comp_ptr);
+  DL_APPEND(head_component_ptr, comp_ptr);
 
-    return comp_ptr;
+  return comp_ptr;
 }
 
 display_comp_t* display_snake ( int8_t pos,
-        uint8_t brightness, int8_t length, bool clockwise) {
+    uint8_t brightness, int8_t length, bool clockwise) {
 
-    display_comp_t *comp_ptr = comp_alloc();
+  display_comp_t *comp_ptr = comp_alloc();
 
-    comp_ptr->type = dispt_snake;
-    comp_ptr->on = true;
-    comp_ptr->brightness = brightness;
-    comp_ptr->pos = pos;
-    comp_ptr->length = length;
-    comp_ptr->cw = clockwise;
+  comp_ptr->type = dispt_snake;
+  comp_ptr->on = true;
+  comp_ptr->brightness = brightness;
+  comp_ptr->pos = pos;
+  comp_ptr->length = length;
+  comp_ptr->cw = clockwise;
 
-    comp_ptr->next = comp_ptr->prev = NULL;
+  comp_ptr->next = comp_ptr->prev = NULL;
 
-    DL_APPEND(head_component_ptr, comp_ptr);
+  DL_APPEND(head_component_ptr, comp_ptr);
 
-    return comp_ptr;
+  return comp_ptr;
 }
 
 
 display_comp_t* display_polygon ( int8_t pos,
-        uint8_t brightness, int8_t num_sides) {
+    uint8_t brightness, int8_t num_sides) {
 
-    display_comp_t *comp_ptr = comp_alloc();
+  display_comp_t *comp_ptr = comp_alloc();
 
-    comp_ptr->type = dispt_polygon;
-    comp_ptr->on = true;
-    comp_ptr->brightness = brightness;
-    comp_ptr->pos = pos;
-    comp_ptr->length = num_sides;
+  comp_ptr->type = dispt_polygon;
+  comp_ptr->on = true;
+  comp_ptr->brightness = brightness;
+  comp_ptr->pos = pos;
+  comp_ptr->length = num_sides;
 
-    comp_ptr->next = comp_ptr->prev = NULL;
+  comp_ptr->next = comp_ptr->prev = NULL;
 
-    DL_APPEND(head_component_ptr, comp_ptr);
+  DL_APPEND(head_component_ptr, comp_ptr);
 
-    return comp_ptr;
+  return comp_ptr;
 }
 
 void display_comp_hide (display_comp_t *comp) {
-    comp->on = false;
-    comp_leds_clear(comp);
+  comp->on = false;
+  comp_leds_clear(comp);
 }
 
 void display_comp_hide_all ( void ) {
@@ -283,47 +289,47 @@ void display_comp_show_all ( void ) {
 }
 
 void display_comp_update_pos ( display_comp_t *comp, int8_t pos ) {
-    if (pos == comp->pos)
-        return;
+  if (pos == comp->pos)
+    return;
 
-    comp_leds_clear(comp);
-    comp->pos = pos;
+  comp_leds_clear(comp);
+  comp->pos = pos;
 
 }
 
 void display_comp_update_length ( display_comp_t *comp, int8_t length ) {
 
-    if (comp->type != dispt_line && comp->type != dispt_snake)
-        return;
+  if (comp->type != dispt_line && comp->type != dispt_snake)
+    return;
 
-    if (comp->length == length)
-        return;
+  if (comp->length == length)
+    return;
 
-    comp_leds_clear(comp);
-    comp->length = length;
+  comp_leds_clear(comp);
+  comp->length = length;
 
 }
 
 void display_relative( display_comp_t* line_ptr, uint8_t origin,
-        int8_t value) {
+    int8_t value) {
 
-    comp_leds_clear(line_ptr);
-    if (value >= 0) {
-        line_ptr->length = value + 1;
-        line_ptr->pos = (origin + value) % 60;
-    } else {
-        value *= -1;
-        line_ptr->length = value + 1;
-        line_ptr->pos = origin;
+  comp_leds_clear(line_ptr);
+  if (value >= 0) {
+    line_ptr->length = value + 1;
+    line_ptr->pos = (origin + value) % 60;
+  } else {
+    value *= -1;
+    line_ptr->length = value + 1;
+    line_ptr->pos = origin;
 
-    }
+  }
 }
 
 void display_comp_release (display_comp_t *comp_ptr) {
-    if (!comp_ptr) return;
-    comp_leds_clear(comp_ptr);
-    DL_DELETE(head_component_ptr, comp_ptr);
-    comp_free(comp_ptr);
+  if (!comp_ptr) return;
+  comp_leds_clear(comp_ptr);
+  DL_DELETE(head_component_ptr, comp_ptr);
+  comp_free(comp_ptr);
 }
 
 void display_refresh(void) {
@@ -344,15 +350,17 @@ void display_tic(void) {
    */
 
   while (updated_led_count) {
-      uint8_t led = leds_updated[updated_led_count - 1];
-      led_set_intensity( led, led_levels[led] );
-      updated_led_count--;
+    uint8_t led = leds_updated[updated_led_count - 1];
+    led_set_intensity( led, led_levels[led] );
+    updated_led_count--;
   }
 }
 
 void display_init(void) {
-    int i;
-    for (i=0; i < MAX_ALLOCATIONS; i++) {
-        component_allocs[i].type = dispt_unused;
-    }
+  int i;
+  for (i=0; i < MAX_ALLOCATIONS; i++) {
+    component_allocs[i].type = dispt_unused;
+  }
 }
+
+// vim:shiftwidth=2
