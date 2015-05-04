@@ -39,7 +39,7 @@ leds_on;
 
 for i in $( seq 0 59 ); do
     EXP_NAME=$EXPORT_LED_BASE
-    EXP_NAME+=$i
+    EXP_NAME+=$(printf "%02d" $i)
     EXP_NAME+=.png
     echo "Save to $EXP_NAME"
     inkscape -f $IMG_FILE -C -e $EXP_NAME -j -i LED$i -y $OPACITY
