@@ -746,11 +746,6 @@ void accel_sleep ( void ) {
   accel_register_write (AX_REG_TIME_LIM, WAKEUP_CLICK_TIME_LIM);
   accel_register_write (AX_REG_TIME_LAT, WAKEUP_CLICK_TIME_LAT);
 
-  /* I2C module doesnt disconnect or set SDA pin high
-   * in standby. Since there is a hardware pullup on
-   * it, set it high so power doesnt get wasted */
-  port_pin_set_output_level(AX_SDA_PIN, true);
-
   extint_register_callback(accel_isr, AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
   extint_chan_enable_callback(AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
 }
