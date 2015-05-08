@@ -612,7 +612,6 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     static enum { INIT, ANIM_HOUR_SWIRL, ANIM_HOUR_YOYO,
         ANIM_MIN, DISP_ALL } phase = INIT;
 
-    static display_comp_t *sec_disp_ptr = NULL;
     static display_comp_t *min_disp_ptr = NULL;
     static display_comp_t *hour_disp_ptr = NULL;
     static animation_t *anim_ptr = NULL;
@@ -620,9 +619,6 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
 
 
     if (event_flags & EV_FLAG_LONG_BTN_PRESS ||
-        event_flags & EV_FLAG_ACCEL_QCLICK_X ||
-        event_flags & EV_FLAG_ACCEL_5CLICK_X ||
-        event_flags & EV_FLAG_ACCEL_6CLICK_X ||
         event_flags & EV_FLAG_ACCEL_7CLICK_X ||
         event_flags & EV_FLAG_ACCEL_8CLICK_X ||
         event_flags & EV_FLAG_ACCEL_9CLICK_X ||
@@ -633,10 +629,8 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
         anim_release(anim_ptr);
         display_comp_release(hour_disp_ptr);
         display_comp_release(min_disp_ptr);
-        display_comp_release(sec_disp_ptr);
         hour_disp_ptr = NULL;
         min_disp_ptr = NULL;
-        sec_disp_ptr = NULL;
         anim_ptr = NULL;
 
         phase = INIT;
@@ -685,7 +679,7 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
                 phase = DISP_ALL;
 #else
                 anim_ptr = anim_blink(min_disp_ptr, MS_IN_TICKS(400),
-                        MS_IN_TICKS(2000), false);
+                        MS_IN_TICKS(4000), false);
                 phase = ANIM_MIN;
 #endif
             }
@@ -696,18 +690,13 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
                 anim_release(anim_ptr);
                 anim_ptr = NULL;
 
-                sec_disp_ptr = display_point(second, MIN_BRIGHT_VAL);
                 phase = DISP_ALL;
             }
             break;
 
         case DISP_ALL:
-
-#if !SIMPLE_TIME_MODE
-            display_comp_update_pos(sec_disp_ptr, second);
-#endif
+            display_comp_show_all();
             display_comp_update_pos(min_disp_ptr, minute);
-
             display_comp_update_pos(hour_disp_ptr, HOUR_POS(hour));
             display_comp_update_length(hour_disp_ptr, hour_fifths + 1);
 

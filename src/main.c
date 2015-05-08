@@ -369,7 +369,7 @@ static event_flags_t button_event_flags ( void ) {
 
 //___ F U N C T I O N S ______________________________________________________
 static void main_tic( void ) {
-  //static uint8_t brightness = MAX_BRIGHT_VAL;
+  static uint8_t brightness = MAX_BRIGHT_VAL;
   event_flags_t event_flags = EV_FLAG_NONE;
 
   main_gs.inactivity_ticks++;
@@ -381,17 +381,18 @@ static void main_tic( void ) {
   /* Reset inactivity if any button event occurs */
   if (event_flags != EV_FLAG_NONE) main_gs.inactivity_ticks = 0;
 
-#ifdef NOT_NOW
-  if (event_flags & EV_FLAG_ACCEL_DCLICK_Y) {
+  if ( IS_CONTROL_MODE_SHOW_TIME() &&
+      (event_flags & EV_FLAG_ACCEL_DCLICK_X )) {
+
+    /* Toggle brightness levels */
     if (brightness == MAX_BRIGHT_VAL) {
-      brightness = MIN_BRIGHT_VAL;
+      brightness = MIN_BRIGHT_VAL + 1;
     } else {
-      brightness+=1;
+      brightness = MAX_BRIGHT_VAL;
     }
 
     led_set_max_brightness( brightness );
   }
-#endif
 
   switch (main_gs.state) {
     case STARTUP:
@@ -493,16 +494,16 @@ static void main_tic( void ) {
           control_state_set(ctrl_state_main);
 
         }
-        else if (IS_CONTROL_MODE_SHOW_TIME() &&
-            (event_flags & EV_FLAG_ACCEL_7CLICK_X ||
-             event_flags & EV_FLAG_ACCEL_8CLICK_X)) {
+        else if ( IS_CONTROL_MODE_SHOW_TIME() &&
+            ( event_flags & EV_FLAG_ACCEL_7CLICK_X ||
+              event_flags & EV_FLAG_ACCEL_8CLICK_X ||
+              event_flags & EV_FLAG_ACCEL_9CLICK_X )) {
             /* Enter util state */
           control_state_set(ctrl_state_util);
 
         }
-        else if (IS_CONTROL_MODE_SHOW_TIME() &&
-            ( event_flags & EV_FLAG_ACCEL_9CLICK_X ||
-              event_flags & EV_FLAG_ACCEL_NCLICK_X  )) {
+        else if ( IS_CONTROL_MODE_SHOW_TIME() &&
+              event_flags & EV_FLAG_ACCEL_NCLICK_X ) {
           /* Enter easter egg mode */
           control_state_set(ctrl_state_ee);
         } else {
