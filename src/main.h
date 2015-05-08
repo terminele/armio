@@ -42,6 +42,7 @@ typedef enum {
   error_group_accel,
   error_group_disp,
   error_group_animation,
+  error_group_control,
   error_group_assertion,
 } error_group_code_t;
 

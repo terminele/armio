@@ -361,7 +361,7 @@ static event_flags_t button_event_flags ( void ) {
 
 //___ F U N C T I O N S ______________________________________________________
 static void main_tic( void ) {
-  static uint8_t brightness = MAX_BRIGHT_VAL;
+  //static uint8_t brightness = MAX_BRIGHT_VAL;
   event_flags_t event_flags = EV_FLAG_NONE;
 
   main_gs.inactivity_ticks++;
@@ -399,7 +399,7 @@ static void main_tic( void ) {
         anim_release(sleep_wake_anim);
 
         /* Reset control mode to main (time display) mode */
-        control_mode_select(CONTROL_MODE_MAIN);
+        control_state_set(ctrl_state_main);
         prepare_sleep();
 
         accel_sleep();
@@ -417,8 +417,8 @@ static void main_tic( void ) {
         //main_gs.light_sensor_scaled_at_wakeup = adc_light_value_scale(
         //    main_read_current_sensor(true) );
 
-        if (control_mode_active->wakeup_cb)
-          control_mode_active->wakeup_cb();
+        if (ctrl_mode_active->wakeup_cb)
+          ctrl_mode_active->wakeup_cb();
 
         display_comp_show_all();
         led_clear_all();
@@ -433,27 +433,27 @@ static void main_tic( void ) {
       /* Check for inactivity timeout */
 #if ENABLE_LIGHT_SENSE
 #ifdef NOT_NOW
-      if( control_mode_index(control_mode_active) == CONTROL_MODE_MAIN) {
+      if( IS_CONTROL_MODE_SHOW_TIME() ) {
         /* we are in main time display mode */
         main_set_current_sensor(sensor_light);
         main_start_sensor_read();
         if ( adc_light_value_scale( main_read_current_sensor(false) ) +
             LIGHT_SENSOR_REDUCTION_SHUTOFF < main_gs.light_sensor_scaled_at_wakeup ) {
           /* sleep the watch */
-          main_gs.inactivity_ticks = control_mode_active->sleep_timeout_ticks;
+          main_gs.inactivity_ticks = ctrl_mode_active->sleep_timeout_ticks;
         }
       }
 #endif
 #endif
       if (    /* SLEEP EVENT CHECKS */
           /*((event_flags & EV_FLAG_ACCEL_SCLICK_X) &&
-            control_mode_index(control_mode_active) == 0 &&
+            control_mode_index(ctrl_mode_active) == 0 &&
             TICKS_IN_MS(main_gs.modeticks) > 600) ||*/
 
           main_gs.inactivity_ticks > \
-          control_mode_active->sleep_timeout_ticks ||
+          ctrl_mode_active->sleep_timeout_ticks ||
 
-          (IS_CONTROL_MODE_MAIN() && event_flags & EV_FLAG_ACCEL_Z_LOW &&
+          (IS_CONTROL_MODE_SHOW_TIME() && event_flags & EV_FLAG_ACCEL_Z_LOW &&
            main_get_waketime_ms() > 300)
 
           ) {
@@ -462,9 +462,9 @@ static void main_tic( void ) {
         main_gs.state = ENTERING_SLEEP;
 
         /* Notify control mode of sleep event and reset control mode */
-        control_mode_active->tic_cb(EV_FLAG_SLEEP, main_gs.modeticks);
-        if (control_mode_active->about_to_sleep_cb)
-          control_mode_active->about_to_sleep_cb();
+        ctrl_mode_active->tic_cb(EV_FLAG_SLEEP, main_gs.modeticks);
+        if (ctrl_mode_active->about_to_sleep_cb)
+          ctrl_mode_active->about_to_sleep_cb();
 
         display_comp_hide_all();
 
@@ -473,40 +473,42 @@ static void main_tic( void ) {
       }
 
       /* Call mode's main tic loop/event handler */
-      if (control_mode_active->tic_cb(event_flags, main_gs.modeticks++)){
-        if (control_mode_index(control_mode_active) == CONTROL_MODE_EE) {
-          main_gs.modeticks = 0;
-          main_gs.button_hold_ticks = 0;
-          main_gs.inactivity_ticks = 0;
-          control_mode_select(CONTROL_MODE_MAIN);
+      if (ctrl_mode_active->tic_cb(event_flags, main_gs.modeticks++)){
+
+        /* Control mode has returned true indicating it is finished,
+         * so transition to next control mode */
+        main_gs.modeticks = 0;
+        main_gs.button_hold_ticks = 0;
+        main_gs.inactivity_ticks = 0;
+
+        if (IS_CONTROL_STATE_EE()) {
+          control_state_set(ctrl_state_main);
 
         }
-        else if (event_flags & EV_FLAG_ACCEL_6CLICK_X ||
-            event_flags & EV_FLAG_ACCEL_7CLICK_X ||
-            event_flags & EV_FLAG_ACCEL_8CLICK_X ||
-            event_flags & EV_FLAG_ACCEL_9CLICK_X ||
-            event_flags & EV_FLAG_ACCEL_NCLICK_X  ) {
+        else if (IS_CONTROL_MODE_SHOW_TIME() &&
+            (event_flags & EV_FLAG_ACCEL_7CLICK_X ||
+             event_flags & EV_FLAG_ACCEL_8CLICK_X)) {
+            /* Enter util state */
+          control_state_set(ctrl_state_util);
+
+        }
+        else if (IS_CONTROL_MODE_SHOW_TIME() &&
+            ( event_flags & EV_FLAG_ACCEL_9CLICK_X ||
+              event_flags & EV_FLAG_ACCEL_NCLICK_X  )) {
           /* Enter easter egg mode */
-          main_gs.modeticks = 0;
-          main_gs.button_hold_ticks = 0;
-          main_gs.inactivity_ticks = 0;
-          control_mode_select(CONTROL_MODE_EE);
+          control_state_set(ctrl_state_ee);
         } else {
 
-          /* begin transition to next regular control mode */
+          /* begin transition to next control mode */
           main_gs.state = MODE_TRANSITION;
-          main_gs.modeticks = 0;
-          main_gs.button_hold_ticks = 0;
-          main_gs.inactivity_ticks = 0;
 
           /* animate slow snake from current mode to next. */
           uint8_t mode_gap = 60/control_mode_count();
           uint8_t tail_len = 4;
           mode_trans_swirl = anim_swirl(
-              mode_gap*control_mode_index(control_mode_active),
+              mode_gap*control_mode_index(ctrl_mode_active),
               tail_len, MS_IN_TICKS(5 + 40/control_mode_count()),
               mode_gap - tail_len, true);
-
         }
       }
 
@@ -519,7 +521,7 @@ static void main_tic( void ) {
           control_mode_next();
           uint8_t mode_gap = 60/control_mode_count();
           mode_disp_point = display_point(
-              mode_gap*(control_mode_index(control_mode_active)) % 60,
+              mode_gap*(control_mode_index(ctrl_mode_active)) % 60,
               BRIGHT_DEFAULT);
           mode_trans_blink = anim_blink(mode_disp_point,
               BLINK_INT_MED, MS_IN_TICKS(800), false);
@@ -750,7 +752,7 @@ uint32_t main_get_button_hold_ticks ( void ) {
 
 int main (void) {
   PM_RCAUSE_Type rcause_bf;
-  //uint32_t reset_cause;
+  uint32_t reset_cause;
 
   system_init();
   system_set_sleepmode(SYSTEM_SLEEPMODE_STANDBY);
@@ -776,7 +778,9 @@ int main (void) {
   /* Errata 39.3.2 -- device may not wake up from
    * standby if nvm goes to sleep. Not needed
    * for revision D or later */
-  //NVMCTRL->CTRLB.bit.SLEEPPRM = NVMCTRL_CTRLB_SLEEPPRM_DISABLED_Val;
+#ifdef __SAMD21E16A__
+  NVMCTRL->CTRLB.bit.SLEEPPRM = NVMCTRL_CTRLB_SLEEPPRM_DISABLED_Val;
+#endif
 
   /* Read light and vbatt sensors on startup */
 #ifdef ENABLE_VBATT

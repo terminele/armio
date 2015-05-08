@@ -453,6 +453,7 @@ static void accel_isr(void) {
       /* Make sure y-down interrupt time was recent enough to
       * constitute a "turn up" gesture */
       //if ( y_sum < -20 || x_sum < -20  ) {
+      wake_gesture_state = WAKE_TURN_UP;
       if ( wake_gesture_state == WAKE_TURN_UP) {
 
         /* Disable AOI INT1 interrupt (leave CLICK enabled) */
@@ -625,7 +626,6 @@ void accel_enable ( void ) {
   /* Latch interrupts */
   accel_register_write (AX_REG_CTL5, LIR_INT1);
 
-#ifdef NOT_NOW
   /* Disable sleep activity threshold and duration */
   if (!accel_register_write (AX_REG_ACT_THS, 0x00)) {
       main_terminate_in_error( error_group_accel, ACCEL_ERROR_WRITE_EN );
@@ -634,7 +634,6 @@ void accel_enable ( void ) {
   if (!accel_register_write (AX_REG_ACT_DUR, 0x00)) {
       main_terminate_in_error( error_group_accel, ACCEL_ERROR_WRITE_EN );
   }
-#endif
 
   /* Callback enable is only active when sleeping */
   extint_unregister_callback(accel_isr, AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
