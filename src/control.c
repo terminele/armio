@@ -147,14 +147,14 @@ ctrl_mode_t util_control_modes[] = {
     {
         .enter_cb = NULL,
         .tic_cb = vbatt_sense_mode_tic,
-        .sleep_timeout_ticks = MS_IN_TICKS(10000),
+        .sleep_timeout_ticks = MS_IN_TICKS(15000),
         .about_to_sleep_cb = NULL,
         .wakeup_cb = NULL,
     },
     {
         .enter_cb = NULL,
         .tic_cb = light_sense_mode_tic,
-        .sleep_timeout_ticks = MS_IN_TICKS(15000),
+        .sleep_timeout_ticks = MS_IN_TICKS(20000),
         .about_to_sleep_cb = NULL,
         .wakeup_cb = NULL,
     },
@@ -534,12 +534,19 @@ bool light_sense_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     static display_comp_t *adc_pt = NULL;
     uint16_t adc_val = 0;
 
-    set_ee_sleep_timeout(MS_IN_TICKS(20000));
+    set_ee_sleep_timeout(MS_IN_TICKS(30000));
 
-    if (main_get_current_sensor() != sensor_light)
+    if (!adc_pt) {
+        adc_pt = display_point(0, BRIGHT_DEFAULT);
+        port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, true);
+    }
+
+    if (main_get_current_sensor() != sensor_light) {
         main_set_current_sensor(sensor_light);
+    }
 
-    if (tick_cnt % 10  == 0) {
+
+    if (tick_cnt % 20  == 0) {
       main_start_sensor_read();
     }
 
@@ -548,11 +555,8 @@ bool light_sense_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
             display_comp_release(adc_pt);
             adc_pt = NULL;
         }
+        port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, false);
         return true;
-    }
-
-    if (!adc_pt) {
-        adc_pt = display_point(0, BRIGHT_DEFAULT);
     }
 
 
@@ -576,9 +580,6 @@ bool vbatt_sense_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     }
 
 #if VBATT_NO_AVERAGE
-    /* don't actually read vbatt sensor
-     * in this mode.  VBATT should only be sampled
-     * after wakeup */
     if (main_get_current_sensor() != sensor_vbatt)
         main_set_current_sensor(sensor_vbatt);
 
@@ -588,6 +589,9 @@ bool vbatt_sense_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
 
     adc_val = main_read_current_sensor(false);
 #else
+    /* don't actually read vbatt sensor
+     * in this mode.  VBATT should only be sampled
+     * after wakeup */
     adc_val = main_get_vbatt_value();
 #endif
 
@@ -674,7 +678,7 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
             if (anim_is_finished(anim_ptr)) {
                 anim_release(anim_ptr);
                 min_disp_ptr = display_point(minute, BRIGHT_DEFAULT);
-#if (SIMPLE_TIME_MODE)
+#if SIMPLE_TIME_MODE
                 /* In "simple" time mode (aka walker mode), dont blink animate
                  * the minute hand and don't show seconds */
                 anim_ptr = NULL;
@@ -699,7 +703,7 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
 
         case DISP_ALL:
 
-#if (!SIMPLE_TIME_MODE)
+#if !SIMPLE_TIME_MODE
             display_comp_update_pos(sec_disp_ptr, second);
 #endif
             display_comp_update_pos(min_disp_ptr, minute);

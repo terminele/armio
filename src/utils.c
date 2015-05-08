@@ -113,7 +113,10 @@ uint8_t utils_spin_tracker_update ( void ) {
 }
 
 uint8_t adc_light_value_scale ( uint16_t value ) {
-    /* Assumes 12-bit adc read */
+    /* Assumes 16-bit averaged adc read */
+
+    /* Decimate down to 12-bit */
+    value >>= 4;
     if (value >= 2048)
         return (55 + (value >> 8)) % 60;
 
@@ -139,6 +142,14 @@ uint8_t adc_light_value_scale ( uint16_t value ) {
 }
 
 uint8_t adc_vbatt_value_scale ( uint16_t value ) {
+    /* Assumes 16-bit averaged adc read */
+    /* Decimate down to 12-bit */
+    value >>= 4;
+
+    /* Add an offset to compensate for voltage
+     * drop when running vs asleep */
+    value += 50;
+
     /* Full */
     if (value >= 3072) //> 3V --> 3/4*4096
         return 59;

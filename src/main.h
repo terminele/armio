@@ -53,6 +53,8 @@ typedef enum {
 #define TICKS_IN_MS(T)         ((T)*MS_PER_TICK)
 #define MAIN_TIMER_TICK_US      (MS_PER_TICK*1000)
 
+#define LIGHT_SENSE_ENABLE_PIN       PIN_PA02
+
 #define assert(B) if (!(B)) main_terminate_in_error( error_group_assertion, 0 )
 
 //___ T Y P E D E F S ________________________________________________________
@@ -83,6 +85,7 @@ void main_start_sensor_read ( void );
    * @param None
    * @retrn None
    */
+
 sensor_type_t main_get_current_sensor ( void );
   /* @brief get current sensor setting
    * @param None

@@ -24,7 +24,6 @@
 #define BUTTON_UP           true
 #define BUTTON_DOWN         false
 
-#define LIGHT_SENSE_ENABLE_PIN       PIN_PA02
 #define VBATT_ADC_PIN               ADC_POSITIVE_INPUT_SCALEDIOVCC
 #define LIGHT_ADC_PIN               ADC_POSITIVE_INPUT_PIN1
 
@@ -283,7 +282,6 @@ static void prepare_sleep( void ) {
   aclock_disable();
   tc_disable(&main_tc);
 
-
   /* The vbatt adc may have enabled the voltage reference, so disable
    * it in standby to save power */
   system_voltage_reference_disable(SYSTEM_VOLTAGE_REFERENCE_BANDGAP);
@@ -313,10 +311,20 @@ static void wakeup (void) {
   system_interrupt_enable_global();
 
   /* Update vbatt estimate on wakeup only */
+#if ENABLE_VBATT
   main_set_current_sensor(sensor_vbatt);
   main_start_sensor_read();
   main_read_current_sensor(true);
   update_vbatt_running_avg();
+#endif
+
+#if ENABLE_LIGHT_SENSE
+  port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, true);
+  main_set_current_sensor(sensor_light);
+  main_start_sensor_read();
+  main_read_current_sensor(true);
+  port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, false);
+#endif
 
   LOG_WAKEUP();
 }
@@ -659,12 +667,6 @@ void main_log_data( uint8_t *data, uint16_t length, bool flush) {
 
 void main_start_sensor_read ( void ) {
 #if ENABLE_LIGHT_SENSE
-  if (main_gs.current_sensor == sensor_light) {
-    port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, true);
-  } else {
-    port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, false);
-  }
-
   if (!(adc_get_status(&light_vbatt_sens_adc) & ADC_STATUS_RESULT_READY))
     adc_start_conversion(&light_vbatt_sens_adc);
 #endif
@@ -690,7 +692,7 @@ void main_set_current_sensor ( sensor_type_t sensor ) {
   config_adc.accumulate_samples = ADC_ACCUMULATE_SAMPLES_1024;
   config_adc.divide_result      = ADC_DIVIDE_RESULT_16;
   config_adc.run_in_standby     = false;
-  config_adc.resolution         = ADC_RESOLUTION_12BIT;
+  config_adc.resolution         = ADC_RESOLUTION_16BIT;
 
   switch(sensor) {
     case sensor_vbatt:
@@ -708,28 +710,32 @@ void main_set_current_sensor ( sensor_type_t sensor ) {
 #endif
 }
 
+
 uint16_t main_read_current_sensor( bool blocking ) {
   uint16_t result;
   uint16_t *curr_sens_adc_val_ptr;
   uint8_t status;
+
+  /* Read the current sensor adc (vbatt or light) */
+  /* NOTE: if reading light sensor, LIGHT_ENABLE_PIN
+   * should have already been set high for a valid read.
+   * That pin should not be left high since it draws a
+   * lot of current */
 
   if (main_gs.current_sensor == sensor_vbatt)
     curr_sens_adc_val_ptr = &main_gs.vbatt_sensor_adc_val;
   else
     curr_sens_adc_val_ptr = &main_gs.light_sensor_adc_val;
 
-#if ENABLE_LIGHT_SENSE
   do {
     status = adc_read(&light_vbatt_sens_adc, &result);
 
     if (status == STATUS_OK) {
       *curr_sens_adc_val_ptr = result;
       adc_clear_status(&light_vbatt_sens_adc, ADC_STATUS_RESULT_READY);
-            //port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, false);
     }
   } while (blocking && status != STATUS_OK);
 
-#endif
   return *curr_sens_adc_val_ptr;
 }
 
@@ -783,18 +789,12 @@ int main (void) {
 #endif
 
   /* Read light and vbatt sensors on startup */
-#ifdef ENABLE_VBATT
+#if ENABLE_VBATT
   main_set_current_sensor(sensor_vbatt);
   main_start_sensor_read();
   main_gs.running_avg_vbatt = main_read_current_sensor(true);
 #endif
 
-#ifdef ENABLE_LIGHT_SENSE
-  main_set_current_sensor(sensor_light);
-  main_start_sensor_read();
-  main_read_current_sensor(true);
-  port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, false);
-#endif
 
   LOG_WAKEUP();
 

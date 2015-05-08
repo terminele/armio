@@ -262,9 +262,10 @@ CPPFLAGS = \
        -D TC_ASYNC=true		 		          \
        -D SYSTICK_MODE                                    \
        -D $(PARTD)					  \
-       -D NVM_MAX_ADDR=$(NVM_MAX_ADDR)					  \
+       -D NVM_MAX_ADDR=$(NVM_MAX_ADDR)			  \
        -D VBATT_NO_AVERAGE=false			  \
-       -D ENABLE_LIGHT_SENSE=false			  \
+       -D ENABLE_LIGHT_SENSE=true			  \
+       -D ENABLE_VBATT=true			  	  \
        -D LOG_USAGE=true				  \
        -D __YEAR__=$(_YEAR_)				  \
        -D __MONTH__=$(_MONTH_)				  \
@@ -279,7 +280,11 @@ CPPFLAGS = \
        #-D ENABLE_BUTTON				  	  \
 
 ifdef simple_time
-    CPPFLAGS+= -D SIMPLE_TIME_MODE
+    CPPFLAGS+= -D SIMPLE_TIME_MODE=$(simple_time)
+endif
+
+ifdef self_test
+    CPPFLAGS+= -D USE_SELF_TEST=$(self_test)
 endif
 
 # Extra flags to use when linking
