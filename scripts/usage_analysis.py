@@ -112,7 +112,7 @@ if __name__ == "__main__":
         ts.append(t)
         t_rels.append(t - tstart)
         vs.append(v*4.0/4096)
-        #print("{}\t{}\t{:x}".format(t, v, p))
+        print("t[{}]  {}".format(len(ts),time.ctime(t)))
 
 
     t_hrs = [t/3600.0 for t in t_rels]
