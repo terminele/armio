@@ -133,7 +133,7 @@ ctrl_mode_t util_control_modes[] = {
     {
         .enter_cb = NULL,
         .tic_cb = util_control_main_tic,
-        .sleep_timeout_ticks = MS_IN_TICKS(15000),
+        .sleep_timeout_ticks = MS_IN_TICKS(8000),
         .about_to_sleep_cb = NULL,
         .wakeup_cb = NULL,
     },
@@ -619,6 +619,9 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
 
 
     if (event_flags & EV_FLAG_LONG_BTN_PRESS ||
+        event_flags & EV_FLAG_ACCEL_QCLICK_X ||
+        event_flags & EV_FLAG_ACCEL_5CLICK_X ||
+        event_flags & EV_FLAG_ACCEL_6CLICK_X ||
         event_flags & EV_FLAG_ACCEL_7CLICK_X ||
         event_flags & EV_FLAG_ACCEL_8CLICK_X ||
         event_flags & EV_FLAG_ACCEL_9CLICK_X ||
