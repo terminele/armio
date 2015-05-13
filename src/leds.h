@@ -89,6 +89,18 @@ void led_set_max_brightness( uint8_t brightness);
    * @retrn None
    */
 
+void _led_on_full( uint8_t led );
+  /* @brief bypass pwm and turn on led via gpio
+   * @param led to turn on
+   * @retrn None
+   */
+
+void _led_off_full( uint8_t led );
+  /* @brief bypass pwm and turn off led via gpio
+   * @param led to turn off
+   * @retrn None
+   */
+
 #endif /* end of include guard: __LEDS_H__ */
 
 // vim:shiftwidth=2

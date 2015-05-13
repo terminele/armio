@@ -5,9 +5,23 @@
 //___ I N C L U D E S ________________________________________________________
 #include "accel.h"
 #include "main.h"
+#include "leds.h"
 
 
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
+
+
+#define _DISP_ERROR( i )  do { \
+      _led_on_full( i ); \
+      delay_ms(1000); \
+      _led_off_full( i ); \
+      delay_ms(100); \
+      _led_on_full( i ); \
+      delay_ms(1000); \
+      _led_off_full( i ); \
+      delay_ms(100); \
+    } while(0);
+
 
 #define ACCEL_ERROR_TIMEOUT             ((uint32_t) 1)
 #define ACCEL_ERROR_SELF_TEST(test)    (((uint32_t) 2) \
@@ -103,6 +117,8 @@
 #define STEST_NORMAL    0x00
 
 /* CTRL_REG5 */
+#define BOOT        0x80
+#define FIFO_EN     0x40
 #define LIR_INT1    0x08
 
 /* STATUS_REG */
@@ -119,6 +135,7 @@
 /* INT1/2 CFG */
 #define AOI_MOV     0x40
 #define AOI_POS     0xC0
+#define AOI_AND     0x80
 #define ZHIE        0x20
 #define ZLIE        0x10
 #define YHIE        0x08
@@ -173,6 +190,9 @@
 #define Z_DOWN_THRESHOLD        8 //assumes 4g scale
 #define Z_DOWN_DUR_MS           200
 
+#define Z_SLEEP_DOWN_THRESHOLD      8 //assumes 4g scale
+#define Y_SLEEP_DOWN_THRESHOLD      8 //assumes 4g scale
+
 #define Z_DOWN_THRESHOLD_ABS    (Z_DOWN_THRESHOLD < 0 ? -Z_DOWN_THRESHOLD : Z_DOWN_THRESHOLD)
 #define Z_DOWN_DUR_ODR          MS_TO_ODRS(Z_DOWN_DUR_MS, SLEEP_SAMPLE_INT)
 
@@ -214,6 +234,7 @@ static bool accel_register_write (uint8_t reg, uint8_t val);
 
 /* Configuration functions for wakeup gesture recognition */
 static void wait_for_down_conf( void );
+
 static void wait_for_up_conf( void );
 
 static void run_self_test( void );
@@ -275,7 +296,8 @@ static union {
   uint8_t b8;
 } int_flags;
 
-static enum {SLEEP_START, WAIT_FOR_DOWN, WAIT_FOR_UP, WAKE_DCLICK, WAKE_TURN_UP} wake_gesture_state;
+static enum {SLEEP_START = 0, WAIT_FOR_DOWN, WAIT_FOR_UP, WAKE_DCLICK, WAKE_TURN_UP} wake_gesture_state;
+
 
 //___ I N T E R R U P T S  ___________________________________________________
 
@@ -287,7 +309,7 @@ static void configure_interrupt ( void ) {
   struct port_config pin_conf;
   port_get_config_defaults(&pin_conf);
   pin_conf.direction = PORT_PIN_DIR_INPUT;
-  pin_conf.input_pull = PORT_PIN_PULL_NONE;
+  pin_conf.input_pull = PORT_PIN_PULL_DOWN;
   port_pin_set_config(AX_INT1_PIN, &pin_conf);
 
   struct extint_chan_conf eint_chan_conf;
@@ -325,18 +347,27 @@ static void configure_i2c(void) {
 
 static void wait_for_up_conf( void ) {
   /* Configure interrupt to detect movement up (Z HIGH) */
-  accel_register_write (AX_REG_INT1_CFG, AOI_MOV | ZHIE);
+  wake_gesture_state = WAIT_FOR_UP;
+  accel_register_write ( AX_REG_CTL1,
+      ( SLEEP_ODR | X_EN | Y_EN | Z_EN |
+        ( BITS_PER_ACCEL_VAL == 8 ? LOW_PWR_EN : 0 ) ) );
+
   accel_register_write (AX_REG_INT1_THS, Z_UP_THRESHOLD);
   accel_register_write (AX_REG_INT1_DUR, Z_UP_DUR_ODR);
-  wake_gesture_state = WAIT_FOR_UP;
+  accel_register_write (AX_REG_FIFO_CTL, STREAM_TO_FIFO );
+  accel_register_write (AX_REG_INT1_CFG, AOI_MOV | ZHIE);
 }
 
 static void wait_for_down_conf( void ) {
-  /* Configure interrupt to detect orientaiton down (Y HIGH) */
-  accel_register_write (AX_REG_INT1_CFG, AOI_MOV | YLIE | XLIE );
+  /* Configure interrupt to detect orientaiton down (Y LOW) */
+  wake_gesture_state = WAIT_FOR_DOWN;
+  accel_register_write ( AX_REG_CTL1, ( SLEEP_ODR | X_EN | Y_EN | Z_EN |
+        ( BITS_PER_ACCEL_VAL == 8 ? LOW_PWR_EN : 0 ) ) );
+
   accel_register_write (AX_REG_INT1_THS, XY_DOWN_THRESHOLD_ABS);
   accel_register_write (AX_REG_INT1_DUR, XY_DOWN_DUR_ODR);
-  wake_gesture_state = WAIT_FOR_DOWN;
+  accel_register_write (AX_REG_FIFO_CTL, STREAM_TO_FIFO );
+  accel_register_write (AX_REG_INT1_CFG, AOI_MOV | XLIE | YLIE );
 }
 
 static bool accel_register_consecutive_read (uint8_t start_reg, uint8_t count,
@@ -369,7 +400,6 @@ static bool accel_register_consecutive_read (uint8_t start_reg, uint8_t count,
 
   return true;
 }
-
 static bool accel_register_write (uint8_t reg, uint8_t val) {
   uint8_t data[2] = {reg, val};
   /* Write the register address (SUB) to the accelerometer */
@@ -390,65 +420,99 @@ static bool accel_register_write (uint8_t reg, uint8_t val) {
 }
 
 static void accel_isr(void) {
+  system_interrupt_disable_global();
+
   accel_register_consecutive_read(AX_REG_CLICK_SRC, 1, &click_flags.b8);
   accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &int_flags.b8);
+#ifdef DEBUG_AX_ISR
+  _led_on_full(15);
+  delay_ms(50);
+  _led_off_full(15);
+#endif
+  extint_chan_clear_detected(AX_INT1_CHAN);
+  system_interrupt_enable_global();
+
+};
+
+static void accel_wakeup_state_refresh(void) {
+
+
+#ifdef DEBUG_AX_ISR
+    _led_on_full(30 + wake_gesture_state);
+    delay_ms(50);
+    _led_off_full(30 + wake_gesture_state);
+#endif
 
   if (click_flags.ia) {
     wake_gesture_state = WAKE_DCLICK;
     return;
   }
 
-  if (!int_flags.ia) return;
+  if (!int_flags.ia) {
+    if (!int_flags.yl && !int_flags.xl && !int_flags.zh ) {
+      _DISP_ERROR(57);
+    } else {
+      _DISP_ERROR(56);
+    }
+
+    return;
+
+  }
 
   if (wake_gesture_state == WAIT_FOR_DOWN) {
     if (int_flags.yl || int_flags.xl ) {
-      accel_register_write (AX_REG_FIFO_CTL, FIFO_STREAM );
       wait_for_up_conf();
+    } else {
+      _DISP_ERROR(55);
     }
   } else if (wake_gesture_state == WAIT_FOR_UP) {
-    if (int_flags.zh) {
-      /* Read FIFO to determine if a turn-up gesture occurred */
-      uint8_t fifo_depth;
-      int16_t x = 0, y = 0, z = 0;
-      int16_t x_p = 0, y_p = 0, z_p = 0;
-      int16_t dx = 0, dy = 0, dz = 0;
-      int16_t x_sum = 0, y_sum = 0, z_sum = 0;
+    if (!int_flags.zh) {
+      _DISP_ERROR(54);
+      return;
+    }
 
-      accel_register_consecutive_read( AX_REG_FIFO_SRC, 1, &fifo_depth );
-      fifo_depth = fifo_depth & FIFO_SIZE;
+    /* Read FIFO to determine if a turn-up gesture occurred */
+    uint8_t fifo_depth;
+    int16_t x = 0, y = 0, z = 0;
+    int16_t x_p = 0, y_p = 0, z_p = 0;
+    int16_t dx = 0, dy = 0, dz = 0;
+    int16_t x_sum = 0, y_sum = 0, z_sum = 0;
 
-      /* First read outside loop to initialize prev values for delta calc */
+    accel_register_consecutive_read( AX_REG_FIFO_SRC, 1, &fifo_depth );
+    fifo_depth = fifo_depth & FIFO_SIZE;
+
+    /* First read outside loop to initialize prev values for delta calc */
+    accel_data_read(&x, &y, &z);
+    x_sum = x;
+    y_sum = y;
+    z_sum = z;
+
+    while (--fifo_depth) {
+      x_p = x; y_p = y; z_p = z;
       accel_data_read(&x, &y, &z);
-      x_sum = x;
-      y_sum = y;
-      z_sum = z;
+      x_sum+=x;
+      y_sum+=y;
+      z_sum+=z;
 
-      while (--fifo_depth) {
-        x_p = x; y_p = y; z_p = z;
-        accel_data_read(&x, &y, &z);
-        x_sum+=x;
-        y_sum+=y;
-        z_sum+=z;
+      dx += x - x_p;
+      dy += y - y_p;
+      dz += z - z_p;
 
-        dx += x - x_p;
-        dy += y - y_p;
-        dz += z - z_p;
-
-        if ( 0 && (dx + dy > 25)) {
-          wake_gesture_state = WAKE_TURN_UP;
-          break;
-        }
-
-        if ( y_sum + x_sum < -22  ) {
-          wake_gesture_state = WAKE_TURN_UP;
-          break;
-        }
-
-        if ( y_sum < -15 || dy > 20 ) {
-          wake_gesture_state = WAKE_TURN_UP;
-          break;
-        }
+      if ( 0 && (dx + dy > 25)) {
+        wake_gesture_state = WAKE_TURN_UP;
+        break;
       }
+
+      if ( y_sum + x_sum < -22  ) {
+        wake_gesture_state = WAKE_TURN_UP;
+        break;
+      }
+
+      if ( y_sum < -15 || dy > 20 ) {
+        wake_gesture_state = WAKE_TURN_UP;
+        break;
+      }
+    }
 
       /* Make sure y-down interrupt time was recent enough to
       * constitute a "turn up" gesture */
@@ -459,14 +523,15 @@ static void accel_isr(void) {
         /* Disable AOI INT1 interrupt (leave CLICK enabled) */
         accel_register_write (AX_REG_CTL3,  I1_CLICK_EN);
         accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS );
+
       } else {
-        accel_register_write (AX_REG_FIFO_CTL, FIFO_STREAM );
         wait_for_down_conf();
       }
-    }
+  } else {
+    _DISP_ERROR(40 + wake_gesture_state);
   }
 
-  extint_chan_clear_detected(AX_INT1_CHAN);
+
 }
 
 static void run_self_test( void ) {
@@ -555,6 +620,35 @@ static void run_self_test( void ) {
 }
 
 //___ F U N C T I O N S ______________________________________________________
+
+bool accel_wakeup_check( void ) {
+  int16_t x,y,z = 0;
+  bool should_wakeup = false;
+
+  system_interrupt_disable_global();
+
+  accel_wakeup_state_refresh();
+
+  if (wake_gesture_state == WAKE_TURN_UP) {
+    should_wakeup = true;
+  } else if (wake_gesture_state == WAKE_DCLICK) {
+    accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS );
+    accel_data_read(&x, &y, &z);
+
+    /* Dont wakeup on click without z-axis facing somewhat up */
+    if (z > Z_UP_THRESHOLD)  {
+      should_wakeup = true;
+    } else {
+      wait_for_up_conf();
+      should_wakeup = false;
+    }
+
+  }
+
+  system_interrupt_enable_global();
+  return should_wakeup;
+}
+
 bool accel_data_read (int16_t *x_ptr, int16_t *y_ptr, int16_t *z_ptr) {
   uint8_t reg_data[6] = {0};
   /* Read the 6 8-bit registers starting with lower 8-bits of X value */
@@ -572,36 +666,15 @@ bool accel_data_read (int16_t *x_ptr, int16_t *y_ptr, int16_t *z_ptr) {
   return true;
 }
 
-bool accel_wakeup_check( void ) {
-  int16_t x,y,z = 0;
-  if (wake_gesture_state == WAKE_TURN_UP) {
-    return true;
-  }
-
-  if (wake_gesture_state == WAKE_DCLICK) {
-    accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS );
-    accel_data_read(&x, &y, &z);
-    /* Dont wakeup on click without z-axis facing somewhat up */
-    if (z > Z_UP_THRESHOLD)  {
-      return true;
-    } else {
-      accel_register_write (AX_REG_FIFO_CTL, FIFO_STREAM );
-      return false;
-    }
-
-  }
-  //accel_register_consecutive_read(AX_REG_CLICK_SRC, 1, &click_flags.b8);
-  //accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &int_flags.b8);
-
-  return false;
-}
-
 void accel_enable ( void ) {
   //i2c_master_enable(&i2c_master_instance);
 
 #ifdef NO_ACCEL
   return;
 #endif
+
+  /* Callback enable is only active when sleeping */
+  extint_chan_disable_callback(AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
 
   accel_register_write (AX_REG_CTL4, FS_4G);
   accel_register_write ( AX_REG_CTL1,
@@ -623,8 +696,8 @@ void accel_enable ( void ) {
   /* Disable FIFO mode */
   accel_register_write (AX_REG_FIFO_CTL,  FIFO_BYPASS );
 
-  /* Latch interrupts */
-  accel_register_write (AX_REG_CTL5, LIR_INT1);
+  /* Latch interrupts; Enable FIFO */
+  accel_register_write (AX_REG_CTL5, LIR_INT1 | FIFO_EN );
 
   /* Disable sleep activity threshold and duration */
   if (!accel_register_write (AX_REG_ACT_THS, 0x00)) {
@@ -635,9 +708,37 @@ void accel_enable ( void ) {
       main_terminate_in_error( error_group_accel, ACCEL_ERROR_WRITE_EN );
   }
 
-  /* Callback enable is only active when sleeping */
-  extint_unregister_callback(accel_isr, AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
-  extint_chan_disable_callback(AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
+}
+
+void accel_sleep ( void ) {
+  int16_t x = 0, y = 0, z = 0;
+
+#ifdef NO_ACCEL
+  return;
+#endif
+  accel_data_read(&x, &y, &z);
+
+
+  accel_register_write ( AX_REG_CTL1,
+      ( SLEEP_ODR | X_EN | Y_EN | Z_EN |
+        ( BITS_PER_ACCEL_VAL == 8 ? LOW_PWR_EN : 0 ) ) );
+
+  /* Only x-axis double clicks should wake us up */
+  accel_register_write (AX_REG_CLICK_CFG, X_DCLICK);
+  accel_register_write (AX_REG_CLICK_THS, WAKEUP_CLICK_THS);
+
+  accel_register_write (AX_REG_CTL3,  I1_CLICK_EN | I1_AOI1_EN );
+
+  /* Configure interrupt to detect orientation down (Y LOW) */
+  wait_for_down_conf();
+
+  /* Configure click parameters */
+  accel_register_write (AX_REG_TIME_WIN, WAKEUP_CLICK_TIME_WIN);
+  accel_register_write (AX_REG_TIME_LIM, WAKEUP_CLICK_TIME_LIM);
+  accel_register_write (AX_REG_TIME_LAT, WAKEUP_CLICK_TIME_LAT);
+
+  extint_chan_enable_callback(AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
+
 }
 
 static event_flags_t click_timeout_event_check( void ) {
@@ -717,37 +818,6 @@ static event_flags_t click_timeout_event_check( void ) {
   return ev_flags;
 }
 
-void accel_sleep ( void ) {
-  int16_t x = 0, y = 0, z = 0;
-
-#ifdef NO_ACCEL
-  return;
-#endif
-  accel_data_read(&x, &y, &z);
-
-  /* Only x-axis double clicks should wake us up */
-  accel_register_write (AX_REG_CLICK_CFG, X_DCLICK);
-  accel_register_write (AX_REG_CLICK_THS, WAKEUP_CLICK_THS);
-
-  accel_register_write ( AX_REG_CTL1,
-      ( SLEEP_ODR | X_EN | Y_EN | Z_EN |
-        ( BITS_PER_ACCEL_VAL == 8 ? LOW_PWR_EN : 0 ) ) );
-  accel_register_write (AX_REG_CTL3,  I1_CLICK_EN | I1_AOI1_EN );
-
-  /* Enable STREAM to FIFO mode so previous values can be read after an INT */
-  accel_register_write (AX_REG_FIFO_CTL, FIFO_STREAM);
-
-  /* Configure interrupt to detect orientation down (Y LOW) */
-  wait_for_down_conf();
-
-  /* Configure click parameters */
-  accel_register_write (AX_REG_TIME_WIN, WAKEUP_CLICK_TIME_WIN);
-  accel_register_write (AX_REG_TIME_LIM, WAKEUP_CLICK_TIME_LIM);
-  accel_register_write (AX_REG_TIME_LAT, WAKEUP_CLICK_TIME_LAT);
-
-  extint_register_callback(accel_isr, AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
-  extint_chan_enable_callback(AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
-}
 
 event_flags_t accel_event_flags( void ) {
   event_flags_t ev_flags = EV_FLAG_NONE;
@@ -765,7 +835,7 @@ event_flags_t accel_event_flags( void ) {
    * */
 
   accel_data_read(&x, &y, &z);
-  if (z <= Z_DOWN_THRESHOLD) {
+  if (z <= Z_SLEEP_DOWN_THRESHOLD && y <= Y_SLEEP_DOWN_THRESHOLD) {
     if (!accel_down) {
       accel_down = true;
       accel_down_start_ms = main_get_waketime_ms();
@@ -833,6 +903,7 @@ void accel_init ( void ) {
 
   configure_i2c();
 
+
   if (!accel_register_consecutive_read (AX_REG_WHO_AM_I, 1, &who_it_be)) {
     /* ID read at first address failed. try other i2c address */
     i2c_addr = AX_ADDRESS1;
@@ -852,6 +923,8 @@ void accel_init ( void ) {
   }
 
   configure_interrupt();
+
+  extint_register_callback(accel_isr, AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
 }
 
 // vim:shiftwidth=2

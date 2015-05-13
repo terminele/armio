@@ -154,7 +154,7 @@ ctrl_mode_t util_control_modes[] = {
     {
         .enter_cb = NULL,
         .tic_cb = light_sense_mode_tic,
-        .sleep_timeout_ticks = MS_IN_TICKS(20000),
+        .sleep_timeout_ticks = MS_IN_TICKS(30000),
         .about_to_sleep_cb = NULL,
         .wakeup_cb = NULL,
     },
@@ -562,7 +562,7 @@ bool light_sense_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
 
 
     adc_val = main_read_current_sensor(false);
-    display_comp_update_pos(adc_pt, adc_light_value_scale(adc_val));
+    display_comp_update_pos(adc_pt, adc_light_value_scale(adc_val) % 60 );
 
 
     return false;

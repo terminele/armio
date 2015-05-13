@@ -27,6 +27,8 @@
 #define VBATT_ADC_PIN               ADC_POSITIVE_INPUT_SCALEDIOVCC
 #define LIGHT_ADC_PIN               ADC_POSITIVE_INPUT_PIN1
 
+#define DIM_BRIGHT_VAL      (MIN_BRIGHT_VAL + 1)
+#define DIM_LIGHT_THRESHOLD  17 //light level on 0-59 scale to match util display
 
 #define MAIN_TIMER  TC5
 
@@ -48,6 +50,10 @@
 #define NVM_CONF_STORE_SIZE (64)
 #define NVM_LOG_ADDR_START  (NVM_ADDR_START + NVM_CONF_STORE_SIZE)
 #define NVM_LOG_ADDR_MAX     NVM_MAX_ADDR
+
+#define IS_ACTIVITY_EVENT(ev_flags) \
+      (ev_flags != EV_FLAG_NONE && \
+        ev_flags != EV_FLAG_ACCEL_Z_LOW)
 
 #if LOG_USAGE
   #define LOG_WAKEUP() \
@@ -154,6 +160,8 @@ static struct {
 
   uint8_t light_sensor_scaled_at_wakeup;
   main_state_t state;
+
+  uint8_t brightness;
 
 } main_gs;
 
@@ -270,13 +278,11 @@ static void prepare_sleep( void ) {
       EXTINT_CALLBACK_TYPE_DETECT);
 #endif
 
-#if ENABLE_LIGHT_SENSE
   if (light_vbatt_sens_adc.hw) {
     adc_disable(&light_vbatt_sens_adc);
   }
 
   port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, false);
-#endif
 
   led_controller_disable();
   aclock_disable();
@@ -288,11 +294,9 @@ static void prepare_sleep( void ) {
 }
 
 static void wakeup (void) {
-#if ENABLE_LIGHT_SENSE
   if (light_vbatt_sens_adc.hw) {
     adc_enable(&light_vbatt_sens_adc);
   }
-#endif
 
 #ifdef ENABLE_BUTTON
   extint_chan_disable_callback(BUTTON_EIC_CHAN,
@@ -322,7 +326,17 @@ static void wakeup (void) {
   port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, true);
   main_set_current_sensor(sensor_light);
   main_start_sensor_read();
-  main_read_current_sensor(true);
+
+  main_gs.light_sensor_scaled_at_wakeup = adc_light_value_scale(
+      main_read_current_sensor(true) );
+
+  if (main_gs.light_sensor_scaled_at_wakeup < DIM_LIGHT_THRESHOLD ) {
+    main_gs.brightness = DIM_BRIGHT_VAL;
+  } else {
+    main_gs.brightness = MAX_BRIGHT_VAL;
+  }
+
+  led_set_max_brightness( main_gs.brightness );
   port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, false);
 #endif
 
@@ -369,7 +383,6 @@ static event_flags_t button_event_flags ( void ) {
 
 //___ F U N C T I O N S ______________________________________________________
 static void main_tic( void ) {
-  static uint8_t brightness = MAX_BRIGHT_VAL;
   event_flags_t event_flags = EV_FLAG_NONE;
 
   main_gs.inactivity_ticks++;
@@ -378,20 +391,12 @@ static void main_tic( void ) {
   event_flags |= button_event_flags();
   event_flags |= accel_event_flags();
 
-  /* Reset inactivity if any button event occurs */
-  if (event_flags != EV_FLAG_NONE) main_gs.inactivity_ticks = 0;
-
-  if ( IS_CONTROL_MODE_SHOW_TIME() &&
-      (event_flags & EV_FLAG_ACCEL_DCLICK_X )) {
-
-    /* Toggle brightness levels */
-    if (brightness == MAX_BRIGHT_VAL) {
-      brightness = MIN_BRIGHT_VAL + 1;
-    } else {
-      brightness = MAX_BRIGHT_VAL;
-    }
-
-    led_set_max_brightness( brightness );
+  /* Reset inactivity if any button/click event occurs */
+  if (IS_ACTIVITY_EVENT(event_flags)) {
+     main_gs.inactivity_ticks = 0;
+    /* Ensure the display is not dim */
+    main_gs.brightness = MAX_BRIGHT_VAL;
+    led_set_max_brightness( main_gs.brightness );
   }
 
   switch (main_gs.state) {
@@ -439,7 +444,6 @@ static void main_tic( void ) {
       }
       return;
     case RUNNING:
-      /* Check for inactivity timeout */
 #if ENABLE_LIGHT_SENSE
 #ifdef NOT_NOW
       if( IS_CONTROL_MODE_SHOW_TIME() ) {
@@ -454,16 +458,16 @@ static void main_tic( void ) {
       }
 #endif
 #endif
-      if (    /* SLEEP EVENT CHECKS */
-          /*((event_flags & EV_FLAG_ACCEL_SCLICK_X) &&
-            control_mode_index(ctrl_mode_active) == 0 &&
-            TICKS_IN_MS(main_gs.modeticks) > 600) ||*/
-
+      /* Check for inactivity timeout */
+      if (
+#ifdef ALWAYS_ACTIVE
+          true
+#else
           main_gs.inactivity_ticks > \
           ctrl_mode_active->sleep_timeout_ticks ||
-
           (IS_CONTROL_MODE_SHOW_TIME() && event_flags & EV_FLAG_ACCEL_Z_LOW &&
            main_get_waketime_ms() > 300)
+#endif
 
           ) {
         /* A sleep event has occurred */
@@ -556,6 +560,7 @@ static void main_init( void ) {
   main_gs.inactivity_ticks = 0;
   main_gs.button_state = BUTTON_UP;
   main_gs.light_sensor_scaled_at_wakeup = 0;
+  main_gs.brightness = MAX_BRIGHT_VAL;
   main_gs.state = STARTUP;
 
   /* Configure main timer counter */
@@ -594,7 +599,8 @@ void main_inactivity_timeout_reset( void ) {
 }
 
 void main_terminate_in_error ( error_group_code_t error_group, uint32_t subcode ) {
-  /* Display error code led */
+  /* Display error code leds */
+
   led_clear_all();
   uint8_t i;
 
@@ -614,12 +620,17 @@ void main_terminate_in_error ( error_group_code_t error_group, uint32_t subcode 
       led_on( i + 34, BRIGHT_DEFAULT );
     }
   }
+  for( i = 24; i < 32; i++ ) {
+    if( subcode & (((uint32_t) 1)<<i) ) {
+      led_on( (i + 36) % 60, BRIGHT_DEFAULT );
+    }
+  }
 
   /* blink error code indefinitely */
   while( 1 ) {
-    led_on( ((uint8_t) error_group) * 5, BRIGHT_DEFAULT );
+    _led_on_full( ((uint8_t) error_group));
     delay_ms(100);
-    led_off( ((uint8_t) error_group) * 5 );
+    _led_off_full( ((uint8_t) error_group));
     delay_ms(100);
   }
 }
@@ -667,10 +678,8 @@ void main_log_data( uint8_t *data, uint16_t length, bool flush) {
 
 
 void main_start_sensor_read ( void ) {
-#if ENABLE_LIGHT_SENSE
   if (!(adc_get_status(&light_vbatt_sens_adc) & ADC_STATUS_RESULT_READY))
     adc_start_conversion(&light_vbatt_sens_adc);
-#endif
 }
 
 sensor_type_t main_get_current_sensor ( void ) {
@@ -678,7 +687,6 @@ sensor_type_t main_get_current_sensor ( void ) {
 }
 
 void main_set_current_sensor ( sensor_type_t sensor ) {
-#if ENABLE_LIGHT_SENSE
   struct adc_config config_adc;
 
   main_gs.current_sensor = sensor;
@@ -708,7 +716,6 @@ void main_set_current_sensor ( sensor_type_t sensor ) {
 
   adc_init(&light_vbatt_sens_adc, ADC, &config_adc);
   adc_enable(&light_vbatt_sens_adc);
-#endif
 }
 
 
