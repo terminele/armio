@@ -117,28 +117,29 @@ uint8_t adc_light_value_scale ( uint16_t value ) {
 
     /* Decimate down to 12-bit */
     value >>= 4;
+
     if (value >= 2048)
-        return (55 + (value >> 8)) % 60;
+        return 50 + ((value - 2048 ) >> 8);
 
     if (value >= 1024)
-        return (47 + (value >> 7)) % 60;
+        return 42 + ((value - 1024) >> 7);
 
     if (value >= 512)
-        return 39 + (value >> 6);
+        return 34 + ((value - 512) >> 6);
 
     if (value >= 256)
-        return 31 + (value >> 5);
+        return 26 + ((value - 256) >> 5);
 
     if (value >= 128)
-        return 23 + (value >> 4);
+        return 18 + ((value - 128) >> 4);
 
     if (value >= 64)
-        return 19 + (value >> 4);
+        return 11 + ((value - 64) >> 3);
 
     if (value >= 32)
-        return 15 + (value >> 3);
+        return 7 + ((value - 32) >> 3);
 
-    return value >> 1;
+    return value >> 2;
 }
 
 uint8_t adc_vbatt_value_scale ( uint16_t value ) {
