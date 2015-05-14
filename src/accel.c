@@ -625,6 +625,10 @@ bool accel_wakeup_check( void ) {
   int16_t x,y,z = 0;
   bool should_wakeup = false;
 
+#ifdef NO_ACCEL
+  return true;
+#endif
+
   system_interrupt_disable_global();
 
   accel_wakeup_state_refresh();
