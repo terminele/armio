@@ -359,6 +359,7 @@ bool ee_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
                 break;
             case 0x1:
                 ee_submode_tic = event_debug_mode_tic;
+                break;
             case 0x2:
                 ee_submode_tic = tick_counter_mode_tic;
                 break;
@@ -645,7 +646,8 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     aclock_get_time(&hour, &minute, &second);
 
     hour_fifths = minute/12;
-    hour_anim_tick_int = MS_IN_TICKS(HOUR_ANIM_DUR_MS/(hour * 5));
+    hour = hour % 12;
+    hour_anim_tick_int = MS_IN_TICKS(HOUR_ANIM_DUR_MS/((hour * 5));
     switch(phase) {
         case INIT:
 
