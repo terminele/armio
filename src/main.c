@@ -786,8 +786,8 @@ int main (void) {
   if( rcause_bf.bit.POR || rcause_bf.bit.BOD12 || rcause_bf.bit.BOD33 ) {
     /* TODO : jump into set time mode instead of general startup */
   }
-  //reset_cause = ((uint32_t) 0xBADBAD00) | ((uint32_t) rcause_bf.reg);
-  //main_log_data((uint8_t *)&reset_cause, sizeof(uint32_t), true);
+  reset_cause = ((uint32_t) 0xBADBAD00) | (0x000000FF & (uint32_t) rcause_bf.reg);
+  main_log_data((uint8_t *)&reset_cause, sizeof(uint32_t), true);
 
   /* Errata 39.3.2 -- device may not wake up from
    * standby if nvm goes to sleep. Not needed
