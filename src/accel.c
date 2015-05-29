@@ -40,6 +40,10 @@
 #define USE_SELF_TEST       false
 #endif
 
+#ifndef
+#define DEBUG_AX_ISR false
+#endif
+
 #define AX_SDA_PIN      PIN_PA08
 #define AX_SDA_PAD      PINMUX_PA08C_SERCOM0_PAD0
 #define AX_SCL_PIN      PIN_PA09
@@ -185,7 +189,7 @@
 #define WAKEUP_CLICK_TIME_LIM      MS_TO_ODRS(40, SLEEP_SAMPLE_INT)
 #define WAKEUP_CLICK_TIME_LAT      MS_TO_ODRS(40, SLEEP_SAMPLE_INT) //ms
 
-#define MULTI_CLICK_WINDOW_MS 220
+#define MULTI_CLICK_WINDOW_MS 350
 
 #define Z_DOWN_THRESHOLD        8 //assumes 4g scale
 #define Z_DOWN_DUR_MS           200
@@ -355,7 +359,7 @@ static void wait_for_up_conf( void ) {
   accel_register_write (AX_REG_INT1_THS, Z_UP_THRESHOLD);
   accel_register_write (AX_REG_INT1_DUR, Z_UP_DUR_ODR);
   accel_register_write (AX_REG_FIFO_CTL, STREAM_TO_FIFO );
-  accel_register_write (AX_REG_INT1_CFG, AOI_MOV | ZHIE);
+  accel_register_write (AX_REG_INT1_CFG, AOI_POS | ZHIE);
 }
 
 static void wait_for_down_conf( void ) {
@@ -367,7 +371,7 @@ static void wait_for_down_conf( void ) {
   accel_register_write (AX_REG_INT1_THS, XY_DOWN_THRESHOLD_ABS);
   accel_register_write (AX_REG_INT1_DUR, XY_DOWN_DUR_ODR);
   accel_register_write (AX_REG_FIFO_CTL, STREAM_TO_FIFO );
-  accel_register_write (AX_REG_INT1_CFG, AOI_MOV | XLIE | YLIE );
+  accel_register_write (AX_REG_INT1_CFG, AOI_POS | XLIE | YLIE );
 }
 
 static bool accel_register_consecutive_read (uint8_t start_reg, uint8_t count,
@@ -418,6 +422,7 @@ static bool accel_register_write (uint8_t reg, uint8_t val) {
 
   return true;
 }
+
 
 static void accel_isr(void) {
   system_interrupt_disable_global();
