@@ -40,7 +40,7 @@
 #define USE_SELF_TEST       false
 #endif
 
-#define DEBUG_AX_ISR true
+//#define DEBUG_AX_ISR true
 
 #ifndef DEBUG_AX_ISR
 #define DEBUG_AX_ISR false
@@ -431,7 +431,7 @@ static void accel_isr(void) {
 
   accel_register_consecutive_read(AX_REG_CLICK_SRC, 1, &click_flags.b8);
   accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &int_flags.b8);
-#ifdef DEBUG_AX_ISR
+#if DEBUG_AX_ISR
   _led_on_full(15);
   delay_ms(50);
   _led_off_full(15);
@@ -444,7 +444,7 @@ static void accel_isr(void) {
 static void accel_wakeup_state_refresh(void) {
 
 
-#ifdef DEBUG_AX_ISR
+#if DEBUG_AX_ISR
     _led_on_full(30 + wake_gesture_state);
     delay_ms(50);
     _led_off_full(30 + wake_gesture_state);
