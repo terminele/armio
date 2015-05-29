@@ -47,7 +47,7 @@
 /* Starting flash address at which to store data */
 #define NVM_ADDR_START      ((1 << 15) + (1 << 14)) /* assumes program size < 48KB */
 #define NVM_CONF_ADDR       NVM_ADDR_START
-#define NVM_CONF_STORE_SIZE (64)
+#define NVM_CONF_STORE_SIZE NVMCTRL_ROW_SIZE
 #define NVM_LOG_ADDR_START  (NVM_ADDR_START + NVM_CONF_STORE_SIZE)
 #define NVM_LOG_ADDR_MAX     NVM_MAX_ADDR
 
@@ -786,7 +786,11 @@ int main (void) {
   if( rcause_bf.bit.POR || rcause_bf.bit.BOD12 || rcause_bf.bit.BOD33 ) {
     /* TODO : jump into set time mode instead of general startup */
   }
-  reset_cause = ((uint32_t) 0xBADBAD00) | (0x000000FF & (uint32_t) rcause_bf.reg);
+  reset_cause = 0x000000FF & (uint32_t) rcause_bf.reg;
+  reset_cause |= 0xBADBAD00;
+  main_log_data((uint8_t *)&reset_cause, sizeof(uint32_t), true);
+
+  reset_cause = 0xABCD1234;
   main_log_data((uint8_t *)&reset_cause, sizeof(uint32_t), true);
 
   /* Errata 39.3.2 -- device may not wake up from
