@@ -81,7 +81,7 @@ void rtc_alarm_short_callback( void ) {
     /* Set next alarm */
     //alarm.time.minute += 1;
     //alarm.time.minute %= 60;
-    alarm.time.second += 15;
+    alarm.time.second += 10;
 
     if (alarm.time.second > 59) {
       alarm.time.minute+=1;
@@ -162,10 +162,10 @@ int32_t aclock_get_timestamp ( void ) {
   global_state.minute = curr_time.minute;
   global_state.second = curr_time.second;
 
-  uint32_t value = (global_state.year - 1970)*SECONDS_PER_YEAR;
+  int32_t value = ((uint32_t)global_state.year - 1970)*SECONDS_PER_YEAR;
 
   //account for extra day in leap years
-  value += ((global_state.year - 1970)/4)*SECONDS_PER_DAY;
+  value += ((uint32_t)(global_state.year - 1970)/4)*SECONDS_PER_DAY;
 
   switch (global_state.month) {
     /* Each case accounts for the days of
@@ -199,9 +199,9 @@ int32_t aclock_get_timestamp ( void ) {
       break;
   }
 
-  value+=global_state.day*SECONDS_PER_DAY;
-  value+=global_state.hour*3600;
-  value+=global_state.minute*60;
+  value+=((uint32_t)global_state.day)*SECONDS_PER_DAY;
+  value+=((uint32_t)global_state.hour)*3600;
+  value+=((uint32_t)global_state.minute)*60;
   value+=global_state.second;
 
   return value;
@@ -228,11 +228,12 @@ void aclock_init( void ) {
     initial_time.month  = global_state.month = __MONTH__;//10;
     initial_time.day    =  global_state.day = __DAY__;//10;
 
-    /* Use compile time for initial time */ initial_time.hour   = global_state.hour =  __HOUR__;//10*(__TIME__[0] - '0') +  (__TIME__[1] - '0');
+    /* Use compile time for initial time */
+    initial_time.hour   = global_state.hour =  __HOUR__;//10*(__TIME__[0] - '0') +  (__TIME__[1] - '0');
     initial_time.minute = global_state.minute = __MIN__;//10*(__TIME__[3] - '0') +  (__TIME__[4] - '0');
     initial_time.second = global_state.second = __SEC__;//10*(__TIME__[6] - '0') +  (__TIME__[7] - '0') % 60;
 
-    config_rtc_calendar.clock_24h = false;
+    config_rtc_calendar.clock_24h = true;
     config_rtc_calendar.prescaler  = RTC_CALENDAR_PRESCALER_DIV_1024;
     config_rtc_calendar.continuously_update = true;
     config_rtc_calendar.alarm[0] = alarm;
