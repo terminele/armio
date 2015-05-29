@@ -39,6 +39,33 @@ void anim_update( animation_t *anim);
 //___ V A R I A B L E S ______________________________________________________
 animation_t animation_allocs[MAX_ANIMATION_ALLOCS] = {{0}};
 animation_t *head_anim_ptr = NULL;
+const uint8_t flicker_pattern[] =  \
+{60,
+ 15,
+ 135,
+ 15,
+ 75,
+ 15,
+ 200,
+ 5,
+ 220,
+ 15,
+ 240,
+ 30,
+ 60,
+ 15,
+ 15,
+ 15,
+ 30,
+ 60,
+ 15,
+ 15,
+ 30,
+ //165,
+ //240,
+ 75,
+ 15};
+
 //___ I N T E R R U P T S  ___________________________________________________
 
 //___ F U N C T I O N S   ( P R I V A T E ) __________________________________
@@ -109,6 +136,21 @@ void anim_update( animation_t *anim ) {
         anim->step *= -1;
       }
       break;
+    case animt_flicker:
+      anim->tick_interval = MS_IN_TICKS(flicker_pattern[anim->index]);
+      anim->index++;
+      if (anim->index == sizeof(flicker_pattern)/sizeof(*flicker_pattern)) {
+        anim->index = 0;
+      }
+
+      if (anim->disp_comp->on) {
+        display_comp_hide(anim->disp_comp);
+      } else {
+        display_comp_show(anim->disp_comp);
+      }
+
+      break;
+
     default:
       main_terminate_in_error( error_group_animation,
           ANIM_ERROR_BAD_TYPE( anim->type ) );
@@ -227,7 +269,6 @@ animation_t* anim_cutout(display_comp_t *disp_comp,
 animation_t* anim_blink(display_comp_t *disp_comp, uint16_t tick_interval,
     uint16_t tick_duration, bool autorelease) {
 
-
   animation_t *anim = anim_alloc();
 
   anim->type = animt_blink;
@@ -246,6 +287,28 @@ animation_t* anim_blink(display_comp_t *disp_comp, uint16_t tick_interval,
   return anim;
 }
 
+
+animation_t* anim_flicker(display_comp_t *disp_comp,
+    uint16_t tick_duration, bool autorelease) {
+
+  animation_t *anim = anim_alloc();
+
+  anim->type = animt_flicker;
+  anim->enabled = true;
+  anim->autorelease_disp_comp = autorelease;
+  anim->autorelease_anim = autorelease;
+  anim->disp_comp = disp_comp;
+  anim->tick_interval = MS_IN_TICKS(flicker_pattern[0]);
+  anim->index = 1;
+  anim->tick_duration = tick_duration;
+  anim->interval_counter = 0;
+
+  anim->prev = anim->next = NULL;
+
+  DL_APPEND(head_anim_ptr, anim);
+
+  return anim;
+}
 animation_t* anim_yoyo(display_comp_t *disp_comp, uint8_t len,
     uint16_t tick_interval, int16_t yos, bool autorelease) {
 

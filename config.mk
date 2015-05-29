@@ -48,8 +48,8 @@ ifndef chip
 endif
 
 ifndef debugger
-    debugger=atmel-ice
-    $(info defaulting to atmel-ice debugger)
+    debugger=jlink
+    $(info defaulting to jlink debugger)
 endif
 
 DEBUGGER_CFG=utils/$(debugger).cfg
@@ -273,14 +273,15 @@ CPPFLAGS = \
        -D __HOUR__=$(_HOUR_)				  \
        -D __MIN__=$(_MIN_)				  \
        -D __SEC__=$(_SEC_)				  \
+       #-D FLICKER_MIN_MODE
        #-D USE_WAKEUP_ALARM				  \
        #-D NO_ACCEL
        #-D SIMPLE_TIME_MODE
        #-D LOG_ACCEL					  \
        #-D ENABLE_BUTTON				  	  \
 
-ifdef simple_time
-    CPPFLAGS+= -D SIMPLE_TIME_MODE=$(simple_time)
+ifdef flicker_time
+    CPPFLAGS+= -D FLICKER_MIN_MODE=$(flicker_time)
 endif
 
 ifdef self_test

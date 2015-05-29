@@ -29,6 +29,7 @@ typedef enum {
     animt_blink,
     animt_cut,
     animt_yoyo,
+    animt_flicker,
 } animation_type_t;
 
 typedef struct animation_t {
@@ -37,7 +38,11 @@ typedef struct animation_t {
     uint16_t tick_interval; //update interval in ticks
     int32_t tick_duration; //duration in ticks
 
-    int8_t step; //only applicable for rotations and yoyos
+    union {
+      int8_t step; //only applicable for rotations and yoyos
+      int8_t index; //used for flicker transitioning
+    };
+
     uint8_t len; //only applicable for yoyos
     uint8_t bright_start; //only applicable for fades
     uint8_t bright_end; //only applicable for fades
@@ -117,6 +122,16 @@ animation_t* anim_blink(display_comp_t *disp_comp, uint16_t tick_interval,
   /* @brief blinks the component for the given duration, then hides it
    * @param disp_comp - display component to animate
    * @param tick_interval - blink interval in ticks
+   * @param tick_duration - duration that component should be shown (or
+   * ANIM_DURATION_INF for indefinite)
+   * @param autorelease - if animation and display comp should be freed at completion
+   * @retrn None
+   */
+
+animation_t* anim_flicker(display_comp_t *disp_comp,
+    uint16_t tick_duration, bool autorelease);
+  /* @brief flickers the component on/off based on flicker pattern
+   * @param disp_comp - display component to animate
    * @param tick_duration - duration that component should be shown (or
    * ANIM_DURATION_INF for indefinite)
    * @param autorelease - if animation and display comp should be freed at completion

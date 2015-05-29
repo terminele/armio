@@ -40,7 +40,9 @@
 #define USE_SELF_TEST       false
 #endif
 
-#ifndef
+#define DEBUG_AX_ISR true
+
+#ifndef DEBUG_AX_ISR
 #define DEBUG_AX_ISR false
 #endif
 

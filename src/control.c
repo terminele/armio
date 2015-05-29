@@ -35,8 +35,8 @@
  * estimate a good tick timeout count */
 #define EDIT_FINISH_TIMEOUT_TICKS   MS_IN_TICKS(1500)
 
-#ifndef SIMPLE_TIME_MODE
-  #define SIMPLE_TIME_MODE false
+#ifndef FLICKER_MIN_MODE
+  #define FLICKER_MIN_MODE false
 #endif
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 
@@ -646,7 +646,10 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     aclock_get_time(&hour, &minute, &second);
 
     hour_fifths = minute/12;
-    hour = hour % 12;
+    if (hour > 12) {
+      hour = hour % 12;
+    }
+
     hour_anim_tick_int = MS_IN_TICKS(HOUR_ANIM_DUR_MS/(hour * 5));
     switch(phase) {
         case INIT:
@@ -677,11 +680,11 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
             if (anim_is_finished(anim_ptr)) {
                 anim_release(anim_ptr);
                 min_disp_ptr = display_point(minute, BRIGHT_DEFAULT);
-#if SIMPLE_TIME_MODE
-                /* In "simple" time mode (aka walker mode), dont blink animate
-                 * the minute hand and don't show seconds */
-                anim_ptr = NULL;
-                phase = DISP_ALL;
+#if FLICKER_MIN_MODE
+                min_disp_ptr->on = false;
+                anim_ptr = anim_flicker(min_disp_ptr,
+                  MS_IN_TICKS(1000), false);
+                phase = ANIM_MIN;
 #else
                 anim_ptr = anim_blink(min_disp_ptr, MS_IN_TICKS(400),
                         MS_IN_TICKS(4000), false);
