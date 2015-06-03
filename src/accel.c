@@ -189,7 +189,7 @@
 #define WAKEUP_CLICK_THS     43 //assumes 4g scale
 #define WAKEUP_CLICK_TIME_WIN      MS_TO_ODRS(300, SLEEP_SAMPLE_INT)
 #define WAKEUP_CLICK_TIME_LIM      MS_TO_ODRS(60, SLEEP_SAMPLE_INT)
-#define WAKEUP_CLICK_TIME_LAT      MS_TO_ODRS(80, SLEEP_SAMPLE_INT) //ms
+#define WAKEUP_CLICK_TIME_LAT      MS_TO_ODRS(30, SLEEP_SAMPLE_INT) //ms
 
 #define MULTI_CLICK_WINDOW_MS 350
 
@@ -745,8 +745,10 @@ void accel_sleep ( void ) {
 #ifdef NO_ACCEL
   return;
 #endif
-  accel_data_read(&x, &y, &z);
+  /* Reset click counters */
+  click_count.x = click_count.y = click_count.z = 0;
 
+  accel_data_read(&x, &y, &z);
 
   accel_register_write ( AX_REG_CTL1,
       ( SLEEP_ODR | X_EN | Y_EN | Z_EN |
