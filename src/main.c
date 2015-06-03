@@ -32,7 +32,6 @@
 
 #define MAIN_TIMER  TC5
 
-#define DEFAULT_SLEEP_TIMEOUT_TICKS     MS_IN_TICKS(7000)
 
 /* tick count before considering a button press "long" */
 #define LONG_PRESS_TICKS    MS_IN_TICKS(1500)
@@ -466,11 +465,19 @@ static void main_tic( void ) {
           main_gs.inactivity_ticks > \
           ctrl_mode_active->sleep_timeout_ticks ||
           (IS_CONTROL_MODE_SHOW_TIME() && event_flags & EV_FLAG_ACCEL_Z_LOW &&
+           main_get_waketime_ms() > 300) ||
+
+          (IS_CONTROL_MODE_SHOW_TIME() && event_flags & EV_FLAG_ACCEL_TCLICK_X &&
            main_get_waketime_ms() > 300)
 #endif
 
           ) {
         /* A sleep event has occurred */
+
+        if (IS_CONTROL_MODE_SHOW_TIME() && event_flags & EV_FLAG_ACCEL_TCLICK_X &&
+            main_get_waketime_ms() > 300) {
+            accel_wakeup_gesture_enabled = !accel_wakeup_gesture_enabled;
+        }
 
         main_gs.state = ENTERING_SLEEP;
 
