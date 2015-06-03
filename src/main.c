@@ -408,7 +408,7 @@ static void main_tic( void ) {
       return;
     case ENTERING_SLEEP:
       /* Wait until animation is finished to sleep */
-      if (anim_is_finished(sleep_wake_anim)) {
+      if (!sleep_wake_anim || anim_is_finished(sleep_wake_anim)) {
         anim_release(sleep_wake_anim);
 
         /* Reset control mode to main (time display) mode */
@@ -488,7 +488,11 @@ static void main_tic( void ) {
 
         display_comp_hide_all();
 
+#ifdef NO_TIME_ANIMATION
+        sleep_wake_anim = NULL;
+#else
         sleep_wake_anim = anim_swirl(0, 5, MS_IN_TICKS(5), 57, false);
+#endif
         return;
       }
 

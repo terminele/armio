@@ -273,9 +273,11 @@ CPPFLAGS = \
        -D __HOUR__=$(_HOUR_)				  \
        -D __MIN__=$(_MIN_)				  \
        -D __SEC__=$(_SEC_)				  \
-       #-D FLICKER_MIN_MODE
        #-D USE_WAKEUP_ALARM				  \
+       #-D NO_TIME_ANIMATION				  \
        #-D NO_ACCEL
+       #-D SHOW_SEC
+       #-D FLICKER_MIN_MODE
        #-D SIMPLE_TIME_MODE
        #-D LOG_ACCEL					  \
        #-D ENABLE_BUTTON				  	  \

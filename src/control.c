@@ -658,7 +658,12 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     switch(phase) {
         case INIT:
 
-
+#ifdef NO_TIME_ANIMATION
+            min_disp_ptr = display_point(minute, BRIGHT_DEFAULT);
+            hour_disp_ptr = display_snake(HOUR_POS(hour), MAX_BRIGHT_VAL,
+                      hour_fifths + 1, true);
+            phase = DISP_ALL;
+#else
             if (hour == 1) {
                 /* For hour 1 a swirl doesnt animate, so draw a 'growing snake' */
                 anim_ptr = anim_snake_grow( 0, 5, hour_anim_tick_int, false );
@@ -667,6 +672,7 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
             }
 
             phase = ANIM_HOUR_SWIRL;
+#endif
             break;
         case ANIM_HOUR_SWIRL:
 
@@ -701,16 +707,18 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
             if (anim_is_finished(anim_ptr)) {
                 anim_release(anim_ptr);
                 anim_ptr = NULL;
-
+#ifdef SHOW_SEC
                 sec_disp_ptr = display_point(second, MIN_BRIGHT_VAL);
-
+#endif
                 phase = DISP_ALL;
             }
             break;
 
         case DISP_ALL:
             display_comp_show_all();
+#ifdef SHOW_SEC
             display_comp_update_pos(sec_disp_ptr, second);
+#endif
             display_comp_update_pos(min_disp_ptr, minute);
             display_comp_update_pos(hour_disp_ptr, HOUR_POS(hour));
             display_comp_update_length(hour_disp_ptr, hour_fifths + 1);

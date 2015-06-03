@@ -11,17 +11,20 @@
 #include "main.h"
 
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
-
+#ifndef ALARM_INTERVAL_SEC
+#define ALARM_INTERVAL_SEC 15
+#endif
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 
 //___ P R O T O T Y P E S   ( P R I V A T E ) ________________________________
 
-void rtc_alarm_minute_callback( void );
-  /* @brief minute alarm callback
+void rtc_alarm_short_callback( void );
+  /* @brief alarm callback
    * then schedules next alarm
    * @param None
    * @retrn None
    */
+
 void aclock_sync_ready_cb ( void );
   /* @brief callback after an RTC read sync
    * is finished and we can read an updated
@@ -41,38 +44,7 @@ static aclock_state_t global_state;
 
 //___ F U N C T I O N S   ( P R I V A T E ) __________________________________
 
-#ifdef NOT_NOW
-void rtc_alarm_s_callback( void ) {
-    struct rtc_calendar_time curr_time;
-    //user_tick_cb();
-    /* Set next alarm for a second later */
-    alarm.mask = RTC_CALENDAR_ALARM_MASK_SEC;
-    alarm.time.second += 1;
-    alarm.time.second = alarm.time.second % 60;
-
-    rtc_calendar_set_alarm(&rtc_instance, &alarm, RTC_CALENDAR_ALARM_0);
-
-    /* Update our time state */
-
-
-
-}
-
-#endif
-
 #ifdef USE_WAKEUP_ALARM
-void rtc_alarm_minute_callback( void ) {
-
-    aclock_enable();
-
-    /* Set next alarm */
-    alarm.time.minute += 1;
-    alarm.time.minute %= 60;
-    alarm.time.second = 0;
-
-    rtc_calendar_set_alarm(&rtc_instance, &alarm, RTC_CALENDAR_ALARM_0);
-
-}
 
 void rtc_alarm_short_callback( void ) {
 
@@ -81,7 +53,7 @@ void rtc_alarm_short_callback( void ) {
     /* Set next alarm */
     //alarm.time.minute += 1;
     //alarm.time.minute %= 60;
-    alarm.time.second += 10;
+    alarm.time.second += ALARM_INTERVAL_SEC;
 
     if (alarm.time.second > 59) {
       alarm.time.minute+=1;
@@ -252,15 +224,21 @@ void aclock_init( void ) {
     rtc_calendar_enable_callback(&rtc_instance, RTC_CALENDAR_CALLBACK_SYNCRDY);
 
 #ifdef USE_WAKEUP_ALARM
-    /* Configure alarm to trigger every minute    */
-    alarm.time.second = 0;
-    alarm.time.minute = (initial_time.minute + 1) % 60;
+    /* Configure alarm  */
+    alarm.time.second = initial_time.second + ALARM_INTERVAL_SEC;
+    alarm.time.minute = initial_time.minute;
+
+    if (alarm.time.second >= 60) {
+      alarm.time.second %= 60;
+      alarm.time.minute++;
+    }
+
     alarm.mask = RTC_CALENDAR_ALARM_MASK_MIN;
     rtc_calendar_set_alarm(&rtc_instance, &alarm, RTC_CALENDAR_ALARM_0);
 
     /* Register ready callback */
     rtc_calendar_register_callback( &rtc_instance,
-        rtc_alarm_short_callback/*rtc_alarm_minute_callback*/, RTC_CALENDAR_ALARM_0);
+        rtc_alarm_short_callback, RTC_CALENDAR_ALARM_0);
 
     rtc_calendar_enable_callback(&rtc_instance, RTC_CALENDAR_ALARM_0);
 #endif
