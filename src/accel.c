@@ -442,6 +442,10 @@ static void accel_isr(void) {
      _DISP_ERROR(7);
   }
 
+  /* HACK - give time for accelerometer to release interrupt after
+   * reading interrupt registers */
+  delay_ms(5);
+
 #if DEBUG_AX_ISR
   _led_on_full(15*click_flags.ia + 5*int_flags.ia);
   delay_ms(5);
