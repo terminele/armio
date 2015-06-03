@@ -40,7 +40,7 @@
 #define USE_SELF_TEST       false
 #endif
 
-//#define DEBUG_AX_ISR true
+#define DEBUG_AX_ISR false
 
 #ifndef DEBUG_AX_ISR
 #define DEBUG_AX_ISR false
@@ -186,10 +186,10 @@
 #define SLEEP_ODR          ODR_100HZ
 #define SLEEP_SAMPLE_INT   SAMPLE_INT_100HZ
 
-#define WAKEUP_CLICK_THS     46 //assumes 4g scale
-#define WAKEUP_CLICK_TIME_WIN      MS_TO_ODRS(200, SLEEP_SAMPLE_INT)
-#define WAKEUP_CLICK_TIME_LIM      MS_TO_ODRS(40, SLEEP_SAMPLE_INT)
-#define WAKEUP_CLICK_TIME_LAT      MS_TO_ODRS(40, SLEEP_SAMPLE_INT) //ms
+#define WAKEUP_CLICK_THS     43 //assumes 4g scale
+#define WAKEUP_CLICK_TIME_WIN      MS_TO_ODRS(300, SLEEP_SAMPLE_INT)
+#define WAKEUP_CLICK_TIME_LIM      MS_TO_ODRS(60, SLEEP_SAMPLE_INT)
+#define WAKEUP_CLICK_TIME_LAT      MS_TO_ODRS(80, SLEEP_SAMPLE_INT) //ms
 
 #define MULTI_CLICK_WINDOW_MS 350
 
@@ -243,6 +243,8 @@ static void wait_for_down_conf( void );
 
 static void wait_for_up_conf( void );
 
+static void accel_reset ( void );
+
 static void run_self_test( void );
   /* @brief run the self test on the acceleration module
    *        expect an output change of between 17 and 360, defined by
@@ -256,11 +258,14 @@ static void run_self_test( void );
 
 //___ V A R I A B L E S ______________________________________________________
 
+bool accel_wakeup_gesture_enabled = true;
+
 static uint16_t i2c_addr = AX_ADDRESS0;
 
 /* timestamp of most recent y down interrupt */
 static bool accel_down = false;
 static int32_t accel_down_start_ms = 0;
+
 
 static struct {
   uint32_t x,y,z;
@@ -429,12 +434,18 @@ static bool accel_register_write (uint8_t reg, uint8_t val) {
 static void accel_isr(void) {
   system_interrupt_disable_global();
 
-  accel_register_consecutive_read(AX_REG_CLICK_SRC, 1, &click_flags.b8);
-  accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &int_flags.b8);
+  if (!accel_register_consecutive_read(AX_REG_CLICK_SRC, 1, &click_flags.b8)) {
+     _DISP_ERROR(5);
+  }
+
+  if (!accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &int_flags.b8)) {
+     _DISP_ERROR(7);
+  }
+
 #if DEBUG_AX_ISR
-  _led_on_full(15);
-  delay_ms(50);
-  _led_off_full(15);
+  _led_on_full(15*click_flags.ia + 5*int_flags.ia);
+  delay_ms(5);
+  _led_off_full(15*click_flags.ia + 5*int_flags.ia);
 #endif
   extint_chan_clear_detected(AX_INT1_CHAN);
   system_interrupt_enable_global();
@@ -443,15 +454,13 @@ static void accel_isr(void) {
 
 static void accel_wakeup_state_refresh(void) {
 
-
-#if DEBUG_AX_ISR
-    _led_on_full(30 + wake_gesture_state);
-    delay_ms(50);
-    _led_off_full(30 + wake_gesture_state);
-#endif
-
   if (click_flags.ia) {
     wake_gesture_state = WAKE_DCLICK;
+    return;
+  }
+
+  if (!accel_wakeup_gesture_enabled) {
+     _DISP_ERROR(42);
     return;
   }
 
@@ -462,6 +471,10 @@ static void accel_wakeup_state_refresh(void) {
       _DISP_ERROR(56);
     }
 
+    /* The accelerometer is in an error state so reset it
+     * and force a wakeup */
+    accel_reset();
+    wake_gesture_state = WAKE_DCLICK;
     return;
 
   }
@@ -677,6 +690,7 @@ bool accel_data_read (int16_t *x_ptr, int16_t *y_ptr, int16_t *z_ptr) {
   return true;
 }
 
+
 void accel_enable ( void ) {
   //i2c_master_enable(&i2c_master_instance);
 
@@ -738,18 +752,30 @@ void accel_sleep ( void ) {
   accel_register_write (AX_REG_CLICK_CFG, X_DCLICK);
   accel_register_write (AX_REG_CLICK_THS, WAKEUP_CLICK_THS);
 
-  accel_register_write (AX_REG_CTL3,  I1_CLICK_EN | I1_AOI1_EN );
-
-  /* Configure interrupt to detect orientation down (Y LOW) */
-  wait_for_down_conf();
+  accel_register_write (AX_REG_CTL3,  I1_CLICK_EN );
 
   /* Configure click parameters */
   accel_register_write (AX_REG_TIME_WIN, WAKEUP_CLICK_TIME_WIN);
   accel_register_write (AX_REG_TIME_LIM, WAKEUP_CLICK_TIME_LIM);
   accel_register_write (AX_REG_TIME_LAT, WAKEUP_CLICK_TIME_LAT);
 
+
+  if (accel_wakeup_gesture_enabled) {
+    /* Configure interrupt to detect orientation down (Y LOW) */
+    accel_register_write (AX_REG_CTL3,  I1_CLICK_EN | I1_AOI1_EN );
+    wait_for_down_conf();
+
+  }
+
+
   extint_chan_enable_callback(AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
 
+}
+
+static void accel_reset ( void ) {
+
+  accel_register_write (AX_REG_CTL5, BOOT);
+  accel_enable();
 }
 
 static event_flags_t click_timeout_event_check( void ) {

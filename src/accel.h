@@ -16,7 +16,7 @@
 //___ T Y P E D E F S ________________________________________________________
 
 //___ V A R I A B L E S ______________________________________________________
-
+extern bool accel_wakeup_gesture_enabled;
 //___ P R O T O T Y P E S ____________________________________________________
 
 bool accel_data_read (int16_t *x_ptr, int16_t *y_ptr, int16_t *z_ptr);

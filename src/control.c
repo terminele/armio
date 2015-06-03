@@ -12,7 +12,7 @@
 #include "utils.h"
 
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
-#define CLOCK_MODE_SLEEP_TIMEOUT_TICKS                  MS_IN_TICKS(6000)
+#define CLOCK_MODE_SLEEP_TIMEOUT_TICKS                  MS_IN_TICKS(7000)
 #define TIME_SET_MODE_EDITING_SLEEP_TIMEOUT_TICKS       MS_IN_TICKS(80000)
 #define TIME_SET_MODE_NOEDIT_SLEEP_TIMEOUT_TICKS        MS_IN_TICKS(8000)
 #define EE_MODE_SLEEP_TIMEOUT_TICKS                     MS_IN_TICKS(8000)
@@ -322,6 +322,7 @@ bool ee_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
         /* Setup EE depending on code */
         switch (ee_code) {
             case 0x413:
+            case 0x13:
                 disp_vals[0] =  562951413UL;
                 disp_vals[1] =  323979853UL;
                 disp_vals[2] =  833462648UL;
@@ -613,6 +614,7 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     static enum { INIT, ANIM_HOUR_SWIRL, ANIM_HOUR_YOYO,
         ANIM_MIN, DISP_ALL } phase = INIT;
 
+    static display_comp_t *sec_disp_ptr = NULL;
     static display_comp_t *min_disp_ptr = NULL;
     static display_comp_t *hour_disp_ptr = NULL;
     static animation_t *anim_ptr = NULL;
@@ -633,8 +635,10 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
         anim_release(anim_ptr);
         display_comp_release(hour_disp_ptr);
         display_comp_release(min_disp_ptr);
+        display_comp_release(sec_disp_ptr);
         hour_disp_ptr = NULL;
         min_disp_ptr = NULL;
+        sec_disp_ptr = NULL;
         anim_ptr = NULL;
 
         phase = INIT;
@@ -683,7 +687,7 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
 #if FLICKER_MIN_MODE
                 min_disp_ptr->on = false;
                 anim_ptr = anim_flicker(min_disp_ptr,
-                  MS_IN_TICKS(1000), false);
+                  MS_IN_TICKS(2000), false);
                 phase = ANIM_MIN;
 #else
                 anim_ptr = anim_blink(min_disp_ptr, MS_IN_TICKS(200),
@@ -698,12 +702,15 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
                 anim_release(anim_ptr);
                 anim_ptr = NULL;
 
+                sec_disp_ptr = display_point(second, MIN_BRIGHT_VAL);
+
                 phase = DISP_ALL;
             }
             break;
 
         case DISP_ALL:
             display_comp_show_all();
+            display_comp_update_pos(sec_disp_ptr, second);
             display_comp_update_pos(min_disp_ptr, minute);
             display_comp_update_pos(hour_disp_ptr, HOUR_POS(hour));
             display_comp_update_length(hour_disp_ptr, hour_fifths + 1);
