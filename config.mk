@@ -273,14 +273,15 @@ CPPFLAGS = \
        -D __HOUR__=$(_HOUR_)				  \
        -D __MIN__=$(_MIN_)				  \
        -D __SEC__=$(_SEC_)				  \
+       #-D FLICKER_MIN_MODE
        #-D USE_WAKEUP_ALARM				  \
        #-D NO_TIME_ANIMATION				  \
-       #-D NO_ACCEL
+       #-D NO_ACCEL					\
        #-D SHOW_SEC
-       #-D FLICKER_MIN_MODE
        #-D SIMPLE_TIME_MODE
        #-D LOG_ACCEL					  \
        #-D ENABLE_BUTTON				  	  \
+
 
 ifdef flicker_time
     CPPFLAGS+= -D FLICKER_MIN_MODE=$(flicker_time)
@@ -294,7 +295,7 @@ endif
 LDFLAGS =
 
 # Pre- and post-build commands
-PREBUILD_CMD = touch src/aclock.c;
+PREBUILD_CMD = touch src/aclock.c; touch src/control.c;
 ifdef test
     if [-a bin/src/main.o]; \
 	then \
