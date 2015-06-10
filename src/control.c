@@ -12,7 +12,7 @@
 #include "utils.h"
 
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
-#define CLOCK_MODE_SLEEP_TIMEOUT_TICKS                  MS_IN_TICKS(6000)
+#define CLOCK_MODE_SLEEP_TIMEOUT_TICKS                  MS_IN_TICKS(7000)
 #define TIME_SET_MODE_EDITING_SLEEP_TIMEOUT_TICKS       MS_IN_TICKS(80000)
 #define TIME_SET_MODE_NOEDIT_SLEEP_TIMEOUT_TICKS        MS_IN_TICKS(8000)
 #define EE_MODE_SLEEP_TIMEOUT_TICKS                     MS_IN_TICKS(8000)
@@ -35,8 +35,8 @@
  * estimate a good tick timeout count */
 #define EDIT_FINISH_TIMEOUT_TICKS   MS_IN_TICKS(1500)
 
-#ifndef SIMPLE_TIME_MODE
-  #define SIMPLE_TIME_MODE false
+#ifndef FLICKER_MIN_MODE
+  #define FLICKER_MIN_MODE false
 #endif
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 
@@ -322,6 +322,7 @@ bool ee_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
         /* Setup EE depending on code */
         switch (ee_code) {
             case 0x413:
+            case 0x13:
                 disp_vals[0] =  562951413UL;
                 disp_vals[1] =  323979853UL;
                 disp_vals[2] =  833462648UL;
@@ -359,6 +360,7 @@ bool ee_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
                 break;
             case 0x1:
                 ee_submode_tic = event_debug_mode_tic;
+                break;
             case 0x2:
                 ee_submode_tic = tick_counter_mode_tic;
                 break;
@@ -612,6 +614,7 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     static enum { INIT, ANIM_HOUR_SWIRL, ANIM_HOUR_YOYO,
         ANIM_MIN, DISP_ALL } phase = INIT;
 
+    static display_comp_t *sec_disp_ptr = NULL;
     static display_comp_t *min_disp_ptr = NULL;
     static display_comp_t *hour_disp_ptr = NULL;
     static animation_t *anim_ptr = NULL;
@@ -632,8 +635,10 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
         anim_release(anim_ptr);
         display_comp_release(hour_disp_ptr);
         display_comp_release(min_disp_ptr);
+        display_comp_release(sec_disp_ptr);
         hour_disp_ptr = NULL;
         min_disp_ptr = NULL;
+        sec_disp_ptr = NULL;
         anim_ptr = NULL;
 
         phase = INIT;
@@ -645,11 +650,20 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     aclock_get_time(&hour, &minute, &second);
 
     hour_fifths = minute/12;
+    if (hour > 12) {
+      hour = hour % 12;
+    }
+
     hour_anim_tick_int = MS_IN_TICKS(HOUR_ANIM_DUR_MS/(hour * 5));
     switch(phase) {
         case INIT:
 
-
+#ifdef NO_TIME_ANIMATION
+            min_disp_ptr = display_point(minute, BRIGHT_DEFAULT);
+            hour_disp_ptr = display_snake(HOUR_POS(hour), MAX_BRIGHT_VAL,
+                      hour_fifths + 1, true);
+            phase = DISP_ALL;
+#else
             if (hour == 1) {
                 /* For hour 1 a swirl doesnt animate, so draw a 'growing snake' */
                 anim_ptr = anim_snake_grow( 0, 5, hour_anim_tick_int, false );
@@ -658,6 +672,7 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
             }
 
             phase = ANIM_HOUR_SWIRL;
+#endif
             break;
         case ANIM_HOUR_SWIRL:
 
@@ -675,14 +690,14 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
             if (anim_is_finished(anim_ptr)) {
                 anim_release(anim_ptr);
                 min_disp_ptr = display_point(minute, BRIGHT_DEFAULT);
-#if SIMPLE_TIME_MODE
-                /* In "simple" time mode (aka walker mode), dont blink animate
-                 * the minute hand and don't show seconds */
-                anim_ptr = NULL;
-                phase = DISP_ALL;
+#if FLICKER_MIN_MODE
+                min_disp_ptr->on = false;
+                anim_ptr = anim_flicker(min_disp_ptr,
+                  MS_IN_TICKS(2000), false);
+                phase = ANIM_MIN;
 #else
-                anim_ptr = anim_blink(min_disp_ptr, MS_IN_TICKS(400),
-                        MS_IN_TICKS(4000), false);
+                anim_ptr = anim_blink(min_disp_ptr, MS_IN_TICKS(200),
+                        MS_IN_TICKS(2000), false);
                 phase = ANIM_MIN;
 #endif
             }
@@ -692,13 +707,18 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
             if (anim_is_finished(anim_ptr)) {
                 anim_release(anim_ptr);
                 anim_ptr = NULL;
-
+#ifdef SHOW_SEC
+                sec_disp_ptr = display_point(second, MIN_BRIGHT_VAL);
+#endif
                 phase = DISP_ALL;
             }
             break;
 
         case DISP_ALL:
             display_comp_show_all();
+#ifdef SHOW_SEC
+            display_comp_update_pos(sec_disp_ptr, second);
+#endif
             display_comp_update_pos(min_disp_ptr, minute);
             display_comp_update_pos(hour_disp_ptr, HOUR_POS(hour));
             display_comp_update_length(hour_disp_ptr, hour_fifths + 1);

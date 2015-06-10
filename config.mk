@@ -48,8 +48,8 @@ ifndef chip
 endif
 
 ifndef debugger
-    debugger=atmel-ice
-    $(info defaulting to atmel-ice debugger)
+    debugger=jlink
+    $(info defaulting to jlink debugger)
 endif
 
 DEBUGGER_CFG=utils/$(debugger).cfg
@@ -238,7 +238,7 @@ CFLAGS = -mtune=$(ARCH)
 _YEAR_=$(shell date '+%-Y')
 _MONTH_=$(shell date '+%-m')
 _DAY_=$(shell date '+%-d')
-_HOUR_=$(shell date '+%-I')
+_HOUR_=$(shell date '+%-H')
 _MIN_=$(shell date '+%-M')
 _SEC_=$(shell date '+%-S')
 
@@ -265,7 +265,7 @@ CPPFLAGS = \
        -D NVM_MAX_ADDR=$(NVM_MAX_ADDR)			  \
        -D VBATT_NO_AVERAGE=false			  \
        -D ENABLE_LIGHT_SENSE=true			  \
-       -D ENABLE_VBATT=true			  	  \
+       -D ENABLE_VBATT=true				  \
        -D LOG_USAGE=true				  \
        -D __YEAR__=$(_YEAR_)				  \
        -D __MONTH__=$(_MONTH_)				  \
@@ -273,14 +273,18 @@ CPPFLAGS = \
        -D __HOUR__=$(_HOUR_)				  \
        -D __MIN__=$(_MIN_)				  \
        -D __SEC__=$(_SEC_)				  \
-       #-D SIMPLE_TIME_MODE
+       #-D FLICKER_MIN_MODE
        #-D USE_WAKEUP_ALARM				  \
-       #-D NO_ACCEL
+       #-D NO_TIME_ANIMATION				  \
+       #-D NO_ACCEL					\
+       #-D SHOW_SEC
+       #-D SIMPLE_TIME_MODE
        #-D LOG_ACCEL					  \
        #-D ENABLE_BUTTON				  	  \
 
-ifdef simple_time
-    CPPFLAGS+= -D SIMPLE_TIME_MODE=$(simple_time)
+
+ifdef flicker_time
+    CPPFLAGS+= -D FLICKER_MIN_MODE=$(flicker_time)
 endif
 
 ifdef self_test
@@ -291,7 +295,7 @@ endif
 LDFLAGS =
 
 # Pre- and post-build commands
-PREBUILD_CMD = touch src/aclock.c;
+PREBUILD_CMD = touch src/aclock.c; touch src/control.c;
 ifdef test
     if [-a bin/src/main.o]; \
 	then \

@@ -32,7 +32,6 @@
 
 #define MAIN_TIMER  TC5
 
-#define DEFAULT_SLEEP_TIMEOUT_TICKS     MS_IN_TICKS(7000)
 
 /* tick count before considering a button press "long" */
 #define LONG_PRESS_TICKS    MS_IN_TICKS(1500)
@@ -47,7 +46,7 @@
 /* Starting flash address at which to store data */
 #define NVM_ADDR_START      ((1 << 15) + (1 << 14)) /* assumes program size < 48KB */
 #define NVM_CONF_ADDR       NVM_ADDR_START
-#define NVM_CONF_STORE_SIZE (64)
+#define NVM_CONF_STORE_SIZE NVMCTRL_ROW_SIZE
 #define NVM_LOG_ADDR_START  (NVM_ADDR_START + NVM_CONF_STORE_SIZE)
 #define NVM_LOG_ADDR_MAX     NVM_MAX_ADDR
 
@@ -409,7 +408,7 @@ static void main_tic( void ) {
       return;
     case ENTERING_SLEEP:
       /* Wait until animation is finished to sleep */
-      if (anim_is_finished(sleep_wake_anim)) {
+      if (!sleep_wake_anim || anim_is_finished(sleep_wake_anim)) {
         anim_release(sleep_wake_anim);
 
         /* Reset control mode to main (time display) mode */
@@ -466,11 +465,19 @@ static void main_tic( void ) {
           main_gs.inactivity_ticks > \
           ctrl_mode_active->sleep_timeout_ticks ||
           (IS_CONTROL_MODE_SHOW_TIME() && event_flags & EV_FLAG_ACCEL_Z_LOW &&
+           main_get_waketime_ms() > 300) ||
+
+          (IS_CONTROL_MODE_SHOW_TIME() && event_flags & EV_FLAG_ACCEL_TCLICK_X &&
            main_get_waketime_ms() > 300)
 #endif
 
           ) {
         /* A sleep event has occurred */
+
+        if (IS_CONTROL_MODE_SHOW_TIME() && event_flags & EV_FLAG_ACCEL_TCLICK_X &&
+            main_get_waketime_ms() > 300) {
+            accel_wakeup_gesture_enabled = !accel_wakeup_gesture_enabled;
+        }
 
         main_gs.state = ENTERING_SLEEP;
 
@@ -481,7 +488,11 @@ static void main_tic( void ) {
 
         display_comp_hide_all();
 
+#ifdef NO_TIME_ANIMATION
+        sleep_wake_anim = NULL;
+#else
         sleep_wake_anim = anim_swirl(0, 5, MS_IN_TICKS(5), 57, false);
+#endif
         return;
       }
 
@@ -786,8 +797,12 @@ int main (void) {
   if( rcause_bf.bit.POR || rcause_bf.bit.BOD12 || rcause_bf.bit.BOD33 ) {
     /* TODO : jump into set time mode instead of general startup */
   }
-  //reset_cause = ((uint32_t) 0xBADBAD00) | ((uint32_t) rcause_bf.reg);
-  //main_log_data((uint8_t *)&reset_cause, sizeof(uint32_t), true);
+  reset_cause = 0x000000FF & (uint32_t) rcause_bf.reg;
+  reset_cause |= 0xBADBAD00;
+  main_log_data((uint8_t *)&reset_cause, sizeof(uint32_t), true);
+
+  reset_cause = 0xABCD1234;
+  main_log_data((uint8_t *)&reset_cause, sizeof(uint32_t), true);
 
   /* Errata 39.3.2 -- device may not wake up from
    * standby if nvm goes to sleep. Not needed

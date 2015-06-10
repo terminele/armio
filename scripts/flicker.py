@@ -20,8 +20,8 @@ import math
 
 import matplotlib.pyplot as plt
 
-TOTAL_TIME_MS = 800
-DT_MS = 8
+TOTAL_TIME_MS = 2000
+DT_MS = 15
 INTERVALS = int(TOTAL_TIME_MS / DT_MS)
 TI = [ i * DT_MS for i in xrange(INTERVALS) ]
 
@@ -79,6 +79,9 @@ def run_test( noise, filt ):
 #    plt.ylim( -0.1, 1.1 )
     plt.show()
     return convert(yb)
+
+def transition_deltas( switches ):
+    return [ b[0] - a[0] for a,b in zip(switches[:-1], switches[1:]) ]
 
 def convert( y, dt=DT_MS ):
     yc = -1
