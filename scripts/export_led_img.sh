@@ -11,7 +11,7 @@ layer_off () {
     TO=none
     TAG=$1
     sed -i "N;N;s/\($TAG\".*\)$FROM/\1$TO/" $IMG_FILE
-    sed -i "N;N;s/$FROM\(.*$TAG\)/$TO\1/" $IMG_FILE
+    sed -i "N;N;N;s/$FROM\(.*$TAG\)/$TO\1/" $IMG_FILE
 }
 
 layer_on () {
@@ -19,7 +19,7 @@ layer_on () {
     TO=inline
     TAG=$1
     sed -i "N;N;s/\($TAG\".*\)$FROM/\1$TO/" $IMG_FILE
-    sed -i "N;N;s/$FROM\(.*$TAG\)/$TO\1/" $IMG_FILE
+    sed -i "N;N;N;s/$FROM\(.*$TAG\)/$TO\1/" $IMG_FILE
 }
 
 mkdir -p $EXPORT_LED_DIR
