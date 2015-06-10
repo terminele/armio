@@ -106,6 +106,8 @@ def qpaint( h=None, m=None ):
         sys.stderr.write( "Failed to read background image: %s\n" % FP_FACE )
         sys.exit( 1 )
 
+    num_images=(h*5-4) + (m*5)//60+1
+    print("creating {} images for animation".format(num_images))
     ###draw hour animation pixmaps
     for i in range(h*5 - 4):
         # configure a painter for the 'watch' image
@@ -115,7 +117,9 @@ def qpaint( h=None, m=None ):
         paint_snake( painter, i, 5 )
         painter.end()
         pixmap = QPixmap.fromImage(watch)
-        save_pixmap(pixmap, "{}_{}_{}".format(h, m, imgcnt))
+        imname="{0}{1:02}_{2:02}".format(h, m, imgcnt)
+        save_pixmap(pixmap, imname)
+        #print("creating image {}".format( imname ))
         imgcnt+=1
 
     ###draw hour 'growing' pixmaps
@@ -128,12 +132,15 @@ def qpaint( h=None, m=None ):
         painter.end()
         pixmap = QPixmap.fromImage(watch)
 
-        save_pixmap(pixmap, "{}_{}_{}".format(h, m, imgcnt))
+        imname="{0}{1:02}_{2:02}".format(h, m, imgcnt)
+        save_pixmap(pixmap, imname)
+        #print("creating image {}".format( imname ))
         imgcnt+=1
 
 
+
     pixmap = QPixmap.fromImage( paint_time(h, m) )
-    save_pixmap(pixmap, "{}_{}".format(h, m))
+    save_pixmap(pixmap, "{0}{1:02}".format(h, m))
 
 
 class ImagePlayer( QWidget ):
@@ -168,11 +175,6 @@ class ImagePlayer( QWidget ):
 if __name__ == "__main__":
     import subprocess
 
-    if not os.path.exists( FP_FACE ):
-        print("running ./scripts/export_led_img.sh to generate led images")
-        subprocess.call( "./scripts/export_led_img.sh" )
-        #sys.exit()
-
     try:
         h, m = [ int(i) for i in sys.argv[1].split( ":" ) ]
         show = False
@@ -182,12 +184,20 @@ if __name__ == "__main__":
 
     h = h % 12
 
+    print("Show {0}:{1:02}".format(h, m))
+
+    if not os.path.exists( FP_FACE ):
+        print("running ./scripts/export_led_img.sh to generate led images")
+        subprocess.call( "./scripts/export_led_img.sh" )
+        #sys.exit()
+
     app = QApplication( sys.argv )
 
     qpaint( h, m )
+    print("creating gif using ./scripts/export_time_animation.sh")
     subprocess.call( ["./scripts/export_time_animation.sh", str(h), str(m)] )
 
-    gif = "./graphics/images/{}_{}_anim.gif".format(h, m)
+    gif = "./graphics/images/{0}{1:02}_anim.gif".format(h, m)
     player = ImagePlayer( gif, "Showing {0}:{1:02}".format( h, m ) )
     player.show()
 
