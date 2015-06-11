@@ -47,12 +47,12 @@ def get_led( i ):
         sys.exit( 1 )
     return led
 
-def paint_snake(painter, pos = 0, length = 5):
+def paint_snake(painter, pos = 0, length = 5, reverse=False):
     opacity = 1
-    for i in range(length):
-        led = get_led(pos + length - i -1)
-        painter.setOpacity(opacity)
-        painter.drawImage(0,0, led)
+    for i in range( length ):
+        led = get_led( pos + length + (i if reverse else -i) - 1 )
+        painter.setOpacity( opacity )
+        painter.drawImage( 0, 0, led )
         opacity-=0.2
 
     return painter
@@ -116,9 +116,9 @@ def qpaint( h=None, m=None ):
         painter.begin( watch )
         paint_snake( painter, i, 5 )
         painter.end()
-        pixmap = QPixmap.fromImage(watch)
+        pixmap = QPixmap.fromImage( watch )
         imname="{0}{1:02}_{2:02}".format(h, m, imgcnt)
-        save_pixmap(pixmap, imname)
+        save_pixmap( pixmap, imname )
         #print("creating image {}".format( imname ))
         imgcnt+=1
 
@@ -137,6 +137,20 @@ def qpaint( h=None, m=None ):
         #print("creating image {}".format( imname ))
         imgcnt+=1
 
+    ###draw wrap up animation
+    if 0:
+        for i in range(56):
+            # configure a painter for the 'watch' image
+            watch = QImage( FP_FACE )
+            painter = QPainter()
+            painter.begin( watch )
+            paint_snake( painter, i, 5, reverse=True )
+            painter.end()
+            pixmap = QPixmap.fromImage(watch)
+            imname="{0}{1:02}_{2:02}".format(h, m, imgcnt)
+            save_pixmap(pixmap, imname)
+            #print("creating image {}".format( imname ))
+            imgcnt+=1
 
 
     pixmap = QPixmap.fromImage( paint_time(h, m) )
