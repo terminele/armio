@@ -41,19 +41,25 @@ def broken_pilpaint( ):
     base.paste( LED0, mask=0 )
 
 def get_led( i ):
+    led_index = int( i ) % 60
     led = QImage( FP_LED_BASE + "{0:02}.png".format(i) )
     if led.isNull():
         sys.stderr.write( "Failed to read image for led %i\n" % i )
         sys.exit( 1 )
     return led
 
-def paint_snake(painter, pos = 0, length = 5, reverse=False):
+def paint_snake( painter, pos = 0, length = 5, reverse=False ):
+    """ paint an led at pos with a tail of length with direction
+        set by reverse
+    """
     opacity = 1
+    dim_amt = 1.0 / length
     for i in range( length ):
-        led = get_led( pos + length + (i if reverse else -i) - 1 )
+        led_index = pos + i if reverse else pos - i
+        led = get_led( led_index )
         painter.setOpacity( opacity )
         painter.drawImage( 0, 0, led )
-        opacity-=0.2
+        opacity -= dim_amt
 
     return painter
 
@@ -72,17 +78,10 @@ def paint_time( h, m ):
     painter.setOpacity( 0.75 )
     painter.drawImage( 0, 0, led )
 
-    length = m*5 // 60 + 1
-    paint_snake( painter, h*5, length )
     # draw the hour LED's
-#    h_fade = range( h * 5, h * 5 + (m * 5) // 60 + 1 )
-#    for i in h_fade:
-#        if i == m:
-#            continue
-#        led = get_led( i )
-#        painter.setOpacity( (i - h_fade[0] + 1) / len( h_fade ) )
-#        painter.drawImage( 0, 0, led )
-#
+    length = m*5 // 60 + 1
+    paint_snake( painter, h*5 + length, length )
+
     painter.end()
 
     return watch
