@@ -477,7 +477,7 @@ static void accel_wakeup_state_refresh(void) {
 
     /* The accelerometer is in an error state so reset it
      * and force a wakeup */
-    accel_reset();
+    //accel_reset();
     wake_gesture_state = WAKE_DCLICK;
     return;
 
@@ -754,17 +754,8 @@ void accel_sleep ( void ) {
       ( SLEEP_ODR | X_EN | Y_EN | Z_EN |
         ( BITS_PER_ACCEL_VAL == 8 ? LOW_PWR_EN : 0 ) ) );
 
-  /* Only x-axis double clicks should wake us up */
-  accel_register_write (AX_REG_CLICK_CFG, X_DCLICK);
-  accel_register_write (AX_REG_CLICK_THS, WAKEUP_CLICK_THS);
 
   accel_register_write (AX_REG_CTL3,  I1_CLICK_EN );
-
-  /* Configure click parameters */
-  accel_register_write (AX_REG_TIME_WIN, WAKEUP_CLICK_TIME_WIN);
-  accel_register_write (AX_REG_TIME_LIM, WAKEUP_CLICK_TIME_LIM);
-  accel_register_write (AX_REG_TIME_LAT, WAKEUP_CLICK_TIME_LAT);
-
 
   if (accel_wakeup_gesture_enabled) {
     /* Configure interrupt to detect orientation down (Y LOW) */
@@ -772,6 +763,14 @@ void accel_sleep ( void ) {
     wait_for_down_conf();
 
   }
+
+  /* Configure click parameters */
+  /* Only x-axis double clicks should wake us up */
+  accel_register_write (AX_REG_CLICK_CFG, X_DCLICK);
+  accel_register_write (AX_REG_CLICK_THS, WAKEUP_CLICK_THS);
+  accel_register_write (AX_REG_TIME_WIN, WAKEUP_CLICK_TIME_WIN);
+  accel_register_write (AX_REG_TIME_LIM, WAKEUP_CLICK_TIME_LIM);
+  accel_register_write (AX_REG_TIME_LAT, WAKEUP_CLICK_TIME_LAT);
 
 
   extint_chan_enable_callback(AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
@@ -790,7 +789,7 @@ static event_flags_t click_timeout_event_check( void ) {
   /* Check for click timeouts */
   ///###FIXME -- duplicated code can be unified with macros
   if ( click_count.x &&
-      main_get_waketime_ms() - last_click_time_ms.x > MULTI_CLICK_WINDOW_MS ) {
+      (main_get_waketime_ms() - last_click_time_ms.x > MULTI_CLICK_WINDOW_MS) ) {
     switch(click_count.x) {
       case 1:
         ev_flags |= EV_FLAG_ACCEL_SCLICK_X;
