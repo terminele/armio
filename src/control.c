@@ -139,6 +139,13 @@ ctrl_mode_t util_control_modes[] = {
     },
     {
         .enter_cb = NULL,
+        .tic_cb = accel_mode_tic,
+        .sleep_timeout_ticks = MS_IN_TICKS(60000),
+        .about_to_sleep_cb = NULL,
+        .wakeup_cb = NULL,
+    },
+    {
+        .enter_cb = NULL,
         .tic_cb = accel_point_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(15000),
         .about_to_sleep_cb = NULL,
@@ -449,7 +456,7 @@ bool accel_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
 #endif
 
 
-    if (DEFAULT_MODE_TRANS_CHK(event_flags)) {
+    if (event_flags & EV_FLAG_ACCEL_7CLICK_X) {
         display_comp_hide_all();
         display_comp_release(disp_x);
         display_comp_release(disp_y);
@@ -462,7 +469,7 @@ bool accel_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
         return true;
     }
 
-    if (main_get_waketime_ms() - last_update_ms < 10) {
+    if (main_get_waketime_ms() - last_update_ms < 5) {
         return false;
     }
 
