@@ -339,6 +339,8 @@ static void wakeup (void) {
   port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, false);
 #endif
 
+  accel_wakeup_gesture_enabled = true;
+
   LOG_WAKEUP();
 }
 
@@ -440,6 +442,7 @@ static void main_tic( void ) {
         main_gs.waketicks = 0;
         main_gs.inactivity_ticks = 0;
         main_gs.state = RUNNING;
+
       }
       return;
     case RUNNING:
@@ -473,10 +476,9 @@ static void main_tic( void ) {
 
           ) {
         /* A sleep event has occurred */
-
         if (IS_CONTROL_MODE_SHOW_TIME() && event_flags & EV_FLAG_ACCEL_TCLICK_X &&
             main_get_waketime_ms() > 300) {
-            accel_wakeup_gesture_enabled = !accel_wakeup_gesture_enabled;
+            accel_wakeup_gesture_enabled = false;
         }
 
         main_gs.state = ENTERING_SLEEP;
@@ -505,7 +507,7 @@ static void main_tic( void ) {
         main_gs.button_hold_ticks = 0;
         main_gs.inactivity_ticks = 0;
 
-        if (IS_CONTROL_STATE_EE()) {
+        if ( IS_CONTROL_STATE_EE() ) {
           control_state_set(ctrl_state_main);
 
         }
@@ -799,10 +801,12 @@ int main (void) {
   }
   reset_cause = 0x000000FF & (uint32_t) rcause_bf.reg;
   reset_cause |= 0xBADBAD00;
+#if LOG_USAGE
   main_log_data((uint8_t *)&reset_cause, sizeof(uint32_t), true);
 
   reset_cause = 0xABCD1234;
   main_log_data((uint8_t *)&reset_cause, sizeof(uint32_t), true);
+#endif
 
   /* Errata 39.3.2 -- device may not wake up from
    * standby if nvm goes to sleep. Not needed
