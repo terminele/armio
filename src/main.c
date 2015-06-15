@@ -467,17 +467,13 @@ static void main_tic( void ) {
 #else
           main_gs.inactivity_ticks > \
           ctrl_mode_active->sleep_timeout_ticks ||
-          (IS_CONTROL_MODE_SHOW_TIME() && event_flags & EV_FLAG_ACCEL_Z_LOW &&
-           main_get_waketime_ms() > 300) ||
-
-          (IS_CONTROL_MODE_SHOW_TIME() && event_flags & EV_FLAG_ACCEL_TCLICK_X &&
-           main_get_waketime_ms() > 300)
+          (IS_CONTROL_MODE_SHOW_TIME() && event_flags & EV_FLAG_ACCEL_Z_LOW) ||
+          (IS_CONTROL_MODE_SHOW_TIME() && event_flags & EV_FLAG_ACCEL_TCLICK_X)
 #endif
 
           ) {
         /* A sleep event has occurred */
-        if (IS_CONTROL_MODE_SHOW_TIME() && event_flags & EV_FLAG_ACCEL_TCLICK_X &&
-            main_get_waketime_ms() > 300) {
+        if (IS_CONTROL_MODE_SHOW_TIME() && event_flags & EV_FLAG_ACCEL_TCLICK_X) {
             accel_wakeup_gesture_enabled = false;
         }
 
