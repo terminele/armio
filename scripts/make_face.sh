@@ -30,7 +30,7 @@ paint_time() {      # [hr] [min]
             ./scripts/make_led_bkg.sh
         fi
 
-        echo "creating $hr:$(printf %02d $min) on/off files"
+        echo "Creating $hr:$(printf %02d $min) on/off files"
     fi
 
     # show the 'face' as the background??
