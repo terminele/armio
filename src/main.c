@@ -637,9 +637,10 @@ void main_terminate_in_error ( error_group_code_t error_group, uint32_t subcode 
 
   /* blink error code indefinitely */
   while( 1 ) {
-    _led_on_full( ((uint8_t) error_group));
+    //_led_on_full( ((uint8_t) error_group));
+    led_on( (uint8_t) error_group, BRIGHT_DEFAULT);
     delay_ms(100);
-    _led_off_full( ((uint8_t) error_group));
+    led_off( (uint8_t) error_group);
     delay_ms(100);
   }
 }
