@@ -5,7 +5,7 @@ IMG_DIR=./graphics/images
 
 # set USE_FACE_IN_ALL_FRAMES to true to embed the watch face in all frames and
 # anything other than true to only embed the face in the first frame
-USE_FACE_IN_ALL_FRAMES=true
+USE_FACE_IN_ALL_FRAMES=false
 
 paint_time() {      # [hr] [min]
     if [ -z "$1" ]; then
@@ -25,6 +25,10 @@ paint_time() {      # [hr] [min]
         echo "$hr:$(printf %02d $min) on/off files already exist"
         return
     else
+        if [ "$USE_FACE_IN_ALL_FRAMES" != "true" ]; then
+            ./scripts/make_led_bkg.sh
+        fi
+
         echo "creating $hr:$(printf %02d $min) on/off files"
     fi
 
@@ -32,7 +36,7 @@ paint_time() {      # [hr] [min]
     if [ $USE_FACE_IN_ALL_FRAMES = true ]; then
         ARGS="$IMG_DIR/face.png "
     else
-        ARGS=""
+        ARGS="$IMG_DIR/led_background.png "
     fi
 
     min_len=$(( ($min * 5) / 60 + 1 ))

@@ -15,6 +15,10 @@ USE_FACE_IN_ALL_FRAMES=false
 
 
 swirl_files() {
+    if [ "$USE_FACE_IN_ALL_FRAMES" != "true" ]; then
+        ./scripts/make_led_bkg.sh
+    fi
+
     direction=$1
     if [ "$direction" = "-r" ]; then
         echo "Creating reverse swirl files"
@@ -24,6 +28,7 @@ swirl_files() {
         fnbase=$IMG_DIR/$SWIRL_FWD_BASE
     fi
     hend=0
+
     for hstart in $(seq 0 $(( $TAIL_LEN - 1))); do
         tail_len=$(($hstart - $hend + 1))
         dim_scale=$(bc <<< "scale=2; 1/$tail_len")
@@ -34,7 +39,7 @@ swirl_files() {
         if [ $USE_FACE_IN_ALL_FRAMES = true ]; then
             ARGS="$IMG_DIR/face.png "
         else
-            ARGS=""
+            ARGS="$IMG_DIR/led_background.png"
         fi
 
         for i in $(seq $hstart -1 $hend); do
@@ -63,7 +68,7 @@ swirl_files() {
         if [ $USE_FACE_IN_ALL_FRAMES = true ]; then
             ARGS="$IMG_DIR/face.png "
         else
-            ARGS=""
+            ARGS="$IMG_DIR/led_background.png"
         fi
 
         for i in $(seq $hstart -1 $hend); do
@@ -138,12 +143,12 @@ fi
 
 if [ ! -f $STARTUP_FNAME ]; then
     swirl_miff;
-    #echo "Creating forward swirl gif"
-    #convert $STARTUP_FNAME swirl_fwd.gif
+    echo "Creating forward swirl gif"
+    convert $STARTUP_FNAME swirl_fwd.gif
 fi
 
 if [ ! -f $SHUTDOWN_FNAME ]; then
     swirl_miff -r;
-    #echo "Creating reverse swirl gif"
-    #convert $SHUTDOWN_FNAME swirl_rev.gif
+    echo "Creating reverse swirl gif"
+    convert $SHUTDOWN_FNAME swirl_rev.gif
 fi
