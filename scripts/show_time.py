@@ -109,13 +109,13 @@ def save_pixmap(pixmap, name):
 
 def create_swirl_images(  ):
     for i in xrange( 60 ):
-        watch = QImage( FP_FACE )
         painter = QPainter()
+        watch = QImage( FP_FACE )
         painter.begin( watch )
         paint_snake( painter, i, min(5, i + 1) )
         painter.end()
         pixmap = QPixmap.fromImage( watch )
-        imname = FN_SWIRL_FWD_BASE + "_{0:02}".format( i + 1 )
+        imname = FN_SWIRL_FWD_BASE + "_{0:02}".format( i )
         save_pixmap( pixmap, imname )
 
     for i in xrange( 60 ):
@@ -125,7 +125,7 @@ def create_swirl_images(  ):
         paint_snake( painter, -i, min(5, i + 1), reverse=True )
         painter.end()
         pixmap = QPixmap.fromImage( watch )
-        imname = FN_SWIRL_REV_BASE + "_{0:02}".format( i + 1 )
+        imname = FN_SWIRL_REV_BASE + "_{0:02}".format( i )
         save_pixmap( pixmap, imname )
 
 def qpaint( h=None, m=None ):
@@ -210,10 +210,10 @@ if __name__ == "__main__":
 
     h = h % 12
 
-    print("Show {0}:{1:02}".format(h, m))
+    print( "Show {0}:{1:02}".format(h, m) )
 
     if not os.path.exists( FP_FACE ):
-        print("running ./scripts/export_led_img.sh to generate led images")
+        print( "running ./scripts/export_led_img.sh to generate led images" )
         subprocess.call( "./scripts/export_led_img.sh" )
         #sys.exit()
 
@@ -221,21 +221,22 @@ if __name__ == "__main__":
 
     swirl_path = os.path.join( *(IMGDIR + [FN_SWIRL_FWD_BASE]) ) + "_01.png"
     if not os.path.exists( swirl_path ):
-        print("creating 120 swirl images")
+        print( "creating 120 swirl images" )
         create_swirl_images()
 
+    fn = "{0}{1:02}_min_on".format( h, m )
+    if not os.path.exists( os.path.join( *(IMGDIR + [ fn + ".png" ]) ) ):
+        print( "Creatings final time images (min on / off)" )
+        pixmap = QPixmap.fromImage( paint_time( h, m, show_minute=True ) )
+        save_pixmap( pixmap, fn )
 
-    print( "Creatings final time images (min on / off)" )
-    pixmap = QPixmap.fromImage( paint_time( h, m, show_minute=True ) )
-    save_pixmap( pixmap, "{0}{1:02}_min_on".format( h, m ) )
-
-    pixmap = QPixmap.fromImage( paint_time( h, m, show_minute=False ) )
-    save_pixmap( pixmap, "{0}{1:02}_min_off".format(h, m) )
-
+    fn = "{0}{1:02}_min_off".format( h, m )
+    if not os.path.exists( os.path.join( *(IMGDIR + [ fn + ".png" ]) ) ):
+        pixmap = QPixmap.fromImage( paint_time( h, m, show_minute=False ) )
+        save_pixmap( pixmap, fn )
 
     print( "creating gif using ./scripts/export_time_animation.sh" )
     subprocess.call( ["./scripts/export_time_animation.sh", str(h), str(m)] )
-
 
     gif = os.path.join( *(IMGDIR + [ "{0}{1:02}_anim.gif".format(h, m) ]) )
 

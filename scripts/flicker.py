@@ -96,4 +96,4 @@ def convert( y, dt=DT_MS ):
     return switches
 
 if __name__ == "__main__":
-    run_test( noise=1.1, filt=2 )
+    result = run_test( noise=1.1, filt=2 )
