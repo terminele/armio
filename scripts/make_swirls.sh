@@ -15,6 +15,7 @@ USE_FACE_IN_ALL_FRAMES=false
 
 
 swirl_files() {
+    ./scripts/export_led_img.sh
     if [ "$USE_FACE_IN_ALL_FRAMES" != "true" ]; then
         ./scripts/make_led_bkg.sh
     fi
@@ -88,7 +89,6 @@ swirl_files() {
     done
 }
 
-
 swirl_miff() {
     direction=$1
     if [ "$direction" = "-r" ]; then
@@ -97,7 +97,7 @@ swirl_miff() {
         fi
         echo "Creating reverse swirl miff"
         fnbase=$IMG_DIR/$SWIRL_REV_BASE
-        DELAY=1x200         # delay 1 / 200 seconds between frames
+        DELAY=1         # delay 1 / 100 seconds between frames
     else
         if [ $(ls $IMG_DIR | grep $SWIRL_FWD_BASE | wc -l) -ne 60 ]; then
             swirl_files $direction;
@@ -143,12 +143,12 @@ fi
 
 if [ ! -f $STARTUP_FNAME ]; then
     swirl_miff;
-    echo "Creating forward swirl gif"
-    convert $STARTUP_FNAME swirl_fwd.gif
+    #echo "Creating forward swirl gif"
+    #convert $STARTUP_FNAME swirl_fwd.gif
 fi
 
 if [ ! -f $SHUTDOWN_FNAME ]; then
     swirl_miff -r;
-    echo "Creating reverse swirl gif"
-    convert $SHUTDOWN_FNAME swirl_rev.gif
+    #echo "Creating reverse swirl gif"
+    #convert $SHUTDOWN_FNAME swirl_rev.gif
 fi

@@ -25,6 +25,7 @@ paint_time() {      # [hr] [min]
         echo "$hr:$(printf %02d $min) on/off files already exist"
         return
     else
+        ./scripts/export_led_img.sh
         if [ "$USE_FACE_IN_ALL_FRAMES" != "true" ]; then
             ./scripts/make_led_bkg.sh
         fi
