@@ -15,8 +15,7 @@ make_led_mask() {      # [hr] [min]
     ARGS=""
 
     for i in {0..59}; do
-        ARGS+=" ( $IMG_DIR/led$(printf %02d $i).png "
-        ARGS+=" -channel A -threshold 1% ) "
+        ARGS+=" ( $IMG_DIR/led$(printf %02d $i).png -channel A -threshold 99% ) "
     done
 
     fn=$IMG_DIR/$MASK
@@ -24,7 +23,7 @@ make_led_mask() {      # [hr] [min]
 
     #echo "convert $FARGS"
     convert $FARGS
-    #convert $IMG_DIR/$FN -format %c histogram:info:-
+    #convert $fn -format %c histogram:info:-
 }
 
 make_led_bkg() {
@@ -51,7 +50,7 @@ make_led_clear() {
     #convert temp.png \
     #    \( $IMG_DIR/$MASK -alpha extract \) \
     #    -alpha Off -compose CopyOpacity -composite $IMG_DIR/$LED_CLEAR
-    convert $IMG_DIR/$LED_CLEAR -format %c histogram:info:-
+    #convert $IMG_DIR/$LED_CLEAR -format %c histogram:info:-
 }
 
 

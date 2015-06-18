@@ -109,7 +109,7 @@ combine_animations() {
 
     ARGS+=" -delay $OFF_TIME $IMG_DIR/led_clear.png "
 
-    ARGS+=" -loop 10 "
+    ARGS+=" -loop 500 "
     ARGS+=" $OUTPUT_FNAME "
 
     echo "Joining animations"
