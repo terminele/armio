@@ -2,7 +2,7 @@
 # use to combine animations into a gif representing the watch animation
 
 if [ -z "$1" ]; then
-    HR=$(( $(date +%H) % 12 ))
+    HR=$(( $(echo $(date +%H) | sed 's/^0\([^0]\)/\1/') % 12 ))
     MIN=$(echo $(date +%M) | sed 's/^0//')
 elif [ -z "$2" ]; then
     HR=$1
@@ -49,8 +49,7 @@ else
 fi
 
 clip_hr_animation() {
-    # ensure that the swirl forward & swirl reverse animations exist
-    ./scripts/make_swirls.sh
+    ./scripts/make_swirls.sh        # ensure swirl fwd & rev exist
 
     echo "Converting start swirl to hour animation"
 
@@ -103,6 +102,24 @@ create_minute_animation() {
 combine_animations() {
     MIN_LAST_FRAME=$(identify $MIN_OUTPUT_FNAME | tail -1 | sed 's/.*\[\(.*\)\].*/\1/')
     CLOSE_LAST_FRAME=$(identify $SHUTDOWN_FNAME | tail -1 | sed 's/.*\[\(.*\)\].*/\1/')
+
+    ARGS=" $HOUR_OUTPUT_FNAME "
+    ARGS+=" $MIN_OUTPUT_FNAME[1-$MIN_LAST_FRAME] "
+    ARGS+=" $SHUTDOWN_FNAME[1-$CLOSE_LAST_FRAME] "
+
+    ARGS+=" -delay $OFF_TIME $IMG_DIR/led_clear.png "
+
+    ARGS+=" -loop 10 "
+    ARGS+=" $OUTPUT_FNAME "
+
+    echo "Joining animations"
+    convert $ARGS
+}
+
+combine_animations_video() {
+    MIN_LAST_FRAME=$(identify $MIN_OUTPUT_FNAME | tail -1 | sed 's/.*\[\(.*\)\].*/\1/')
+    CLOSE_LAST_FRAME=$(identify $SHUTDOWN_FNAME | tail -1 | sed 's/.*\[\(.*\)\].*/\1/')
+
 
     ARGS=" $HOUR_OUTPUT_FNAME "
     ARGS+=" $MIN_OUTPUT_FNAME[1-$MIN_LAST_FRAME] "
