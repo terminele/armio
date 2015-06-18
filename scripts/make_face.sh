@@ -46,12 +46,14 @@ paint_time() {      # [hr] [min]
     hstart=$(( $hr * 5 + $min_len - 1))
     hend=$(( $hr * 5 ))
     led_level=1
+    leds_on=0
 
     #echo "hour starts on $hstart and ends on $hend"
     #echo "$min_len dims by $dim_scale"
 
     for i in $(seq $hstart -1 $hend); do
         if [ "$i" -ne "$min" ]; then
+            echo $((leds_on+=1)) >> /dev/null
             #echo "led$(printf %02d $i).png has intensity $led_level"
             ARGS+=" ( $IMG_DIR/led$(printf %02d $i).png "
             ARGS+=" -channel A -evaluate multiply $led_level +channel ) "
@@ -65,7 +67,15 @@ paint_time() {      # [hr] [min]
     fn+=off.png
     FARGS="$ARGS -background transparent -flatten $fn"
     #echo "convert $FARGS"
-    convert $FARGS
+    if [ "$leds_on" -gt "0" ]; then
+        convert $FARGS
+    else
+        if [ $USE_FACE_IN_ALL_FRAMES = true ]; then
+            cp $IMG_DIR/face.png $fn
+        else
+            cp $IMG_DIR/led_clear.png $fn
+        fi
+    fi
 
     #echo "adding minute led$(printf %02d $min).png at 0.75 intensity"
     ARGS+=" ( $IMG_DIR/led$(printf %02d $min).png "
