@@ -44,10 +44,15 @@ clip_hr_animation() {
 
     echo "Converting start swirl to hour animation"
 
-    HOUR_ANIM_LAST_FRAME=$(( $HR * 5 + ( ($MIN * 5) / 60 ) + $INITIAL_BKG_IMAGES ))
-    #echo "Hour frame count is $(($HOUR_ANIM_LAST_FRAME+1))"
+    if [ "$HR" -eq "0" ]; then
+        HOUR_LAST_FRAME=$(identify $STARTUP_FNAME | tail -1 | sed 's/.*\[\(.*\)\].*/\1/')
+    else
+        HOUR_LAST_FRAME=$(( $HR * 5 + ( ($MIN * 5) / 60 ) + $INITIAL_BKG_IMAGES ))
+    fi
 
-    convert $STARTUP_FNAME[0-$HOUR_ANIM_LAST_FRAME] $HOUR_OUTPUT_FNAME
+    #echo "Hour frame count is $(($HOUR_LAST_FRAME+1))"
+
+    convert $STARTUP_FNAME[0-$HOUR_LAST_FRAME] $HOUR_OUTPUT_FNAME
 }
 
 create_minute_animation() {
@@ -62,6 +67,7 @@ create_minute_animation() {
     else
         ARGS=" -dispose none -delay 0 $IMG_DIR/face.png -dispose previous "
     fi
+
     ARGS+=" -delay $MINUTE_BLINK "
 
     for i in $(seq 0 $BLINK_CNT); do
