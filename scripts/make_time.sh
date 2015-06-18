@@ -7,9 +7,19 @@ if [ -z "$1" ]; then
 elif [ -z "$2" ]; then
     HR=$1
     MIN=$(echo $(date +%M) | sed 's/^0//')
+    shift
 else
     HR=$1
     MIN=$2
+    shift
+    shift
+fi
+
+if [ -n "$1" ]; then
+    echo "There are $# extra args: \"$*\""
+    for pair in $1; do
+        echo $pair
+    done
 fi
 
 IMG_DIR=./graphics/images
