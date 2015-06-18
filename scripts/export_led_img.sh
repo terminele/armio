@@ -26,7 +26,10 @@ mkdir -p $EXPORT_LED_DIR
 
 layer_off "LED - ON";
 layer_off "Labels";
-inkscape -f $IMG_FILE -C -e $EXPORT_LED_DIR/face.png
+fn=$EXPORT_LED_DIR/face.png
+if [ ! -f $fn ]; then
+    inkscape -f $IMG_FILE -C -e $fn
+fi
 layer_on "LED - ON";
 
 
@@ -34,9 +37,14 @@ for i in $( seq 0 59 ); do
     EXP_NAME=$EXPORT_LED_BASE
     EXP_NAME+=$(printf "%02d" $i)
     EXP_NAME+=.png
-    echo "Save to $EXP_NAME"
-    inkscape -f $IMG_FILE -C -e $EXP_NAME -j -i LED$i -y $OPACITY
+    if [ ! -f $EXP_NAME ]; then
+        echo "Save to $EXP_NAME"
+        inkscape -f $IMG_FILE -C -e $EXP_NAME -j -i LED$i -y $OPACITY
+    fi
 done;
 
 layer_on "Labels";
-inkscape -f $IMG_FILE -C -e $EXPORT_LED_DIR/labels.png -j -i label_layer -y $OPACITY
+fn=$EXPORT_LED_DIR/labels.png
+if [ ! -f $fn ]; then
+    inkscape -f $IMG_FILE -C -e $fn -j -i label_layer -y $OPACITY
+fi

@@ -23,6 +23,8 @@ from PyQt4.QtGui import *
 IMGDIR = [".", "graphics", "images"]
 FN_FACE = "face.png"
 FN_LED_BASE = "led"
+FN_SWIRL_FWD_BASE = "swirl_fwd"
+FN_SWIRL_REV_BASE = "swirl_rev"
 
 FP_FACE = os.path.join( *(IMGDIR + [ FN_FACE ]) )
 FP_LED_BASE = os.path.join( *(IMGDIR + [ FN_LED_BASE ]) )
@@ -30,7 +32,8 @@ FP_LED_BASE = os.path.join( *(IMGDIR + [ FN_LED_BASE ]) )
 
 def broken_pilpaint( ):
     """ this is a test for using pil to overlay images and export.. apparently
-    there is a problem when the background image uses transparency """
+        there is a problem when the background image uses transparency
+    """
     FACE = Image.open( FP_FACE )
     LEDS = [ Image.open( FP_LED_BASE + "{}.png".format(i) ) for i in xrange(60) ]
     LED0 = LEDS[0].copy()
@@ -41,23 +44,34 @@ def broken_pilpaint( ):
     base.paste( LED0, mask=0 )
 
 def get_led( i ):
-    led = QImage( FP_LED_BASE + "{0:02}.png".format(i) )
+    led_index = int( i ) % 60
+    led = QImage( FP_LED_BASE + "{0:02}.png".format( led_index ) )
     if led.isNull():
-        sys.stderr.write( "Failed to read image for led %i\n" % i )
+        sys.stderr.write( "Failed to read image for led {0}\n".format(led_index)  )
         sys.exit( 1 )
     return led
 
-def paint_snake(painter, pos = 0, length = 5):
+def paint_snake( painter, pos = 0, length = 5, reverse=False, omit_led=None ):
+    """ paint an led at pos with a tail of length with direction
+        set by reverse
+    """
     opacity = 1
-    for i in range(length):
-        led = get_led(pos + length - i -1)
-        painter.setOpacity(opacity)
-        painter.drawImage(0,0, led)
-        opacity-=0.2
+    dim_amt = 1.0 / length
+    for i in range( length ):
+        led_index = pos + i if reverse else pos - i
+        if omit_led == led_index:
+            continue
+        led = get_led( led_index )
+        painter.setOpacity( opacity )
+        painter.drawImage( 0, 0, led )
+        opacity -= dim_amt
 
     return painter
 
-def paint_time( h, m ):
+def paint_time( h, m, show_minute=True ):
+    """ create a watch image with the current time
+        show_minute can be set to false to clear the minute hand
+    """
     watch = QImage( FP_FACE )
     if watch.isNull():
         sys.stderr.write( "Failed to read background image: %s\n" % FP_FACE )
@@ -68,21 +82,15 @@ def paint_time( h, m ):
     painter.begin( watch )
 
     # draw the minute LED
-    led = get_led( m )
-    painter.setOpacity( 0.75 )
-    painter.drawImage( 0, 0, led )
+    if show_minute:
+        led = get_led( m )
+        painter.setOpacity( 0.75 )
+        painter.drawImage( 0, 0, led )
 
-    length = m*5 // 60 + 1
-    paint_snake( painter, h*5, length )
     # draw the hour LED's
-#    h_fade = range( h * 5, h * 5 + (m * 5) // 60 + 1 )
-#    for i in h_fade:
-#        if i == m:
-#            continue
-#        led = get_led( i )
-#        painter.setOpacity( (i - h_fade[0] + 1) / len( h_fade ) )
-#        painter.drawImage( 0, 0, led )
-#
+    length = m*5 // 60 + 1
+    paint_snake( painter, h*5 + length, length, omit_led=m )
+
     painter.end()
 
     return watch
@@ -96,8 +104,29 @@ def show_time( h, m ):
     sys.exit( app.exec_() )
 
 def save_pixmap(pixmap, name):
-    file = QFile("graphics/images/"+ name + ".png")
+    file = QFile( os.path.join( *(IMGDIR + [name + ".png"]) ) )
     pixmap.save(file, "PNG")
+
+def create_swirl_images(  ):
+    for i in xrange( 60 ):
+        painter = QPainter()
+        watch = QImage( FP_FACE )
+        painter.begin( watch )
+        paint_snake( painter, i, min(5, i + 1) )
+        painter.end()
+        pixmap = QPixmap.fromImage( watch )
+        imname = FN_SWIRL_FWD_BASE + "_{0:02}".format( i )
+        save_pixmap( pixmap, imname )
+
+    for i in xrange( 60 ):
+        watch = QImage( FP_FACE )
+        painter = QPainter()
+        painter.begin( watch )
+        paint_snake( painter, -i, min(5, i + 1), reverse=True )
+        painter.end()
+        pixmap = QPixmap.fromImage( watch )
+        imname = FN_SWIRL_REV_BASE + "_{0:02}".format( i )
+        save_pixmap( pixmap, imname )
 
 def qpaint( h=None, m=None ):
     imgcnt = 0
@@ -108,21 +137,22 @@ def qpaint( h=None, m=None ):
 
     num_images=(h*5-4) + (m*5)//60+1
     print("creating {} images for animation".format(num_images))
-    ###draw hour animation pixmaps
-    for i in range(h*5 - 4):
+
+    ### draw hour animation pixmaps
+    for i in range( h*5 - 4 ):
         # configure a painter for the 'watch' image
         watch = QImage( FP_FACE )
         painter = QPainter()
         painter.begin( watch )
-        paint_snake( painter, i, 5 )
+        paint_snake( painter, i, min(5, i + 1) )
         painter.end()
-        pixmap = QPixmap.fromImage(watch)
+        pixmap = QPixmap.fromImage( watch )
         imname="{0}{1:02}_{2:02}".format(h, m, imgcnt)
-        save_pixmap(pixmap, imname)
+        save_pixmap( pixmap, imname )
         #print("creating image {}".format( imname ))
         imgcnt+=1
 
-    ###draw hour 'growing' pixmaps
+    ### draw hour 'growing' pixmaps
     final_len = m*5 // 60 + 1
     for i in range(final_len):
         watch = QImage( FP_FACE )
@@ -136,8 +166,6 @@ def qpaint( h=None, m=None ):
         save_pixmap(pixmap, imname)
         #print("creating image {}".format( imname ))
         imgcnt+=1
-
-
 
     pixmap = QPixmap.fromImage( paint_time(h, m) )
     save_pixmap(pixmap, "{0}{1:02}".format(h, m))
@@ -177,27 +205,41 @@ if __name__ == "__main__":
 
     try:
         h, m = [ int(i) for i in sys.argv[1].split( ":" ) ]
-        show = False
     except:
         h, m = [ int(time.localtime().tm_hour), int(time.localtime().tm_min) ]
-        show = True
 
     h = h % 12
 
-    print("Show {0}:{1:02}".format(h, m))
+    print( "Show {0}:{1:02}".format(h, m) )
 
     if not os.path.exists( FP_FACE ):
-        print("running ./scripts/export_led_img.sh to generate led images")
+        print( "running ./scripts/export_led_img.sh to generate led images" )
         subprocess.call( "./scripts/export_led_img.sh" )
         #sys.exit()
 
     app = QApplication( sys.argv )
 
-    qpaint( h, m )
-    print("creating gif using ./scripts/export_time_animation.sh")
+    swirl_path = os.path.join( *(IMGDIR + [FN_SWIRL_FWD_BASE]) ) + "_01.png"
+    if not os.path.exists( swirl_path ):
+        print( "creating 120 swirl images" )
+        create_swirl_images()
+
+    fn = "{0}{1:02}_min_on".format( h, m )
+    if not os.path.exists( os.path.join( *(IMGDIR + [ fn + ".png" ]) ) ):
+        print( "Creatings final time images (min on / off)" )
+        pixmap = QPixmap.fromImage( paint_time( h, m, show_minute=True ) )
+        save_pixmap( pixmap, fn )
+
+    fn = "{0}{1:02}_min_off".format( h, m )
+    if not os.path.exists( os.path.join( *(IMGDIR + [ fn + ".png" ]) ) ):
+        pixmap = QPixmap.fromImage( paint_time( h, m, show_minute=False ) )
+        save_pixmap( pixmap, fn )
+
+    print( "creating gif using ./scripts/export_time_animation.sh" )
     subprocess.call( ["./scripts/export_time_animation.sh", str(h), str(m)] )
 
-    gif = "./graphics/images/{0}{1:02}_anim.gif".format(h, m)
+    gif = os.path.join( *(IMGDIR + [ "{0}{1:02}_anim.gif".format(h, m) ]) )
+
     player = ImagePlayer( gif, "Showing {0}:{1:02}".format( h, m ) )
     player.show()
 
