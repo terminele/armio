@@ -139,6 +139,13 @@ ctrl_mode_t util_control_modes[] = {
     },
     {
         .enter_cb = NULL,
+        .tic_cb = event_debug_mode_tic,
+        .sleep_timeout_ticks = MS_IN_TICKS(60000),
+        .about_to_sleep_cb = NULL,
+        .wakeup_cb = NULL,
+    },
+    {
+        .enter_cb = NULL,
         .tic_cb = accel_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(60000),
         .about_to_sleep_cb = NULL,
