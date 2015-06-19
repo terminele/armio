@@ -11,17 +11,6 @@
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
 
 
-#define _DISP_ERROR( i )  do { \
-      _led_on_full( i ); \
-      delay_ms(1000); \
-      _led_off_full( i ); \
-      delay_ms(100); \
-      _led_on_full( i ); \
-      delay_ms(1000); \
-      _led_off_full( i ); \
-      delay_ms(100); \
-    } while(0);
-
 
 #define ACCEL_ERROR_TIMEOUT             ((uint32_t) 1)
 #define ACCEL_ERROR_SELF_TEST(test)    (((uint32_t) 2) \
@@ -44,6 +33,22 @@
 
 #ifndef DEBUG_AX_ISR
 #define DEBUG_AX_ISR false
+#endif
+
+
+#if DEBUG_AX_ISR
+#define _DISP_ERROR( i )  do { \
+      _led_on_full( i ); \
+      delay_ms(1000); \
+      _led_off_full( i ); \
+      delay_ms(100); \
+      _led_on_full( i ); \
+      delay_ms(1000); \
+      _led_off_full( i ); \
+      delay_ms(100); \
+    } while(0);
+#else
+#define _DISP_ERROR( i )
 #endif
 
 #define AX_SDA_PIN      PIN_PA08
@@ -488,10 +493,12 @@ static void accel_wakeup_state_refresh(void) {
       wait_for_up_conf();
     } else {
       _DISP_ERROR(55);
+      wait_for_up_conf();
     }
   } else if (wake_gesture_state == WAIT_FOR_UP) {
     if (!int_flags.zh) {
       _DISP_ERROR(54);
+      wake_gesture_state = WAKE_TURN_UP;
       return;
     }
 
@@ -553,6 +560,8 @@ static void accel_wakeup_state_refresh(void) {
       }
   } else {
     _DISP_ERROR(40 + wake_gesture_state);
+    wake_gesture_state = WAKE_TURN_UP;
+
   }
 
 
