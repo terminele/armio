@@ -870,6 +870,10 @@ static event_flags_t click_timeout_event_check( void ) {
 }
 
 
+uint8_t accel_x_click_count( void ) {
+  return click_count.x;
+}
+
 event_flags_t accel_event_flags( void ) {
   event_flags_t ev_flags = EV_FLAG_NONE;
   int16_t x = 0, y = 0, z = 0;

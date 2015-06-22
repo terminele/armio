@@ -26,6 +26,12 @@ bool accel_data_read (int16_t *x_ptr, int16_t *y_ptr, int16_t *z_ptr);
    * @retrn true on success, false on failure
    */
 
+uint8_t accel_x_click_count( void );
+  /* @brief current number of active (pre-timeout) x clicks
+   * @param None
+   * @retrn number of clicks for pending click event
+   */
+
 event_flags_t accel_event_flags( void );
   /* @brief get any event flags from accelerometer
    * @param None
