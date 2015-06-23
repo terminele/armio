@@ -158,6 +158,9 @@ make_gif() {
 #join_images 3 wht;
 #join_images 3 red;
 
+mkdir -p gifs
+mkdir -p slides
+
 gifname=gifs/gif_$(printf %03d $(( $(ls gifs | wc -l) + 1 ))).gif
 make_gif $gifname 2;
 gifname=gifs/gif_$(printf %03d $(( $(ls gifs | wc -l) + 1 ))).gif
