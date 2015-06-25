@@ -109,6 +109,24 @@ join_images() {
     convert $ARGS
 }
 
+add_borders() {
+    rm -rf borders
+    mkdir borders
+    border_size=20
+    orig_wd=680
+    orig_ht=1000
+    new_wd=$(( $orig_wd + 2 * $border_size ))
+    new_ht=$(( $orig_ht + 2 * $border_size ))
+    new_size=$(printf %dx%d $new_wd $new_ht)
+    for img in $(ls | grep img_ | grep .jpg); do
+        ARGS=" ( $img "
+        ARGS+=" -resize $new_size> -size $new_size xc:white +swap \
+            -gravity center -composite )  borders/$img "
+        #echo $ARGS
+        convert $ARGS
+    done
+}
+
 add_time() {
     img=img_003.jpg
     outfile=out.jpg
@@ -129,21 +147,23 @@ add_time() {
 }
 
 make_slides() {
-    mkdir -p slides
-    rm slides/*
-    join_images "8 52 7";       # black blue
-    join_images "8 67 7";       # clear blue
-    #join_images "1 5 12 13";    # gray bkg, brass
-    join_images "3 4 7 15";     # white bkg, brass
-    join_images "11 53 23 115 31"    # 16 (light pink strap) white bkg, black al
-    #join_images "8 114 28 51 20"     # 19 (light pink strap) gray bkg, black al
-    join_images "66 76 82 109 97"      # gray bkg, clear al 87
-    join_images "24 32 47 57 102"                       # black band, white bkg
-    #join_images "27 35 50 56 103"                       # black band, gray bkg
+    rm -rf slides
+    mkdir slides
     #join_images 3 tan;
     #join_images 3 gry;
     #join_images 3 wht;
     #join_images 3 red;
+    #join_images "8 52 7";           # black blue
+    join_images "8 67 7";           # clear blue
+    #join_images "1 5 12 13";        # gray bkg, brass
+    #join_images "3 4 7 15";         # white bkg, brass
+    join_images "3 5 7 12 15";      # white/gray brass
+
+    join_images "11 53 23 115 31"   # 16 (light pink strap) white bkg, black al
+    #join_images "8 114 28 51 20"    # 19 (light pink strap) gray bkg, black al
+    join_images "66 76 82 109 97"   # gray bkg, clear al 87
+    #join_images "27 35 50 56 103"   # black band, gray bkg
+    join_images "24 32 47 57 102"   # black band, white bkg
 }
 
 next_gif_name() {
@@ -152,6 +172,7 @@ next_gif_name() {
 }
 
 make_gif() {
+    mkdir -p gifs
     width_pic=3                         # number of images to use across
     gif_img_cnt=0           # number of images used in final gif (or all w/ 0)
     loops=1000
@@ -178,8 +199,50 @@ make_gif() {
     imgs=$(shuf -i 1-$num_raw_img -n $gif_img_cnt)
     txtname=$outname
     txtname+=".txt"
+
+    rep_order=""
+    for i in $(seq 1 $(( $gif_img_cnt - $width_pic ))); do
+        rep_order+="$(( $(shuf -i 1-$width_pic -n 1) - 1 )) "
+    done
+
+    # start images
+    imgs="11 53 23 115 31 "
+
+    imgs+="      44 102 23 73 109 39 71  2 90 77 50 21 115  3 42 12 62 84 106  7 88  5 35 15 "
+    rep_order="   4   2  3  0   1  3  0  0  2  4  3  2   4  0  3  3  4  4  4   2  4  1  4  4 "
+    #   wht/gry brass                                       0     3            2     1     4
+    #join_images " 3  5  7  12  15"     # white/gray brass
+
+    imgs+="     19 103 29 70 43 55 107 49 28 48 102  1 24 78 56 60 89 93 69 57 32 47 "
+    rep_order+=" 3   0  1  2  1  2   3  1  3  3   4  3  0  1  2  1  2  1  2  3  1  2 "
+    #     24 32 47  57 102                        4     0                    3  1  2
+    #join_images "24 32 47  57 102"     # white bkg, black band
+
+    imgs+="     25 53 81 12 114  13 83 74 16 18  9 100 110  8  4  7 65 14 109 76 36 66 82 97 "
+    rep_order+=" 1  2  1  1   2   4  2  1  2  1  2   0   4  2  1  2  0  2   3  1  2  0  2  4 "
+    #                                                                       3  1     0  2  4
+    #join_images "66 76 82 109  97"     # gray bkg, clear al
+
+    imgs+="      5 59 17 108 113 40 96 91 68 105 52 32 41 94 66 72 20 67 58 114 8 61 28 51 20 "
+    rep_order+=" 1  2  3   1   1  1  0  0  1   0  2  1  1  2  1  3  0  3  0  1  0  2  2  3  4 "
+    #                                                                        1  0     2  3  4
+    #join_images "8 114 28 51 20"       # 19 (light pink strap) gray bkg, black al
+
+    imgs+="     15 27 24 92 34 97  6 45 112 111 99 51 26 103 85 10 101 22 56 27 95 50 82 35 "
+    rep_order+=" 4  3  1  4  3  0  1  4   3   1  1  0  0   4  0   3  1  2  3  0  1  2  1  1 "
+    #                                                      4               3  0     2     1
+    #join_images "27 35 50 56 103"   # black band, gray bkg
+
+    imgs+="     98 46 30 79 54 31 87 64 47 37 11  3 33 75 53 76 63 104 115 38 86 23 80 31 "
+    rep_order+=" 3  0  1  4  3  1  1  0  0  4  0  1  3  4  1  4   2  4   3  4  4  2  4  4 "
+    #                                          0           1             3        2     4
+    #join_images "11 53 23 115  31"     # white bkg, black al
+
+
     echo "gif timing is $timing" >$txtname
     echo "Making $gifname with these image numbers" $imgs >>$txtname
+
+    echo "and this replacement order ment order" $rep_order >>$txtname
 
     # make gif
     ARGS=" -delay $timing "
@@ -195,16 +258,9 @@ make_gif() {
     ARGS+=" ) -resize $final_width ) "
 
     # add other images
-    rep_order=""
-    for i in $(seq 1 $(( $gif_img_cnt - $width_pic ))); do
-        rep_order+="$(( $(shuf -i 1-$width_pic -n 1) - 1 )) "
-    done
-    echo "and this replacement order ment order" $rep_order >>$txtname
-    for i in $(seq 1 $(( $gif_img_cnt - $width_pic ))); do
+    for page_num in $rep_order; do
         next_img=$(echo $imgs | sed 's/\([^ ]*\) \(.*\)/\1/')
         imgs=$(echo $imgs | sed 's/\([^ ]*\) \(.*\)/\2/')
-        page_num=$(echo $rep_order | sed 's/\([^ ]*\) \(.*\)/\1/')
-        rep_order=$(echo $rep_order | sed 's/\([^ ]*\) \(.*\)/\2/')
         inname=img_$(printf %03d $next_img).jpg
         #echo -n " $page_num"
         #echo "Page number is $page_num"
@@ -221,12 +277,12 @@ make_gif() {
 }
 
 
-mkdir -p gifs
 
 #find_min_size;
 #crop_images;
 #reorder_images;
-make_slides;
+#make_slides;
+#add_borders;
 
 #add_time;
 gifname=$(next_gif_name)
