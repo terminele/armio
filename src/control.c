@@ -139,20 +139,6 @@ ctrl_mode_t util_control_modes[] = {
     },
     {
         .enter_cb = NULL,
-        .tic_cb = event_debug_mode_tic,
-        .sleep_timeout_ticks = MS_IN_TICKS(60000),
-        .about_to_sleep_cb = NULL,
-        .wakeup_cb = NULL,
-    },
-    {
-        .enter_cb = NULL,
-        .tic_cb = accel_mode_tic,
-        .sleep_timeout_ticks = MS_IN_TICKS(60000),
-        .about_to_sleep_cb = NULL,
-        .wakeup_cb = NULL,
-    },
-    {
-        .enter_cb = NULL,
         .tic_cb = accel_point_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(15000),
         .about_to_sleep_cb = NULL,
@@ -195,6 +181,7 @@ bool event_debug_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
 
     /* Convert event flag bit pos to int */
 
+    /* FIXME -- may result in animation alloc errors */
     if (!event_flags) return false;
 
     if (event_flags & EV_FLAG_ACCEL_NCLICK_X) return true;
