@@ -29,7 +29,7 @@
 #define USE_SELF_TEST       false
 #endif
 
-#define DEBUG_AX_ISR false
+//#define DEBUG_AX_ISR true
 
 #ifndef DEBUG_AX_ISR
 #define DEBUG_AX_ISR false
@@ -191,10 +191,10 @@
 #define SLEEP_ODR          ODR_100HZ
 #define SLEEP_SAMPLE_INT   SAMPLE_INT_100HZ
 
-#define WAKEUP_CLICK_THS     43 //assumes 4g scale
+#define WAKEUP_CLICK_THS     50 //assumes 4g scale
 #define WAKEUP_CLICK_TIME_WIN      MS_TO_ODRS(300, SLEEP_SAMPLE_INT)
-#define WAKEUP_CLICK_TIME_LIM      MS_TO_ODRS(60, SLEEP_SAMPLE_INT)
-#define WAKEUP_CLICK_TIME_LAT      MS_TO_ODRS(30, SLEEP_SAMPLE_INT) //ms
+#define WAKEUP_CLICK_TIME_LIM      MS_TO_ODRS(30, SLEEP_SAMPLE_INT)
+#define WAKEUP_CLICK_TIME_LAT      MS_TO_ODRS(50, SLEEP_SAMPLE_INT) //ms
 
 #define MULTI_CLICK_WINDOW_MS 350
 
@@ -455,7 +455,9 @@ static void accel_isr(void) {
   _led_on_full(15*click_flags.ia + 5*int_flags.ia);
   delay_ms(5);
   _led_off_full(15*click_flags.ia + 5*int_flags.ia);
+  delay_ms(5);
 #endif
+
   extint_chan_clear_detected(AX_INT1_CHAN);
   system_interrupt_enable_global();
 
@@ -469,7 +471,10 @@ static void accel_wakeup_state_refresh(void) {
   }
 
   if (!accel_wakeup_gesture_enabled) {
-     _DISP_ERROR(42);
+     _DISP_ERROR(19);
+    /* FIXME -- this means the dclick interrupt flag
+     * was not set but the interrupt for it occurred */
+    wake_gesture_state = WAKE_DCLICK;
     return;
   }
 
@@ -662,8 +667,6 @@ bool accel_wakeup_check( void ) {
   return true;
 #endif
 
-  system_interrupt_disable_global();
-
   accel_wakeup_state_refresh();
 
   if (wake_gesture_state == WAKE_TURN_UP) {
@@ -682,7 +685,6 @@ bool accel_wakeup_check( void ) {
 
   }
 
-  system_interrupt_enable_global();
   return should_wakeup;
 }
 
