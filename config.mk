@@ -266,25 +266,26 @@ CPPFLAGS = \
        -D VBATT_NO_AVERAGE=false			  \
        -D ENABLE_LIGHT_SENSE=true			  \
        -D ENABLE_VBATT=true				  \
-       -D LOG_USAGE=true				  \
+       -D LOG_USAGE=false				  \
        -D __YEAR__=$(_YEAR_)				  \
        -D __MONTH__=$(_MONTH_)				  \
        -D __DAY__=$(_DAY_)				  \
        -D __HOUR__=$(_HOUR_)				  \
        -D __MIN__=$(_MIN_)				  \
        -D __SEC__=$(_SEC_)				  \
+       #-D LOG_ACCEL					  \
        #-D FLICKER_MIN_MODE
        #-D USE_WAKEUP_ALARM				  \
        #-D NO_TIME_ANIMATION				  \
        #-D NO_ACCEL					\
-       #-D SHOW_SEC
        #-D SIMPLE_TIME_MODE
-       #-D LOG_ACCEL					  \
        #-D ENABLE_BUTTON				  	  \
 
 
 ifdef flicker_time
     CPPFLAGS+= -D FLICKER_MIN_MODE=$(flicker_time)
+else
+    CPPFLAGS+= -D SHOW_SEC
 endif
 
 ifdef self_test
