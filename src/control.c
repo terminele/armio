@@ -653,6 +653,10 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     hour_fifths = minute/12;
     if (hour > 12) {
       hour = hour % 12;
+
+      if (hour == 0) {
+        hour = 12;
+      }
     }
 
     hour_anim_tick_int = MS_IN_TICKS(HOUR_ANIM_DUR_MS/(hour * 5));

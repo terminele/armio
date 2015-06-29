@@ -205,7 +205,7 @@ void aclock_init( void ) {
     initial_time.minute = global_state.minute = __MIN__;//10*(__TIME__[3] - '0') +  (__TIME__[4] - '0');
     initial_time.second = global_state.second = __SEC__;//10*(__TIME__[6] - '0') +  (__TIME__[7] - '0') % 60;
 
-    config_rtc_calendar.clock_24h = true;
+    config_rtc_calendar.clock_24h = false;
     config_rtc_calendar.prescaler  = RTC_CALENDAR_PRESCALER_DIV_1024;
     config_rtc_calendar.continuously_update = true;
     config_rtc_calendar.alarm[0] = alarm;
