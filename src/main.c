@@ -823,8 +823,11 @@ int main (void) {
   LOG_WAKEUP();
 
   /* Show a startup LED swirl */
+#ifdef SPARKLE_FOREVER_MODE
+  sleep_wake_anim = anim_random(display_point(0, BRIGHT_DEFAULT), MS_IN_TICKS(15), ANIMATION_DURATION_INF);
+#else
   sleep_wake_anim = anim_swirl(0, 8, MS_IN_TICKS(4), 172, true);
-
+#endif
   /* get intial time */
   configure_input();
   system_interrupt_enable_global();

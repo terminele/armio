@@ -12,7 +12,11 @@
 #include "utils.h"
 
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
+#ifdef NO_TIMEOUT
+#define CLOCK_MODE_SLEEP_TIMEOUT_TICKS                  MS_IN_TICKS(10000000)
+#else
 #define CLOCK_MODE_SLEEP_TIMEOUT_TICKS                  MS_IN_TICKS(7000)
+#endif
 #define TIME_SET_MODE_EDITING_SLEEP_TIMEOUT_TICKS       MS_IN_TICKS(80000)
 #define TIME_SET_MODE_NOEDIT_SLEEP_TIMEOUT_TICKS        MS_IN_TICKS(8000)
 #define EE_MODE_SLEEP_TIMEOUT_TICKS                     MS_IN_TICKS(8000)
