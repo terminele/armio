@@ -281,11 +281,27 @@ CPPFLAGS = \
        #-D SIMPLE_TIME_MODE
        #-D ENABLE_BUTTON				  	  \
 
+PREBUILD_CMD =
 
 ifdef flicker_time
     CPPFLAGS+= -D FLICKER_MIN_MODE=$(flicker_time)
 else
     CPPFLAGS+= -D SHOW_SEC
+endif
+
+ifdef debug_accel
+    CPPFLAGS+= -D DEBUG_AX_ISR=true
+    PREBUILD_CMD += touch src/accel.c;
+endif
+
+ifdef sparkle
+    CPPFLAGS+= -D SPARKLE_FOREVER_MODE=true
+    PREBUILD_CMD += touch src/main.c;
+endif
+
+ifdef no_timeout
+    CPPFLAGS+= -D NO_TIMEOUT=true
+    PREBUILD_CMD += touch src/control.c;
 endif
 
 ifdef self_test
@@ -296,7 +312,7 @@ endif
 LDFLAGS =
 
 # Pre- and post-build commands
-PREBUILD_CMD = touch src/aclock.c; touch src/control.c;
+PREBUILD_CMD += touch src/aclock.c; touch src/control.c;
 ifdef test
     if [-a bin/src/main.o]; \
 	then \

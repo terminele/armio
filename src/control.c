@@ -646,9 +646,21 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
         sec_disp_ptr = NULL;
         anim_ptr = NULL;
 
+        /* Reset sleep timeout to default */
+        main_control_modes[CONTROL_MODE_SHOW_TIME].sleep_timeout_ticks = CLOCK_MODE_SLEEP_TIMEOUT_TICKS;
+
         phase = INIT;
 
         return true; //transition
+    }
+
+    if (event_flags & EV_FLAG_ACCEL_SCLICK_X ||
+        event_flags & EV_FLAG_ACCEL_DCLICK_X) {
+        main_control_modes[CONTROL_MODE_SHOW_TIME].sleep_timeout_ticks = MS_IN_TICKS(100000000);
+
+        if (!sec_disp_ptr) {
+          sec_disp_ptr = display_point(second, BRIGHT_DEFAULT);
+        }
     }
 
     /* Get latest time */
@@ -702,7 +714,7 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
 #if FLICKER_MIN_MODE
                 min_disp_ptr->on = false;
                 anim_ptr = anim_flicker(min_disp_ptr,
-                  MS_IN_TICKS(2000), false);
+                  MS_IN_TICKS(1500), false);
                 phase = ANIM_MIN;
 #else
                 anim_ptr = anim_blink(min_disp_ptr, MS_IN_TICKS(200),
@@ -717,7 +729,9 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
                 anim_release(anim_ptr);
                 anim_ptr = NULL;
 #ifdef SHOW_SEC
-                sec_disp_ptr = display_point(second, MIN_BRIGHT_VAL);
+                if (!sec_disp_ptr) {
+                  sec_disp_ptr = display_point(second, MIN_BRIGHT_VAL);
+                }
 #endif
                 phase = DISP_ALL;
             }
@@ -725,9 +739,11 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
 
         case DISP_ALL:
             display_comp_show_all();
-#ifdef SHOW_SEC
-            display_comp_update_pos(sec_disp_ptr, second);
-#endif
+
+            if (sec_disp_ptr) {
+              display_comp_update_pos(sec_disp_ptr, second);
+            }
+
             display_comp_update_pos(min_disp_ptr, minute);
             display_comp_update_pos(hour_disp_ptr, HOUR_POS(hour));
             display_comp_update_length(hour_disp_ptr, hour_fifths + 1);
