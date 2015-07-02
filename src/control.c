@@ -717,8 +717,8 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
                   MS_IN_TICKS(1500), false);
                 phase = ANIM_MIN;
 #else
-                anim_ptr = anim_blink(min_disp_ptr, MS_IN_TICKS(200),
-                        MS_IN_TICKS(2000), false);
+                anim_ptr = anim_blink(min_disp_ptr, MS_IN_TICKS(150),
+                        MS_IN_TICKS(1200), false);
                 phase = ANIM_MIN;
 #endif
             }

@@ -286,7 +286,7 @@ PREBUILD_CMD =
 ifdef flicker_time
     CPPFLAGS+= -D FLICKER_MIN_MODE=$(flicker_time)
 else
-    CPPFLAGS+= -D SHOW_SEC
+    #CPPFLAGS+= -D SHOW_SEC
 endif
 
 ifdef debug_accel
