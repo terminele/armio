@@ -654,14 +654,6 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
         return true; //transition
     }
 
-    if (event_flags & EV_FLAG_ACCEL_SCLICK_X ||
-        event_flags & EV_FLAG_ACCEL_DCLICK_X) {
-        main_control_modes[CONTROL_MODE_SHOW_TIME].sleep_timeout_ticks = MS_IN_TICKS(100000000);
-
-        if (!sec_disp_ptr) {
-          sec_disp_ptr = display_point(second, BRIGHT_DEFAULT);
-        }
-    }
 
     /* Get latest time */
     aclock_get_time(&hour, &minute, &second);
@@ -674,6 +666,7 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
         hour = 12;
       }
     }
+
 
     hour_anim_tick_int = MS_IN_TICKS(HOUR_ANIM_DUR_MS/(hour * 5));
     switch(phase) {
@@ -728,17 +721,27 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
             if (anim_is_finished(anim_ptr)) {
                 anim_release(anim_ptr);
                 anim_ptr = NULL;
-#ifdef SHOW_SEC
+#ifdef SHOW_SEC_ALWAYS
                 if (!sec_disp_ptr) {
                   sec_disp_ptr = display_point(second, MIN_BRIGHT_VAL);
                 }
 #endif
+
                 phase = DISP_ALL;
             }
             break;
 
         case DISP_ALL:
             display_comp_show_all();
+
+            /* Double click enables seconds and disables timeout */
+            if (event_flags & EV_FLAG_ACCEL_DCLICK_X) {
+              main_control_modes[CONTROL_MODE_SHOW_TIME].sleep_timeout_ticks = MS_IN_TICKS(100000000);
+
+              if (!sec_disp_ptr) {
+                sec_disp_ptr = display_point(second, BRIGHT_DEFAULT);
+              }
+            }
 
             if (sec_disp_ptr) {
               display_comp_update_pos(sec_disp_ptr, second);
