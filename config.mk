@@ -304,6 +304,10 @@ ifdef no_timeout
     PREBUILD_CMD += touch src/control.c;
 endif
 
+ifdef show_sec
+    CPPFLAGS+= -D SHOW_SEC_ALWAYS
+endif
+
 ifdef self_test
     CPPFLAGS+= -D USE_SELF_TEST=$(self_test)
 endif
