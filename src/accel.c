@@ -191,6 +191,10 @@
 #define SLEEP_ODR          ODR_100HZ
 #define SLEEP_SAMPLE_INT   SAMPLE_INT_100HZ
 
+/* parameters for ST sleep-to-wake/return-to-sleep functionality */
+#define DEEP_SLEEP_THS      4 
+#define DEEP_SLEEP_DUR       MS_TO_ODRS(1000, SLEEP_SAMPLE_INT)
+
 #define WAKEUP_CLICK_THS     60 //assumes 4g scale
 #define WAKEUP_CLICK_TIME_WIN      MS_TO_ODRS(400, SLEEP_SAMPLE_INT)
 #define WAKEUP_CLICK_TIME_LIM      MS_TO_ODRS(30, SLEEP_SAMPLE_INT)
@@ -740,11 +744,11 @@ void accel_enable ( void ) {
   accel_register_write (AX_REG_CTL5, LIR_INT1 | FIFO_EN );
 
   /* Disable sleep activity threshold and duration */
-  if (!accel_register_write (AX_REG_ACT_THS, 0x00)) {
+  if (!accel_register_write (AX_REG_ACT_THS, DEEP_SLEEP_THS)) {
       main_terminate_in_error( error_group_accel, ACCEL_ERROR_WRITE_EN );
   }
 
-  if (!accel_register_write (AX_REG_ACT_DUR, 0x00)) {
+  if (!accel_register_write (AX_REG_ACT_DUR, DEEP_SLEEP_DUR)) {
       main_terminate_in_error( error_group_accel, ACCEL_ERROR_WRITE_EN );
   }
 
