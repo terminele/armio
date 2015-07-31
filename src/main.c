@@ -64,11 +64,15 @@
   #define LOG_SLEEP()
 #endif
 
+#define IS_LOW_BATT(vbatt_adc_val) \
+  (adc_vbatt_value_scale(vbatt_adc_val) < 10)
+
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 typedef enum main_state_t {
   STARTUP = 0,
   RUNNING,
   ENTERING_SLEEP,
+  WAKEUP,
   MODE_TRANSITION
 } main_state_t;
 
@@ -164,7 +168,7 @@ static struct {
 
 } main_gs;
 
-static animation_t *sleep_wake_anim;
+static animation_t *sleep_wake_anim = NULL;
 static animation_t *mode_trans_swirl;
 static animation_t *mode_trans_blink;
 static display_comp_t *mode_disp_point;
@@ -405,13 +409,14 @@ static void main_tic( void ) {
       /* Stay in startup until animation is finished */
       if (anim_is_finished(sleep_wake_anim)) {
         main_gs.state = RUNNING;
-        anim_release(sleep_wake_anim);
+        sleep_wake_anim = NULL;
       }
       return;
     case ENTERING_SLEEP:
       /* Wait until animation is finished to sleep */
-      if (!sleep_wake_anim || anim_is_finished(sleep_wake_anim)) {
+      if (anim_is_finished(sleep_wake_anim)) {
         anim_release(sleep_wake_anim);
+        sleep_wake_anim = NULL;
 
         /* Reset control mode to main (time display) mode */
         control_state_set(ctrl_state_main);
@@ -426,24 +431,37 @@ static void main_tic( void ) {
         } while(!accel_wakeup_check());
 
         wakeup();
-
+      
         //main_set_current_sensor(sensor_light);
         //main_start_sensor_read();
         //main_gs.light_sensor_scaled_at_wakeup = adc_light_value_scale(
         //    main_read_current_sensor(true) );
-
+        
         if (ctrl_mode_active->wakeup_cb)
           ctrl_mode_active->wakeup_cb();
 
-        display_comp_show_all();
         led_clear_all();
-
+        
+        if (IS_LOW_BATT(main_gs.vbatt_sensor_adc_val)) {
+          /* If low battery, display warning animation for a short period */
+          sleep_wake_anim = anim_blink(display_polygon(30, BRIGHT_MED_LOW, 3), 
+               MS_IN_TICKS(300), MS_IN_TICKS(2100), true);
+        }
+        
+        main_gs.state = WAKEUP;
+      }
+      return;
+    case WAKEUP:
+      if (anim_is_finished(sleep_wake_anim)) {
+        /* animation is autorelease */
+        sleep_wake_anim = NULL;
+        main_gs.state = RUNNING;
+        
         main_gs.modeticks = 0;
         main_gs.waketicks = 0;
         main_gs.inactivity_ticks = 0;
-        main_gs.state = RUNNING;
-
       }
+
       return;
     case RUNNING:
 #if ENABLE_LIGHT_SENSE
@@ -489,7 +507,7 @@ static void main_tic( void ) {
 #ifdef NO_TIME_ANIMATION
         sleep_wake_anim = NULL;
 #else
-        sleep_wake_anim = anim_swirl(0, 5, MS_IN_TICKS(5), 57, false);
+        sleep_wake_anim = anim_swirl(0, 5, MS_IN_TICKS(5), 57, true);
 #endif
         return;
       }
@@ -812,11 +830,15 @@ int main (void) {
   NVMCTRL->CTRLB.bit.SLEEPPRM = NVMCTRL_CTRLB_SLEEPPRM_DISABLED_Val;
 #endif
 
-  /* Read light and vbatt sensors on startup */
+  /* Read vbatt sensor on startup */
 #if ENABLE_VBATT
   main_set_current_sensor(sensor_vbatt);
   main_start_sensor_read();
-  main_gs.running_avg_vbatt = main_read_current_sensor(true);
+  if (IS_LOW_BATT(main_read_current_sensor(true))) {
+        sleep_wake_anim = anim_blink(display_polygon(30, BRIGHT_MED_LOW, 3), 
+             MS_IN_TICKS(300), MS_IN_TICKS(2100), true);
+  }
+
 #endif
 
 
@@ -824,10 +846,13 @@ int main (void) {
 
   /* Show a startup LED swirl */
 #ifdef SPARKLE_FOREVER_MODE
-  sleep_wake_anim = anim_random(display_point(0, BRIGHT_DEFAULT), MS_IN_TICKS(15), ANIMATION_DURATION_INF);
-#else
-  sleep_wake_anim = anim_swirl(0, 8, MS_IN_TICKS(4), 172, true);
+  sleep_wake_anim = anim_random(display_point(0, BRIGHT_DEFAULT), MS_IN_TICKS(15), ANIMATION_DURATION_INF, false);
 #endif
+
+  if (!sleep_wake_anim) {
+    sleep_wake_anim = anim_random(display_point(0, BRIGHT_DEFAULT), MS_IN_TICKS(15), MS_IN_TICKS(2000), true);
+  }
+
   /* get intial time */
   configure_input();
   system_interrupt_enable_global();

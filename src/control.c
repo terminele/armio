@@ -230,7 +230,7 @@ bool ee_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     if (tick_cnt == 0 && ee_submode_tic == NULL) {
         /* Display ee mode start animation */
         display_comp = display_point(0, BRIGHT_DEFAULT);
-        anim = anim_random(display_comp, MS_IN_TICKS(15), ANIMATION_DURATION_INF);
+        anim = anim_random(display_comp, MS_IN_TICKS(15), ANIMATION_DURATION_INF, false);
         /* initialize last tic to prevent events from being counted too early */
         last_ev_tick = tick_cnt;
         //display_comp = display_polygon(0, BRIGHT_DEFAULT, 3);
@@ -672,7 +672,6 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     hour_anim_tick_int = MS_IN_TICKS(HOUR_ANIM_DUR_MS/(hour * 5));
     switch(phase) {
         case INIT:
-
 #ifdef NO_TIME_ANIMATION
             min_disp_ptr = display_point(minute, BRIGHT_DEFAULT);
             hour_disp_ptr = display_snake(HOUR_POS(hour), MAX_BRIGHT_VAL,
@@ -690,7 +689,6 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
 #endif
             break;
         case ANIM_HOUR_SWIRL:
-
             if (anim_is_finished(anim_ptr)) {
                 anim_release(anim_ptr);
                 hour_disp_ptr = display_snake(HOUR_POS(hour), MAX_BRIGHT_VAL,

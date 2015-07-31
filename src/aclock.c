@@ -12,7 +12,7 @@
 
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
 #ifndef ALARM_INTERVAL_SEC
-#define ALARM_INTERVAL_SEC 15
+#define ALARM_INTERVAL_SEC 20
 #endif
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 

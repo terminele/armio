@@ -27,7 +27,7 @@
 #define MIN_BRIGHT_VAL      1
 
 #define BRIGHT_LOW          MIN_BRIGHT_VAL
-#define BRIGHT_MED_LOW      3
+#define BRIGHT_MED_LOW      2
 #define BRIGHT_MED          4
 #define BRIGHT_HIGH         5
 #define BRIGHT_MAX          MAX_BRIGHT_VAL

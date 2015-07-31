@@ -308,6 +308,11 @@ ifdef show_sec
     CPPFLAGS+= -D SHOW_SEC_ALWAYS
 endif
 
+ifdef wakeup_alarm
+    CPPFLAGS+= -D USE_WAKEUP_ALARM
+    PREBUILD_CMD += touch src/aclock.c
+endif
+
 ifdef self_test
     CPPFLAGS+= -D USE_SELF_TEST=$(self_test)
 endif
