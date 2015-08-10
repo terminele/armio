@@ -113,6 +113,10 @@ void aclock_enable ( void ) {
   /* ###continuous update doesn't seeem to be working so... */
   /* Make another calendar read request */
   RTC->MODE2.READREQ.reg = RTC_READREQ_RREQ;
+  
+  while (rtc_calendar_is_syncing(&rtc_instance)) {
+          /* Wait for synchronization */
+  }
 
 }
 
