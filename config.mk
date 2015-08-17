@@ -48,8 +48,8 @@ ifndef chip
 endif
 
 ifndef debugger
-    debugger=atmel-ice
-    $(info defaulting to atmel-ice debugger)
+    debugger=jlink
+    $(info defaulting to jlink debugger)
 endif
 
 DEBUGGER_CFG=utils/$(debugger).cfg
@@ -262,9 +262,10 @@ CPPFLAGS = \
        -D TC_ASYNC=true		 		          \
        -D SYSTICK_MODE                                    \
        -D $(PARTD)					  \
-       -D NVM_MAX_ADDR=$(NVM_MAX_ADDR)					  \
+       -D NVM_MAX_ADDR=$(NVM_MAX_ADDR)			  \
        -D VBATT_NO_AVERAGE=false			  \
-       -D ENABLE_LIGHT_SENSE=false			  \
+       -D ENABLE_LIGHT_SENSE=true			  \
+       -D ENABLE_VBATT=true				  \
        -D LOG_USAGE=false				  \
        -D __YEAR__=$(_YEAR_)				  \
        -D __MONTH__=$(_MONTH_)				  \
@@ -272,21 +273,58 @@ CPPFLAGS = \
        -D __HOUR__=$(_HOUR_)				  \
        -D __MIN__=$(_MIN_)				  \
        -D __SEC__=$(_SEC_)				  \
-       #-D SIMPLE_TIME_MODE
-       #-D USE_WAKEUP_ALARM				  \
-       #-D NO_ACCEL
        #-D LOG_ACCEL					  \
+       #-D FLICKER_MIN_MODE
+       #-D USE_WAKEUP_ALARM				  \
+       #-D NO_TIME_ANIMATION				  \
+       #-D NO_ACCEL					\
+       #-D SIMPLE_TIME_MODE
        #-D ENABLE_BUTTON				  	  \
 
 ifdef simple_time
     CPPFLAGS += -D SIMPLE_TIME_MODE=true
+endif
+PREBUILD_CMD =
+
+ifdef flicker_time
+    CPPFLAGS+= -D FLICKER_MIN_MODE=$(flicker_time)
+else
+    #CPPFLAGS+= -D SHOW_SEC
+endif
+
+ifdef debug_accel
+    CPPFLAGS+= -D DEBUG_AX_ISR=true
+    PREBUILD_CMD += touch src/accel.c;
+endif
+
+ifdef sparkle
+    CPPFLAGS+= -D SPARKLE_FOREVER_MODE=true
+    PREBUILD_CMD += touch src/main.c;
+endif
+
+ifdef no_timeout
+    CPPFLAGS+= -D NO_TIMEOUT=true
+    PREBUILD_CMD += touch src/control.c;
+endif
+
+ifdef show_sec
+    CPPFLAGS+= -D SHOW_SEC_ALWAYS
+endif
+
+ifdef wakeup_alarm
+    CPPFLAGS+= -D USE_WAKEUP_ALARM
+    PREBUILD_CMD += touch src/aclock.c
+endif
+
+ifdef self_test
+    CPPFLAGS+= -D USE_SELF_TEST=$(self_test)
 endif
 
 # Extra flags to use when linking
 LDFLAGS =
 
 # Pre- and post-build commands
-PREBUILD_CMD = touch src/aclock.c;
+PREBUILD_CMD += touch src/aclock.c; touch src/control.c;
 ifdef test
     if [-a bin/src/main.o]; \
 	then \

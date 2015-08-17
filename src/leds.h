@@ -27,7 +27,7 @@
 #define MIN_BRIGHT_VAL      1
 
 #define BRIGHT_LOW          MIN_BRIGHT_VAL
-#define BRIGHT_MED_LOW      3
+#define BRIGHT_MED_LOW      2
 #define BRIGHT_MED          4
 #define BRIGHT_HIGH         5
 #define BRIGHT_MAX          MAX_BRIGHT_VAL
@@ -89,4 +89,18 @@ void led_set_max_brightness( uint8_t brightness);
    * @retrn None
    */
 
+void _led_on_full( uint8_t led );
+  /* @brief bypass pwm and turn on led via gpio
+   * @param led to turn on
+   * @retrn None
+   */
+
+void _led_off_full( uint8_t led );
+  /* @brief bypass pwm and turn off led via gpio
+   * @param led to turn off
+   * @retrn None
+   */
+
 #endif /* end of include guard: __LEDS_H__ */
+
+// vim:shiftwidth=2

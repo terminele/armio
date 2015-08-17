@@ -194,6 +194,8 @@ static uint8_t max_brightness = MAX_BRIGHT_VAL;
 static uint8_t led_intensities[ BANK_COUNT ][ SEGMENT_COUNT ];
 static uint32_t led_segment_masks[ BANK_COUNT ][ BRIGHT_LEVELS ];
 
+static bool enabled = false;
+
 //___ I N T E R R U P T S  ___________________________________________________
 static void tc_pwm_isr ( struct tc_module *const tc_inst) {
 
@@ -321,6 +323,8 @@ void led_controller_init ( void ) {
 void led_controller_enable ( void ) {
   struct port_config pin_conf;
 
+  if (enabled) return;
+
   /* Configure bank and segment pin groups as outputs */
   port_get_config_defaults(&pin_conf);
   pin_conf.direction = PORT_PIN_DIR_OUTPUT;
@@ -345,10 +349,13 @@ void led_controller_enable ( void ) {
   tc_stop_counter(&bank_tc_instance);
   tc_set_count_value(&bank_tc_instance, 0);
 
+  enabled = true;
 }
 
 void led_controller_disable ( void ) {
   struct port_config pin_conf;
+
+  if (!enabled) return;
 
   tc_disable_callback(&pwm_tc_instance, TC_CALLBACK_CC_CHANNEL0);
   tc_disable(&pwm_tc_instance);
@@ -363,9 +370,9 @@ void led_controller_disable ( void ) {
   port_group_set_config(&PORTA, SEGMENT_PIN_PORT_MASK, &pin_conf );
   port_group_set_config(&PORTA, BANK_PIN_PORT_MASK, &pin_conf );
 
+  enabled = false;
 
 }
-
 
 
 void led_set_intensity ( uint8_t led, uint8_t intensity ) {
@@ -398,3 +405,16 @@ void led_clear_all( void ) {
 void led_set_max_brightness( uint8_t brightness ) {
     max_brightness = brightness;
 }
+
+
+void _led_on_full( uint8_t led ) {
+  SEGMENT_ENABLE(LED_SEGMENT(led));
+  BANK_ENABLE(LED_BANK(led));
+}
+
+void _led_off_full( uint8_t led ) {
+  SEGMENT_DISABLE(LED_SEGMENT(led));
+  BANK_DISABLE(LED_BANK(led));
+}
+
+// vim:shiftwidth=2

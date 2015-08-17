@@ -44,16 +44,18 @@ uint8_t utils_spin_tracker_update ( void );
 uint8_t adc_light_value_scale ( uint16_t value );
   /* @brief scales a light adc read quasi-logarithmically
    * for displaying on led ring
-   * @param 12-bit adc value
+   * @param 16-bit adc value
    * @retrn led index to display
    */
 
 
 uint8_t adc_vbatt_value_scale ( uint16_t value );
   /* @brief scales the raw vbat readings for displaying on led ring
-   * @param 12-bit adc value
+   * @param 16-bit adc value
    * @retrn led index to display
    */
 
 
 #endif /* end of include guard: __UTILS_H__ */
+
+// vim:shiftwidth=2

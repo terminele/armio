@@ -107,6 +107,10 @@ def analyze_fifo(f):
 
 def analyze_streamed(f):
     binval = f.read(4)
+    #skip any leading 0xffffff bytes
+    while struct.unpack("<I", binval)[0] == 0xffffffff:
+        binval = f.read(4)
+
     ts = []
     xs = []
     zs = []
@@ -123,6 +127,7 @@ def analyze_streamed(f):
         binval = f.read(4)
 
     plt.plot(ts, xs, 'r-', label='x')
+    plt.show()
     plt.plot(ts, zs, 'b-', label='z')
     plt.show()
 

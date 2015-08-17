@@ -11,17 +11,20 @@
 #include "main.h"
 
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
-
+#ifndef ALARM_INTERVAL_SEC
+#define ALARM_INTERVAL_SEC 20
+#endif
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 
 //___ P R O T O T Y P E S   ( P R I V A T E ) ________________________________
 
-void rtc_alarm_minute_callback( void );
-  /* @brief minute alarm callback
+void rtc_alarm_short_callback( void );
+  /* @brief alarm callback
    * then schedules next alarm
    * @param None
    * @retrn None
    */
+
 void aclock_sync_ready_cb ( void );
   /* @brief callback after an RTC read sync
    * is finished and we can read an updated
@@ -41,38 +44,7 @@ static aclock_state_t global_state;
 
 //___ F U N C T I O N S   ( P R I V A T E ) __________________________________
 
-#ifdef NOT_NOW
-void rtc_alarm_s_callback( void ) {
-    struct rtc_calendar_time curr_time;
-    //user_tick_cb();
-    /* Set next alarm for a second later */
-    alarm.mask = RTC_CALENDAR_ALARM_MASK_SEC;
-    alarm.time.second += 1;
-    alarm.time.second = alarm.time.second % 60;
-
-    rtc_calendar_set_alarm(&rtc_instance, &alarm, RTC_CALENDAR_ALARM_0);
-
-    /* Update our time state */
-
-
-
-}
-
-#endif
-
 #ifdef USE_WAKEUP_ALARM
-void rtc_alarm_minute_callback( void ) {
-
-    aclock_enable();
-
-    /* Set next alarm */
-    alarm.time.minute += 1;
-    alarm.time.minute %= 60;
-    alarm.time.second = 0;
-
-    rtc_calendar_set_alarm(&rtc_instance, &alarm, RTC_CALENDAR_ALARM_0);
-
-}
 
 void rtc_alarm_short_callback( void ) {
 
@@ -81,7 +53,7 @@ void rtc_alarm_short_callback( void ) {
     /* Set next alarm */
     //alarm.time.minute += 1;
     //alarm.time.minute %= 60;
-    alarm.time.second += 15;
+    alarm.time.second += ALARM_INTERVAL_SEC;
 
     if (alarm.time.second > 59) {
       alarm.time.minute+=1;
@@ -141,6 +113,10 @@ void aclock_enable ( void ) {
   /* ###continuous update doesn't seeem to be working so... */
   /* Make another calendar read request */
   RTC->MODE2.READREQ.reg = RTC_READREQ_RREQ;
+  
+  while (rtc_calendar_is_syncing(&rtc_instance)) {
+          /* Wait for synchronization */
+  }
 
 }
 
@@ -162,10 +138,10 @@ int32_t aclock_get_timestamp ( void ) {
   global_state.minute = curr_time.minute;
   global_state.second = curr_time.second;
 
-  uint32_t value = (global_state.year - 1970)*SECONDS_PER_YEAR;
+  int32_t value = ((uint32_t)global_state.year - 1970)*SECONDS_PER_YEAR;
 
   //account for extra day in leap years
-  value += ((global_state.year - 1970)/4)*SECONDS_PER_DAY;
+  value += ((uint32_t)(global_state.year - 1970)/4)*SECONDS_PER_DAY;
 
   switch (global_state.month) {
     /* Each case accounts for the days of
@@ -199,9 +175,9 @@ int32_t aclock_get_timestamp ( void ) {
       break;
   }
 
-  value+=global_state.day*SECONDS_PER_DAY;
-  value+=global_state.hour*3600;
-  value+=global_state.minute*60;
+  value+=((uint32_t)global_state.day)*SECONDS_PER_DAY;
+  value+=((uint32_t)global_state.hour)*3600;
+  value+=((uint32_t)global_state.minute)*60;
   value+=global_state.second;
 
   return value;
@@ -228,7 +204,8 @@ void aclock_init( void ) {
     initial_time.month  = global_state.month = __MONTH__;//10;
     initial_time.day    =  global_state.day = __DAY__;//10;
 
-    /* Use compile time for initial time */ initial_time.hour   = global_state.hour =  __HOUR__;//10*(__TIME__[0] - '0') +  (__TIME__[1] - '0');
+    /* Use compile time for initial time */
+    initial_time.hour   = global_state.hour =  __HOUR__;//10*(__TIME__[0] - '0') +  (__TIME__[1] - '0');
     initial_time.minute = global_state.minute = __MIN__;//10*(__TIME__[3] - '0') +  (__TIME__[4] - '0');
     initial_time.second = global_state.second = __SEC__;//10*(__TIME__[6] - '0') +  (__TIME__[7] - '0') % 60;
 
@@ -241,7 +218,10 @@ void aclock_init( void ) {
 
     rtc_calendar_enable(&rtc_instance);
 
-    rtc_calendar_frequency_correction(&rtc_instance, main_nvm_conf_data.rtc_freq_corr);
+    if ((uint8_t)main_nvm_conf_data.rtc_freq_corr != 0xff) {
+      rtc_calendar_frequency_correction(&rtc_instance, main_nvm_conf_data.rtc_freq_corr);
+    }
+
     rtc_calendar_set_time(&rtc_instance, &initial_time);
 
     /* Register sync ready callback */
@@ -251,16 +231,24 @@ void aclock_init( void ) {
     rtc_calendar_enable_callback(&rtc_instance, RTC_CALENDAR_CALLBACK_SYNCRDY);
 
 #ifdef USE_WAKEUP_ALARM
-    /* Configure alarm to trigger every minute    */
-    alarm.time.second = 0;
-    alarm.time.minute = (initial_time.minute + 1) % 60;
+    /* Configure alarm  */
+    alarm.time.second = initial_time.second + ALARM_INTERVAL_SEC;
+    alarm.time.minute = initial_time.minute;
+
+    if (alarm.time.second >= 60) {
+      alarm.time.second %= 60;
+      alarm.time.minute++;
+    }
+
     alarm.mask = RTC_CALENDAR_ALARM_MASK_MIN;
     rtc_calendar_set_alarm(&rtc_instance, &alarm, RTC_CALENDAR_ALARM_0);
 
     /* Register ready callback */
     rtc_calendar_register_callback( &rtc_instance,
-        rtc_alarm_short_callback/*rtc_alarm_minute_callback*/, RTC_CALENDAR_ALARM_0);
+        rtc_alarm_short_callback, RTC_CALENDAR_ALARM_0);
 
     rtc_calendar_enable_callback(&rtc_instance, RTC_CALENDAR_ALARM_0);
 #endif
 }
+
+// vim:shiftwidth=2

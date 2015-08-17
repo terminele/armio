@@ -6,8 +6,8 @@
 #define __ACCEL_H__
 
 //___ I N C L U D E S ________________________________________________________
-#include <asf.h>
-#include <main.h>
+#include "asf.h"
+#include "main.h"
 
 //___ M A C R O S ____________________________________________________________
 
@@ -18,6 +18,7 @@
 //___ V A R I A B L E S ______________________________________________________
 extern int16_t ax_fifo[32][3];
 extern uint8_t ax_fifo_depth;
+extern bool accel_wakeup_gesture_enabled;
 
 //___ P R O T O T Y P E S ____________________________________________________
 
@@ -26,6 +27,12 @@ bool accel_data_read (int16_t *x_ptr, int16_t *y_ptr, int16_t *z_ptr);
    * accelerometer
    * @param x,y,z - pointers to be filled with 10-bit signed acceleration data
    * @retrn true on success, false on failure
+   */
+
+uint8_t accel_x_click_count( void );
+  /* @brief current number of active (pre-timeout) x clicks
+   * @param None
+   * @retrn number of clicks for pending click event
    */
 
 event_flags_t accel_event_flags( void );
@@ -62,3 +69,5 @@ void accel_init ( void );
    */
 
 #endif /* end of include guard: __ACCEL_H__ */
+
+// vim:shiftwidth=2

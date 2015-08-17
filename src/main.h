@@ -37,16 +37,15 @@
 #define EV_FLAG_SLEEP                   (1 << 23)
 
 /* Error Codes */
-#define ERROR_NONE                      0
-#define ERROR_ACCEL_READ_ID             1
-#define ERROR_ACCEL_BAD_ID              2
-#define ERROR_ACCEL_WRITE_ENABLE        3
-#define ERROR_DISP_DRAW_BAD_COMP_TYPE   4
-#define ERROR_DISP_ALLOC_FAIL           5
-#define ERROR_DISP_CLEAR_BAD_COMP_TYPE  6
-#define ERROR_ANIM_BAD_TYPE             7
-#define ERROR_ANIM_ALLOC_FAIL           8
-#define ERROR_ASSERTION_FAIL            9
+typedef enum {
+  error_group_none      = 0,
+  error_group_accel,
+  error_group_disp,
+  error_group_animation,
+  error_group_control,
+  error_group_assertion,
+} error_group_code_t;
+
 
 /* System (main) timer */
 #define MS_PER_TICK             1
@@ -54,7 +53,9 @@
 #define TICKS_IN_MS(T)         ((T)*MS_PER_TICK)
 #define MAIN_TIMER_TICK_US      (MS_PER_TICK*1000)
 
-#define assert(B) if (!(B)) main_terminate_in_error(ERROR_ASSERTION_FAIL)
+#define LIGHT_SENSE_ENABLE_PIN       PIN_PA02
+
+#define assert(B) if (!(B)) main_terminate_in_error( error_group_assertion, 0 )
 
 //___ T Y P E D E F S ________________________________________________________
 typedef uint32_t event_flags_t;
@@ -72,9 +73,10 @@ typedef struct {
 extern nvm_conf_t main_nvm_conf_data;
 
 //___ P R O T O T Y P E S ____________________________________________________
-void main_terminate_in_error( uint8_t error_code);
+void main_terminate_in_error( error_group_code_t error_group, uint32_t subcode );
   /* @brief terminate program with error code
-   * @param error flags
+   * @param error group from enumeration list
+   * @param subcode : only the first 3 bytes are currently used
    * @retrn None
    */
 
@@ -83,6 +85,7 @@ void main_start_sensor_read ( void );
    * @param None
    * @retrn None
    */
+
 sensor_type_t main_get_current_sensor ( void );
   /* @brief get current sensor setting
    * @param None
@@ -147,3 +150,5 @@ void main_inactivity_timeout_reset( void );
    */
 
 #endif /* end of include guard: __MAIN_H__ */
+
+// vim:shiftwidth=2

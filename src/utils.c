@@ -113,32 +113,44 @@ uint8_t utils_spin_tracker_update ( void ) {
 }
 
 uint8_t adc_light_value_scale ( uint16_t value ) {
-    /* Assumes 12-bit adc read */
+    /* Assumes 16-bit averaged adc read */
+
+    /* Decimate down to 12-bit */
+    value >>= 4;
+
     if (value >= 2048)
-        return (55 + (value >> 8)) % 60;
+        return 50 + ((value - 2048 ) >> 8);
 
     if (value >= 1024)
-        return (47 + (value >> 7)) % 60;
+        return 42 + ((value - 1024) >> 7);
 
     if (value >= 512)
-        return 39 + (value >> 6);
+        return 34 + ((value - 512) >> 6);
 
     if (value >= 256)
-        return 31 + (value >> 5);
+        return 26 + ((value - 256) >> 5);
 
     if (value >= 128)
-        return 23 + (value >> 4);
+        return 18 + ((value - 128) >> 4);
 
     if (value >= 64)
-        return 19 + (value >> 4);
+        return 11 + ((value - 64) >> 3);
 
     if (value >= 32)
-        return 15 + (value >> 3);
+        return 7 + ((value - 32) >> 3);
 
-    return value >> 1;
+    return value >> 2;
 }
 
 uint8_t adc_vbatt_value_scale ( uint16_t value ) {
+    /* Assumes 16-bit averaged adc read */
+    /* Decimate down to 12-bit */
+    value >>= 4;
+
+    /* Add an offset to compensate for voltage
+     * drop when running vs asleep */
+    value += 50;
+
     /* Full */
     if (value >= 3072) //> 3V --> 3/4*4096
         return 59;
@@ -161,3 +173,5 @@ uint8_t adc_vbatt_value_scale ( uint16_t value ) {
 
     return 1 + 7*(value - 2048)/(2765 - 2048);
 }
+
+// vim:shiftwidth=2

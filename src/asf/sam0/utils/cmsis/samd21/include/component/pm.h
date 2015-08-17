@@ -70,7 +70,7 @@ typedef union {
 typedef union {
   struct {
     uint8_t  IDLE:2;           /*!< bit:  0.. 1  Idle Mode Configuration            */
-    uint8_t  :6;               /*!< bit:  2.. 7  Reserved                           */
+    unsigned char  :6;               /*!< bit:  2.. 7  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } PM_SLEEP_Type;
@@ -95,7 +95,7 @@ typedef union {
 typedef union {
   struct {
     uint8_t  CPUDIV:3;         /*!< bit:  0.. 2  CPU Prescaler Selection            */
-    uint8_t  :5;               /*!< bit:  3.. 7  Reserved                           */
+    unsigned char  :5;               /*!< bit:  3.. 7  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } PM_CPUSEL_Type;
@@ -130,7 +130,7 @@ typedef union {
 typedef union {
   struct {
     uint8_t  APBADIV:3;        /*!< bit:  0.. 2  APBA Prescaler Selection           */
-    uint8_t  :5;               /*!< bit:  3.. 7  Reserved                           */
+    unsigned char  :5;               /*!< bit:  3.. 7  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } PM_APBASEL_Type;
@@ -165,7 +165,7 @@ typedef union {
 typedef union {
   struct {
     uint8_t  APBBDIV:3;        /*!< bit:  0.. 2  APBB Prescaler Selection           */
-    uint8_t  :5;               /*!< bit:  3.. 7  Reserved                           */
+    unsigned char  :5;               /*!< bit:  3.. 7  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } PM_APBBSEL_Type;
@@ -200,7 +200,7 @@ typedef union {
 typedef union {
   struct {
     uint8_t  APBCDIV:3;        /*!< bit:  0.. 2  APBC Prescaler Selection           */
-    uint8_t  :5;               /*!< bit:  3.. 7  Reserved                           */
+    unsigned char  :5;               /*!< bit:  3.. 7  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } PM_APBCSEL_Type;
@@ -241,7 +241,7 @@ typedef union {
     uint32_t NVMCTRL:1;        /*!< bit:      4  NVMCTRL AHB Clock Mask             */
     uint32_t DMAC:1;           /*!< bit:      5  DMAC AHB Clock Mask                */
     uint32_t USB:1;            /*!< bit:      6  USB AHB Clock Mask                 */
-    uint32_t :25;              /*!< bit:  7..31  Reserved                           */
+    unsigned long int :25;              /*!< bit:  7..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } PM_AHBMASK_Type;
@@ -277,7 +277,7 @@ typedef union {
     uint32_t WDT:1;            /*!< bit:      4  WDT APB Clock Enable               */
     uint32_t RTC:1;            /*!< bit:      5  RTC APB Clock Enable               */
     uint32_t EIC:1;            /*!< bit:      6  EIC APB Clock Enable               */
-    uint32_t :25;              /*!< bit:  7..31  Reserved                           */
+    unsigned long int :25;              /*!< bit:  7..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } PM_APBAMASK_Type;
@@ -312,7 +312,7 @@ typedef union {
     uint32_t PORT:1;           /*!< bit:      3  PORT APB Clock Enable              */
     uint32_t DMAC:1;           /*!< bit:      4  DMAC APB Clock Enable              */
     uint32_t USB:1;            /*!< bit:      5  USB APB Clock Enable               */
-    uint32_t :26;              /*!< bit:  6..31  Reserved                           */
+    unsigned long int :26;              /*!< bit:  6..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } PM_APBBMASK_Type;
@@ -360,7 +360,7 @@ typedef union {
     uint32_t DAC:1;            /*!< bit:     18  DAC APB Clock Enable               */
     uint32_t PTC:1;            /*!< bit:     19  PTC APB Clock Enable               */
     uint32_t I2S:1;            /*!< bit:     20  I2S APB Clock Enable               */
-    uint32_t :11;              /*!< bit: 21..31  Reserved                           */
+    unsigned long int :11;              /*!< bit: 21..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } PM_APBCMASK_Type;
@@ -418,7 +418,7 @@ typedef union {
 typedef union {
   struct {
     uint8_t  CKRDY:1;          /*!< bit:      0  Clock Ready Interrupt Enable       */
-    uint8_t  :7;               /*!< bit:  1.. 7  Reserved                           */
+    unsigned char  :7;               /*!< bit:  1.. 7  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } PM_INTENCLR_Type;
@@ -436,7 +436,7 @@ typedef union {
 typedef union {
   struct {
     uint8_t  CKRDY:1;          /*!< bit:      0  Clock Ready Interrupt Enable       */
-    uint8_t  :7;               /*!< bit:  1.. 7  Reserved                           */
+    unsigned char  :7;               /*!< bit:  1.. 7  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } PM_INTENSET_Type;
@@ -454,7 +454,7 @@ typedef union {
 typedef union {
   struct {
     uint8_t  CKRDY:1;          /*!< bit:      0  Clock Ready                        */
-    uint8_t  :7;               /*!< bit:  1.. 7  Reserved                           */
+    unsigned char  :7;               /*!< bit:  1.. 7  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } PM_INTFLAG_Type;
@@ -474,11 +474,11 @@ typedef union {
     uint8_t  POR:1;            /*!< bit:      0  Power On Reset                     */
     uint8_t  BOD12:1;          /*!< bit:      1  Brown Out 12 Detector Reset        */
     uint8_t  BOD33:1;          /*!< bit:      2  Brown Out 33 Detector Reset        */
-    uint8_t  :1;               /*!< bit:      3  Reserved                           */
+    unsigned char  :1;               /*!< bit:      3  Reserved                           */
     uint8_t  EXT:1;            /*!< bit:      4  External Reset                     */
     uint8_t  WDT:1;            /*!< bit:      5  Watchdog Reset                     */
     uint8_t  SYST:1;           /*!< bit:      6  System Reset Request               */
-    uint8_t  :1;               /*!< bit:      7  Reserved                           */
+    unsigned char  :1;               /*!< bit:      7  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } PM_RCAUSE_Type;

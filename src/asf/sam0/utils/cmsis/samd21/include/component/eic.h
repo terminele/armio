@@ -59,7 +59,7 @@ typedef union {
   struct {
     uint8_t  SWRST:1;          /*!< bit:      0  Software Reset                     */
     uint8_t  ENABLE:1;         /*!< bit:      1  Enable                             */
-    uint8_t  :6;               /*!< bit:  2.. 7  Reserved                           */
+    unsigned char  :6;               /*!< bit:  2.. 7  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } EIC_CTRL_Type;
@@ -78,7 +78,7 @@ typedef union {
 #if !(defined(__ASSEMBLY__) || defined(__IAR_SYSTEMS_ASM__))
 typedef union {
   struct {
-    uint8_t  :7;               /*!< bit:  0.. 6  Reserved                           */
+    unsigned char  :7;               /*!< bit:  0.. 6  Reserved                           */
     uint8_t  SYNCBUSY:1;       /*!< bit:      7  Synchronization Busy               */
   } bit;                       /*!< Structure used for bit  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
@@ -98,7 +98,7 @@ typedef union {
   struct {
     uint8_t  NMISENSE:3;       /*!< bit:  0.. 2  Non-Maskable Interrupt Sense       */
     uint8_t  NMIFILTEN:1;      /*!< bit:      3  Non-Maskable Interrupt Filter Enable */
-    uint8_t  :4;               /*!< bit:  4.. 7  Reserved                           */
+    unsigned char  :4;               /*!< bit:  4.. 7  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } EIC_NMICTRL_Type;
@@ -131,7 +131,7 @@ typedef union {
 typedef union {
   struct {
     uint8_t  NMI:1;            /*!< bit:      0  Non-Maskable Interrupt             */
-    uint8_t  :7;               /*!< bit:  1.. 7  Reserved                           */
+    unsigned char  :7;               /*!< bit:  1.. 7  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   uint8_t reg;                 /*!< Type      used for register access              */
 } EIC_NMIFLAG_Type;
@@ -164,11 +164,11 @@ typedef union {
     uint32_t EXTINTEO13:1;     /*!< bit:     13  External Interrupt 13 Event Output Enable */
     uint32_t EXTINTEO14:1;     /*!< bit:     14  External Interrupt 14 Event Output Enable */
     uint32_t EXTINTEO15:1;     /*!< bit:     15  External Interrupt 15 Event Output Enable */
-    uint32_t :16;              /*!< bit: 16..31  Reserved                           */
+    unsigned long int :16;              /*!< bit: 16..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   struct {
     uint32_t EXTINTEO:16;      /*!< bit:  0..15  External Interrupt x Event Output Enable */
-    uint32_t :16;              /*!< bit: 16..31  Reserved                           */
+    unsigned long int :16;              /*!< bit: 16..31  Reserved                           */
   } vec;                       /*!< Structure used for vec  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } EIC_EVCTRL_Type;
@@ -234,11 +234,11 @@ typedef union {
     uint32_t EXTINT13:1;       /*!< bit:     13  External Interrupt 13 Enable       */
     uint32_t EXTINT14:1;       /*!< bit:     14  External Interrupt 14 Enable       */
     uint32_t EXTINT15:1;       /*!< bit:     15  External Interrupt 15 Enable       */
-    uint32_t :16;              /*!< bit: 16..31  Reserved                           */
+    unsigned long int :16;              /*!< bit: 16..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   struct {
     uint32_t EXTINT:16;        /*!< bit:  0..15  External Interrupt x Enable        */
-    uint32_t :16;              /*!< bit: 16..31  Reserved                           */
+    unsigned long int :16;              /*!< bit: 16..31  Reserved                           */
   } vec;                       /*!< Structure used for vec  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } EIC_INTENCLR_Type;
@@ -304,11 +304,11 @@ typedef union {
     uint32_t EXTINT13:1;       /*!< bit:     13  External Interrupt 13 Enable       */
     uint32_t EXTINT14:1;       /*!< bit:     14  External Interrupt 14 Enable       */
     uint32_t EXTINT15:1;       /*!< bit:     15  External Interrupt 15 Enable       */
-    uint32_t :16;              /*!< bit: 16..31  Reserved                           */
+    unsigned long int :16;              /*!< bit: 16..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   struct {
     uint32_t EXTINT:16;        /*!< bit:  0..15  External Interrupt x Enable        */
-    uint32_t :16;              /*!< bit: 16..31  Reserved                           */
+    unsigned long int :16;              /*!< bit: 16..31  Reserved                           */
   } vec;                       /*!< Structure used for vec  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } EIC_INTENSET_Type;
@@ -374,11 +374,11 @@ typedef union {
     uint32_t EXTINT13:1;       /*!< bit:     13  External Interrupt 13              */
     uint32_t EXTINT14:1;       /*!< bit:     14  External Interrupt 14              */
     uint32_t EXTINT15:1;       /*!< bit:     15  External Interrupt 15              */
-    uint32_t :16;              /*!< bit: 16..31  Reserved                           */
+    unsigned long int :16;              /*!< bit: 16..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   struct {
     uint32_t EXTINT:16;        /*!< bit:  0..15  External Interrupt x               */
-    uint32_t :16;              /*!< bit: 16..31  Reserved                           */
+    unsigned long int :16;              /*!< bit: 16..31  Reserved                           */
   } vec;                       /*!< Structure used for vec  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } EIC_INTFLAG_Type;
@@ -444,11 +444,11 @@ typedef union {
     uint32_t WAKEUPEN13:1;     /*!< bit:     13  External Interrupt 13 Wake-up Enable */
     uint32_t WAKEUPEN14:1;     /*!< bit:     14  External Interrupt 14 Wake-up Enable */
     uint32_t WAKEUPEN15:1;     /*!< bit:     15  External Interrupt 15 Wake-up Enable */
-    uint32_t :16;              /*!< bit: 16..31  Reserved                           */
+    unsigned long int :16;              /*!< bit: 16..31  Reserved                           */
   } bit;                       /*!< Structure used for bit  access                  */
   struct {
     uint32_t WAKEUPEN:16;      /*!< bit:  0..15  External Interrupt x Wake-up Enable */
-    uint32_t :16;              /*!< bit: 16..31  Reserved                           */
+    unsigned long int :16;              /*!< bit: 16..31  Reserved                           */
   } vec;                       /*!< Structure used for vec  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
 } EIC_WAKEUP_Type;

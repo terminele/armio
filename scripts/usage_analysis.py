@@ -54,8 +54,8 @@ if __name__ == "__main__":
         if struct.unpack("<IHH", binval)[0] >= 0xffffffff:
             skips+=1
 
-            if skips > 64:
-              print("Ending after skipping 64 values")
+            if skips > 1024:
+              print("Ending after skipping 1024 values")
               break
 
             continue
@@ -67,7 +67,7 @@ if __name__ == "__main__":
             print("ignoring bad beef code '{0:#x}'".format(p))
         if t < 10000:
           skips+=1
-          print("ignoring bad time val {}".format(t))
+          print("ignoring bad time val {}  {:#x}".format(t, t))
           continue
         if len(ts) and t + t_offset < ts[-1]:
           if abs(t - ts[0]) < 20:
@@ -79,15 +79,15 @@ if __name__ == "__main__":
             print("t[{}] found reset to t={} at t: {}".format(len(ts),time.ctime(t),
             time.ctime(ts[-1])))
           else:
-            print("t[{}] found out of order t={} at t: {}".format(len(ts),time.ctime(t),
-              time.ctime(ts[-1])))
-            t_offset = ts[-1] - t
+            print("t[{}] found out of order t={} ({})at t: {}".format(len(ts),time.ctime(t),
+              t, time.ctime(ts[-1])))
+            #t_offset = ts[-1] - t
             ts.append(ts[-1] + -.1)
             powers.append(-1.0) #to indicate issue at this point
             t_rels.append(ts[-1] - tstart)
             vs.append(0)
 
-        t+=t_offset
+        #t+=t_offset
 
         if not len(ts):
           tstart = t
@@ -111,18 +111,20 @@ if __name__ == "__main__":
 
         ts.append(t)
         t_rels.append(t - tstart)
-        vs.append(v*4.0/4096)
-        #print("{}\t{}\t{:x}".format(t, v, p))
+        vs.append(v*4.0/4096/16)
+        print("t[{}]  {}".format(len(ts),time.ctime(t)))
 
 
     t_hrs = [t/3600.0 for t in t_rels]
     t_wake_hrs = [t/3600.0 for t in t_wakes]
-    vbatt_line, = plt.plot(t_hrs, vs, 'r.', label='vbatt')
     plt.plot(t_wake_hrs, v_wakes, 'y-', label='vbatt (wake-only)')
     plt.plot(t_hrs, powers, 'b-', label='on', drawstyle='steps-post',
         fillstyle='bottom', alpha = 0.3)
-    ax2 = vbatt_line.axes.twiny()
-    ax2.plot(range(len(t_hrs)), [0 for i in range(len(t_hrs))]) #add top x-axis with indices
+    vbatt_line, = plt.plot(t_hrs, vs, 'r.', label='vbatt')
+    #ax2 = vbatt_line.axes.twiny()
+    #ax2.plot(range(len(t_hrs)), [0 for i in range(len(t_hrs))]) #add top x-axis with indices
+    plt.show()
+    vbatt_line, = plt.plot(range(len(vs)), vs, 'r.', label='vbatt')
     plt.show()
 
 #    plt.plot(t_wakes, deltas, 'b-', label='vbatt (delta)')

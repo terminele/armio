@@ -171,3 +171,5 @@ void display_refresh(void);
 
 
 #endif /* end of include guard */
+
+// vim:shiftwidth=2

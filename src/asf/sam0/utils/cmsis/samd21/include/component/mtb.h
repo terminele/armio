@@ -57,7 +57,7 @@
 #if !(defined(__ASSEMBLY__) || defined(__IAR_SYSTEMS_ASM__))
 typedef union {
   struct {
-    uint32_t :2;               /*!< bit:  0.. 1  Reserved                           */
+    unsigned long int :2;               /*!< bit:  0.. 1  Reserved                           */
     uint32_t WRAP:1;           /*!< bit:      2  Pointer Value Wraps                */
     uint32_t POINTER:29;       /*!< bit:  3..31  Trace Packet Location Pointer      */
   } bit;                       /*!< Structure used for bit  access                  */
@@ -84,7 +84,7 @@ typedef union {
     uint32_t SFRWPRIV:1;       /*!< bit:      7  Special Function Register Write Privilege */
     uint32_t RAMPRIV:1;        /*!< bit:      8  SRAM Privilege                     */
     uint32_t HALTREQ:1;        /*!< bit:      9  Halt Request                       */
-    uint32_t :21;              /*!< bit: 10..30  Reserved                           */
+    unsigned long int :21;              /*!< bit: 10..30  Reserved                           */
     uint32_t EN:1;             /*!< bit:     31  Main Trace Enable                  */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */
@@ -117,7 +117,7 @@ typedef union {
   struct {
     uint32_t AUTOSTOP:1;       /*!< bit:      0  Auto Stop Tracing                  */
     uint32_t AUTOHALT:1;       /*!< bit:      1  Auto Halt Request                  */
-    uint32_t :1;               /*!< bit:      2  Reserved                           */
+    unsigned long int :1;               /*!< bit:      2  Reserved                           */
     uint32_t WATERMARK:29;     /*!< bit:  3..31  Watermark value                    */
   } bit;                       /*!< Structure used for bit  access                  */
   uint32_t reg;                /*!< Type      used for register access              */

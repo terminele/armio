@@ -12,7 +12,12 @@
 #include "utils.h"
 
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
-#define CLOCK_MODE_SLEEP_TIMEOUT_TICKS                  MS_IN_TICKS(6000)
+#ifdef NO_TIMEOUT
+#define CLOCK_MODE_SLEEP_TIMEOUT_TICKS                  MS_IN_TICKS(1000*60*5)
+#else
+#define CLOCK_MODE_SLEEP_TIMEOUT_TICKS                  MS_IN_TICKS(7000)
+#endif
+#define LONG_TIMEOUT_TICKS                              MS_IN_TICKS(1000*(60*3 + 43)) ;
 #define TIME_SET_MODE_EDITING_SLEEP_TIMEOUT_TICKS       MS_IN_TICKS(80000)
 #define TIME_SET_MODE_NOEDIT_SLEEP_TIMEOUT_TICKS        MS_IN_TICKS(8000)
 #define EE_MODE_SLEEP_TIMEOUT_TICKS                     MS_IN_TICKS(8000)
@@ -35,6 +40,9 @@
  * estimate a good tick timeout count */
 #define EDIT_FINISH_TIMEOUT_TICKS   MS_IN_TICKS(1500)
 
+#ifndef FLICKER_MIN_MODE
+  #define FLICKER_MIN_MODE false
+#endif
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 
 //___ P R O T O T Y P E S   ( P R I V A T E ) ________________________________
@@ -47,6 +55,12 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt );
 
 bool time_set_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt );
   /* @brief set clock time mode
+   * @param event flags
+   * @retrn flag indicating mode finish
+   */
+
+bool util_control_main_tic ( event_flags_t event_flags, uint32_t tick_cnt );
+  /* @brief main tick callback when in the start util mode
    * @param event flags
    * @retrn flag indicating mode finish
    */
@@ -101,8 +115,10 @@ void set_ee_sleep_timeout(uint32_t timeout_ticks);
 
 //___ V A R I A B L E S ______________________________________________________
 
-control_mode_t *control_mode_active;
-control_mode_t control_modes[] = {
+ctrl_mode_t *ctrl_mode_active;
+ctrl_state_t ctrl_state;
+
+ctrl_mode_t main_control_modes[] = {
     {
         .enter_cb = NULL,
         .tic_cb = clock_mode_tic,
@@ -116,15 +132,47 @@ control_mode_t control_modes[] = {
         .sleep_timeout_ticks = TIME_SET_MODE_EDITING_SLEEP_TIMEOUT_TICKS,
         .about_to_sleep_cb = NULL,
         .wakeup_cb = NULL,
+    }};
+
+ctrl_mode_t util_control_modes[] = {
+    {
+        .enter_cb = NULL,
+        .tic_cb = util_control_main_tic,
+        .sleep_timeout_ticks = MS_IN_TICKS(8000),
+        .about_to_sleep_cb = NULL,
+        .wakeup_cb = NULL,
     },
     {
+        .enter_cb = NULL,
+        .tic_cb = accel_point_mode_tic,
+        .sleep_timeout_ticks = MS_IN_TICKS(15000),
+        .about_to_sleep_cb = NULL,
+        .wakeup_cb = NULL,
+    },
+    {
+        .enter_cb = NULL,
+        .tic_cb = vbatt_sense_mode_tic,
+        .sleep_timeout_ticks = MS_IN_TICKS(15000),
+        .about_to_sleep_cb = NULL,
+        .wakeup_cb = NULL,
+    },
+    {
+        .enter_cb = NULL,
+        .tic_cb = light_sense_mode_tic,
+        .sleep_timeout_ticks = MS_IN_TICKS(30000),
+        .about_to_sleep_cb = NULL,
+        .wakeup_cb = NULL,
+    },
+
+};
+
+ctrl_mode_t ee_control_mode = {
         .enter_cb = NULL,
         .tic_cb = ee_mode_tic,
         .sleep_timeout_ticks = EE_MODE_SLEEP_TIMEOUT_TICKS,
         .about_to_sleep_cb = NULL,
         .wakeup_cb = NULL,
-    }
-};
+    };
 
 static uint32_t disp_vals[5];
 
@@ -134,21 +182,14 @@ static uint32_t disp_vals[5];
 
 
 bool event_debug_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
-    static display_comp_t *disp_code;
     uint8_t pos = 0;
 
-    if (!disp_code) {
-        disp_code = display_point(0, BRIGHT_DEFAULT);
-    }
-
     /* Convert event flag bit pos to int */
-    if (!event_flags) {
-        display_comp_update_pos(disp_code, 0);
-        return false;
-    } else {
-        display_comp_hide(disp_code);
-    }
 
+    /* FIXME -- may result in animation alloc errors */
+    if (!event_flags) return false;
+
+    if (event_flags & EV_FLAG_ACCEL_NCLICK_X) return true;
 
     do {
         while (!(event_flags & 0x01)) {
@@ -161,11 +202,11 @@ bool event_debug_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
         pos++;
     } while (event_flags);
 
-    return false;
+  return false;
 }
 
 void set_ee_sleep_timeout(uint32_t timeout_ticks) {
-    control_modes[CONTROL_MODE_EE].sleep_timeout_ticks = timeout_ticks;
+    ee_control_mode.sleep_timeout_ticks = timeout_ticks;
 }
 
 bool ee_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
@@ -188,9 +229,13 @@ bool ee_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
 
     if (tick_cnt == 0 && ee_submode_tic == NULL) {
         /* Display ee mode start animation */
-        display_comp = display_polygon(0, BRIGHT_DEFAULT, 3);
-        anim = anim_blink(display_comp, MS_IN_TICKS(400),
-                        ANIMATION_DURATION_INF, false);
+        display_comp = display_point(0, BRIGHT_DEFAULT);
+        anim = anim_random(display_comp, MS_IN_TICKS(15), ANIMATION_DURATION_INF, false);
+        /* initialize last tic to prevent events from being counted too early */
+        last_ev_tick = tick_cnt;
+        //display_comp = display_polygon(0, BRIGHT_DEFAULT, 3);
+        //anim = anim_blink(display_comp, MS_IN_TICKS(400),
+        //                ANIMATION_DURATION_INF, false);
         return false;
     }
 
@@ -282,16 +327,8 @@ bool ee_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
 
         /* Setup EE depending on code */
         switch (ee_code) {
-            case 0x5:
-                /* Display sparkle pattern to indicate ee mode has been entered */
-                display_comp = display_point(0, BRIGHT_DEFAULT);
-                anim = anim_random(display_comp, MS_IN_TICKS(15), ANIMATION_DURATION_INF);
-                break;
-            case 0x6:
-                display_comp = display_line(0, BRIGHT_DEFAULT, 5);
-                anim = anim_rotate(display_comp, true, MS_IN_TICKS(8), ANIMATION_DURATION_INF);
-                break;
             case 0x413:
+            case 0x13:
                 disp_vals[0] =  562951413UL;
                 disp_vals[1] =  323979853UL;
                 disp_vals[2] =  833462648UL;
@@ -309,7 +346,7 @@ bool ee_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
 
                 ee_submode_tic = digit_disp_mode_tic;
                 break;
-            case 0x63:
+            case 0x43:
                 disp_vals[0] =  108030918UL;
                 disp_vals[1] =  1802000418UL;
                 disp_vals[2] =  140125UL;
@@ -327,36 +364,27 @@ bool ee_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
 
                 ee_submode_tic = digit_disp_mode_tic;
                 break;
-            case 0x31:
+            case 0x1:
+                ee_submode_tic = event_debug_mode_tic;
+                break;
+            case 0x2:
+                ee_submode_tic = tick_counter_mode_tic;
+                break;
+            case 0x3:
                 display_comp = display_polygon(0, BRIGHT_DEFAULT, 3);
                 anim = anim_rotate(display_comp, true, MS_IN_TICKS(30), ANIMATION_DURATION_INF);
                 break;
-            case 0x41:
+            case 0x4:
                 display_comp = display_polygon(0, BRIGHT_DEFAULT, 4);
                 anim = anim_rotate(display_comp, true, MS_IN_TICKS(50), ANIMATION_DURATION_INF);
                 break;
-            case 0x51:
+            case 0x5:
                 display_comp = display_polygon(0, BRIGHT_DEFAULT, 5);
                 anim = anim_rotate(display_comp, false, MS_IN_TICKS(50), ANIMATION_DURATION_INF);
                 break;
-            case 0x61:
+            case 0x6:
                 display_comp = display_polygon(0, BRIGHT_DEFAULT, 12);
                 anim = anim_rotate(display_comp, false, MS_IN_TICKS(50), ANIMATION_DURATION_INF);
-                break;
-            case 0x12:
-                ee_submode_tic = accel_point_mode_tic;
-                break;
-            case 0x22:
-                ee_submode_tic = light_sense_mode_tic;
-                break;
-            case 0x32:
-                ee_submode_tic = accel_mode_tic;
-                break;
-            case 0x42:
-                ee_submode_tic = light_sense_mode_tic;
-                break;
-            case 0x52:
-                ee_submode_tic = tick_counter_mode_tic;
                 break;
             case 0x53:
                 if (main_nvm_conf_data.rtc_freq_corr >= 0) {
@@ -373,12 +401,14 @@ bool ee_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
                         false);
                 break;
             default:
-                display_comp = display_point(ee_code % 60, BRIGHT_DEFAULT);
+                //display_comp = display_point(ee_code % 60, BRIGHT_DEFAULT);
+                /* Display a blinking X */
+                display_comp = display_polygon(7, BRIGHT_DEFAULT, 15);
+                anim = anim_blink(display_comp, MS_IN_TICKS(500), ANIMATION_DURATION_INF, false );
                 set_ee_sleep_timeout(MS_IN_TICKS(3000));
                 break;
                 //return true;
         }
-
             ee_code = 0;
     }
 
@@ -424,9 +454,8 @@ bool accel_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     uint32_t log_data;
 #endif
 
-    set_ee_sleep_timeout(MS_IN_TICKS(40000));
 
-    if ( event_flags & EV_FLAG_SLEEP) {
+    if (event_flags & EV_FLAG_ACCEL_7CLICK_X) {
         display_comp_hide_all();
         display_comp_release(disp_x);
         display_comp_release(disp_y);
@@ -439,7 +468,7 @@ bool accel_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
         return true;
     }
 
-    if (main_get_waketime_ms() - last_update_ms < 10) {
+    if (main_get_waketime_ms() - last_update_ms < 5) {
         return false;
     }
 
@@ -490,7 +519,6 @@ bool accel_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
 }
 bool accel_point_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     static display_comp_t *disp_pt = NULL;
-    set_ee_sleep_timeout(MS_IN_TICKS(20000));
 
     if (!disp_pt) {
         disp_pt = display_point(0, BRIGHT_DEFAULT);
@@ -498,9 +526,7 @@ bool accel_point_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     }
 
 
-    if ( event_flags & EV_FLAG_SLEEP ||
-         event_flags & EV_FLAG_ACCEL_QCLICK_X ||
-         event_flags & EV_FLAG_ACCEL_TCLICK_X ) {
+    if (DEFAULT_MODE_TRANS_CHK(event_flags)) {
         display_comp_hide_all();
         display_comp_release(disp_pt);
         disp_pt = NULL;
@@ -516,12 +542,19 @@ bool light_sense_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     static display_comp_t *adc_pt = NULL;
     uint16_t adc_val = 0;
 
-    set_ee_sleep_timeout(MS_IN_TICKS(60000));
+    set_ee_sleep_timeout(MS_IN_TICKS(30000));
 
-    if (main_get_current_sensor() != sensor_light)
+    if (!adc_pt) {
+        adc_pt = display_point(0, BRIGHT_DEFAULT);
+        port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, true);
+    }
+
+    if (main_get_current_sensor() != sensor_light) {
         main_set_current_sensor(sensor_light);
+    }
 
-    if (tick_cnt % 10  == 0) {
+
+    if (tick_cnt % 20  == 0) {
       main_start_sensor_read();
     }
 
@@ -530,17 +563,14 @@ bool light_sense_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
             display_comp_release(adc_pt);
             adc_pt = NULL;
         }
+        port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, false);
         return true;
-    }
-
-    if (!adc_pt) {
-        adc_pt = display_point(0, BRIGHT_DEFAULT);
     }
 
 
 
     adc_val = main_read_current_sensor(false);
-    display_comp_update_pos(adc_pt, adc_light_value_scale(adc_val));
+    display_comp_update_pos(adc_pt, adc_light_value_scale(adc_val) % 60 );
 
 
     return false;
@@ -548,7 +578,6 @@ bool light_sense_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
 bool vbatt_sense_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     static display_comp_t *adc_pt = NULL;
     uint16_t adc_val;
-
 
     if (DEFAULT_MODE_TRANS_CHK(event_flags)) {
         if (adc_pt) {
@@ -559,9 +588,6 @@ bool vbatt_sense_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     }
 
 #if VBATT_NO_AVERAGE
-    /* don't actually read vbatt sensor
-     * in this mode.  VBATT should only be sampled
-     * after wakeup */
     if (main_get_current_sensor() != sensor_vbatt)
         main_set_current_sensor(sensor_vbatt);
 
@@ -571,6 +597,9 @@ bool vbatt_sense_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
 
     adc_val = main_read_current_sensor(false);
 #else
+    /* don't actually read vbatt sensor
+     * in this mode.  VBATT should only be sampled
+     * after wakeup */
     adc_val = main_get_vbatt_value();
 #endif
 
@@ -618,20 +647,37 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
         sec_disp_ptr = NULL;
         anim_ptr = NULL;
 
+        /* Reset sleep timeout to default */
+        main_control_modes[CONTROL_MODE_SHOW_TIME].sleep_timeout_ticks = CLOCK_MODE_SLEEP_TIMEOUT_TICKS;
+
         phase = INIT;
 
         return true; //transition
     }
 
+
     /* Get latest time */
     aclock_get_time(&hour, &minute, &second);
 
     hour_fifths = minute/12;
+    if (hour > 12) {
+      hour = hour % 12;
+
+      if (hour == 0) {
+        hour = 12;
+      }
+    }
+
+
     hour_anim_tick_int = MS_IN_TICKS(HOUR_ANIM_DUR_MS/(hour * 5));
     switch(phase) {
         case INIT:
-
-
+#ifdef NO_TIME_ANIMATION
+            min_disp_ptr = display_point(minute, BRIGHT_DEFAULT);
+            hour_disp_ptr = display_snake(HOUR_POS(hour), MAX_BRIGHT_VAL,
+                      hour_fifths + 1, true);
+            phase = DISP_ALL;
+#else
             if (hour == 1) {
                 /* For hour 1 a swirl doesnt animate, so draw a 'growing snake' */
                 anim_ptr = anim_snake_grow( 0, 5, hour_anim_tick_int, false );
@@ -640,9 +686,9 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
             }
 
             phase = ANIM_HOUR_SWIRL;
+#endif
             break;
         case ANIM_HOUR_SWIRL:
-
             if (anim_is_finished(anim_ptr)) {
                 anim_release(anim_ptr);
                 hour_disp_ptr = display_snake(HOUR_POS(hour), MAX_BRIGHT_VAL,
@@ -657,14 +703,14 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
             if (anim_is_finished(anim_ptr)) {
                 anim_release(anim_ptr);
                 min_disp_ptr = display_point(minute, BRIGHT_DEFAULT);
-#ifdef SIMPLE_TIME_MODE
-                /* In "simple" time mode (aka walker mode), dont blink animate
-                 * the minute hand and don't show seconds */
-                anim_ptr = NULL;
-                phase = DISP_ALL;
+#if FLICKER_MIN_MODE
+                min_disp_ptr->on = false;
+                anim_ptr = anim_flicker(min_disp_ptr,
+                  MS_IN_TICKS(1500), false);
+                phase = ANIM_MIN;
 #else
-                anim_ptr = anim_blink(min_disp_ptr, MS_IN_TICKS(400),
-                        MS_IN_TICKS(2000), false);
+                anim_ptr = anim_blink(min_disp_ptr, MS_IN_TICKS(150),
+                        MS_IN_TICKS(1200), false);
                 phase = ANIM_MIN;
 #endif
             }
@@ -674,19 +720,33 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
             if (anim_is_finished(anim_ptr)) {
                 anim_release(anim_ptr);
                 anim_ptr = NULL;
+#ifdef SHOW_SEC_ALWAYS
+                if (!sec_disp_ptr) {
+                  sec_disp_ptr = display_point(second, MIN_BRIGHT_VAL);
+                }
+#endif
 
-                sec_disp_ptr = display_point(second, MIN_BRIGHT_VAL);
                 phase = DISP_ALL;
             }
             break;
 
         case DISP_ALL:
+            display_comp_show_all();
 
-#ifndef SIMPLE_TIME_MODE
-            display_comp_update_pos(sec_disp_ptr, second);
-#endif
+            /* Double click enables seconds and disables timeout */
+            if (event_flags & EV_FLAG_ACCEL_DCLICK_X) {
+              main_control_modes[CONTROL_MODE_SHOW_TIME].sleep_timeout_ticks = LONG_TIMEOUT_TICKS;
+
+              if (!sec_disp_ptr) {
+                sec_disp_ptr = display_point(second, BRIGHT_DEFAULT);
+              }
+            }
+
+            if (sec_disp_ptr) {
+              display_comp_update_pos(sec_disp_ptr, second);
+            }
+
             display_comp_update_pos(min_disp_ptr, minute);
-
             display_comp_update_pos(hour_disp_ptr, HOUR_POS(hour));
             display_comp_update_length(hour_disp_ptr, hour_fifths + 1);
 
@@ -697,7 +757,6 @@ bool clock_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
 
     return false;
 }
-
 bool time_set_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     static uint8_t hour=0, minute = 0, new_minute_pos, second;
     static uint32_t timeout = 0;
@@ -826,7 +885,7 @@ bool tick_counter_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     static display_comp_t *sec_disp_ptr = NULL;
     static display_comp_t *tick_sec_disp_ptr = NULL;
 
-    set_ee_sleep_timeout(MS_IN_TICKS(20000));
+    set_ee_sleep_timeout(MS_IN_TICKS(10000));
 
 
     aclock_get_time(&hour, &minute, &second);
@@ -859,6 +918,24 @@ bool tick_counter_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
     return false;
 }
 
+bool util_control_main_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
+
+    /* Display a polygon representing the util modes */
+    static display_comp_t *disp_ptr = NULL;
+
+    if (!disp_ptr) {
+      disp_ptr = display_polygon(0, BRIGHT_DEFAULT, control_mode_count());
+    }
+
+    if (DEFAULT_MODE_TRANS_CHK(event_flags))  {
+        display_comp_release(disp_ptr);
+        disp_ptr = NULL;
+
+        return true;
+    }
+
+    return false;
+}
 
 bool char_disp_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
 #define CHARS_PER_UINT32  5UL
@@ -966,33 +1043,74 @@ finish:
     return true;
 }
 
+static ctrl_mode_t* curr_ctrl_mode_head( void ) {
+  switch (ctrl_state) {
+      case ctrl_state_main:
+        return main_control_modes;
+      case ctrl_state_util:
+        return util_control_modes;
+      case ctrl_state_ee:
+        return &ee_control_mode;
+      default:
+        main_terminate_in_error(error_group_control, 10);
+        return NULL;
+  }
+
+}
 //___ F U N C T I O N S ______________________________________________________
 
 void control_mode_next( void )  {
-    if ((unsigned int)(control_mode_active - control_modes) >= \
-            sizeof(control_modes)/sizeof(control_modes[0]) - 2) {
-        control_mode_active = control_modes;
+    if ((int)(ctrl_mode_active - curr_ctrl_mode_head()) >= \
+            control_mode_count() - 1) {
+      /* Loop around to head control mode in curr ctrl state */
+        ctrl_mode_active = curr_ctrl_mode_head();
     } else {
-        control_mode_active++;
+        ctrl_mode_active++;
     }
 }
 
-void control_mode_select( uint8_t mode_index ) {
+void control_state_set ( ctrl_state_t new_state ) {
 
-    control_mode_active = control_modes + mode_index;
+  switch (new_state) {
+      case ctrl_state_main:
+        ctrl_mode_active = main_control_modes;
+        break;
+      case ctrl_state_util:
+        ctrl_mode_active = util_control_modes;
+        break;
+      case ctrl_state_ee:
+        ctrl_mode_active = &ee_control_mode;
+        break;
+      default:
+        main_terminate_in_error(error_group_control, 5);
+  }
+
+  ctrl_state = new_state;
+
 }
 
-uint8_t control_mode_index( control_mode_t* mode_ptr ) {
-    return mode_ptr - control_modes;
+uint8_t control_mode_index( ctrl_mode_t* mode_ptr ) {
+    return mode_ptr - curr_ctrl_mode_head();
 }
 
 
 uint8_t control_mode_count( void ) {
-    /* # of control modes (not including easter egg mode since its hidden) */
-    return sizeof(control_modes)/sizeof(control_modes[0]) - 1;
+  switch (ctrl_state) {
+      case ctrl_state_main:
+        return sizeof(main_control_modes)/sizeof(ctrl_mode_t);
+      case ctrl_state_util:
+        return sizeof(util_control_modes)/sizeof(ctrl_mode_t);
+      case ctrl_state_ee:
+        return 1;
+  }
+
+  main_terminate_in_error(error_group_control, 0);
+  return 0;
 }
 
 void control_init( void ) {
-
-    control_mode_active = control_modes;
+    ctrl_mode_active = main_control_modes;
+    ctrl_state = ctrl_state_main;
 }
+
+// vim:shiftwidth=2

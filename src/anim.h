@@ -29,6 +29,7 @@ typedef enum {
     animt_blink,
     animt_cut,
     animt_yoyo,
+    animt_flicker,
 } animation_type_t;
 
 typedef struct animation_t {
@@ -37,7 +38,11 @@ typedef struct animation_t {
     uint16_t tick_interval; //update interval in ticks
     int32_t tick_duration; //duration in ticks
 
-    int8_t step; //only applicable for rotations and yoyos
+    union {
+      int8_t step; //only applicable for rotations and yoyos
+      int8_t index; //used for flicker transitioning
+    };
+
     uint8_t len; //only applicable for yoyos
     uint8_t bright_start; //only applicable for fades
     uint8_t bright_end; //only applicable for fades
@@ -66,12 +71,13 @@ animation_t* anim_rotate( display_comp_t *disp_comp,
    * @retrn animation reference handle
    */
 animation_t* anim_random( display_comp_t *disp_comp,
-        uint16_t tick_interval, int32_t duration );
+        uint16_t tick_interval, int32_t duration, bool autorelease );
   /* @brief animate display comp with random positions
    * @param disp_comp - display component to animate
    * @param tick_interval - how often to update position
    * @param duration - duration of animation in ticks or
    *    ANIMATION_DURATION_INF for indefinite animation
+   * @param autorelease - if animation and display comp should be freed at completion
    * @retrn animation reference handle
    */
 
@@ -109,7 +115,7 @@ animation_t* anim_cutout(display_comp_t *disp_comp,
    * @param disp_comp - display component to animate
    * @param tick_duration - duration that component should be shown
    * @param autorelease - if animation and display comp should be freed at completion
-   * @retrn None
+   * @retrn animation object
    */
 
 animation_t* anim_blink(display_comp_t *disp_comp, uint16_t tick_interval,
@@ -120,7 +126,17 @@ animation_t* anim_blink(display_comp_t *disp_comp, uint16_t tick_interval,
    * @param tick_duration - duration that component should be shown (or
    * ANIM_DURATION_INF for indefinite)
    * @param autorelease - if animation and display comp should be freed at completion
-   * @retrn None
+   * @retrn animation object
+   */
+
+animation_t* anim_flicker(display_comp_t *disp_comp,
+    uint16_t tick_duration, bool autorelease);
+  /* @brief flickers the component on/off based on flicker pattern
+   * @param disp_comp - display component to animate
+   * @param tick_duration - duration that component should be shown (or
+   * ANIM_DURATION_INF for indefinite)
+   * @param autorelease - if animation and display comp should be freed at completion
+   * @retrn animation object
    */
 
 animation_t* anim_yoyo(display_comp_t *disp_comp, uint8_t len,
@@ -135,7 +151,7 @@ animation_t* anim_yoyo(display_comp_t *disp_comp, uint8_t len,
    *    point.  And so on.  May be ANIM_DURATION_INF
    * ANIM_DURATION_INF for indefinite)
    * @param autorelease - if animation and display comp should be freed at completion
-   * @retrn None
+   * @retrn animation object
    */
 
 static inline animation_t* anim_snake_grow( uint8_t pos,
@@ -152,7 +168,7 @@ static inline animation_t* anim_snake_grow( uint8_t pos,
    * @param len - max snake length
    * @param tick_interval - interval between grow/contraction steps
    * @param autorelease - if animation should be freed at completion
-   * @retrn None
+   * @retrn animation object
    */
 
 static inline animation_t* anim_fade_in(display_comp_t *disp_comp,
@@ -184,7 +200,7 @@ static inline void anim_update_length( animation_t *anim, uint8_t length ) {
 }
 
 static inline bool anim_is_finished ( animation_t *anim ) {
-    return !anim->enabled;
+    return (!anim || !anim->enabled);
 }
   /* @brief check if the given animation has finished
    * @param animation reference handle to check
@@ -216,3 +232,5 @@ void anim_init( void );
 
 
 #endif /* end of include guard: __ANIM_H__ */
+
+// vim:shiftwidth=2
