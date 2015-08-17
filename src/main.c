@@ -179,6 +179,7 @@ nvm_conf_t main_nvm_conf_data;
 static uint32_t nvm_row_addr = NVM_LOG_ADDR_START;
 static uint8_t nvm_row_buffer[NVMCTRL_ROW_SIZE];
 static uint16_t nvm_row_ind;
+static bool log_accel = false;
 
 
 //___ F U N C T I O N S   ( P R I V A T E ) __________________________________
@@ -403,11 +404,6 @@ static void main_tic( void ) {
     main_gs.brightness = MAX_BRIGHT_VAL;
     led_set_max_brightness( main_gs.brightness );
   }
-  if (event_flags & EV_FLAG_ACCEL_DCLICK_X) {
-      uint32_t code = 0xDCDCDCDC;
-      main_log_data((uint8_t *) &code, sizeof(uint32_t), true);
-
-  }
 
   switch (main_gs.state) {
     case STARTUP:
@@ -437,15 +433,18 @@ static void main_tic( void ) {
 
         wakeup();
 
-        if (ax_fifo_depth != 32) {
-            uint32_t val = 0xBADD0000 | (0x0000FFFF & ax_fifo_depth);
-            main_log_data (&val, sizeof(uint32_t), true);
-        } else {
-            uint32_t code = 0xAAAAAAAA;
-            main_log_data((uint8_t *) &code, sizeof(uint32_t), false);
-            main_log_data((uint8_t *)ax_fifo, 6*ax_fifo_depth, false);
-            code = 0xEEEEEEEE;
-            main_log_data((uint8_t *) &code, sizeof(uint32_t), true);
+        if (log_accel) {
+
+          if (ax_fifo_depth != 32) {
+              uint32_t val = 0xBADD0000 | (0x0000FFFF & ax_fifo_depth);
+              main_log_data (&val, sizeof(uint32_t), true);
+          } else {
+              uint32_t code = 0xAAAAAAAA;
+              main_log_data((uint8_t *) &code, sizeof(uint32_t), false);
+              main_log_data((uint8_t *)ax_fifo, 6*ax_fifo_depth, false);
+              code = 0xEEEEEEEE;
+              main_log_data((uint8_t *) &code, sizeof(uint32_t), true);
+          }
         }
 
         ax_fifo_depth = 0;
@@ -503,13 +502,23 @@ static void main_tic( void ) {
           main_gs.inactivity_ticks > \
           ctrl_mode_active->sleep_timeout_ticks ||
           (IS_CONTROL_MODE_SHOW_TIME() && event_flags & EV_FLAG_ACCEL_Z_LOW) ||
-          (IS_CONTROL_MODE_SHOW_TIME() && event_flags & EV_FLAG_ACCEL_TCLICK_X)
+          (IS_CONTROL_MODE_SHOW_TIME() && event_flags & EV_FLAG_ACCEL_TCLICK_X) ||
+          (IS_CONTROL_MODE_SHOW_TIME() && event_flags & EV_FLAG_ACCEL_DCLICK_X)
 #endif
 
           ) {
         /* A sleep event has occurred */
         if (IS_CONTROL_MODE_SHOW_TIME() && event_flags & EV_FLAG_ACCEL_TCLICK_X) {
             accel_wakeup_gesture_enabled = false;
+        }
+
+        if (event_flags & EV_FLAG_ACCEL_DCLICK_X) {
+          uint32_t code = 0xDCDCDCDC;
+          main_log_data((uint8_t *) &code, sizeof(uint32_t), true);
+          log_accel = true;
+
+        } else {
+          log_accel = false;
         }
 
         main_gs.state = ENTERING_SLEEP;
