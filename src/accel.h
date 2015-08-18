@@ -16,7 +16,7 @@
 //___ T Y P E D E F S ________________________________________________________
 
 //___ V A R I A B L E S ______________________________________________________
-extern int16_t ax_fifo[32][3];
+extern int8_t ax_fifo[32][6];
 extern uint8_t ax_fifo_depth;
 extern bool accel_wakeup_gesture_enabled;
 

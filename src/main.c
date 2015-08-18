@@ -32,6 +32,9 @@
 
 #define MAIN_TIMER  TC5
 
+/* deep sleep (i.e. shipping mode) wakeup parameters */
+#define DEEP_SLEEP_EV_DELTA_S   2 /* max time between double clicks */
+#define DEEP_SLEEP_SEQ_COUNT    4 /* # of double clicks to wakeup */
 
 /* tick count before considering a button press "long" */
 #define LONG_PRESS_TICKS    MS_IN_TICKS(1500)
@@ -44,7 +47,7 @@
 #define LIGHT_SENSOR_REDUCTION_SHUTOFF  15
 
 /* Starting flash address at which to store data */
-#define NVM_ADDR_START      ((1 << 15) + (1 << 14)) /* assumes program size < 48KB */
+#define NVM_ADDR_START      ((1 << 15) + (1 << 14) + (1 << 13)) /* assumes program size < 56KB */
 #define NVM_CONF_ADDR       NVM_ADDR_START
 #define NVM_CONF_STORE_SIZE NVMCTRL_ROW_SIZE
 #define NVM_LOG_ADDR_START  (NVM_ADDR_START + NVM_CONF_STORE_SIZE)
@@ -166,6 +169,14 @@ static struct {
 
   uint8_t brightness;
 
+  /* wakestamp (i.e seconds since noon/midnight) of last wake event */
+  int32_t last_wakestamp;
+
+  /* deep sleep (aka 'shipping mode') */
+  bool deep_sleep_mode;
+  /* count for deep sleep (i.e shipping mode) wakeup recognition */
+  uint8_t deep_sleep_sequence_ctr;
+
 } main_gs;
 
 static animation_t *sleep_wake_anim = NULL;
@@ -179,8 +190,9 @@ nvm_conf_t main_nvm_conf_data;
 static uint32_t nvm_row_addr = NVM_LOG_ADDR_START;
 static uint8_t nvm_row_buffer[NVMCTRL_ROW_SIZE];
 static uint16_t nvm_row_ind;
+#ifdef LOG_ACCEL
 static bool log_accel = false;
-
+#endif
 
 //___ F U N C T I O N S   ( P R I V A T E ) __________________________________
 
@@ -344,7 +356,6 @@ static void wakeup (void) {
   port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, false);
 #endif
 
-  accel_wakeup_gesture_enabled = true;
 
   LOG_WAKEUP();
 }
@@ -386,7 +397,63 @@ static event_flags_t button_event_flags ( void ) {
   return event_flags;
 }
 
+/* 'wakestamps' are used to keep track of wakeup check times.
+ * They are used to determine if a double-click sequence has
+ * occurred that should wake us up from deep-sleep (i.e. shipping mode)
+ */
+static int32_t get_wakestamp( void ) {
+  /* a 'wakestamp' is simply the # of seconds
+   * elapsed since midnight/noon */
+    uint8_t hour, min, sec;
 
+    aclock_get_time(&hour, &min, &sec);
+
+    return 3600*(int32_t)hour + 60*(int32_t)min + sec;
+}
+
+static int32_t wakestamp_elapsed( int32_t stamp_recent, int32_t stamp_earlier ) {
+  /* Returns the # of seconds elapsed betwen stamp_recent
+   * and an earlier wakestamp.  Accounts for rollover of
+   * wakestamps at midnight/noon boundaries */
+
+  if (stamp_recent < stamp_earlier) {
+    stamp_recent += 3600*12; /* assumes max of 1 rollover */
+  }
+
+  return stamp_recent - stamp_earlier;
+}
+
+static bool wakeup_check( void ) {
+  /* If we've been awaken by an interrupt, determine
+   * if we should fully wakeup
+   */
+  int32_t curr_wakestamp;
+  bool wake = false;
+  if (main_gs.deep_sleep_mode) {
+    aclock_enable();
+    curr_wakestamp = get_wakestamp();
+    if (wakestamp_elapsed(curr_wakestamp, main_gs.last_wakestamp) < DEEP_SLEEP_EV_DELTA_S) {
+      main_gs.deep_sleep_sequence_ctr++;
+      if (main_gs.deep_sleep_sequence_ctr > DEEP_SLEEP_SEQ_COUNT) {
+        main_gs.deep_sleep_mode = false;
+        accel_wakeup_gesture_enabled = true;
+        wake = true;
+      }
+
+    } else {
+      main_gs.deep_sleep_sequence_ctr = 1;
+      accel_wakeup_gesture_enabled = false;
+      wake = false;
+    }
+    main_gs.last_wakestamp = curr_wakestamp;
+    aclock_disable();
+    return wake;
+  } else {
+
+    return accel_wakeup_check();
+  }
+
+}
 //___ F U N C T I O N S ______________________________________________________
 static void main_tic( void ) {
   event_flags_t event_flags = EV_FLAG_NONE;
@@ -429,10 +496,11 @@ static void main_tic( void ) {
          * from sleep (and we continue from this point) */
         do {
           system_sleep();
-        } while(!accel_wakeup_check());
+        } while(!wakeup_check());
 
         wakeup();
 
+#ifdef LOG_ACCEL
         if (log_accel) {
 
           if (ax_fifo_depth != 32) {
@@ -448,6 +516,7 @@ static void main_tic( void ) {
         }
 
         ax_fifo_depth = 0;
+#endif
         //main_set_current_sensor(sensor_light);
         //main_start_sensor_read();
         //main_gs.light_sensor_scaled_at_wakeup = adc_light_value_scale(
@@ -502,17 +571,23 @@ static void main_tic( void ) {
           main_gs.inactivity_ticks > \
           ctrl_mode_active->sleep_timeout_ticks ||
           (IS_CONTROL_MODE_SHOW_TIME() && event_flags & EV_FLAG_ACCEL_Z_LOW) ||
-          (IS_CONTROL_MODE_SHOW_TIME() && event_flags & EV_FLAG_ACCEL_TCLICK_X) ||
-          (IS_CONTROL_MODE_SHOW_TIME() && event_flags & EV_FLAG_ACCEL_DCLICK_X)
+          (IS_CONTROL_MODE_SHOW_TIME() && event_flags & EV_FLAG_ACCEL_TCLICK_X)
+
+#ifdef LOG_ACCEL
+          || (IS_CONTROL_MODE_SHOW_TIME() && event_flags & EV_FLAG_ACCEL_DCLICK_X)
+#endif
 #endif
 
           ) {
         /* A sleep event has occurred */
         if (IS_CONTROL_MODE_SHOW_TIME() && event_flags & EV_FLAG_ACCEL_TCLICK_X) {
             accel_wakeup_gesture_enabled = false;
+        } else {
+            accel_wakeup_gesture_enabled = true;
         }
 
-        if (event_flags & EV_FLAG_ACCEL_DCLICK_X) {
+#ifdef LOG_ACCEL
+        if (true || event_flags & EV_FLAG_ACCEL_DCLICK_X) {
           uint32_t code = 0xDCDCDCDC;
           main_log_data((uint8_t *) &code, sizeof(uint32_t), true);
           log_accel = true;
@@ -520,6 +595,7 @@ static void main_tic( void ) {
         } else {
           log_accel = false;
         }
+#endif
 
         main_gs.state = ENTERING_SLEEP;
 

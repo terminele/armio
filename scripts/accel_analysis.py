@@ -96,19 +96,28 @@ def analyze_fifo(f):
     import uuid
     import csv
 
-    ZSUM_N = 15
     YSUM_N = 15
-    ZSUM_N_THS = 250
-    YSUM_N_THS = -150
+    ZSUM_N = 15
+    YSUM_N_THS = -140
+    ZSUM_N_THS = 140
     sigma_zs = []
+    sigma_zs_rev = []
     sigma_ys = []
+    sigma_ys_rev = []
+    sigma_xs = []
     for i, (xs, ys, zs) in enumerate(samples):
+        if len(xs) < 1:
+            print("skipping invalid data {}".format((xs,ys,zs)))
+            continue
         uid =  str(uuid.uuid4())[-6:]
-        zsum_n = sum(zs[:ZSUM_N])
-        ysum_n = sum(ys[:-YSUM_N-1:-1])
-        if zsum_n < ZSUM_N_THS or ysum_n > YSUM_N_THS or plot_raw:
-            print("plotting {} with zsum_n: {}  ysum_n: {}".format(uid,
-                zsum_n, ysum_n))
+        zsum_n = sum(zs[:-ZSUM_N-1:-1])
+        zsum_10 = sum(zs[:10])
+        ysum_n = sum(ys[:10])
+        delta_z_10 = sum(zs[:-11:-1]) - sum(zs[:10])
+        print("dz 10: {}".format(delta_z_10))
+        if delta_z_10 < 120: #abs(sum(ys[:-11:-1])) > 80 or ysum_n > -255:
+            print("plotting {} with zsum_n: {}  ysum_n: {} dy_10: {} dz10: {}".format(uid,
+                zsum_10, ysum_n, sum(ys[:-11:-1]), delta_z_10))
             fig = plt.figure()
             plt.title(uid)
             ax = fig.add_subplot(111)
@@ -129,7 +138,11 @@ def analyze_fifo(f):
             plt.show()
 
         sigma_zs.append(np.cumsum(zs))
-        sigma_ys.append(np.cumsum(ys[::-1]))
+        sigma_zs_rev.append(np.cumsum(zs[::-1]))
+        sigma_ys.append(np.cumsum(ys))
+        sigma_ys_rev.append(np.cumsum(ys[::-1]))
+        sigma_xs.append(np.cumsum(xs))
+
         if write_csv:
             with open('{}.csv'.format(uid), 'wt') as csvfile:
                 writer = csv.writer(csvfile, delimiter=' ')
@@ -137,20 +150,19 @@ def analyze_fifo(f):
                     writer.writerow([i, x, y, z])
 
     fig = plt.figure()
-    plt.title("Sigma z-values")
-    for czs in sigma_zs:
-        t = range(len(czs))
+    plt.title("Sigma x-values")
+    for vals in sigma_xs:
+        t = range(len(vals))
         ax = fig.add_subplot(111)
         ax.grid()
-        line = plt.Line2D(t, czs, marker='o')#, color='r', marker='o')
+        line = plt.Line2D(t, vals, marker='o')#, color='r', marker='o')
         ax.add_line(line)
 
     ax.relim()
     ax.autoscale_view()
     plt.show()
-
     fig = plt.figure()
-    plt.title("Sigma y-values reverse")
+    plt.title("Sigma y-values")
     for cys in sigma_ys:
         t = range(len(cys))
         ax = fig.add_subplot(111)
@@ -162,6 +174,55 @@ def analyze_fifo(f):
     ax.autoscale_view()
     plt.show()
 
+    fig = plt.figure()
+    plt.title("Sigma y-values reverse")
+    for vals in sigma_ys_rev:
+        t = range(len(vals))
+        ax = fig.add_subplot(111)
+        ax.grid()
+        line = plt.Line2D(t, vals, marker='o')#, color='r', marker='o')
+        ax.add_line(line)
+
+    ax.relim()
+    ax.autoscale_view()
+    plt.show()
+
+    fig = plt.figure()
+    plt.title("Sigma z-values")
+    for vals in sigma_zs:
+        t = range(len(vals))
+        ax = fig.add_subplot(111)
+        ax.grid()
+        line = plt.Line2D(t, vals, marker='o')#, color='r', marker='o')
+        ax.add_line(line)
+
+    ax.relim()
+    ax.autoscale_view()
+    plt.show()
+
+    fig = plt.figure()
+    plt.title("Sigma z-values reverse")
+    for vals in sigma_zs_rev:
+        t = range(len(vals))
+        ax = fig.add_subplot(111)
+        ax.grid()
+        line = plt.Line2D(t, vals, marker='o')#, color='r', marker='o')
+        ax.add_line(line)
+
+    ax.relim()
+    ax.autoscale_view()
+    plt.show()
+
+    plt.title("dz delta N")
+    ns = range(8,20)
+    xs = []
+    dzs = []
+    for n in ns:
+        dzs.extend([(czs[-1] - czs[-n]) - czs[n] for czs in sigma_zs])
+        xs.extend([n for i in range(len(sigma_zs))])
+
+    plt.scatter(xs, dzs)
+    plt.show()
 
 def analyze_streamed(f):
     binval = f.read(4)

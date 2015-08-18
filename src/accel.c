@@ -35,6 +35,20 @@
 #define DEBUG_AX_ISR false
 #endif
 
+#ifdef INFO_ON
+#define _DISP_INFO( i )  do { \
+      _led_on_full( i ); \
+      delay_ms(100); \
+      _led_off_full( i ); \
+      delay_ms(50); \
+      _led_on_full( i ); \
+      delay_ms(100); \
+      _led_off_full( i ); \
+      delay_ms(50); \
+    } while(0);
+#else
+#define _DISP_INFO( i )
+#endif
 
 #if DEBUG_AX_ISR
 #define _DISP_ERROR( i )  do { \
@@ -131,7 +145,6 @@
 #define BOOT        0x80
 #define FIFO_EN     0x40
 #define LIR_INT1    0x08
-#define FIFO_EN     0x40
 
 /* STATUS_REG */
 #define ZYXDA       0x08
@@ -225,6 +238,24 @@
 #define Z_UP_DUR_ODR            MS_TO_ODRS(100, SLEEP_SAMPLE_INT)
 #define TURN_GESTURE_TIMEOUT_S  5
 
+/* TURN GESTURE FILTERING PARAMETERS */
+/* Filter #1 - when turning wrist up from horizontal position,
+ * the sum of the first N y-values should exceed a certain threshold
+ * in the negative direction (i.e. 12 oclock facing downward)
+ * and the sum of the first N z-values should have abs value below a certain threshold
+ * (i.e. face is horizontal)
+ */
+#define Y_SUM_N  10
+#define Y_SUM_THS -250
+#define Z_SUM_N  8
+#define Z_SUM_THS 120
+
+/* Filter #1 - when turning arm up from 3 or 9 o'clock down
+ * the absolute value sum of the first N x-values should exceed a certain threshold
+ */
+#define X_SUM_N  5
+#define X_SUM_THS 60
+
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 
 //___ P R O T O T Y P E S   ( P R I V A T E ) ________________________________
@@ -253,8 +284,6 @@ static void wait_for_down_conf( void );
 
 static void wait_for_up_conf( void );
 
-static void accel_reset ( void );
-
 static void run_self_test( void );
   /* @brief run the self test on the acceleration module
    *        expect an output change of between 17 and 360, defined by
@@ -270,13 +299,15 @@ void accel_fifo_read ( void );
 
 //___ V A R I A B L E S ______________________________________________________
 
-int16_t ax_fifo[32][3] = {{0}};
+int8_t ax_fifo[32][6] = {{0}};
 uint8_t ax_fifo_depth = 0;
 bool accel_wakeup_gesture_enabled = true;
 
 static uint16_t i2c_addr = AX_ADDRESS0;
 
-/* timestamp of most recent y down interrupt */
+/* timestamp (based on main tic count) of most recent
+ * y down interrupt for entering sleep on z-low
+ */
 static bool accel_down = false;
 static int32_t accel_down_start_ms = 0;
 
@@ -382,6 +413,11 @@ static void wait_for_up_conf( void ) {
 
   accel_register_write (AX_REG_INT1_THS, Z_UP_THRESHOLD);
   accel_register_write (AX_REG_INT1_DUR, Z_UP_DUR_ODR);
+
+  /* Clear FIFO by writing bypass */
+  accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS );
+
+  /* Enable stream to FIFO buffer mode */
   accel_register_write (AX_REG_FIFO_CTL, STREAM_TO_FIFO );
   accel_register_write (AX_REG_INT1_CFG, AOI_POS | ZHIE);
 }
@@ -394,7 +430,13 @@ static void wait_for_down_conf( void ) {
 
   accel_register_write (AX_REG_INT1_THS, XY_DOWN_THRESHOLD_ABS);
   accel_register_write (AX_REG_INT1_DUR, XY_DOWN_DUR_ODR);
+
+  /* Clear FIFO by writing bypass */
+  accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS );
+
+  /* Enable stream to FIFO buffer mode */
   accel_register_write (AX_REG_FIFO_CTL, STREAM_TO_FIFO );
+
   accel_register_write (AX_REG_INT1_CFG, AOI_POS | XLIE | YLIE );
 }
 
@@ -524,21 +566,27 @@ static void accel_wakeup_state_refresh(void) {
     int16_t x = 0, y = 0, z = 0;
     int16_t x_p = 0, y_p = 0, z_p = 0;
     int16_t dx = 0, dy = 0, dz = 0;
-    int16_t x_sum = 0, y_sum = 0, z_sum = 0;
-    uint32_t data;
+    int16_t csums[32][3];
+    int16_t dzN = 0;
 
 
     accel_fifo_read();
 
     for (i = 0; i < ax_fifo_depth; i++) {
       x_p = x; y_p = y; z_p = z;
-      x = ax_fifo[i][0];
-      y = ax_fifo[i][1];
-      z = ax_fifo[i][2];
+      x = ((int16_t)ax_fifo[i][0] | ((int16_t) ax_fifo[i][1] << 8)) >> (16 - BITS_PER_ACCEL_VAL);
+      y = ((int16_t)ax_fifo[i][2] | ((int16_t) ax_fifo[i][3] << 8)) >> (16 - BITS_PER_ACCEL_VAL);
+      z = ((int16_t)ax_fifo[i][4] | ((int16_t) ax_fifo[i][5] << 8)) >> (16 - BITS_PER_ACCEL_VAL);
 
-      x_sum+=x;
-      y_sum+=y;
-      z_sum+=z;
+      csums[i][0] = x;
+      csums[i][1] = y;
+      csums[i][2] = z;
+
+      if (i > 0) {
+        csums[i][0] += csums[i-1][0];
+        csums[i][1] += csums[i-1][1];
+        csums[i][2] += csums[i-1][2];
+      }
 
       dx += x - x_p;
       dy += y - y_p;
@@ -549,32 +597,53 @@ static void accel_wakeup_state_refresh(void) {
       //  wake_gesture_state = WAKE_TURN_UP;
       //  break;
       //}
-      wake_gesture_state = WAKE_TURN_UP;
-//        if ( y_sum + x_sum < -22  ) {
-//          wake_gesture_state = WAKE_TURN_UP;
-//          break;
-//        }
-//
-//        if ( y_sum < -15 || dy > 20 ) {
-//          wake_gesture_state = WAKE_TURN_UP;
-//          break;
-//        }
 
-      if ( y_sum + x_sum < -22  ) {
-        wake_gesture_state = WAKE_TURN_UP;
-        break;
-      }
 
-      if ( y_sum < -15 || dy > 20 ) {
-        wake_gesture_state = WAKE_TURN_UP;
-        break;
-      }
     }
 
-    /* Make sure y-down interrupt time was recent enough to
-    * constitute a "turn up" gesture */
-    //if ( y_sum < -20 || x_sum < -20  ) {
-    wake_gesture_state = WAKE_TURN_UP;
+#if GESTURE_FILTERS
+    /* "Turn Up Horizontal" filter */
+    /*  check if sum of first N y-values are large enough in the negative
+     *  direction (12 o'clock facing down) and that the z-values
+     *  have gone from low to high by calculating the difference
+     *  between the sum of the first 10 values and the sum of the
+     *  last 10 values
+     */
+    dzN = (csums[31][2] - csums[31-10][2]) - csums[10][1];
+    if ( csums[Y_SUM_N][1] <= Y_SUM_THS  && dzN > 150) {
+      wake_gesture_state = WAKE_TURN_UP;
+      //_DISP_INFO(0);
+    } else if (ABS(csums[X_SUM_N][0]) >= X_SUM_THS &&
+        dzN > 150) {
+      /* "Turn Arm Up" filter */
+      /*  check if sum of first N x-values are large enough in the negative
+       *  (or positive for lefties) direction (3 or 9 o'clock facing down)
+       *  and that z has gone from low to high (dzN)
+       */
+      //_DISP_INFO(15);
+      wake_gesture_state = WAKE_TURN_UP;
+    } else {
+      if (dzN < 150) {
+        _DISP_INFO(42);
+      }
+      if (csums[Y_SUM_N][1] > Y_SUM_THS ){
+        _DISP_INFO(3);
+      }
+
+      if (ABS(csums[X_SUM_N][0]) < X_SUM_THS) {
+        _DISP_INFO(13);
+      }
+      if (ABS((csums[31][0] - csums[23][0])) <= 80) {
+        _DISP_INFO(17);
+      }
+
+    }
+#else
+      wake_gesture_state = WAKE_TURN_UP;
+#endif
+
+
+    //wake_gesture_state = WAKE_TURN_UP;
     if ( wake_gesture_state == WAKE_TURN_UP) {
 
       /* Disable AOI INT1 interrupt (leave CLICK enabled) */
@@ -585,6 +654,7 @@ static void accel_wakeup_state_refresh(void) {
       wait_for_down_conf();
     }
   } else {
+    /* Unexpected wake_gesture_state */
     _DISP_ERROR(40 + wake_gesture_state);
     wake_gesture_state = WAKE_TURN_UP;
 
@@ -824,12 +894,14 @@ void accel_sleep ( void ) {
 
 }
 
-static void accel_reset ( void ) {
-
-  accel_register_write (AX_REG_CTL5, BOOT);
-  accel_enable();
-}
-
+//
+//static void accel_reset ( void ) {
+//
+//  accel_register_write (AX_REG_CTL5, BOOT);
+//  accel_enable();
+//}
+//
+//
 static event_flags_t click_timeout_event_check( void ) {
   event_flags_t ev_flags = EV_FLAG_NONE;
 

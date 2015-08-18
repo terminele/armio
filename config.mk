@@ -273,6 +273,7 @@ CPPFLAGS = \
        -D __HOUR__=$(_HOUR_)				  \
        -D __MIN__=$(_MIN_)				  \
        -D __SEC__=$(_SEC_)				  \
+       -D GESTURE_FILTERS=true				  \
        #-D LOG_ACCEL					  \
        #-D FLICKER_MIN_MODE
        #-D USE_WAKEUP_ALARM				  \
