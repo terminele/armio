@@ -113,11 +113,12 @@ def analyze_fifo(f):
         zsum_n = sum(zs[:-ZSUM_N-1:-1])
         zsum_10 = sum(zs[:10])
         ysum_n = sum(ys[:10])
-        delta_z_10 = sum(zs[:-11:-1]) - sum(zs[:10])
-        print("dz 10: {}".format(delta_z_10))
-        if delta_z_10 < 120: #abs(sum(ys[:-11:-1])) > 80 or ysum_n > -255:
-            print("plotting {} with zsum_n: {}  ysum_n: {} dy_10: {} dz10: {}".format(uid,
-                zsum_10, ysum_n, sum(ys[:-11:-1]), delta_z_10))
+        xsum_n = sum(xs[:5])
+        delta_z_12 = sum(zs[:-13:-1]) - sum(zs[:12])
+        print("dz 12: {}".format(delta_z_12))
+        if delta_z_12 < 100: #abs(sum(ys[:-11:-1])) > 80 or ysum_n > -255:
+            print("plotting {} with xsum_n {}: ysum_n: {}  zsum_n: {} dy_10: {} dz12: {}".format(uid,
+                xsum_n, ysum_n, zsum_n, sum(ys[:-11:-1]), delta_z_12))
             fig = plt.figure()
             plt.title(uid)
             ax = fig.add_subplot(111)
@@ -217,8 +218,9 @@ def analyze_fifo(f):
     ns = range(8,20)
     xs = []
     dzs = []
+    print(sigma_zs)
     for n in ns:
-        dzs.extend([(czs[-1] - czs[-n]) - czs[n] for czs in sigma_zs])
+        dzs.extend([(czs[-1] - czs[-n-1]) - czs[n-1] for czs in sigma_zs])
         xs.extend([n for i in range(len(sigma_zs))])
 
     plt.scatter(xs, dzs)

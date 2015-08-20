@@ -587,7 +587,7 @@ static void main_tic( void ) {
         }
 
 #ifdef LOG_ACCEL
-        if (true || event_flags & EV_FLAG_ACCEL_DCLICK_X) {
+        if ( event_flags & EV_FLAG_ACCEL_DCLICK_X) {
           uint32_t code = 0xDCDCDCDC;
           main_log_data((uint8_t *) &code, sizeof(uint32_t), true);
           log_accel = true;

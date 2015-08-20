@@ -35,6 +35,7 @@
 #define DEBUG_AX_ISR false
 #endif
 
+#define INFO_ON
 #ifdef INFO_ON
 #define _DISP_INFO( i )  do { \
       _led_on_full( i ); \
@@ -219,8 +220,8 @@
 #define Z_DOWN_THRESHOLD        8 //assumes 4g scale
 #define Z_DOWN_DUR_MS           200
 
-#define Z_SLEEP_DOWN_THRESHOLD      8 //assumes 4g scale
-#define Y_SLEEP_DOWN_THRESHOLD      8 //assumes 4g scale
+#define Z_SLEEP_DOWN_THRESHOLD      18 //assumes 4g scale
+#define Y_SLEEP_DOWN_THRESHOLD      10 //assumes 4g scale
 
 #define Z_DOWN_THRESHOLD_ABS    (Z_DOWN_THRESHOLD < 0 ? -Z_DOWN_THRESHOLD : Z_DOWN_THRESHOLD)
 #define Z_DOWN_DUR_ODR          MS_TO_ODRS(Z_DOWN_DUR_MS, SLEEP_SAMPLE_INT)
@@ -234,27 +235,29 @@
 #define XY_DOWN_THRESHOLD_ABS    (XY_DOWN_THRESHOLD < 0 ? -XY_DOWN_THRESHOLD : XY_DOWN_THRESHOLD)
 #define XY_DOWN_DUR_ODR          MS_TO_ODRS(XY_DOWN_DUR_MS, SLEEP_SAMPLE_INT)
 
-#define Z_UP_THRESHOLD          17
-#define Z_UP_DUR_ODR            MS_TO_ODRS(100, SLEEP_SAMPLE_INT)
-#define TURN_GESTURE_TIMEOUT_S  5
+#define Z_UP_THRESHOLD          20 //assumes 4g scale
+#define Z_UP_DUR_ODR            MS_TO_ODRS(130, SLEEP_SAMPLE_INT)
 
 /* TURN GESTURE FILTERING PARAMETERS */
 /* Filter #1 - when turning wrist up from horizontal position,
  * the sum of the first N y-values should exceed a certain threshold
  * in the negative direction (i.e. 12 oclock facing downward)
- * and the sum of the first N z-values should have abs value below a certain threshold
+ * and the difference between the sum of thefirst N z-values and
+ * the sum of the last N z-values should exced DZ_THS
  * (i.e. face is horizontal)
  */
-#define Y_SUM_N  10
-#define Y_SUM_THS -250
-#define Z_SUM_N  8
-#define Z_SUM_THS 120
+#define Y_SUM_N  8
+#define Y_SUM_THS_HIGH 230
+#define DZ_N    11
+#define DZ_THS 110
 
-/* Filter #1 - when turning arm up from 3 or 9 o'clock down
+
+/* Filter #2 - when turning arm up from 3 or 9 o'clock down
  * the absolute value sum of the first N x-values should exceed a certain threshold
  */
-#define X_SUM_N  5
-#define X_SUM_THS 60
+#define X_SUM_N 5
+#define X_SUM_THS_LOW 55
+#define X_SUM_THS_HIGH 120
 
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 
@@ -437,7 +440,7 @@ static void wait_for_down_conf( void ) {
   /* Enable stream to FIFO buffer mode */
   accel_register_write (AX_REG_FIFO_CTL, STREAM_TO_FIFO );
 
-  accel_register_write (AX_REG_INT1_CFG, AOI_POS | XLIE | YLIE );
+  accel_register_write (AX_REG_INT1_CFG, AOI_POS | XLIE | XHIE | YLIE | YHIE);
 }
 
 static bool accel_register_consecutive_read (uint8_t start_reg, uint8_t count,
@@ -609,33 +612,35 @@ static void accel_wakeup_state_refresh(void) {
      *  between the sum of the first 10 values and the sum of the
      *  last 10 values
      */
-    dzN = (csums[31][2] - csums[31-10][2]) - csums[10][1];
-    if ( csums[Y_SUM_N][1] <= Y_SUM_THS  && dzN > 150) {
+    dzN = (csums[31][2] - csums[31-DZ_N][2]) - csums[DZ_N][2];
+    if ( dzN >= DZ_THS) {
       wake_gesture_state = WAKE_TURN_UP;
-      //_DISP_INFO(0);
-    } else if (ABS(csums[X_SUM_N][0]) >= X_SUM_THS &&
-        dzN > 150) {
-      /* "Turn Arm Up" filter */
+        _DISP_INFO(40);
+    } else if (ABS(csums[Y_SUM_N][1]) >= Y_SUM_THS_HIGH) {
+      wake_gesture_state = WAKE_TURN_UP;
+      _DISP_INFO(0);
+    } else if (ABS(csums[X_SUM_N][0]) >= X_SUM_THS_HIGH) {
+      /* "Turn Arm p" filter */
       /*  check if sum of first N x-values are large enough in the negative
        *  (or positive for lefties) direction (3 or 9 o'clock facing down)
        *  and that z has gone from low to high (dzN)
        */
-      //_DISP_INFO(15);
+      _DISP_INFO(15);
       wake_gesture_state = WAKE_TURN_UP;
     } else {
-      if (dzN < 150) {
+      if (dzN < DZ_THS) {
         _DISP_INFO(42);
       }
-      if (csums[Y_SUM_N][1] > Y_SUM_THS ){
+      if (ABS(csums[Y_SUM_N][1]) < Y_SUM_THS_HIGH){
         _DISP_INFO(3);
       }
 
-      if (ABS(csums[X_SUM_N][0]) < X_SUM_THS) {
+      if (ABS(csums[X_SUM_N][0]) < X_SUM_THS_HIGH) {
         _DISP_INFO(13);
       }
-      if (ABS((csums[31][0] - csums[23][0])) <= 80) {
-        _DISP_INFO(17);
-      }
+//      if (ABS((csums[31][0] - csums[23][0])) <= 80) {
+//        _DISP_INFO(17);
+//      }
 
     }
 #else
@@ -781,13 +786,7 @@ bool accel_wakeup_check( void ) {
     accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS );
     accel_data_read(&x, &y, &z);
 
-    /* Dont wakeup on click without z-axis facing somewhat up */
-    if (z > Z_UP_THRESHOLD)  {
-      should_wakeup = true;
-    } else {
-      wait_for_up_conf();
-      should_wakeup = false;
-    }
+    should_wakeup = true;
 
   }
 
@@ -999,7 +998,7 @@ event_flags_t accel_event_flags( void ) {
    * */
 
   accel_data_read(&x, &y, &z);
-  if (z <= Z_SLEEP_DOWN_THRESHOLD && y <= Y_SLEEP_DOWN_THRESHOLD) {
+  if (z <= Z_SLEEP_DOWN_THRESHOLD) {
     if (!accel_down) {
       accel_down = true;
       accel_down_start_ms = main_get_waketime_ms();
