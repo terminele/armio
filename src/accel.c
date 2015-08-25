@@ -35,7 +35,7 @@
 #define DEBUG_AX_ISR false
 #endif
 
-#define INFO_ON
+//#define INFO_ON
 #ifdef INFO_ON
 #define _DISP_INFO( i )  do { \
       _led_on_full( i ); \
@@ -94,6 +94,9 @@
 #define AX_REG_INT1_THS     0x32
 #define AX_REG_INT1_DUR     0x33
 #define AX_REG_INT2_CFG     0x34
+#define AX_REG_INT2_SRC     0x35
+#define AX_REG_INT2_THS     0x36
+#define AX_REG_INT2_DUR     0x37
 #define AX_REG_CLICK_CFG    0x38
 #define AX_REG_CLICK_SRC    0x39
 #define AX_REG_CLICK_THS    0x3A
@@ -244,7 +247,7 @@
  * in the negative direction (i.e. 12 oclock facing downward)
  * and the difference between the sum of thefirst N z-values and
  * the sum of the last N z-values should exced DZ_THS
- * (i.e. face is horizontal)
+ * (i.e. face moves from vertical to  horizontal)
  */
 #define Y_SUM_N  8
 #define Y_SUM_THS_HIGH 230
@@ -258,6 +261,11 @@
 #define X_SUM_N 5
 #define X_SUM_THS_LOW 55
 #define X_SUM_THS_HIGH 120
+
+/* Filter #3 - if the y-value is greater than a certain threshold
+ * in positive direction (6 o'clock down, wrist turned in towards body)
+ * then we should wakeup */
+#define Y_LATEST_THS 8
 
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 
@@ -626,6 +634,10 @@ static void accel_wakeup_state_refresh(void) {
        *  and that z has gone from low to high (dzN)
        */
       _DISP_INFO(15);
+      wake_gesture_state = WAKE_TURN_UP;
+    } else if (y >= Y_LATEST_THS) {
+      /* "Facing inwards" filter */
+      _DISP_INFO(30);
       wake_gesture_state = WAKE_TURN_UP;
     } else {
       if (dzN < DZ_THS) {
