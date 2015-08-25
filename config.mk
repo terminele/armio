@@ -263,7 +263,6 @@ CPPFLAGS = \
        -D SYSTICK_MODE                                    \
        -D $(PARTD)					  \
        -D NVM_MAX_ADDR=$(NVM_MAX_ADDR)			  \
-       -D VBATT_NO_AVERAGE=false			  \
        -D ENABLE_LIGHT_SENSE=true			  \
        -D ENABLE_VBATT=true				  \
        -D LOG_USAGE=false				  \

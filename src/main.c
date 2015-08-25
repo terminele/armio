@@ -94,11 +94,6 @@ static void setup_clock_pin_outputs( void );
    */
 #endif
 
-static void update_vbatt_running_avg( void );
-  /* @brief update vbatt running avg based on latest read
-   * @param None
-   * @retrn None
-   */
 
 static void configure_extint(void);
   /* @brief enable external interrupts
@@ -162,7 +157,6 @@ static struct {
   sensor_type_t current_sensor;
   uint16_t light_sensor_adc_val;
   uint16_t vbatt_sensor_adc_val;
-  uint16_t running_avg_vbatt;
 
   uint8_t light_sensor_scaled_at_wakeup;
   main_state_t state;
@@ -196,13 +190,6 @@ static bool log_accel = false;
 
 //___ F U N C T I O N S   ( P R I V A T E ) __________________________________
 
-static void update_vbatt_running_avg( void ) {
-  /* Use exponential moving average with alpha = 1/128
-   * to update vbatt level */
-  uint32_t temp;
-  temp = main_gs.running_avg_vbatt*127;
-  main_gs.running_avg_vbatt = (temp + main_gs.vbatt_sensor_adc_val)/128;
-}
 
 static void config_main_tc( void ) {
   struct tc_config config_tc;
@@ -335,7 +322,6 @@ static void wakeup (void) {
   main_set_current_sensor(sensor_vbatt);
   main_start_sensor_read();
   main_read_current_sensor(true);
-  update_vbatt_running_avg();
 #endif
 
 #if ENABLE_LIGHT_SENSE
@@ -882,7 +868,7 @@ uint16_t main_get_light_sensor_value ( void ) {
 }
 
 uint16_t main_get_vbatt_value ( void ) {
-  return main_gs.running_avg_vbatt;
+  return main_gs.vbatt_sensor_adc_val;
 }
 
 uint8_t main_get_multipress_count( void ) {

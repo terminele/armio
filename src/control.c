@@ -587,21 +587,10 @@ bool vbatt_sense_mode_tic ( event_flags_t event_flags, uint32_t tick_cnt ) {
         return true; //transition on long presses
     }
 
-#if VBATT_NO_AVERAGE
-    if (main_get_current_sensor() != sensor_vbatt)
-        main_set_current_sensor(sensor_vbatt);
-
-
-    if (tick_cnt % 1000 == 999)
-        main_start_sensor_read();
-
-    adc_val = main_read_current_sensor(false);
-#else
     /* don't actually read vbatt sensor
      * in this mode.  VBATT should only be sampled
      * after wakeup */
     adc_val = main_get_vbatt_value();
-#endif
 
     if (!adc_pt) {
         adc_pt = display_point(0, 3);
