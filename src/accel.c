@@ -29,7 +29,7 @@
 #define USE_SELF_TEST       false
 #endif
 
-//#define DEBUG_AX_ISR true
+#define DEBUG_AX_ISR false
 
 #ifndef DEBUG_AX_ISR
 #define DEBUG_AX_ISR false
@@ -514,7 +514,7 @@ static void accel_isr(void) {
 
   /* HACK - give time for accelerometer to release interrupt after
    * reading interrupt registers */
-  delay_ms(5);
+  delay_ms(10);
 
 #if DEBUG_AX_ISR
   _led_on_full(15*click_flags.ia + 5*int_flags.ia);
