@@ -29,7 +29,7 @@
 #define USE_SELF_TEST       false
 #endif
 
-#define DEBUG_AX_ISR false
+//#define DEBUG_AX_ISR true
 
 #ifndef DEBUG_AX_ISR
 #define DEBUG_AX_ISR false
@@ -295,6 +295,7 @@ static void wait_for_down_conf( void );
 
 static void wait_for_up_conf( void );
 
+#if USE_SELF_TEST
 static void run_self_test( void );
   /* @brief run the self test on the acceleration module
    *        expect an output change of between 17 and 360, defined by
@@ -304,6 +305,7 @@ static void run_self_test( void );
    * @param None
    * @retrn None
    */
+#endif
 
 void accel_fifo_read ( void );
 
@@ -680,6 +682,7 @@ static void accel_wakeup_state_refresh(void) {
 
 }
 
+#if USE_SELF_TEST
 static void run_self_test( void ) {
   int16_t x0, y0, z0;
   int16_t x1, y1, z1;
@@ -764,6 +767,7 @@ static void run_self_test( void ) {
         ACCEL_ERROR_SELF_TEST( st_failure ) );
   }
 }
+#endif
 
 void accel_fifo_read ( void ) {
 
@@ -1093,9 +1097,9 @@ void accel_init ( void ) {
 
   accel_enable();
 
-  if( USE_SELF_TEST ) {
+#if USE_SELF_TEST
     run_self_test(  );
-  }
+#endif
 
   configure_interrupt();
 
