@@ -516,7 +516,7 @@ static void accel_isr(void) {
 
   /* HACK - give time for accelerometer to release interrupt after
    * reading interrupt registers */
-  delay_ms(10);
+  delay_ms(15);
 
 #if DEBUG_AX_ISR
   _led_on_full(15*click_flags.ia + 5*int_flags.ia);
@@ -794,6 +794,7 @@ bool accel_wakeup_check( void ) {
   return true;
 #endif
 
+  system_interrupt_disable_global();
   accel_wakeup_state_refresh();
 
   if (wake_gesture_state == WAKE_TURN_UP) {
@@ -806,6 +807,7 @@ bool accel_wakeup_check( void ) {
 
   }
 
+  system_interrupt_enable_global();
   return should_wakeup;
 }
 
