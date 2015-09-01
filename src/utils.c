@@ -149,7 +149,7 @@ uint8_t adc_vbatt_value_scale ( uint16_t value ) {
 
     /* Add an offset to compensate for voltage
      * drop when running vs asleep */
-    value += 120;
+    value += 100;
 
     /* Full */
     if (value >= 3072) //> 3V --> 3/4*4096
