@@ -76,7 +76,6 @@ typedef enum main_state_t {
   RUNNING,
   ENTERING_SLEEP,
   WAKEUP,
-  MODE_TRANSITION
 } main_state_t;
 
 //___ P R O T O T Y P E S   ( P R I V A T E ) ________________________________
@@ -133,14 +132,11 @@ static struct tc_module main_tc;
 
 static struct {
 
-  /* Ticks since entering current mode */
-  uint32_t modeticks;
-
   /* Ticks since last wake */
   uint32_t waketicks;
 
   /* Inactivity counter for sleeping.  Resets on any
-   * user activity (e.g. button press)
+   * user activity (e.g. click)
    */
   uint32_t inactivity_ticks;
 
@@ -472,8 +468,6 @@ static void main_tic( void ) {
         anim_release(sleep_wake_anim);
         sleep_wake_anim = NULL;
 
-        /* Reset control mode to main (time display) mode */
-        control_state_set(ctrl_state_main);
         prepare_sleep();
 
         accel_sleep();
@@ -528,7 +522,6 @@ static void main_tic( void ) {
         sleep_wake_anim = NULL;
         main_gs.state = RUNNING;
 
-        main_gs.modeticks = 0;
         main_gs.waketicks = 0;
         main_gs.inactivity_ticks = 0;
       }
@@ -556,119 +549,63 @@ static void main_tic( void ) {
 #else
           main_gs.inactivity_ticks > \
           ctrl_mode_active->sleep_timeout_ticks ||
-          (IS_CONTROL_MODE_SHOW_TIME() && event_flags & EV_FLAG_ACCEL_Z_LOW) ||
-          (IS_CONTROL_MODE_SHOW_TIME() && event_flags & EV_FLAG_ACCEL_TCLICK_X)
+          (IS_CONTROL_MODE_SHOW_TIME() && (
+           (event_flags & EV_FLAG_ACCEL_Z_LOW) || TCLICK(event_flags)))
 
 #ifdef LOG_ACCEL
-          || (IS_CONTROL_MODE_SHOW_TIME() && event_flags & EV_FLAG_ACCEL_DCLICK_X)
+          || (IS_CONTROL_MODE_SHOW_TIME() && DCLICK(event_flags))
 #endif
 #endif
 
           ) {
-        /* A sleep event has occurred */
-        if (IS_CONTROL_MODE_SHOW_TIME() && event_flags & EV_FLAG_ACCEL_TCLICK_X) {
-            accel_wakeup_gesture_enabled = false;
-        } else {
-            accel_wakeup_gesture_enabled = true;
-        }
+
+          /* A sleep event has occurred */
+          if (IS_CONTROL_MODE_SHOW_TIME() && event_flags & TCLICK(event_flags)) {
+              accel_wakeup_gesture_enabled = false;
+          } else {
+              accel_wakeup_gesture_enabled = true;
+          }
 
 #ifdef LOG_ACCEL
-        if ( event_flags & EV_FLAG_ACCEL_DCLICK_X) {
-          uint32_t code = 0xDCDCDCDC;
-          main_log_data((uint8_t *) &code, sizeof(uint32_t), true);
-          log_accel = true;
+          if ( DCLICK(event_flags) ) {
+            uint32_t code = 0xDCDCDCDC;
+            main_log_data((uint8_t *) &code, sizeof(uint32_t), true);
+            log_accel = true;
 
-        } else {
-          log_accel = false;
-        }
+          } else {
+            log_accel = false;
+          }
 #endif
 
-        main_gs.state = ENTERING_SLEEP;
+          main_gs.state = ENTERING_SLEEP;
 
-        /* Notify control mode of sleep event and reset control mode */
-        ctrl_mode_active->tic_cb(EV_FLAG_SLEEP, main_gs.modeticks);
-        if (ctrl_mode_active->about_to_sleep_cb)
-          ctrl_mode_active->about_to_sleep_cb();
+          /* Notify control mode of sleep event and reset control mode */
+          ctrl_mode_active->tic_cb(EV_FLAG_SLEEP);
+          if (ctrl_mode_active->about_to_sleep_cb)
+            ctrl_mode_active->about_to_sleep_cb();
 
-        display_comp_hide_all();
+          display_comp_hide_all();
 
 #ifdef NO_TIME_ANIMATION
-        sleep_wake_anim = NULL;
+          sleep_wake_anim = NULL;
 #else
-        sleep_wake_anim = anim_swirl(0, 5, MS_IN_TICKS(5), 57, true);
+          if (event_flags & EV_FLAG_ACCEL_Z_LOW) {
+            sleep_wake_anim = NULL;
+          } else {
+            sleep_wake_anim = anim_swirl(0, 5, MS_IN_TICKS(5), 57, true);
+          }
 #endif
-        return;
+          return;
       }
 
       /* Call mode's main tic loop/event handler */
-      if (ctrl_mode_active->tic_cb(event_flags, main_gs.modeticks++)){
-
-        /* Control mode has returned true indicating it is finished,
-         * so transition to next control mode */
-        main_gs.modeticks = 0;
-        main_gs.button_hold_ticks = 0;
-        main_gs.inactivity_ticks = 0;
-
-        if ( IS_CONTROL_STATE_EE() ) {
-          control_state_set(ctrl_state_main);
-
-        }
-        else if ( IS_CONTROL_MODE_SHOW_TIME() &&
-            ( event_flags & EV_FLAG_ACCEL_7CLICK_X ||
-              event_flags & EV_FLAG_ACCEL_8CLICK_X ||
-              event_flags & EV_FLAG_ACCEL_9CLICK_X )) {
-            /* Enter util state */
-          control_state_set(ctrl_state_util);
-
-        }
-        else if ( IS_CONTROL_MODE_SHOW_TIME() &&
-              event_flags & EV_FLAG_ACCEL_NCLICK_X ) {
-          /* Enter easter egg mode */
-          control_state_set(ctrl_state_ee);
-        } else {
-
-          /* begin transition to next control mode */
-          main_gs.state = MODE_TRANSITION;
-
-          /* animate slow snake from current mode to next. */
-          uint8_t mode_gap = 60/control_mode_count();
-          uint8_t tail_len = 4;
-          mode_trans_swirl = anim_swirl(
-              mode_gap*control_mode_index(ctrl_mode_active),
-              tail_len, MS_IN_TICKS(5 + 40/control_mode_count()),
-              mode_gap - tail_len, true);
-        }
-      }
-
-      break;
-    case MODE_TRANSITION:
-      if (mode_trans_swirl) {
-        if(anim_is_finished(mode_trans_swirl)) {
-          anim_release(mode_trans_swirl);
-          mode_trans_swirl = NULL;
-          control_mode_next();
-          uint8_t mode_gap = 60/control_mode_count();
-          mode_disp_point = display_point(
-              mode_gap*(control_mode_index(ctrl_mode_active)) % 60,
-              BRIGHT_DEFAULT);
-          mode_trans_blink = anim_blink(mode_disp_point,
-              BLINK_INT_MED, MS_IN_TICKS(800), false);
-        }
-      } else if (mode_trans_blink && anim_is_finished(mode_trans_blink)) {
-        display_comp_release(mode_disp_point);
-        mode_disp_point = NULL;
-        anim_release(mode_trans_blink);
-        mode_trans_blink = NULL;
-        main_gs.state = RUNNING;
-      }
-
-      break;
+      ctrl_mode_active->tic_cb(event_flags);
+      /* END OF RUNNING STATE */
   }
 }
 
 static void main_init( void ) {
   /* Initalize main state */
-  main_gs.modeticks = 0;
   main_gs.waketicks = 0;
   main_gs.button_hold_ticks = 0;
   main_gs.tap_count = 0;

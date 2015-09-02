@@ -19,6 +19,8 @@
 extern int8_t ax_fifo[32][6];
 extern uint8_t ax_fifo_depth;
 extern bool accel_wakeup_gesture_enabled;
+extern uint8_t accel_slow_click_cnt;
+extern uint8_t accel_fast_click_cnt;
 
 //___ P R O T O T Y P E S ____________________________________________________
 
@@ -29,16 +31,16 @@ bool accel_data_read (int16_t *x_ptr, int16_t *y_ptr, int16_t *z_ptr);
    * @retrn true on success, false on failure
    */
 
-uint8_t accel_x_click_count( void );
-  /* @brief current number of active (pre-timeout) x clicks
-   * @param None
-   * @retrn number of clicks for pending click event
-   */
-
 event_flags_t accel_event_flags( void );
   /* @brief get any event flags from accelerometer
    * @param None
    * @retrn ev flags (e.g. SCLICK_X, DCLICK_Z, etc.)
+   */
+
+void accel_events_clear( void );
+  /* @brief Reset click event counters 
+   * @param None
+   * @retrn 
    */
 
 bool accel_wakeup_check( void );

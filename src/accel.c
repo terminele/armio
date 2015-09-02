@@ -51,7 +51,7 @@
 #define _DISP_INFO( i )
 #endif
 
-#if DEBUG_AX_ISR
+//#if DEBUG_AX_ISR
 #define _DISP_ERROR( i )  do { \
       _led_on_full( i ); \
       delay_ms(1000); \
@@ -62,9 +62,9 @@
       _led_off_full( i ); \
       delay_ms(100); \
     } while(0);
-#else
-#define _DISP_ERROR( i )
-#endif
+//#else
+//#define _DISP_ERROR( i )
+//#endif
 
 #define AX_SDA_PIN      PIN_PA08
 #define AX_SDA_PAD      PINMUX_PA08C_SERCOM0_PAD0
@@ -218,7 +218,8 @@
 #define WAKEUP_CLICK_TIME_LIM      MS_TO_ODRS(30, SLEEP_SAMPLE_INT)
 #define WAKEUP_CLICK_TIME_LAT      MS_TO_ODRS(100, SLEEP_SAMPLE_INT) //ms
 
-#define MULTI_CLICK_WINDOW_MS 350
+#define FAST_CLICK_WINDOW_MS 350
+#define SLOW_CLICK_WINDOW_MS 1800
 
 #define Z_DOWN_THRESHOLD        8 //assumes 4g scale
 #define Z_DOWN_DUR_MS           200
@@ -315,23 +316,20 @@ void accel_fifo_read ( void );
 int8_t ax_fifo[32][6] = {{0}};
 uint8_t ax_fifo_depth = 0;
 bool accel_wakeup_gesture_enabled = true;
+uint8_t accel_slow_click_cnt = 0;
+uint8_t accel_fast_click_cnt = 0;
+static uint8_t slow_click_counter = 0;
+static uint8_t fast_click_counter = 0;
 
 static uint16_t i2c_addr = AX_ADDRESS0;
 
 /* timestamp (based on main tic count) of most recent
  * y down interrupt for entering sleep on z-low
  */
-static bool accel_down = false;
 static int32_t accel_down_start_ms = 0;
+static bool accel_down = false;
 
-
-static struct {
-  uint32_t x,y,z;
-} last_click_time_ms;
-
-static struct {
-    uint32_t x,y,z;
-} click_count;
+static uint32_t last_click_time_ms;
 
 static struct i2c_master_module i2c_master_instance;
 
@@ -880,7 +878,8 @@ void accel_sleep ( void ) {
   return;
 #endif
   /* Reset click counters */
-  click_count.x = click_count.y = click_count.z = 0;
+  accel_slow_click_cnt = slow_click_counter = 0;
+  accel_fast_click_cnt = fast_click_counter = 0;
 
   accel_data_read(&x, &y, &z);
 
@@ -920,84 +919,33 @@ void accel_sleep ( void ) {
 //
 //
 static event_flags_t click_timeout_event_check( void ) {
-  event_flags_t ev_flags = EV_FLAG_NONE;
-
   /* Check for click timeouts */
-  ///###FIXME -- duplicated code can be unified with macros
-  if ( click_count.x &&
-      (main_get_waketime_ms() - last_click_time_ms.x > MULTI_CLICK_WINDOW_MS) ) {
-    switch(click_count.x) {
-      case 1:
-        ev_flags |= EV_FLAG_ACCEL_SCLICK_X;
-        break;
-      case 2:
-        ev_flags |= EV_FLAG_ACCEL_DCLICK_X;
-        break;
-      case 3:
-        ev_flags |= EV_FLAG_ACCEL_TCLICK_X;
-        break;
-      case 4:
-        ev_flags |= EV_FLAG_ACCEL_QCLICK_X;
-        break;
-      case 5:
-        ev_flags |= EV_FLAG_ACCEL_5CLICK_X;
-        break;
-      case 6:
-        ev_flags |= EV_FLAG_ACCEL_6CLICK_X;
-        break;
-      case 7:
-        ev_flags |= EV_FLAG_ACCEL_7CLICK_X;
-        break;
-      case 8:
-        ev_flags |= EV_FLAG_ACCEL_8CLICK_X;
-        break;
-      case 9:
-        ev_flags |= EV_FLAG_ACCEL_9CLICK_X;
-        break;
-      default:
-        ev_flags |= EV_FLAG_ACCEL_NCLICK_X;
-        break;
-    }
-    click_count.x = 0;
+  if (fast_click_counter > 0 && 
+      (main_get_waketime_ms() - last_click_time_ms > FAST_CLICK_WINDOW_MS)) {
+      
+    fast_click_counter = 0;
+
+    return EV_FLAG_ACCEL_FAST_CLICK_END;
+  }
+  
+  if (slow_click_counter > 0 && 
+      (main_get_waketime_ms() - last_click_time_ms > SLOW_CLICK_WINDOW_MS)) {
+      
+    slow_click_counter = 0;
+    return EV_FLAG_ACCEL_SLOW_CLICK_END;
   }
 
-  if ( click_count.y &&
-      main_get_waketime_ms() - last_click_time_ms.y > MULTI_CLICK_WINDOW_MS ) {
-    switch(click_count.y) {
-      case 1:
-        ev_flags |= EV_FLAG_ACCEL_SCLICK_Y;
-        break;
-      case 2:
-        ev_flags |= EV_FLAG_ACCEL_DCLICK_Y;
-        break;
-      case 3:
-        ev_flags |= EV_FLAG_ACCEL_TCLICK_Y;
-        break;
-      case 4:
-        ev_flags |= EV_FLAG_ACCEL_QCLICK_Y;
-        break;
-    }
-    click_count.y = 0;
-  }
-
-  if ( click_count.z &&
-      main_get_waketime_ms() - last_click_time_ms.z > MULTI_CLICK_WINDOW_MS ) {
-    switch(click_count.z) {
-      case 1:
-        ev_flags |= EV_FLAG_ACCEL_SCLICK_Z;
-        break;
-      case 2:
-        ev_flags |= EV_FLAG_ACCEL_DCLICK_Z;
-        break;
-    }
-    click_count.z = 0;
-  }
-
-  return ev_flags;
+  return EV_FLAG_NONE;
 }
 
-uint8_t accel_x_click_count( void ) {
-  return click_count.x;
+
+void accel_events_clear( void ) {
+
+  fast_click_counter = 0;
+  slow_click_counter = 0;
+  
+  accel_fast_click_cnt = 0; 
+  accel_slow_click_cnt = 0;
 }
 
 event_flags_t accel_event_flags( void ) {
@@ -1007,7 +955,6 @@ event_flags_t accel_event_flags( void ) {
 #ifdef NO_ACCEL
   return ev_flags;
 #endif
-
   ev_flags |= click_timeout_event_check();
 
   /* Check for Z Low event
@@ -1022,7 +969,7 @@ event_flags_t accel_event_flags( void ) {
       accel_down_start_ms = main_get_waketime_ms();
     } else if (main_get_waketime_ms() - accel_down_start_ms > Z_DOWN_DUR_MS) {
       /* Check for accel low-z timeout */
-      return EV_FLAG_ACCEL_Z_LOW;
+      ev_flags |= EV_FLAG_ACCEL_Z_LOW;
     }
   } else {
     accel_down = false;
@@ -1039,33 +986,19 @@ event_flags_t accel_event_flags( void ) {
     if (!click_flags.ia) return ev_flags;
     if (!click_flags.sign) return ev_flags;
 
-#ifdef NOT_NOW
-    if (click_flags.dclick) {
-      if (click_flags.x)
-        ev_flags |= EV_FLAG_ACCEL_DCLICK_X;
-      if (click_flags.y)
-        ev_flags |= EV_FLAG_ACCEL_DCLICK_Y;
-      if (click_flags.z)
-        ev_flags |= EV_FLAG_ACCEL_DCLICK_Z;
-    } else
-#endif
-      if (click_flags.sclick) {
-        if (click_flags.x) {
-          last_click_time_ms.x = main_get_waketime_ms();
-          click_count.x++;
-        }
-
-        if (click_flags.y) {
-          last_click_time_ms.y = main_get_waketime_ms();
-          click_count.y++;
-        }
-
-        if (click_flags.z) {
-          last_click_time_ms.z = main_get_waketime_ms();
-          click_count.z++;
-        }
-
+    if (click_flags.sclick) {
+      if (click_flags.x) {
+        fast_click_counter++;
+        slow_click_counter++;
+        
+        accel_fast_click_cnt = fast_click_counter;
+        accel_slow_click_cnt = slow_click_counter;
+        
+        ev_flags |= EV_FLAG_ACCEL_CLICK;
+        last_click_time_ms = main_get_waketime_ms();
       }
+    } 
+
 
     click_flags.b8 = 0;
 

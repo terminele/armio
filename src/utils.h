@@ -10,6 +10,14 @@
 
 //___ M A C R O S ____________________________________________________________
 
+#define NCLICK(ev_flags, n) (ev_flags & EV_FLAG_ACCEL_FAST_CLICK_END && \
+    accel_fast_click_cnt == n)
+
+#define SCLICK(ev_flags) (NCLICK(ev_flags, 1))
+#define DCLICK(ev_flags) (NCLICK(ev_flags, 2))
+#define TCLICK(ev_flags) (NCLICK(ev_flags, 3))
+#define QCLICK(ev_flags) (NCLICK(ev_flags, 4))
+
 //___ T Y P E D E F S ________________________________________________________
 
 //___ V A R I A B L E S ______________________________________________________
