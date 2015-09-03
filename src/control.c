@@ -332,19 +332,38 @@ finish:
 
 bool selector_mode_tic( event_flags_t event_flags ) {
     static display_comp_t *selector_disp_ptr = NULL;
+    static display_comp_t *all_disp_ptr = NULL;
     static enum {SELECTION, ANIM_SWIRL, ANIM_BLINK} state = SELECTION;
     
-    if (!selector_disp_ptr) {
-      selector_disp_ptr = display_point(accel_slow_click_cnt, BRIGHT_DEFAULT);
+    if (modeticks > MS_IN_TICKS(3000)) {
+      goto finish;
     }
-
-    display_comp_update_pos(selector_disp_ptr, HOUR_POS(accel_slow_click_cnt));
-
+    
     if (event_flags & EV_FLAG_SLEEP ||
         event_flags & EV_FLAG_ACCEL_SLOW_CLICK_END) {
       goto finish; 
     }
 
+    if (accel_slow_click_cnt == 0) {
+      /* No mode has been selected yet so just display a polygon
+       * indicating that we're in selection mode */
+      if (!all_disp_ptr) {
+        all_disp_ptr = display_polygon(0, BRIGHT_DEFAULT, control_mode_count());
+      }
+    }
+    else {
+      if (all_disp_ptr) {
+        display_comp_release(all_disp_ptr);
+        all_disp_ptr = NULL;
+      }
+    
+      if (!selector_disp_ptr) {
+        selector_disp_ptr = display_point(accel_slow_click_cnt, BRIGHT_DEFAULT);
+      }
+
+      display_comp_update_pos(selector_disp_ptr, HOUR_POS(accel_slow_click_cnt));
+
+    }
 #ifdef NOT_NOW
     /* Display a polygon representing the util modes */
     static display_comp_t *disp_ptr = NULL;
@@ -396,7 +415,9 @@ bool selector_mode_tic( event_flags_t event_flags ) {
     
 finish:
     display_comp_release(selector_disp_ptr);
+    display_comp_release(all_disp_ptr);
     selector_disp_ptr = NULL;
+    all_disp_ptr = NULL;
 
     control_mode_set(accel_slow_click_cnt + 1);
 
