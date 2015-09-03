@@ -82,6 +82,13 @@ uint8_t control_mode_index( ctrl_mode_t* mode_ptr );
    * @retrn index of given mode (0 to mode count - 1)
    */
 
+
+void control_tic( event_flags_t ev_flags);
+  /* @brief tic current control mode 
+   * @param event flags
+   * @retrn None
+   */
+
 void control_init( void );
   /* @brief initalize mode control module
    * @param None

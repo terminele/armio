@@ -599,8 +599,8 @@ static void main_tic( void ) {
       }
 
       /* Call mode's main tic loop/event handler */
-      ctrl_mode_active->tic_cb(event_flags);
-      /* END OF RUNNING STATE */
+      control_tic(event_flags); 
+      return; /* END OF RUNNING STATE SWITCH CASE */
   }
 }
 

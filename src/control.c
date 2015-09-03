@@ -41,6 +41,9 @@
  * estimate a good tick timeout count */
 #define EDIT_FINISH_TIMEOUT_TICKS   MS_IN_TICKS(1500)
 
+#define CONTROL_MODE_EE     6
+#define UTIL_MODE_COUNT     6
+
 #ifndef FLICKER_MIN_MODE
   #define FLICKER_MIN_MODE false
 #endif
@@ -164,21 +167,20 @@ ctrl_mode_t control_modes[] = {
         .sleep_timeout_ticks = MS_IN_TICKS(30000),
         .about_to_sleep_cb = NULL,
         .wakeup_cb = NULL,
-    }
-};
-
-ctrl_mode_t ee_control_mode = {
+    },
+    {
         .enter_cb = NULL,
         .tic_cb = ee_mode_tic,
         .sleep_timeout_ticks = EE_MODE_SLEEP_TIMEOUT_TICKS,
         .about_to_sleep_cb = NULL,
         .wakeup_cb = NULL,
-    };
+    }
+};
 
 static uint32_t disp_vals[5];
 
 /* Ticks since entering current mode */
-uint32_t modeticks = 0;
+static uint32_t modeticks = 0;
 
 //___ I N T E R R U P T S  ___________________________________________________
 
@@ -335,7 +337,7 @@ bool selector_mode_tic( event_flags_t event_flags ) {
     static display_comp_t *all_disp_ptr = NULL;
     static enum {SELECTION, ANIM_SWIRL, ANIM_BLINK} state = SELECTION;
     
-    if (modeticks > MS_IN_TICKS(3000)) {
+    if (accel_slow_click_cnt == 0 && modeticks > MS_IN_TICKS(3000)) {
       goto finish;
     }
     
@@ -348,7 +350,7 @@ bool selector_mode_tic( event_flags_t event_flags ) {
       /* No mode has been selected yet so just display a polygon
        * indicating that we're in selection mode */
       if (!all_disp_ptr) {
-        all_disp_ptr = display_polygon(0, BRIGHT_DEFAULT, control_mode_count());
+        all_disp_ptr = display_polygon(0, BRIGHT_DEFAULT, UTIL_MODE_COUNT);
       }
     }
     else {
@@ -361,7 +363,8 @@ bool selector_mode_tic( event_flags_t event_flags ) {
         selector_disp_ptr = display_point(accel_slow_click_cnt, BRIGHT_DEFAULT);
       }
 
-      display_comp_update_pos(selector_disp_ptr, HOUR_POS(accel_slow_click_cnt));
+      display_comp_update_pos(selector_disp_ptr, 
+          (accel_slow_click_cnt % UTIL_MODE_COUNT) * 60/UTIL_MODE_COUNT);
 
     }
 #ifdef NOT_NOW
@@ -369,7 +372,7 @@ bool selector_mode_tic( event_flags_t event_flags ) {
     static display_comp_t *disp_ptr = NULL;
 
     if (!disp_ptr) {
-      disp_ptr = display_polygon(0, BRIGHT_DEFAULT, control_mode_count());
+      disp_ptr = display_polygon(0, BRIGHT_DEFAULT, UTIL_MODE_COUNT);
     }
 
     if (DEFAULT_MODE_TRANS_CHK(event_flags))  {
@@ -418,14 +421,20 @@ finish:
     display_comp_release(all_disp_ptr);
     selector_disp_ptr = NULL;
     all_disp_ptr = NULL;
-
-    control_mode_set(accel_slow_click_cnt + 1);
+    
+    if (accel_slow_click_cnt == 0) {
+      control_mode_set(CONTROL_MODE_SHOW_TIME);
+    } else if (accel_slow_click_cnt % UTIL_MODE_COUNT == 0) {
+      control_mode_set(CONTROL_MODE_EE);
+    } else {
+      control_mode_set((accel_slow_click_cnt + 1) % UTIL_MODE_COUNT);
+    }
 
     return true;
 }
 
 void set_ee_sleep_timeout(uint32_t timeout_ticks) {
-    ee_control_mode.sleep_timeout_ticks = timeout_ticks;
+  control_modes[CONTROL_MODE_EE].sleep_timeout_ticks = timeout_ticks;
 }
 
 bool ee_mode_tic ( event_flags_t event_flags ) {
@@ -437,17 +446,12 @@ bool ee_mode_tic ( event_flags_t event_flags ) {
     uint32_t last_tic_delta = 0;
     static tic_fun_t ee_submode_tic = NULL;
 
-#ifdef FIXME
     if ( event_flags & EV_FLAG_SLEEP ) {
-
-      /* Give submode tic a chance to cleanup as well */
-      if (ee_submode_tic) ee_submode_tic(event_flags);
-
       goto finish;
     }
-
-
-    if (modeticks == 0 && ee_submode_tic == NULL) {
+    
+    if (ee_submode_tic == NULL) {
+      if (!display_comp) {
         /* Display ee mode start animation */
         display_comp = display_point(0, BRIGHT_DEFAULT);
         anim = anim_random(display_comp, MS_IN_TICKS(15), ANIMATION_DURATION_INF, false);
@@ -457,8 +461,10 @@ bool ee_mode_tic ( event_flags_t event_flags ) {
         //anim = anim_blink(display_comp, MS_IN_TICKS(400),
         //                ANIMATION_DURATION_INF, false);
         return false;
+      }
     }
 
+  #ifdef NOT_NOW
     last_tic_delta = modeticks - last_ev_tick;
 
     /* When still waiting for event run detection to end */
@@ -625,7 +631,9 @@ bool ee_mode_tic ( event_flags_t event_flags ) {
     }
 
 
-    if (ee_submode_tic) {
+#endif
+
+   if (ee_submode_tic) {
       if(ee_submode_tic(event_flags)) {
         /* submode is finished */
         goto finish;
@@ -635,7 +643,6 @@ bool ee_mode_tic ( event_flags_t event_flags ) {
     return false;
 
 finish:
-#endif
 
     if (anim) {
         anim_release(anim);
@@ -646,6 +653,9 @@ finish:
         display_comp_release(display_comp);
         display_comp = NULL;
     }
+
+    /* Give submode tic a chance to cleanup as well */
+    if (ee_submode_tic) ee_submode_tic(event_flags);
 
     ee_code = 0;
     run_cnt = 0;
@@ -1134,7 +1144,12 @@ uint8_t control_mode_count( void ) {
   return sizeof(control_modes)/sizeof(ctrl_mode_t);
 }
 
+void control_tic( event_flags_t ev_flags) {
+  modeticks++;
+  ctrl_mode_active->tic_cb(ev_flags);
+}
+
 void control_init( void ) {
-    ctrl_mode_active = control_modes;
+  ctrl_mode_active = control_modes;
 }
 
