@@ -411,31 +411,47 @@ static bool wakeup_check( void ) {
    */
   int32_t curr_wakestamp;
   bool wake = false;
-  if (main_gs.deep_sleep_mode) {
-    aclock_enable();
-    curr_wakestamp = get_wakestamp();
-    if (wakestamp_elapsed(curr_wakestamp, main_gs.last_wakestamp) < DEEP_SLEEP_EV_DELTA_S) {
-      main_gs.deep_sleep_sequence_ctr++;
-      if (main_gs.deep_sleep_sequence_ctr > DEEP_SLEEP_SEQ_COUNT) {
-        main_gs.deep_sleep_mode = false;
-        accel_wakeup_gesture_enabled = true;
-        wake = true;
-      }
-
+  
+  if (!main_gs.deep_sleep_mode) {
+    return accel_wakeup_check();
+  }
+  
+  /* We are in deep sleep/shipping mode, update dclick counter */
+  aclock_enable();
+  curr_wakestamp = get_wakestamp();
+  if (wakestamp_elapsed(curr_wakestamp, main_gs.last_wakestamp) < DEEP_SLEEP_EV_DELTA_S) {
+    main_gs.deep_sleep_sequence_ctr++;
+    _led_on_full( main_gs.deep_sleep_sequence_ctr ); 
+    delay_ms(100); \
+    _led_off_full( main_gs.deep_sleep_sequence_ctr ); 
+    delay_ms(50); \
+    if (main_gs.deep_sleep_sequence_ctr > DEEP_SLEEP_SEQ_COUNT) {
+      main_gs.deep_sleep_mode = false;
+      accel_wakeup_gesture_enabled = true;
+      wake = true;
     } else {
-      main_gs.deep_sleep_sequence_ctr = 1;
       accel_wakeup_gesture_enabled = false;
       wake = false;
     }
-    main_gs.last_wakestamp = curr_wakestamp;
-    aclock_disable();
-    return wake;
-  } else {
 
-    return accel_wakeup_check();
+  } else {
+    main_gs.deep_sleep_sequence_ctr = 1;
+    accel_wakeup_gesture_enabled = false;
+    wake = false;
+    
+    _led_on_full( 30 );
+    delay_ms(100); 
+    _led_off_full( 30 );
+    delay_ms(50); 
   }
 
+  main_gs.last_wakestamp = curr_wakestamp;
+  
+  aclock_disable();
+
+  return wake;
 }
+
 //___ F U N C T I O N S ______________________________________________________
 static void main_tic( void ) {
   event_flags_t event_flags = EV_FLAG_NONE;
@@ -648,6 +664,13 @@ uint32_t main_get_waketime_ms( void ) {
 
 void main_inactivity_timeout_reset( void ) {
   main_gs.inactivity_ticks = 0;
+}
+
+void main_deep_sleep_enable( void ) {
+  main_gs.deep_sleep_mode = true;
+  main_gs.deep_sleep_sequence_ctr = 0;
+  accel_wakeup_gesture_enabled = false;
+  main_gs.state = ENTERING_SLEEP;
 }
 
 void main_terminate_in_error ( error_group_code_t error_group, uint32_t subcode ) {

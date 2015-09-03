@@ -136,6 +136,12 @@ void main_inactivity_timeout_reset( void );
    * @retrn None
    */
 
+void main_deep_sleep_enable( void );
+  /* @brief enable deep sleep/shipping mode
+   * @param None
+   * @retrn None
+   */
+
 #endif /* end of include guard: __MAIN_H__ */
 
 // vim:shiftwidth=2

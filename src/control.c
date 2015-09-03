@@ -95,6 +95,12 @@ bool vbatt_sense_mode_tic ( event_flags_t event_flags );
    * @retrn flag indicating mode finish
    */
 
+bool deep_sleep_enable_mode_tic( event_flags_t event_flags );
+  /* @brief mode tic for entering deep sleep
+   * @param event flags
+   * @retrn flag indicating mode finish
+   */
+
 bool tick_counter_mode_tic ( event_flags_t event_flags );
   /* @brief display RTC seconds and main timer seconds
    * @param event flags
@@ -165,6 +171,13 @@ ctrl_mode_t control_modes[] = {
         .enter_cb = NULL,
         .tic_cb = light_sense_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(30000),
+        .about_to_sleep_cb = NULL,
+        .wakeup_cb = NULL,
+    },
+    {
+        .enter_cb = NULL,
+        .tic_cb = deep_sleep_enable_mode_tic,
+        .sleep_timeout_ticks = MS_IN_TICKS(10000),
         .about_to_sleep_cb = NULL,
         .wakeup_cb = NULL,
     },
@@ -427,7 +440,7 @@ finish:
     } else if (accel_slow_click_cnt % UTIL_MODE_COUNT == 0) {
       control_mode_set(CONTROL_MODE_EE);
     } else {
-      control_mode_set((accel_slow_click_cnt + 1) % UTIL_MODE_COUNT);
+      control_mode_set((accel_slow_click_cnt % UTIL_MODE_COUNT) + 1);
     }
 
     return true;
@@ -951,6 +964,32 @@ finish:
     return true; 
 }
 
+bool deep_sleep_enable_mode_tic( event_flags_t event_flags ) {
+    static display_comp_t *disp_ptr = NULL;
+    
+    if (!disp_ptr) {
+      /* Display a polygon 'warning' sign */
+      disp_ptr = display_polygon(10, BRIGHT_DEFAULT, 3);
+    }
+    
+    if (DEFAULT_MODE_TRANS_CHK(event_flags))  {
+        goto finish;
+    }
+    
+    if (NCLICK(event_flags, 5) || NCLICK(event_flags, 6)) {
+        main_deep_sleep_enable();
+        goto finish;
+    }
+
+    return false;
+
+finish:
+    display_comp_release(disp_ptr);
+    disp_ptr = NULL;
+
+    control_mode_set(CONTROL_MODE_SHOW_TIME);
+    return true;
+}
 bool tick_counter_mode_tic ( event_flags_t event_flags ) {
     /* This mode displays RTC second value and
      * the second value based on the main timer.  This
