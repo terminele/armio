@@ -550,12 +550,17 @@ static void accel_wakeup_state_refresh(void) {
       _DISP_ERROR(56);
     }
 
-    /* The accelerometer is in an error state so reset it
-     * and force a wakeup */
-    //accel_reset();
-    wake_gesture_state = WAKE_DCLICK;
+    /* The accelerometer is in an error state (probably a timing
+     * error between interrupt trigger and register read) so just
+     * assume the interrupt was for what we expect based on state */
+    if (!accel_wakeup_gesture_enabled) {
+      wake_gesture_state = WAKE_DCLICK;
+    } else if (wake_gesture_state == WAIT_FOR_DOWN) {
+        wait_for_up_conf();
+    } else {
+      wake_gesture_state = WAKE_TURN_UP;
+    }
     return;
-
   }
 
   if (wake_gesture_state == WAIT_FOR_DOWN) {
