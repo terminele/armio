@@ -231,6 +231,16 @@ bool clock_mode_tic ( event_flags_t event_flags ) {
       }
     }
 
+    
+    /* Enable seconds on double click */
+    if (DCLICK(event_flags)) {
+      
+      control_modes[CONTROL_MODE_SHOW_TIME].sleep_timeout_ticks = LONG_TIMEOUT_TICKS;
+
+      if (!sec_disp_ptr) {
+        sec_disp_ptr = display_point(second, BRIGHT_DEFAULT);
+      }
+    }
 
     hour_anim_tick_int = MS_IN_TICKS(HOUR_ANIM_DUR_MS/(hour * 5));
     switch(phase) {
@@ -297,15 +307,6 @@ bool clock_mode_tic ( event_flags_t event_flags ) {
             display_comp_show_all();
 
             /* Double click enables seconds and disables timeout */
-            if (DCLICK(event_flags)) {
-              
-              control_modes[CONTROL_MODE_SHOW_TIME].sleep_timeout_ticks = LONG_TIMEOUT_TICKS;
-
-              if (!sec_disp_ptr) {
-                sec_disp_ptr = display_point(second, BRIGHT_DEFAULT);
-              }
-            }
-
             if (sec_disp_ptr) {
               display_comp_update_pos(sec_disp_ptr, second);
             }
