@@ -576,7 +576,7 @@ static void main_tic( void ) {
           ) {
 
           /* A sleep event has occurred */
-          if (IS_CONTROL_MODE_SHOW_TIME() && event_flags & TCLICK(event_flags)) {
+          if (IS_CONTROL_MODE_SHOW_TIME() && TCLICK(event_flags)) {
               accel_wakeup_gesture_enabled = false;
           } else {
               accel_wakeup_gesture_enabled = true;
