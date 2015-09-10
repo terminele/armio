@@ -41,8 +41,8 @@
  * estimate a good tick timeout count */
 #define EDIT_FINISH_TIMEOUT_TICKS   MS_IN_TICKS(1500)
 
-#define CONTROL_MODE_EE     6
-#define UTIL_MODE_COUNT     6
+#define CONTROL_MODE_EE     8
+#define UTIL_MODE_COUNT     7
 
 #ifndef FLICKER_MIN_MODE
   #define FLICKER_MIN_MODE false
@@ -95,8 +95,14 @@ bool vbatt_sense_mode_tic ( event_flags_t event_flags );
    * @retrn flag indicating mode finish
    */
 
+bool gesture_toggle_mode_tic ( event_flags_t event_flags );
+  /* @brief mode to allow user disable gestures indefinitely
+   * @param event flags
+   * @retrn true on finish
+   */
+
 bool deep_sleep_enable_mode_tic( event_flags_t event_flags );
-  /* @brief mode tic for entering deep sleep
+  /* @brief mode to allow user to enter deep sleep
    * @param event flags
    * @retrn flag indicating mode finish
    */
@@ -178,6 +184,13 @@ ctrl_mode_t control_modes[] = {
         .enter_cb = NULL,
         .tic_cb = deep_sleep_enable_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(10000),
+        .about_to_sleep_cb = NULL,
+        .wakeup_cb = NULL,
+    },
+    {
+        .enter_cb = NULL,
+        .tic_cb = gesture_toggle_mode_tic,
+        .sleep_timeout_ticks = MS_IN_TICKS(15000),
         .about_to_sleep_cb = NULL,
         .wakeup_cb = NULL,
     },
@@ -349,22 +362,27 @@ finish:
 bool selector_mode_tic( event_flags_t event_flags ) {
     static display_comp_t *selector_disp_ptr = NULL;
     static display_comp_t *all_disp_ptr = NULL;
+    static animation_t *mode_trans_blink = NULL;
+    static uint8_t selected_mode = CONTROL_MODE_SHOW_TIME;
     static enum {SELECTION, ANIM_SWIRL, ANIM_BLINK} state = SELECTION;
     
     if (accel_slow_click_cnt == 0 && modeticks > MS_IN_TICKS(3000)) {
       goto finish;
     }
     
-    if (event_flags & EV_FLAG_SLEEP ||
-        event_flags & EV_FLAG_ACCEL_SLOW_CLICK_END) {
+    if (event_flags & EV_FLAG_SLEEP) {
       goto finish; 
+    }
+    
+    if (mode_trans_blink && anim_is_finished(mode_trans_blink)) {
+        goto finish;
     }
 
     if (accel_slow_click_cnt == 0) {
       /* No mode has been selected yet so just display a polygon
        * indicating that we're in selection mode */
       if (!all_disp_ptr) {
-        all_disp_ptr = display_polygon(0, BRIGHT_DEFAULT, UTIL_MODE_COUNT);
+        all_disp_ptr = display_polygon(0, BRIGHT_DEFAULT, 6); //12);//UTIL_MODE_COUNT);
       }
     }
     else {
@@ -378,71 +396,30 @@ bool selector_mode_tic( event_flags_t event_flags ) {
       }
 
       display_comp_update_pos(selector_disp_ptr, 
-          (accel_slow_click_cnt % UTIL_MODE_COUNT) * 60/UTIL_MODE_COUNT);
+          (accel_slow_click_cnt % (UTIL_MODE_COUNT + 1)) * 5);// * 60/UTIL_MODE_COUNT);
 
     }
-#ifdef NOT_NOW
-    /* Display a polygon representing the util modes */
-    static display_comp_t *disp_ptr = NULL;
-
-    if (!disp_ptr) {
-      disp_ptr = display_polygon(0, BRIGHT_DEFAULT, UTIL_MODE_COUNT);
-    }
-
-    if (DEFAULT_MODE_TRANS_CHK(event_flags))  {
-        display_comp_release(disp_ptr);
-        disp_ptr = NULL;
-
-        control_mode_set(CONTROL_MODE_SHOW_TIME);
-        return true;
-    }
-
-          /* animate slow snake from current mode to next. */
-          uint8_t mode_gap = 60/control_mode_count();
-          uint8_t tail_len = 4;
-          mode_trans_swirl = anim_swirl(
-              mode_gap*control_mode_index(ctrl_mode_active),
-              tail_len, MS_IN_TICKS(5 + 40/control_mode_count()),
-              mode_gap - tail_len, true);
-
-
-      if (mode_trans_swirl) {
-        if(anim_is_finished(mode_trans_swirl)) {
-          anim_release(mode_trans_swirl);
-          mode_trans_swirl = NULL;
-          control_mode_next();
-          uint8_t mode_gap = 60/control_mode_count();
-          mode_disp_point = display_point(
-              mode_gap*(control_mode_index(ctrl_mode_active)) % 60,
-              BRIGHT_DEFAULT);
-          mode_trans_blink = anim_blink(mode_disp_point,
-              BLINK_INT_MED, MS_IN_TICKS(800), false);
+    
+    if (event_flags & EV_FLAG_ACCEL_SLOW_CLICK_END) {
+        selected_mode = (accel_slow_click_cnt % UTIL_MODE_COUNT) + 1;
+        if (!mode_trans_blink) {
+          mode_trans_blink = anim_blink(selector_disp_ptr,
+              BLINK_INT_MED, MS_IN_TICKS(1200), false);
         }
-      } else if (mode_trans_blink && anim_is_finished(mode_trans_blink)) {
-        display_comp_release(mode_disp_point);
-        mode_disp_point = NULL;
-        anim_release(mode_trans_blink);
-        mode_trans_blink = NULL;
-        main_gs.state = RUNNING;
-      }
-
-#endif
-
+    }
+          
     return false;
     
 finish:
     display_comp_release(selector_disp_ptr);
     display_comp_release(all_disp_ptr);
+    anim_release(mode_trans_blink);
     selector_disp_ptr = NULL;
     all_disp_ptr = NULL;
+    mode_trans_blink = NULL;
     
-    if (accel_slow_click_cnt == 0) {
-      control_mode_set(CONTROL_MODE_SHOW_TIME);
-    } else if (accel_slow_click_cnt % UTIL_MODE_COUNT == 0) {
-      control_mode_set(CONTROL_MODE_EE);
-    } else {
-      control_mode_set((accel_slow_click_cnt % UTIL_MODE_COUNT) + 1);
-    }
+    control_mode_set(selected_mode);
+    selected_mode = CONTROL_MODE_SHOW_TIME;
 
     return true;
 }
@@ -963,6 +940,51 @@ finish:
  
     control_mode_set(CONTROL_MODE_SHOW_TIME);
     return true; 
+}
+
+
+static bool toggle_pref_mode_tic( event_flags_t event_flags, bool *pref_ptr ) {
+
+    static display_comp_t *on_disp_ptr = NULL;
+    static display_comp_t *off_disp_ptr = NULL;
+
+    if (DEFAULT_MODE_TRANS_CHK(event_flags)) {
+        display_comp_release(on_disp_ptr);
+        display_comp_release(off_disp_ptr);
+        on_disp_ptr = off_disp_ptr = NULL; 
+         
+        control_mode_set(CONTROL_MODE_SHOW_TIME);
+        return true; 
+    }
+
+    if (TCLICK(event_flags)) {
+        *pref_ptr = !(*pref_ptr);
+    }
+    
+    if (*pref_ptr) {
+        if (off_disp_ptr) display_comp_hide(off_disp_ptr);
+        
+        if (!on_disp_ptr) {
+            on_disp_ptr = display_line(59, BRIGHT_MED_LOW, 3);
+        }
+
+        display_comp_show(on_disp_ptr);
+
+    } else {
+        if (on_disp_ptr) display_comp_hide(on_disp_ptr);
+        
+        if (!off_disp_ptr) {
+            off_disp_ptr = display_point(30, BRIGHT_MED_LOW);
+        }
+
+        display_comp_show(off_disp_ptr);
+    }
+
+    return false;
+}
+
+bool gesture_toggle_mode_tic( event_flags_t event_flags ) {
+    return toggle_pref_mode_tic(event_flags, &main_user_prefs.wake_gestures);
 }
 
 bool deep_sleep_enable_mode_tic( event_flags_t event_flags ) {

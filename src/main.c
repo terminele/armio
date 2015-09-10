@@ -131,7 +131,6 @@ static void main_init( void );
 static struct tc_module main_tc;
 
 static struct {
-
   /* Ticks since last wake */
   uint32_t waketicks;
 
@@ -175,7 +174,6 @@ static animation_t *mode_trans_blink;
 static display_comp_t *mode_disp_point;
 
 static struct adc_module light_vbatt_sens_adc;
-nvm_conf_t main_nvm_conf_data;
 
 static uint32_t nvm_row_addr = NVM_LOG_ADDR_START;
 static uint8_t nvm_row_buffer[NVMCTRL_ROW_SIZE];
@@ -184,8 +182,10 @@ static uint16_t nvm_row_ind;
 static bool log_accel = false;
 #endif
 
-//___ F U N C T I O N S   ( P R I V A T E ) __________________________________
+nvm_conf_t main_nvm_conf_data;
+user_prefs_t main_user_prefs;
 
+//___ F U N C T I O N S   ( P R I V A T E ) __________________________________
 
 static void config_main_tc( void ) {
   struct tc_config config_tc;
@@ -579,7 +579,7 @@ static void main_tic( void ) {
           if (IS_CONTROL_MODE_SHOW_TIME() && TCLICK(event_flags)) {
               accel_wakeup_gesture_enabled = false;
           } else {
-              accel_wakeup_gesture_enabled = true;
+              accel_wakeup_gesture_enabled = main_user_prefs.wake_gestures;
           }
 
 #ifdef LOG_ACCEL
@@ -630,6 +630,7 @@ static void main_init( void ) {
   main_gs.light_sensor_scaled_at_wakeup = 0;
   main_gs.brightness = MAX_BRIGHT_VAL;
   main_gs.state = STARTUP;
+  main_user_prefs.wake_gestures = true;
 
   /* Configure main timer counter */
   config_main_tc();

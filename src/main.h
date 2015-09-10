@@ -56,8 +56,14 @@ typedef struct {
     /* RTC Frequency Correction value in ppm */
     int8_t rtc_freq_corr;
 } nvm_conf_t;
+
+typedef struct {
+    bool wake_gestures;
+} user_prefs_t;
+
 //___ V A R I A B L E S ______________________________________________________
 extern nvm_conf_t main_nvm_conf_data;
+extern user_prefs_t main_user_prefs;
 
 //___ P R O T O T Y P E S ____________________________________________________
 void main_terminate_in_error( error_group_code_t error_group, uint32_t subcode );
@@ -142,6 +148,11 @@ void main_deep_sleep_enable( void );
    * @retrn None
    */
 
+void main_set_gesture_enable_preference( bool enable );
+  /* @brief update user preference for enabling of wakeup gestures
+   * @param enable boolean
+   * @retrn None
+   */
 #endif /* end of include guard: __MAIN_H__ */
 
 // vim:shiftwidth=2
