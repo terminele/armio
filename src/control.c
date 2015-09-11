@@ -251,7 +251,7 @@ bool clock_mode_tic ( event_flags_t event_flags ) {
       control_modes[CONTROL_MODE_SHOW_TIME].sleep_timeout_ticks = LONG_TIMEOUT_TICKS;
 
       if (!sec_disp_ptr) {
-        sec_disp_ptr = display_point(second, BRIGHT_DEFAULT);
+        sec_disp_ptr = display_point(second, BRIGHT_LOW);
       }
     }
 
