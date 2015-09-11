@@ -33,8 +33,9 @@
 #define MAIN_TIMER  TC5
 
 /* deep sleep (i.e. shipping mode) wakeup parameters */
-#define DEEP_SLEEP_EV_DELTA_S   2 /* max time between double clicks */
-#define DEEP_SLEEP_SEQ_COUNT    4 /* # of double clicks to wakeup */
+#define DEEP_SLEEP_EV_DELTA_S   3 /* max time between double clicks */
+#define DEEP_SLEEP_SEQ_UP_COUNT    3 /* # of double clicks facing up to wakeup */
+#define DEEP_SLEEP_SEQ_DOWN_COUNT    2 /* # of double clicks facing down to wakeup */
 
 /* tick count before considering a button press "long" */
 #define LONG_PRESS_TICKS    MS_IN_TICKS(1500)
@@ -164,7 +165,8 @@ static struct {
   /* deep sleep (aka 'shipping mode') */
   bool deep_sleep_mode;
   /* count for deep sleep (i.e shipping mode) wakeup recognition */
-  uint8_t deep_sleep_sequence_ctr;
+  uint8_t deep_sleep_down_ctr;
+  uint8_t deep_sleep_up_ctr;
 
 } main_gs;
 
@@ -420,22 +422,41 @@ static bool wakeup_check( void ) {
   aclock_enable();
   curr_wakestamp = get_wakestamp();
   if (wakestamp_elapsed(curr_wakestamp, main_gs.last_wakestamp) < DEEP_SLEEP_EV_DELTA_S) {
-    main_gs.deep_sleep_sequence_ctr++;
-    _led_on_full( main_gs.deep_sleep_sequence_ctr ); 
-    delay_ms(100); \
-    _led_off_full( main_gs.deep_sleep_sequence_ctr ); 
-    delay_ms(50); \
-    if (main_gs.deep_sleep_sequence_ctr > DEEP_SLEEP_SEQ_COUNT) {
+    int16_t x,y,z;
+    accel_enable();
+    accel_data_read(&x, &y, &z);
+
+    if (z < 0) {
+      main_gs.deep_sleep_down_ctr++;
+      _led_on_full( 30 + main_gs.deep_sleep_down_ctr ); 
+      delay_ms(100);
+      _led_off_full( 30 + main_gs.deep_sleep_down_ctr ); 
+      delay_ms(50);
+    } else if (main_gs.deep_sleep_down_ctr >= DEEP_SLEEP_SEQ_DOWN_COUNT) {
+      main_gs.deep_sleep_up_ctr++;
+      _led_on_full( main_gs.deep_sleep_up_ctr ); 
+      delay_ms(100); 
+      _led_off_full( main_gs.deep_sleep_up_ctr ); 
+      delay_ms(50); 
+    }
+
+
+    if (main_gs.deep_sleep_down_ctr >= DEEP_SLEEP_SEQ_DOWN_COUNT &&
+        main_gs.deep_sleep_up_ctr >= DEEP_SLEEP_SEQ_UP_COUNT) {
       main_gs.deep_sleep_mode = false;
       accel_wakeup_gesture_enabled = true;
       wake = true;
     } else {
       accel_wakeup_gesture_enabled = false;
       wake = false;
+      accel_sleep();
     }
 
   } else {
-    main_gs.deep_sleep_sequence_ctr = 1;
+    /* we will assume to first dclick is face down so we
+     * don't need to bother wasting power reading accelerometer */
+    main_gs.deep_sleep_down_ctr = 1; 
+    main_gs.deep_sleep_up_ctr = 0;
     accel_wakeup_gesture_enabled = false;
     wake = false;
     
@@ -669,7 +690,8 @@ void main_inactivity_timeout_reset( void ) {
 
 void main_deep_sleep_enable( void ) {
   main_gs.deep_sleep_mode = true;
-  main_gs.deep_sleep_sequence_ctr = 0;
+  main_gs.deep_sleep_down_ctr = 0;
+  main_gs.deep_sleep_up_ctr = 0;
   accel_wakeup_gesture_enabled = false;
   main_gs.state = ENTERING_SLEEP;
 }

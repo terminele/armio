@@ -43,6 +43,9 @@
 
 #define CONTROL_MODE_EE     8
 #define UTIL_MODE_COUNT     7
+/* Util control modes start at index 2 in control mode array (e.g. util mode is
+ * index 2, etc)*/
+#define UTIL_CTRL_MODE(n) ((n % UTIL_MODE_COUNT) + 1)
 
 #ifndef FLICKER_MIN_MODE
   #define FLICKER_MIN_MODE false
@@ -401,7 +404,7 @@ bool selector_mode_tic( event_flags_t event_flags ) {
     }
     
     if (event_flags & EV_FLAG_ACCEL_SLOW_CLICK_END) {
-        selected_mode = (accel_slow_click_cnt % UTIL_MODE_COUNT) + 1;
+        selected_mode = UTIL_CTRL_MODE(accel_slow_click_cnt);
         if (!mode_trans_blink) {
           mode_trans_blink = anim_blink(selector_disp_ptr,
               BLINK_INT_MED, MS_IN_TICKS(1200), false);
