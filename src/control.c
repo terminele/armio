@@ -149,6 +149,7 @@ ctrl_mode_t control_modes[] = {
         .wakeup_cb = NULL,
     }, 
     {
+        /* UTIL MODE #1 */
         .enter_cb = NULL,
         .tic_cb = time_set_mode_tic,
         .sleep_timeout_ticks = TIME_SET_MODE_EDITING_SLEEP_TIMEOUT_TICKS,
@@ -163,6 +164,7 @@ ctrl_mode_t control_modes[] = {
 //        .wakeup_cb = NULL,
 //    },
     {
+        /* UTIL MODE #2 */
         .enter_cb = NULL,
         .tic_cb = accel_point_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(15000),
@@ -170,6 +172,7 @@ ctrl_mode_t control_modes[] = {
         .wakeup_cb = NULL,
     },
     {
+        /* UTIL MODE #3 */
         .enter_cb = NULL,
         .tic_cb = vbatt_sense_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(15000),
@@ -177,6 +180,8 @@ ctrl_mode_t control_modes[] = {
         .wakeup_cb = NULL,
     },
     {
+        /* UTIL MODE #4 */
+        .enter_cb = NULL,
         .enter_cb = NULL,
         .tic_cb = light_sense_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(30000),
@@ -184,6 +189,7 @@ ctrl_mode_t control_modes[] = {
         .wakeup_cb = NULL,
     },
     {
+        /* UTIL MODE #5 */
         .enter_cb = NULL,
         .tic_cb = deep_sleep_enable_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(10000),
@@ -191,6 +197,7 @@ ctrl_mode_t control_modes[] = {
         .wakeup_cb = NULL,
     },
     {
+        /* UTIL MODE #6 */
         .enter_cb = NULL,
         .tic_cb = gesture_toggle_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(15000),
@@ -198,6 +205,7 @@ ctrl_mode_t control_modes[] = {
         .wakeup_cb = NULL,
     },
     {
+        /* UTIL MODE #7 */
         .enter_cb = NULL,
         .tic_cb = ee_mode_tic,
         .sleep_timeout_ticks = EE_MODE_SLEEP_TIMEOUT_TICKS,
