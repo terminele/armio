@@ -544,11 +544,7 @@ static void accel_wakeup_state_refresh(void) {
   }
 
   if (!int_flags.ia) {
-    if (!int_flags.yl && !int_flags.xl && !int_flags.zh ) {
-      _DISP_ERROR(57);
-    } else {
-      _DISP_ERROR(56);
-    }
+    _DISP_ERROR(56);
 
     /* The accelerometer is in an error state (probably a timing
      * error between interrupt trigger and register read) so just
@@ -564,7 +560,7 @@ static void accel_wakeup_state_refresh(void) {
   }
 
   if (wake_gesture_state == WAIT_FOR_DOWN) {
-    if (int_flags.yl || int_flags.xl ) {
+    if (int_flags.yl || int_flags.xl || int_flags.yh || int_flags.xh) {
       wait_for_up_conf();
     } else {
       _DISP_ERROR(55);
