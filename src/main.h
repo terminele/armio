@@ -59,6 +59,7 @@ typedef struct {
 
 typedef struct {
     bool wake_gestures;
+    bool seconds_always_on;
 } user_prefs_t;
 
 //___ V A R I A B L E S ______________________________________________________

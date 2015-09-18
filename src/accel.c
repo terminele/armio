@@ -502,8 +502,7 @@ static bool accel_register_write (uint8_t reg, uint8_t val) {
 
 
 static void accel_isr(void) {
-  system_interrupt_disable_global();
-
+  
   if (!accel_register_consecutive_read(AX_REG_CLICK_SRC, 1, &click_flags.b8)) {
      _DISP_ERROR(5);
   }
@@ -512,19 +511,18 @@ static void accel_isr(void) {
      _DISP_ERROR(7);
   }
 
-  /* HACK - give time for accelerometer to release interrupt after
-   * reading interrupt registers */
-  delay_ms(15);
-
 #if DEBUG_AX_ISR
   _led_on_full(15*click_flags.ia + 5*int_flags.ia);
   delay_ms(5);
   _led_off_full(15*click_flags.ia + 5*int_flags.ia);
   delay_ms(5);
 #endif
+  
+  /* Wait for accelerometer to release interrupt */
+  while(extint_chan_is_detected(AX_INT1_CHAN)) {
+    extint_chan_clear_detected(AX_INT1_CHAN);
+  };
 
-  extint_chan_clear_detected(AX_INT1_CHAN);
-  system_interrupt_enable_global();
 
 };
 
@@ -793,7 +791,6 @@ bool accel_wakeup_check( void ) {
   return true;
 #endif
 
-  system_interrupt_disable_global();
   accel_wakeup_state_refresh();
 
   if (wake_gesture_state == WAKE_TURN_UP) {
@@ -803,10 +800,8 @@ bool accel_wakeup_check( void ) {
     accel_data_read(&x, &y, &z);
 
     should_wakeup = true;
-
   }
 
-  system_interrupt_enable_global();
   return should_wakeup;
 }
 
@@ -888,8 +883,14 @@ void accel_sleep ( void ) {
       ( SLEEP_ODR | X_EN | Y_EN | Z_EN |
         ( BITS_PER_ACCEL_VAL == 8 ? LOW_PWR_EN : 0 ) ) );
 
-
+  /* Configure click parameters */
+  /* Only x-axis double clicks should wake us up */
   accel_register_write (AX_REG_CTL3,  I1_CLICK_EN );
+  accel_register_write (AX_REG_CLICK_CFG, X_DCLICK);
+  accel_register_write (AX_REG_CLICK_THS, WAKEUP_CLICK_THS);
+  accel_register_write (AX_REG_TIME_WIN, WAKEUP_CLICK_TIME_WIN);
+  accel_register_write (AX_REG_TIME_LIM, WAKEUP_CLICK_TIME_LIM);
+  accel_register_write (AX_REG_TIME_LAT, WAKEUP_CLICK_TIME_LAT);
 
   if (accel_wakeup_gesture_enabled) {
     /* Configure interrupt to detect orientation down (Y LOW) */
@@ -898,17 +899,7 @@ void accel_sleep ( void ) {
 
   }
 
-  /* Configure click parameters */
-  /* Only x-axis double clicks should wake us up */
-  accel_register_write (AX_REG_CLICK_CFG, X_DCLICK);
-  accel_register_write (AX_REG_CLICK_THS, WAKEUP_CLICK_THS);
-  accel_register_write (AX_REG_TIME_WIN, WAKEUP_CLICK_TIME_WIN);
-  accel_register_write (AX_REG_TIME_LIM, WAKEUP_CLICK_TIME_LIM);
-  accel_register_write (AX_REG_TIME_LAT, WAKEUP_CLICK_TIME_LAT);
-
-
   extint_chan_enable_callback(AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
-
 }
 
 //
@@ -978,11 +969,12 @@ event_flags_t accel_event_flags( void ) {
 
   if (port_pin_get_input_level(AX_INT1_PIN)) {
     uint8_t aoi_flags;
-    if (int_state) return ev_flags; //we've already handled this interrupt
-
-    int_state = true;
+    
     accel_register_consecutive_read(AX_REG_CLICK_SRC, 1, &click_flags.b8);
     accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &aoi_flags);
+
+    if (int_state) return ev_flags; //we've already handled this interrupt
+    int_state = true;
 
     if (!click_flags.ia) return ev_flags;
     if (!click_flags.sign) return ev_flags;

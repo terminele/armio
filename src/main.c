@@ -171,9 +171,6 @@ static struct {
 } main_gs;
 
 static animation_t *sleep_wake_anim = NULL;
-static animation_t *mode_trans_swirl;
-static animation_t *mode_trans_blink;
-static display_comp_t *mode_disp_point;
 
 static struct adc_module light_vbatt_sens_adc;
 
@@ -295,6 +292,7 @@ static void prepare_sleep( void ) {
 }
 
 static void wakeup (void) {
+  
   if (light_vbatt_sens_adc.hw) {
     adc_enable(&light_vbatt_sens_adc);
   }
@@ -562,28 +560,13 @@ static void main_tic( void ) {
         main_gs.waketicks = 0;
         main_gs.inactivity_ticks = 0;
       }
-
       return;
     case RUNNING:
-#if ENABLE_LIGHT_SENSE
-#ifdef NOT_NOW
-      if( IS_CONTROL_MODE_SHOW_TIME() ) {
-        /* we are in main time display mode */
-        main_set_current_sensor(sensor_light);
-        main_start_sensor_read();
-        if ( adc_light_value_scale( main_read_current_sensor(false) ) +
-            LIGHT_SENSOR_REDUCTION_SHUTOFF < main_gs.light_sensor_scaled_at_wakeup ) {
-          /* sleep the watch */
-          main_gs.inactivity_ticks = ctrl_mode_active->sleep_timeout_ticks;
-        }
-      }
-#endif
-#endif
       /* Check for inactivity timeout */
       if (
 #ifdef ALWAYS_ACTIVE
-          true
-#else
+          true || 
+#endif
           main_gs.inactivity_ticks > \
           ctrl_mode_active->sleep_timeout_ticks ||
           (IS_CONTROL_MODE_SHOW_TIME() && (
@@ -592,13 +575,13 @@ static void main_tic( void ) {
 #ifdef LOG_ACCEL
           || (IS_CONTROL_MODE_SHOW_TIME() && DCLICK(event_flags))
 #endif
-#endif
 
           ) {
 
           /* A sleep event has occurred */
           if (IS_CONTROL_MODE_SHOW_TIME() && TCLICK(event_flags)) {
               accel_wakeup_gesture_enabled = false;
+
           } else {
               accel_wakeup_gesture_enabled = main_user_prefs.wake_gestures;
           }
@@ -614,14 +597,10 @@ static void main_tic( void ) {
           }
 #endif
 
-          main_gs.state = ENTERING_SLEEP;
-
           /* Notify control mode of sleep event and reset control mode */
           ctrl_mode_active->tic_cb(EV_FLAG_SLEEP);
-          if (ctrl_mode_active->about_to_sleep_cb)
-            ctrl_mode_active->about_to_sleep_cb();
 
-          display_comp_hide_all();
+          main_gs.state = ENTERING_SLEEP;
 
 #ifdef NO_TIME_ANIMATION
           sleep_wake_anim = NULL;
@@ -651,7 +630,14 @@ static void main_init( void ) {
   main_gs.light_sensor_scaled_at_wakeup = 0;
   main_gs.brightness = MAX_BRIGHT_VAL;
   main_gs.state = STARTUP;
+  main_gs.deep_sleep_mode = false;
   main_user_prefs.wake_gestures = true;
+
+#ifdef SHOW_SEC_ALWAYS
+  main_user_prefs.seconds_always_on = true;
+#else
+  main_user_prefs.seconds_always_on = false;
+#endif
 
   /* Configure main timer counter */
   config_main_tc();

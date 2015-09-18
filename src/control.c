@@ -41,8 +41,8 @@
  * estimate a good tick timeout count */
 #define EDIT_FINISH_TIMEOUT_TICKS   MS_IN_TICKS(1500)
 
-#define CONTROL_MODE_EE     8
-#define UTIL_MODE_COUNT     7
+#define CONTROL_MODE_EE     9
+#define UTIL_MODE_COUNT     8
 /* Util control modes start at index 2 in control mode array (e.g. util mode is
  * index 2, etc)*/
 #define UTIL_CTRL_MODE(n) ((n % UTIL_MODE_COUNT) + 1)
@@ -100,6 +100,12 @@ bool vbatt_sense_mode_tic ( event_flags_t event_flags );
 
 bool gesture_toggle_mode_tic ( event_flags_t event_flags );
   /* @brief mode to allow user disable gestures indefinitely
+   * @param event flags
+   * @retrn true on finish
+   */
+
+bool seconds_enable_toggle_mode_tic ( event_flags_t event_flags );
+  /* @brief mode to allow user enable seconds always on
    * @param event flags
    * @retrn true on finish
    */
@@ -182,7 +188,6 @@ ctrl_mode_t control_modes[] = {
     {
         /* UTIL MODE #4 */
         .enter_cb = NULL,
-        .enter_cb = NULL,
         .tic_cb = light_sense_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(30000),
         .about_to_sleep_cb = NULL,
@@ -206,6 +211,14 @@ ctrl_mode_t control_modes[] = {
     },
     {
         /* UTIL MODE #7 */
+        .enter_cb = NULL,
+        .tic_cb = seconds_enable_toggle_mode_tic,
+        .sleep_timeout_ticks = MS_IN_TICKS(15000),
+        .about_to_sleep_cb = NULL,
+        .wakeup_cb = NULL,
+    },
+    {
+        /* UTIL MODE #8 */
         .enter_cb = NULL,
         .tic_cb = ee_mode_tic,
         .sleep_timeout_ticks = EE_MODE_SLEEP_TIMEOUT_TICKS,
@@ -317,17 +330,16 @@ bool clock_mode_tic ( event_flags_t event_flags ) {
             if (anim_is_finished(anim_ptr)) {
                 anim_release(anim_ptr);
                 anim_ptr = NULL;
-#ifdef SHOW_SEC_ALWAYS
-                if (!sec_disp_ptr) {
+                if (main_user_prefs.seconds_always_on && !sec_disp_ptr) {
                   sec_disp_ptr = display_point(second, MIN_BRIGHT_VAL);
                 }
-#endif
 
                 phase = DISP_ALL;
             }
             break;
 
         case DISP_ALL:
+            /* Ensure minute led is on after blinking */
             display_comp_show_all();
 
             /* Double click enables seconds and disables timeout */
@@ -339,35 +351,34 @@ bool clock_mode_tic ( event_flags_t event_flags ) {
             display_comp_update_pos(hour_disp_ptr, HOUR_POS(hour));
             display_comp_update_length(hour_disp_ptr, hour_fifths + 1);
             
-
             break;
     }
 
     return false;
 
 finish:
-      anim_stop(anim_ptr);
-      anim_release(anim_ptr);
-      display_comp_release(hour_disp_ptr);
-      display_comp_release(min_disp_ptr);
-      display_comp_release(sec_disp_ptr);
-      hour_disp_ptr = NULL;
-      min_disp_ptr = NULL;
-      sec_disp_ptr = NULL;
-      anim_ptr = NULL;
+    anim_stop(anim_ptr);
+    anim_release(anim_ptr);
+    display_comp_release(hour_disp_ptr);
+    display_comp_release(min_disp_ptr);
+    display_comp_release(sec_disp_ptr);
+    hour_disp_ptr = NULL;
+    min_disp_ptr = NULL;
+    sec_disp_ptr = NULL;
+    anim_ptr = NULL;
 
-      /* Reset sleep timeout to default */
-      control_modes[CONTROL_MODE_SHOW_TIME].sleep_timeout_ticks = CLOCK_MODE_SLEEP_TIMEOUT_TICKS;
+    /* Reset sleep timeout to default */
+    control_modes[CONTROL_MODE_SHOW_TIME].sleep_timeout_ticks = CLOCK_MODE_SLEEP_TIMEOUT_TICKS;
 
-      phase = INIT;
+    phase = INIT;
     
     if (NCLICK(event_flags, 5) || \
         NCLICK(event_flags, 6)) {
         control_mode_set(CONTROL_MODE_SELECTOR);
         accel_events_clear();
-      }
+    }
 
-      return true;
+    return true;
 }
 
 bool selector_mode_tic( event_flags_t event_flags ) {
@@ -960,6 +971,7 @@ static bool toggle_pref_mode_tic( event_flags_t event_flags, bool *pref_ptr ) {
     static display_comp_t *off_disp_ptr = NULL;
 
     if (DEFAULT_MODE_TRANS_CHK(event_flags)) {
+
         display_comp_release(on_disp_ptr);
         display_comp_release(off_disp_ptr);
         on_disp_ptr = off_disp_ptr = NULL; 
@@ -968,7 +980,7 @@ static bool toggle_pref_mode_tic( event_flags_t event_flags, bool *pref_ptr ) {
         return true; 
     }
 
-    if (TCLICK(event_flags)) {
+    if (SCLICK(event_flags)) {
         *pref_ptr = !(*pref_ptr);
     }
     
@@ -996,6 +1008,10 @@ static bool toggle_pref_mode_tic( event_flags_t event_flags, bool *pref_ptr ) {
 
 bool gesture_toggle_mode_tic( event_flags_t event_flags ) {
     return toggle_pref_mode_tic(event_flags, &main_user_prefs.wake_gestures);
+}
+
+bool seconds_enable_toggle_mode_tic ( event_flags_t event_flags ) {
+    return toggle_pref_mode_tic(event_flags, &main_user_prefs.seconds_always_on);
 }
 
 bool deep_sleep_enable_mode_tic( event_flags_t event_flags ) {
