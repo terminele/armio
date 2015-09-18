@@ -38,7 +38,7 @@
 static float tracker_pos_angle;
 static int8_t tracker_pos;
 static uint16_t z_avg = ACCEL_VALUE_1G;
-static float angular_velocity = 0;
+static float angular_velocity = 0; /* in degrees/tick */
 
 //___ I N T E R R U P T S  ___________________________________________________
 
@@ -86,7 +86,7 @@ uint8_t utils_spin_tracker_update ( void ) {
     angle_delta = ANGLE_DELTA_SHORTEST(angle - tracker_pos_angle);
 
     /* Ignore small changes */
-    if (abs(angle_delta) < 3) {
+    if (abs(angle_delta) < 1) {
         angular_velocity = 0;
         return tracker_pos;
     }
