@@ -51,7 +51,7 @@
 #define _DISP_INFO( i )
 #endif
 
-//#if DEBUG_AX_ISR
+#if DEBUG_AX_ISR
 #define _DISP_ERROR( i )  do { \
       _led_on_full( i ); \
       delay_ms(1000); \
@@ -62,9 +62,9 @@
       _led_off_full( i ); \
       delay_ms(100); \
     } while(0);
-//#else
-//#define _DISP_ERROR( i )
-//#endif
+#else
+#define _DISP_ERROR( i )
+#endif
 
 #define AX_SDA_PIN      PIN_PA08
 #define AX_SDA_PAD      PINMUX_PA08C_SERCOM0_PAD0

@@ -504,7 +504,7 @@ dump_log:
 	openocd -f $(DEBUGGER_CFG) \
 	-f $(OCD_PART_CFG) \
 	-c init -c "reset init" \
-	-c "dump_image data_log.image 0xc000 $(NVM_LOG_SIZE)" \
+	-c "dump_image data_log.image 0xe000 $(NVM_LOG_SIZE)" \
 	-c "shutdown"
 
 .PHONY: write_conf_data

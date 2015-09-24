@@ -207,9 +207,10 @@ static void log_vbatt (bool wakeup) {
   /* Log current vbatt with timestamp */
   int32_t time = aclock_get_timestamp();
   uint32_t data = (wakeup ? 0xBEEF0000 : 0xDEAD0000);
-  main_set_current_sensor(sensor_vbatt);
-  main_start_sensor_read();
-  data+=main_read_current_sensor(true);
+  //main_set_current_sensor(sensor_vbatt);
+  //main_start_sensor_read();
+  //data+=main_read_current_sensor(true);
+  data+=main_gs.vbatt_sensor_adc_val;
   main_log_data((uint8_t *)&time, sizeof(time), true);
   main_log_data((uint8_t *)&data, sizeof(data), true);
 }
@@ -411,10 +412,16 @@ static bool wakeup_check( void ) {
    */
   int32_t curr_wakestamp;
   bool wake = false;
-  
+
+#ifdef USE_WAKEUP_ALARM
+    accel_wakeup_check();
+    return true;
+#endif
+
   if (!main_gs.deep_sleep_mode) {
     return accel_wakeup_check();
   }
+
   
   /* We are in deep sleep/shipping mode, update dclick counter */
   aclock_enable();
@@ -426,16 +433,20 @@ static bool wakeup_check( void ) {
 
     if (z < 0) {
       main_gs.deep_sleep_down_ctr++;
+#ifdef DEEP_SLEEP_DEBUG
       _led_on_full( 30 + main_gs.deep_sleep_down_ctr ); 
       delay_ms(100);
       _led_off_full( 30 + main_gs.deep_sleep_down_ctr ); 
       delay_ms(50);
+#endif
     } else if (main_gs.deep_sleep_down_ctr >= DEEP_SLEEP_SEQ_DOWN_COUNT) {
       main_gs.deep_sleep_up_ctr++;
+#ifdef DEEP_SLEEP_DEBUG
       _led_on_full( main_gs.deep_sleep_up_ctr ); 
       delay_ms(100); 
       _led_off_full( main_gs.deep_sleep_up_ctr ); 
       delay_ms(50); 
+#endif
     }
 
 
@@ -458,10 +469,12 @@ static bool wakeup_check( void ) {
     accel_wakeup_gesture_enabled = false;
     wake = false;
     
+#ifdef DEEP_SLEEP_DEBUG
     _led_on_full( 30 );
     delay_ms(100); 
     _led_off_full( 30 );
     delay_ms(50); 
+#endif
   }
 
   main_gs.last_wakestamp = curr_wakestamp;

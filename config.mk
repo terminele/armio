@@ -265,7 +265,6 @@ CPPFLAGS = \
        -D NVM_MAX_ADDR=$(NVM_MAX_ADDR)			  \
        -D ENABLE_LIGHT_SENSE=true			  \
        -D ENABLE_VBATT=true				  \
-       -D LOG_USAGE=false				  \
        -D __YEAR__=$(_YEAR_)				  \
        -D __MONTH__=$(_MONTH_)				  \
        -D __DAY__=$(_DAY_)				  \
@@ -314,6 +313,12 @@ endif
 ifdef wakeup_alarm
     CPPFLAGS+= -D USE_WAKEUP_ALARM
     PREBUILD_CMD += touch src/aclock.c
+endif
+
+ifdef log_usage 
+    CPPFLAGS += -D LOG_USAGE=true
+else
+    CPPFLAGS += -D LOG_USAGE=false
 endif
 
 ifdef self_test

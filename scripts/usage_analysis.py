@@ -31,7 +31,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     fname = args.dumpfile
     try:
-        f = open(fname, 'r')
+        f = open(fname, 'rb')
     except:
         print ("Unable to open file \'{}\'".format(fname))
         sys.exit()
@@ -100,7 +100,7 @@ if __name__ == "__main__":
             v_normal = v*4.0/4096
             deltas.append(v_normal - vs[-1])
             t_wakes.append(t - tstart)
-            v_wakes.append(v*4.0/4096)
+            v_wakes.append(v*4.0/4096/16)
         elif (p == 0xdead):
           powers.append(0)
           #if len(ts) > 2:
@@ -117,13 +117,14 @@ if __name__ == "__main__":
 
     t_hrs = [t/3600.0 for t in t_rels]
     t_wake_hrs = [t/3600.0 for t in t_wakes]
-    plt.plot(t_wake_hrs, v_wakes, 'y-', label='vbatt (wake-only)')
+    #plt.plot(t_wake_hrs, v_wakes, 'y-', label='vbatt (wake-only)')
     plt.plot(t_hrs, powers, 'b-', label='on', drawstyle='steps-post',
         fillstyle='bottom', alpha = 0.3)
     vbatt_line, = plt.plot(t_hrs, vs, 'r.', label='vbatt')
     #ax2 = vbatt_line.axes.twiny()
     #ax2.plot(range(len(t_hrs)), [0 for i in range(len(t_hrs))]) #add top x-axis with indices
     plt.show()
+    plt.ylim(2.5, 3.1)
     vbatt_line, = plt.plot(range(len(vs)), vs, 'r.', label='vbatt')
     plt.show()
 
