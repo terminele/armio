@@ -312,7 +312,7 @@ endif
 
 ifdef wakeup_alarm
     CPPFLAGS+= -D USE_WAKEUP_ALARM
-    PREBUILD_CMD += touch src/aclock.c
+    CPPFLAGS+= -D ALARM_INTERVAL_SEC=60
 endif
 
 ifdef log_usage 
