@@ -56,7 +56,7 @@
 
 #define IS_ACTIVITY_EVENT(ev_flags) \
       (ev_flags != EV_FLAG_NONE && \
-        ev_flags != EV_FLAG_ACCEL_Z_LOW)
+        ev_flags != EV_FLAG_ACCEL_DOWN)
 
 #if LOG_USAGE
   #define LOG_WAKEUP() \
@@ -583,7 +583,7 @@ static void main_tic( void ) {
           main_gs.inactivity_ticks > \
           ctrl_mode_active->sleep_timeout_ticks ||
           (IS_CONTROL_MODE_SHOW_TIME() && (
-           (event_flags & EV_FLAG_ACCEL_Z_LOW) || TCLICK(event_flags)))
+           (event_flags & EV_FLAG_ACCEL_DOWN) || TCLICK(event_flags)))
 
 #ifdef LOG_ACCEL
           || (IS_CONTROL_MODE_SHOW_TIME() && DCLICK(event_flags))
@@ -618,7 +618,7 @@ static void main_tic( void ) {
 #ifdef NO_TIME_ANIMATION
           sleep_wake_anim = NULL;
 #else
-          if (event_flags & EV_FLAG_ACCEL_Z_LOW) {
+          if (event_flags & EV_FLAG_ACCEL_DOWN) {
             sleep_wake_anim = NULL;
           } else {
             sleep_wake_anim = anim_swirl(0, 5, MS_IN_TICKS(5), 57, true);

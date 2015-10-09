@@ -20,7 +20,7 @@
 #define EV_FLAG_ACCEL_FAST_CLICK_END    (1 << 5)
 #define EV_FLAG_ACCEL_SLOW_CLICK_END    (1 << 6)
 #define EV_FLAG_ACCEL_DOWN_UP           (1 << 21)
-#define EV_FLAG_ACCEL_Z_LOW             (1 << 22)
+#define EV_FLAG_ACCEL_DOWN             (1 << 22)
 #define EV_FLAG_SLEEP                   (1 << 23)
 
 /* Error Codes */

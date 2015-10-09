@@ -225,7 +225,8 @@
 #define Z_DOWN_DUR_MS           200
 
 #define Z_SLEEP_DOWN_THRESHOLD      18 //assumes 4g scale
-#define Y_SLEEP_DOWN_THRESHOLD      10 //assumes 4g scale
+#define Y_SLEEP_DOWNOUT_THRESHOLD      -8 //assumes 4g scale
+#define Y_SLEEP_DOWNIN_THRESHOLD      4 //assumes 4g scale
 
 #define Z_DOWN_THRESHOLD_ABS    (Z_DOWN_THRESHOLD < 0 ? -Z_DOWN_THRESHOLD : Z_DOWN_THRESHOLD)
 #define Z_DOWN_DUR_ODR          MS_TO_ODRS(Z_DOWN_DUR_MS, SLEEP_SAMPLE_INT)
@@ -949,19 +950,21 @@ event_flags_t accel_event_flags( void ) {
 #endif
   ev_flags |= click_timeout_event_check();
 
-  /* Check for Z Low event
-   * * A z low event occurs when the device is not flat (z-high) for a
-   * * certain period of time
+  /* Check for turn down event
+   * * A turn down event occurs when the device is not flat (z-high) for a
+   * * certain period of time and either turned away slightly (y < -1/4g) or 
+   *   turned down almost flat (y < 1/8g )
    * */
 
   accel_data_read(&x, &y, &z);
-  if (z <= Z_SLEEP_DOWN_THRESHOLD) {
+  if (z <= Z_SLEEP_DOWN_THRESHOLD && 
+      ( y <= Y_SLEEP_DOWNOUT_THRESHOLD || y <= Y_SLEEP_DOWNIN_THRESHOLD )) {
     if (!accel_down) {
       accel_down = true;
       accel_down_start_ms = main_get_waketime_ms();
     } else if (main_get_waketime_ms() - accel_down_start_ms > Z_DOWN_DUR_MS) {
       /* Check for accel low-z timeout */
-      ev_flags |= EV_FLAG_ACCEL_Z_LOW;
+      ev_flags |= EV_FLAG_ACCEL_DOWN;
     }
   } else {
     accel_down = false;
