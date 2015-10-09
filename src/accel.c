@@ -35,8 +35,8 @@
 #define DEBUG_AX_ISR false
 #endif
 
-//#define INFO_ON
-#ifdef INFO_ON
+#define INFO_ON DEBUG_AX_ISR
+#if INFO_ON
 #define _DISP_INFO( i )  do { \
       _led_on_full( i ); \
       delay_ms(100); \

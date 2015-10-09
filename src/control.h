@@ -53,7 +53,8 @@ typedef struct {
 
 /* Main control mode index (i.e. time display control mode ) */
 #define CONTROL_MODE_SHOW_TIME  0
-#define CONTROL_MODE_SELECTOR   1
+#define CONTROL_MODE_SET_TIME   1
+#define CONTROL_MODE_SELECTOR   2
 
 #define IS_CONTROL_MODE_SHOW_TIME() \
      (control_mode_index(ctrl_mode_active) == CONTROL_MODE_SHOW_TIME)

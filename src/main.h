@@ -108,7 +108,14 @@ uint16_t main_get_light_sensor_value ( void );
 uint16_t main_get_vbatt_value ( void );
   /* @brief get running-averaged vbatt value
    * @param None
-   * @retrn None
+   * @retrn 
+   */
+
+
+bool main_is_low_vbatt ( void );
+  /* @brief check if battery is low
+   * @param None
+   * @retrn true if battery is low
    */
 
 uint8_t main_get_multipress_count( void );

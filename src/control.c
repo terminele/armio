@@ -35,6 +35,8 @@
 
 /* Time it should take for hour animation to complete */
 #define HOUR_ANIM_DUR_MS    300
+/* Max tick interval for hour animation (so 1 and 2 o'clock are faster) */
+#define MAX_HOUR_ANIM_TICKS     MS_IN_TICKS(40)
 
 /* Ticks run slow during edit mode (due to
  * accelerometer and floating point calcs) so
@@ -42,10 +44,10 @@
 #define EDIT_FINISH_TIMEOUT_TICKS   MS_IN_TICKS(1500)
 
 #define CONTROL_MODE_EE     9
-#define UTIL_MODE_COUNT     8
-/* Util control modes start at index 2 in control mode array (e.g. util mode is
- * index 2, etc)*/
-#define UTIL_CTRL_MODE(n) ((n % UTIL_MODE_COUNT) + 1)
+#define UTIL_MODE_COUNT     7
+/* Util control modes start at index 3 in control mode array (e.g. util mode 1 is
+ * index 3, etc)*/
+#define UTIL_CTRL_MODE(n) (n % (UTIL_MODE_COUNT + 1) + 2)
 
 #ifndef FLICKER_MIN_MODE
   #define FLICKER_MIN_MODE false
@@ -149,16 +151,15 @@ ctrl_mode_t control_modes[] = {
     },
     {
         .enter_cb = NULL,
-        .tic_cb = selector_mode_tic,
-        .sleep_timeout_ticks = MS_IN_TICKS(1000000),
+        .tic_cb = time_set_mode_tic,
+        .sleep_timeout_ticks = TIME_SET_MODE_EDITING_SLEEP_TIMEOUT_TICKS,
         .about_to_sleep_cb = NULL,
         .wakeup_cb = NULL,
     }, 
     {
-        /* UTIL MODE #1 */
         .enter_cb = NULL,
-        .tic_cb = time_set_mode_tic,
-        .sleep_timeout_ticks = TIME_SET_MODE_EDITING_SLEEP_TIMEOUT_TICKS,
+        .tic_cb = selector_mode_tic,
+        .sleep_timeout_ticks = MS_IN_TICKS(1000000),
         .about_to_sleep_cb = NULL,
         .wakeup_cb = NULL,
     }, 
@@ -170,15 +171,7 @@ ctrl_mode_t control_modes[] = {
 //        .wakeup_cb = NULL,
 //    },
     {
-        /* UTIL MODE #2 */
-        .enter_cb = NULL,
-        .tic_cb = accel_point_mode_tic,
-        .sleep_timeout_ticks = MS_IN_TICKS(15000),
-        .about_to_sleep_cb = NULL,
-        .wakeup_cb = NULL,
-    },
-    {
-        /* UTIL MODE #3 */
+        /* UTIL MODE #1 */
         .enter_cb = NULL,
         .tic_cb = vbatt_sense_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(15000),
@@ -186,7 +179,7 @@ ctrl_mode_t control_modes[] = {
         .wakeup_cb = NULL,
     },
     {
-        /* UTIL MODE #4 */
+        /* UTIL MODE #2 */
         .enter_cb = NULL,
         .tic_cb = light_sense_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(30000),
@@ -194,15 +187,15 @@ ctrl_mode_t control_modes[] = {
         .wakeup_cb = NULL,
     },
     {
-        /* UTIL MODE #5 */
+        /* UTIL MODE #3 */
         .enter_cb = NULL,
-        .tic_cb = deep_sleep_enable_mode_tic,
-        .sleep_timeout_ticks = MS_IN_TICKS(10000),
+        .tic_cb = accel_point_mode_tic,
+        .sleep_timeout_ticks = MS_IN_TICKS(15000),
         .about_to_sleep_cb = NULL,
         .wakeup_cb = NULL,
     },
     {
-        /* UTIL MODE #6 */
+        /* UTIL MODE #4 */
         .enter_cb = NULL,
         .tic_cb = gesture_toggle_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(15000),
@@ -210,7 +203,7 @@ ctrl_mode_t control_modes[] = {
         .wakeup_cb = NULL,
     },
     {
-        /* UTIL MODE #7 */
+        /* UTIL MODE #5 */
         .enter_cb = NULL,
         .tic_cb = seconds_enable_toggle_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(15000),
@@ -218,7 +211,15 @@ ctrl_mode_t control_modes[] = {
         .wakeup_cb = NULL,
     },
     {
-        /* UTIL MODE #8 */
+        /* UTIL MODE #6 */
+        .enter_cb = NULL,
+        .tic_cb = deep_sleep_enable_mode_tic,
+        .sleep_timeout_ticks = MS_IN_TICKS(10000),
+        .about_to_sleep_cb = NULL,
+        .wakeup_cb = NULL,
+    },
+    {
+        /* UTIL MODE #7 */
         .enter_cb = NULL,
         .tic_cb = ee_mode_tic,
         .sleep_timeout_ticks = EE_MODE_SLEEP_TIMEOUT_TICKS,
@@ -252,7 +253,9 @@ bool clock_mode_tic ( event_flags_t event_flags ) {
     }
     
     if (NCLICK(event_flags, 5) || \
-        NCLICK(event_flags, 6)) {
+        NCLICK(event_flags, 6) || 
+        NCLICK(event_flags, 7) ||
+        NCLICK(event_flags, 8)) {
       goto finish;
     }
 
@@ -280,6 +283,9 @@ bool clock_mode_tic ( event_flags_t event_flags ) {
     }
 
     hour_anim_tick_int = MS_IN_TICKS(HOUR_ANIM_DUR_MS/(hour * 5));
+    if (hour_anim_tick_int >= MAX_HOUR_ANIM_TICKS) {
+        hour_anim_tick_int = MAX_HOUR_ANIM_TICKS;
+    }
     switch(phase) {
         case INIT:
 #ifdef NO_TIME_ANIMATION
@@ -374,6 +380,11 @@ finish:
     
     if (NCLICK(event_flags, 5) || \
         NCLICK(event_flags, 6)) {
+        control_mode_set(CONTROL_MODE_SET_TIME);
+        accel_events_clear();
+    }
+    else if (NCLICK(event_flags, 7) || \
+        NCLICK(event_flags, 8)) {
         control_mode_set(CONTROL_MODE_SELECTOR);
         accel_events_clear();
     }

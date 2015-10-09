@@ -555,11 +555,11 @@ static void main_tic( void ) {
 
         led_clear_all();
 
-        if (IS_LOW_BATT(main_gs.vbatt_sensor_adc_val)) {
-          /* If low battery, display warning animation for a short period */
-          sleep_wake_anim = anim_blink(display_polygon(30, BRIGHT_MED_LOW, 3),
-               MS_IN_TICKS(300), MS_IN_TICKS(2100), true);
-        }
+//        if (IS_LOW_BATT(main_gs.vbatt_sensor_adc_val)) {
+//          /* If low battery, display warning animation for a short period */
+//          sleep_wake_anim = anim_blink(display_polygon(30, BRIGHT_MED_LOW, 3),
+//               MS_IN_TICKS(300), MS_IN_TICKS(2100), true);
+//        }
 
         main_gs.state = WAKEUP;
       }
@@ -853,10 +853,13 @@ uint16_t main_get_vbatt_value ( void ) {
   return main_gs.vbatt_sensor_adc_val;
 }
 
+bool main_is_low_vbatt ( void ) {
+  return IS_LOW_BATT(main_gs.vbatt_sensor_adc_val);
+}
+
 uint8_t main_get_multipress_count( void ) {
   return main_gs.tap_count;
 }
-
 
 uint32_t main_get_button_hold_ticks ( void ) {
   return main_gs.button_hold_ticks;
