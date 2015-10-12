@@ -980,6 +980,9 @@ static bool toggle_pref_mode_tic( event_flags_t event_flags, bool *pref_ptr ) {
 
     static display_comp_t *on_disp_ptr = NULL;
     static display_comp_t *off_disp_ptr = NULL;
+    static int16_t x,y,z;
+    static int16_t y_ctr = 0; //for duration y has been in a certain orientation
+    static uint32_t last_update_ms = 0;
 
     if (DEFAULT_MODE_TRANS_CHK(event_flags)) {
 
@@ -991,10 +994,40 @@ static bool toggle_pref_mode_tic( event_flags_t event_flags, bool *pref_ptr ) {
         return true; 
     }
 
-    if (SCLICK(event_flags)) {
-        *pref_ptr = !(*pref_ptr);
+    if (main_get_waketime_ms() - last_update_ms < 20) {
+        return false;
     }
     
+    x = y = z = 0;
+    accel_data_read(&x, &y, &z);
+    last_update_ms = main_get_waketime_ms();
+
+//    if (SCLICK(event_flags)) {
+//        *pref_ptr = !(*pref_ptr);
+//    }
+     
+        
+    /* Update our y orientation counter */
+    if (y < -12) { //12 oclock down
+        if (y_ctr > 0) {
+            y_ctr=-1;
+        } else {
+            y_ctr--;
+        }
+    } else if (y > 12) { //6 oclock down 
+        if (y_ctr < 0) {
+            y_ctr=1;
+        } else {
+            y_ctr++;
+        }
+    }
+    
+    if (y_ctr >= 10) {
+        *pref_ptr = false;
+    } else if (y_ctr <= -10) {
+        *pref_ptr = true;
+    }
+
     if (*pref_ptr) {
         if (off_disp_ptr) display_comp_hide(off_disp_ptr);
         
