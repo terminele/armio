@@ -147,31 +147,26 @@ uint8_t adc_vbatt_value_scale ( uint16_t value ) {
     /* Decimate down to 12-bit */
     value >>= 4;
 
-    /* Add an offset to compensate for voltage
-     * drop when running vs asleep */
-    value += 100;
-
     /* Full */
-    if (value >= 3072) //> 3V --> 3/4*4096
+    if (value >= 3000) //> 3V --> 3/4*4096
         return 59;
 
     /* Greater than 1/2 full */
-    if (value >= 2965) // ~2.9V --> 2.9/4*4096
-        return 30 + 29*(value - 2965)/(3072 - 2965);
+    if (value >= 2800) // ~2.8V --> 2.8/4*4096
+        return 30 + 29*(value - 2800)/200;
 
     /* between 1/4 and 1/2 full */
-    if (value >= 2865) // ~2.8V
-        return 15 + 14*(value - 2865)/(2965 - 2865);
+    if (value >= 2700) // ~2.7V
+        return 15 + 14*(value - 2700)/100;
 
     /* between 1/8 and 1/4 full */
-    if (value >= 2765) // ~2.75
-        return 7 + 7*(value - 2765)/(2865 - 2765);
-
+    if (value >= 2600) // ~2.5
+        return 7 + 7*(value - 2600)/100;
 
     if (value <= 2048) // < 2V
         return 1;
 
-    return 1 + 7*(value - 2048)/(2765 - 2048);
+    return 1 + 7*(value - 2048)/(2600 - 2048);
 }
 
 // vim:shiftwidth=2

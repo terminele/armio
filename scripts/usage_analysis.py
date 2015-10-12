@@ -44,6 +44,7 @@ if __name__ == "__main__":
     deltas = []
     t_wakes = []
     v_wakes = []
+    v_adcs = []
     t_offset = 0
     while True:
         binval = f.read(8)
@@ -112,6 +113,7 @@ if __name__ == "__main__":
         ts.append(t)
         t_rels.append(t - tstart)
         vs.append(v*4.0/4096/16)
+        v_adcs.append(v/16)
         print("t[{}]  {}".format(len(ts),time.ctime(t)))
 
 
@@ -124,8 +126,13 @@ if __name__ == "__main__":
     #ax2 = vbatt_line.axes.twiny()
     #ax2.plot(range(len(t_hrs)), [0 for i in range(len(t_hrs))]) #add top x-axis with indices
     plt.show()
-    plt.ylim(2.5, 3.1)
+    plt.ylim(0.95*min(vs), 1.05*max(vs) )
     vbatt_line, = plt.plot(range(len(vs)), vs, 'r.', label='vbatt')
+    #vwakes_line, = plt.plot(range(len(v_wakes)), v_wakes, 'g.', label='vbatt-wakes')
+    plt.show()
+    
+    v_adcs, = plt.plot(range(len(v_adcs)), v_adcs, 'b.', label='adc')
+    #vwakes_line, = plt.plot(range(len(v_wakes)), v_wakes, 'g.', label='vbatt-wakes')
     plt.show()
 
 #    plt.plot(t_wakes, deltas, 'b-', label='vbatt (delta)')

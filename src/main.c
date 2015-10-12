@@ -69,7 +69,7 @@
 #endif
 
 #define IS_LOW_BATT(vbatt_adc_val) \
-  (adc_vbatt_value_scale(vbatt_adc_val) < 10)
+  (adc_vbatt_value_scale(vbatt_adc_val) < 8)
 
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 typedef enum main_state_t {
