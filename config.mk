@@ -329,7 +329,7 @@ endif
 LDFLAGS =
 
 # Pre- and post-build commands
-PREBUILD_CMD += touch src/aclock.c; touch src/control.c;
+PREBUILD_CMD += touch src/aclock.c; touch src/control.c; touch src/main.c;
 ifdef test
     if [-a bin/src/main.o]; \
 	then \
