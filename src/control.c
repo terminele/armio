@@ -336,7 +336,7 @@ bool clock_mode_tic ( event_flags_t event_flags ) {
             if (anim_is_finished(anim_ptr)) {
                 anim_release(anim_ptr);
                 anim_ptr = NULL;
-                if (main_user_prefs.seconds_always_on && !sec_disp_ptr) {
+                if (main_user_data.seconds_always_on && !sec_disp_ptr) {
                   sec_disp_ptr = display_point(second, MIN_BRIGHT_VAL);
                 }
 
@@ -629,12 +629,12 @@ bool ee_mode_tic ( event_flags_t event_flags ) {
                 anim = anim_rotate(display_comp, false, MS_IN_TICKS(50), ANIMATION_DURATION_INF);
                 break;
             case 0x53:
-                if (main_nvm_conf_data.rtc_freq_corr >= 0) {
-                    pos = main_nvm_conf_data.rtc_freq_corr % 60;
+                if (main_nvm_data.rtc_freq_corr >= 0) {
+                    pos = main_nvm_data.rtc_freq_corr % 60;
                     blink_int = MS_IN_TICKS(800);
                 } else {
 
-                    pos = (-1*main_nvm_conf_data.rtc_freq_corr) % 60;
+                    pos = (-1*main_nvm_data.rtc_freq_corr) % 60;
                     blink_int = MS_IN_TICKS(100);
                 }
 
@@ -1051,11 +1051,11 @@ static bool toggle_pref_mode_tic( event_flags_t event_flags, bool *pref_ptr ) {
 }
 
 bool gesture_toggle_mode_tic( event_flags_t event_flags ) {
-    return toggle_pref_mode_tic(event_flags, &main_user_prefs.wake_gestures);
+    return toggle_pref_mode_tic(event_flags, &main_user_data.wake_gestures);
 }
 
 bool seconds_enable_toggle_mode_tic ( event_flags_t event_flags ) {
-    return toggle_pref_mode_tic(event_flags, &main_user_prefs.seconds_always_on);
+    return toggle_pref_mode_tic(event_flags, &main_user_data.seconds_always_on);
 }
 
 bool deep_sleep_enable_mode_tic( event_flags_t event_flags ) {

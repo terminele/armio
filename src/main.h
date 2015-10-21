@@ -55,16 +55,18 @@ typedef enum sensor_type_t {
 typedef struct {
     /* RTC Frequency Correction value in ppm */
     int8_t rtc_freq_corr;
-} nvm_conf_t;
+    uint32_t lifetime_wakes; 
+    uint32_t lifetime_ticks;
+} nvm_data_t;
 
 typedef struct {
     bool wake_gestures;
     bool seconds_always_on;
-} user_prefs_t;
+} user_data_t;
 
 //___ V A R I A B L E S ______________________________________________________
-extern nvm_conf_t main_nvm_conf_data;
-extern user_prefs_t main_user_prefs;
+extern nvm_data_t main_nvm_data;
+extern user_data_t main_user_data;
 
 //___ P R O T O T Y P E S ____________________________________________________
 void main_terminate_in_error( error_group_code_t error_group, uint32_t subcode );
@@ -124,7 +126,7 @@ uint8_t main_get_multipress_count( void );
    * @retrn # of presses
    */
 
-void main_log_data( uint8_t *data, uint16_t length, bool flush );
+bool main_log_data( uint8_t *data, uint16_t length, bool flush );
   /* @brief store data in unused flash space
    * @param data - pointer to data array
    * @param len - number of 32-bit words (byte count / 4) to write

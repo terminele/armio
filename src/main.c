@@ -177,12 +177,9 @@ static struct adc_module light_vbatt_sens_adc;
 static uint32_t nvm_row_addr = NVM_LOG_ADDR_START;
 static uint8_t nvm_row_buffer[NVMCTRL_ROW_SIZE];
 static uint16_t nvm_row_ind;
-#ifdef LOG_ACCEL
-static bool log_accel = false;
-#endif
 
-nvm_conf_t main_nvm_conf_data;
-user_prefs_t main_user_prefs;
+nvm_data_t main_nvm_data;
+user_data_t main_user_data;
 
 //___ F U N C T I O N S   ( P R I V A T E ) __________________________________
 
@@ -515,9 +512,20 @@ static void main_tic( void ) {
       if (anim_is_finished(sleep_wake_anim)) {
         anim_release(sleep_wake_anim);
         sleep_wake_anim = NULL;
+        
+        /* Update and store lifetime usage data */
+        main_nvm_data.lifetime_wakes++;
+        main_nvm_data.lifetime_ticks+=main_gs.waketicks;
+        nvm_update_buffer(NVM_CONF_ADDR, (uint8_t *) &main_nvm_data, 0,
+            sizeof(nvm_data_t));
 
+#ifdef LOG_WAKETIME
+        uint16_t log_code = 0xEEDD; 
+        main_log_data ((uint8_t *)&log_code, sizeof(uint16_t), true);
+        main_log_data ((uint8_t *)&main_gs.waketicks, sizeof(uint32_t), true);
+#endif
+  
         prepare_sleep();
-
         accel_sleep();
 
         /* we will stay in standby mode now until an interrupt wakes us
@@ -527,20 +535,30 @@ static void main_tic( void ) {
         } while(!wakeup_check());
 
         wakeup();
-
 #ifdef LOG_ACCEL
-        if (log_accel) {
-
-          if (ax_fifo_depth != 32) {
-              uint32_t val = 0xBADD0000 | (0x0000FFFF & ax_fifo_depth);
-              main_log_data (&val, sizeof(uint32_t), true);
-          } else {
-              uint32_t code = 0xAAAAAAAA;
-              main_log_data((uint8_t *) &code, sizeof(uint32_t), false);
-              main_log_data((uint8_t *)ax_fifo, 6*ax_fifo_depth, false);
-              code = 0xEEEEEEEE;
-              main_log_data((uint8_t *) &code, sizeof(uint32_t), true);
-          }
+        if (ax_fifo_depth != 32) {
+            uint32_t val = 0xBADD0000 | (0x0000FFFF & ax_fifo_depth);
+            main_log_data ((uint8_t *)&val, sizeof(uint32_t), true);
+        } else {
+            uint32_t code = 0xAAAAAAAA; /* FIFO data begin code */
+            bool nvm_full = false;
+            nvm_full = main_log_data((uint8_t *) &code, sizeof(uint32_t), false);
+            if (!nvm_full) nvm_full = main_log_data((uint8_t *)ax_fifo, 6*ax_fifo_depth, false);
+            code = 0xEEEEEEEE;
+            if (!nvm_full) nvm_full = main_log_data((uint8_t *) &code, sizeof(uint32_t), true);
+            
+            if (nvm_full) {
+              while (1) {
+                _BLINK(5);
+                delay_ms(100);
+                _BLINK(10);
+                delay_ms(100);
+                _BLINK(15);
+                delay_ms(100);
+                _BLINK(20);
+                delay_ms(100);
+              }
+            }
         }
 
         ax_fifo_depth = 0;
@@ -596,19 +614,8 @@ static void main_tic( void ) {
               accel_wakeup_gesture_enabled = false;
 
           } else {
-              accel_wakeup_gesture_enabled = main_user_prefs.wake_gestures;
+              accel_wakeup_gesture_enabled = main_user_data.wake_gestures;
           }
-
-#ifdef LOG_ACCEL
-          if ( DCLICK(event_flags) ) {
-            uint32_t code = 0xDCDCDCDC;
-            main_log_data((uint8_t *) &code, sizeof(uint32_t), true);
-            log_accel = true;
-
-          } else {
-            log_accel = false;
-          }
-#endif
 
           /* Notify control mode of sleep event and reset control mode */
           ctrl_mode_active->tic_cb(EV_FLAG_SLEEP);
@@ -644,12 +651,12 @@ static void main_init( void ) {
   main_gs.brightness = MAX_BRIGHT_VAL;
   main_gs.state = STARTUP;
   main_gs.deep_sleep_mode = false;
-  main_user_prefs.wake_gestures = true;
+  main_user_data.wake_gestures = true;
 
 #ifdef SHOW_SEC_ALWAYS
-  main_user_prefs.seconds_always_on = true;
+  main_user_data.seconds_always_on = true;
 #else
-  main_user_prefs.seconds_always_on = false;
+  main_user_data.seconds_always_on = false;
 #endif
 
   /* Configure main timer counter */
@@ -675,8 +682,16 @@ static void main_init( void ) {
   }
 
   /* Read configuration data stored in nvm */
-  nvm_read_buffer(NVM_CONF_ADDR, (uint8_t *) &main_nvm_conf_data,
-      sizeof(nvm_conf_t));
+  nvm_read_buffer(NVM_CONF_ADDR, (uint8_t *) &main_nvm_data,
+      sizeof(nvm_data_t));
+
+  if (main_nvm_data.lifetime_wakes == 0xffffffff) {
+      main_nvm_data.lifetime_wakes = 0; 
+  }
+  
+  if (main_nvm_data.lifetime_ticks == 0xffffffff) {
+      main_nvm_data.lifetime_ticks = 0; 
+  }
 }
 
 uint32_t main_get_waketime_ms( void ) {
@@ -733,7 +748,7 @@ void main_terminate_in_error ( error_group_code_t error_group, uint32_t subcode 
   }
 }
 
-void main_log_data( uint8_t *data, uint16_t length, bool flush) {
+bool main_log_data( uint8_t *data, uint16_t length, bool flush) {
   /* Store data in NVM flash */
   enum status_code error_code;
   uint16_t  i, p;
@@ -767,11 +782,13 @@ void main_log_data( uint8_t *data, uint16_t length, bool flush) {
 
       if (nvm_row_addr >= NVM_LOG_ADDR_MAX)  {
         /* rollover to beginning of storage buffer */
+        return true; //FIXME
         nvm_row_addr = NVM_LOG_ADDR_START;
       }
     }
 
   }
+  return false;
 }
 
 

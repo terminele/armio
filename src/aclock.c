@@ -218,8 +218,8 @@ void aclock_init( void ) {
 
     rtc_calendar_enable(&rtc_instance);
 
-    if ((uint8_t)main_nvm_conf_data.rtc_freq_corr != 0xff) {
-      rtc_calendar_frequency_correction(&rtc_instance, main_nvm_conf_data.rtc_freq_corr);
+    if ((uint8_t)main_nvm_data.rtc_freq_corr != 0xff) {
+      rtc_calendar_frequency_correction(&rtc_instance, main_nvm_data.rtc_freq_corr);
     }
 
     rtc_calendar_set_time(&rtc_instance, &initial_time);
