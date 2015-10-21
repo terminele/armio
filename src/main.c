@@ -52,7 +52,7 @@
 #define NVM_CONF_ADDR       NVM_ADDR_START
 #define NVM_CONF_STORE_SIZE NVMCTRL_ROW_SIZE
 #define NVM_LOG_ADDR_START  (NVM_ADDR_START + NVM_CONF_STORE_SIZE)
-#define NVM_LOG_ADDR_MAX     NVM_MAX_ADDR
+#define NVM_LOG_ADDR_MAX    NVM_MAX_ADDR
 
 #define IS_ACTIVITY_EVENT(ev_flags) \
       (ev_flags != EV_FLAG_NONE && \
@@ -95,11 +95,6 @@ static void setup_clock_pin_outputs( void );
 #endif
 
 
-static void configure_extint(void);
-  /* @brief enable external interrupts
-   * @param None
-   * @retrn None
-   */
 static event_flags_t button_event_flags( void );
   /* @brief check current button event flags
    * @param None
@@ -181,6 +176,8 @@ static uint16_t nvm_row_ind;
 nvm_data_t main_nvm_data;
 user_data_t main_user_data;
 
+bool _accel_confirmed = false; //FIXME -- REMOVEME
+
 //___ F U N C T I O N S   ( P R I V A T E ) __________________________________
 
 static void config_main_tc( void ) {
@@ -218,12 +215,6 @@ static void configure_input(void) {
   struct port_config pin_conf;
   port_get_config_defaults(&pin_conf);
   pin_conf.direction = PORT_PIN_DIR_INPUT;
-#ifdef ENABLE_BUTTON
-  port_pin_set_config(BUTTON_PIN, &pin_conf);
-
-  /* Enable interrupts for the button */
-  configure_extint();
-#endif
 
   port_get_config_defaults(&pin_conf);
   pin_conf.direction = PORT_PIN_DIR_OUTPUT;
@@ -231,19 +222,6 @@ static void configure_input(void) {
   port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, false);
 }
 
-static void configure_extint(void) {
-  struct extint_chan_conf eint_chan_conf;
-  extint_chan_get_config_defaults(&eint_chan_conf);
-
-  eint_chan_conf.gpio_pin             = BUTTON_PIN_EIC;
-  eint_chan_conf.gpio_pin_mux         = BUTTON_PIN_EIC_MUX;
-  eint_chan_conf.gpio_pin_pull        = EXTINT_PULL_NONE;
-  /* NOTE: cannot wake from standby with filter or edge detection ... */
-  eint_chan_conf.detection_criteria   = EXTINT_DETECT_LOW;
-  eint_chan_conf.filter_input_signal  = false;
-  eint_chan_conf.wake_if_sleeping     = true;
-  extint_chan_set_config(BUTTON_EIC_CHAN, &eint_chan_conf);
-}
 
 #ifdef CLOCK_OUTPUT
 static void setup_clock_pin_outputs( void ) {
@@ -524,10 +502,14 @@ static void main_tic( void ) {
               sizeof(nvm_data_t));
         }
 
-#ifdef LOG_WAKETIME
-        uint16_t log_code = 0xEEDD; 
-        main_log_data ((uint8_t *)&log_code, sizeof(uint16_t), true);
-        main_log_data ((uint8_t *)&main_gs.waketicks, sizeof(uint32_t), true);
+#ifdef LOG_ACCEL
+        if (ax_fifo_depth == 32) {
+          uint32_t code = _accel_confirmed ? 0xCCCCCCCC : 0xEEEEEEEE; /* FIFO data end code */
+          main_log_data((uint8_t *) &code, sizeof(uint32_t), true);
+          uint16_t log_code = 0xEEDD; 
+          main_log_data ((uint8_t *)&log_code, sizeof(uint16_t), true);
+          main_log_data ((uint8_t *)&main_gs.waketicks, sizeof(uint32_t), true);
+        }
 #endif
   
         prepare_sleep();
@@ -541,32 +523,12 @@ static void main_tic( void ) {
 
         wakeup();
 #ifdef LOG_ACCEL
-        if (ax_fifo_depth != 32) {
-            uint32_t val = 0xBADD0000 | (0x0000FFFF & ax_fifo_depth);
-            main_log_data ((uint8_t *)&val, sizeof(uint32_t), true);
-        } else {
+        if (ax_fifo_depth == 32) {
             uint32_t code = 0xAAAAAAAA; /* FIFO data begin code */
-            bool nvm_full = false;
-            nvm_full = main_log_data((uint8_t *) &code, sizeof(uint32_t), false);
-            if (!nvm_full) nvm_full = main_log_data((uint8_t *)ax_fifo, 6*ax_fifo_depth, false);
-            code = 0xEEEEEEEE;
-            if (!nvm_full) nvm_full = main_log_data((uint8_t *) &code, sizeof(uint32_t), true);
-            
-            if (nvm_full) {
-              while (1) {
-                _BLINK(5);
-                delay_ms(100);
-                _BLINK(10);
-                delay_ms(100);
-                _BLINK(15);
-                delay_ms(100);
-                _BLINK(20);
-                delay_ms(100);
-              }
-            }
+            main_log_data((uint8_t *) &code, sizeof(uint32_t), false);
+            main_log_data((uint8_t *)ax_fifo, 6*ax_fifo_depth, true);
         }
 
-        ax_fifo_depth = 0;
 #endif
         //main_set_current_sensor(sensor_light);
         //main_start_sensor_read();
@@ -616,10 +578,12 @@ static void main_tic( void ) {
 
           /* A sleep event has occurred */
           if (IS_CONTROL_MODE_SHOW_TIME() && TCLICK(event_flags)) {
-              accel_wakeup_gesture_enabled = false;
+              //accel_wakeup_gesture_enabled = false;
+              _accel_confirmed = true;
 
           } else {
-              accel_wakeup_gesture_enabled = main_user_data.wake_gestures;
+              //accel_wakeup_gesture_enabled = main_user_data.wake_gestures;
+              _accel_confirmed = false;
           }
 
           /* Notify control mode of sleep event and reset control mode */
@@ -762,11 +726,12 @@ void main_terminate_in_error ( error_group_code_t error_group, uint32_t subcode 
   }
 }
 
-bool main_log_data( uint8_t *data, uint16_t length, bool flush) {
+void main_log_data( uint8_t *data, uint16_t length, bool flush) {
   /* Store data in NVM flash */
   enum status_code error_code;
   uint16_t  i, p;
 
+  if (nvm_row_addr >= NVM_LOG_ADDR_MAX)  return; //out of buffer space 
 
   for (i = 0; i < length; i++) {
     nvm_row_buffer[nvm_row_ind] = data[i];
@@ -795,14 +760,12 @@ bool main_log_data( uint8_t *data, uint16_t length, bool flush) {
       nvm_row_addr+=NVMCTRL_ROW_SIZE;
 
       if (nvm_row_addr >= NVM_LOG_ADDR_MAX)  {
-        /* rollover to beginning of storage buffer */
-        return true; //FIXME
-        nvm_row_addr = NVM_LOG_ADDR_START;
+        return; //out of buffer space
+        //nvm_row_addr = NVM_LOG_ADDR_START; //rollover
       }
     }
 
   }
-  return false;
 }
 
 

@@ -252,22 +252,24 @@
  * (i.e. face moves from vertical to  horizontal)
  */
 #define Y_SUM_N  8
-#define Y_SUM_THS_HIGH 230
+#define Y_SUM_THS_HIGH 210
+#define Y_SUM_THS_LOW 180
 #define DZ_N    11
 #define DZ_THS 110
+#define DZ_THS_LOW 90
 
 
 /* Filter #2 - when turning arm up from 3 or 9 o'clock down
  * the absolute value sum of the first N x-values should exceed a certain threshold
  */
 #define X_SUM_N 5
-#define X_SUM_THS_LOW 55
+#define X_SUM_THS_LOW 90
 #define X_SUM_THS_HIGH 120
 
 /* Filter #3 - if the y-value is greater than a certain threshold
  * in positive direction (6 o'clock down, wrist turned in towards body)
  * then we should wakeup */
-#define Y_LATEST_THS 8
+#define Y_LATEST_THS 4
 
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 
@@ -615,7 +617,7 @@ static void accel_wakeup_state_refresh(void) {
 #if GESTURE_FILTERS
     /* "Turn Up Horizontal" filter */
     /*  check if sum of first N y-values are large enough in the negative
-     *  direction (12 o'clock facing down) and that the z-values
+     *  direction (12 o'clock facing down) or that the z-values
      *  have gone from low to high by calculating the difference
      *  between the sum of the first 10 values and the sum of the
      *  last 10 values
@@ -637,10 +639,9 @@ static void accel_wakeup_state_refresh(void) {
       wake_gesture_state = WAKE_TURN_UP;
       _DISP_INFO(0);
     } else if (ABS(csums[X_SUM_N][0]) >= X_SUM_THS_HIGH) {
-      /* "Turn Arm p" filter */
+      /* "Turn Arm Up" filter */
       /*  check if sum of first N x-values are large enough in the negative
        *  (or positive for lefties) direction (3 or 9 o'clock facing down)
-       *  and that z has gone from low to high (dzN)
        */
       _DISP_INFO(15);
       wake_gesture_state = WAKE_TURN_UP;
@@ -648,28 +649,27 @@ static void accel_wakeup_state_refresh(void) {
       /* "Facing inwards" filter */
       _DISP_INFO(30);
       wake_gesture_state = WAKE_TURN_UP;
+#define DEBUG_FILTERS
+#ifdef DEBUG_FILTERS
     } else {
-      if (dzN < DZ_THS) {
-        _DISP_INFO(42);
+      
+      if (ABS(csums[Y_SUM_N][1]) >= Y_SUM_THS_LOW) {
+        _BLINK(30);
+      } 
+      if (ABS(csums[X_SUM_N][0]) >= X_SUM_THS_LOW) {
+        _BLINK(15);
       }
-      if (ABS(csums[Y_SUM_N][1]) < Y_SUM_THS_HIGH){
-        _DISP_INFO(3);
+      
+      if (dzN >= DZ_THS_LOW) {
+        _BLINK(5);
       }
-
-      if (ABS(csums[X_SUM_N][0]) < X_SUM_THS_HIGH) {
-        _DISP_INFO(13);
-      }
-//      if (ABS((csums[31][0] - csums[23][0])) <= 80) {
-//        _DISP_INFO(17);
-//      }
-
+      _BLINK(43);
+#endif
     }
 #else
       wake_gesture_state = WAKE_TURN_UP;
 #endif
 
-
-    //wake_gesture_state = WAKE_TURN_UP;
     if ( wake_gesture_state == WAKE_TURN_UP) {
 
       /* Disable AOI INT1 interrupt (leave CLICK enabled) */
@@ -886,6 +886,7 @@ void accel_sleep ( void ) {
   /* Reset click counters */
   accel_slow_click_cnt = slow_click_counter = 0;
   accel_fast_click_cnt = fast_click_counter = 0;
+  ax_fifo_depth = 0;
 
   accel_data_read(&x, &y, &z);
 

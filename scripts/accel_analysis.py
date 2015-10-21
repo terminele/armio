@@ -5,16 +5,27 @@ import struct
 import argparse
 import matplotlib.pyplot as plt
 import numpy as np
+import logging as log
+import uuid
+import csv
 
 
-
-
+TICKS_PER_MS = 1
 
 write_csv = False
-plot_raw = True
 SAMPLE_INT_MS = 10
+rejecttime = 0
+args = None
 
-def analyze_fifo(f):
+class WakeSample:
+    def __init__(self, xs, ys, zs, waketime = 0, confirmed = False):
+        self.xs = xs
+        self.ys = ys
+        self.zs = zs
+        self.waketime = waketime
+        self.confirmed = confirmed
+
+def parse_fifo(f):
     binval = f.read(4)
 
     """ find first start delimiter"""
@@ -23,13 +34,13 @@ def analyze_fifo(f):
     while binval:
         if struct.unpack("<I", binval)[0] == 0xaaaaaaaa:
             started = True
-            print("Found start pattern 0xaaaaaaaa")
+            log.debug("Found start pattern 0xaaaaaaaa")
             break
 
         binval = f.read(4)
 
     if not started:
-        print("Could not find start patttern 0xaaaaaaaa")
+        log.error("Could not find start patttern 0xaaaaaaaa")
         return
 
     xs = []
@@ -38,16 +49,38 @@ def analyze_fifo(f):
 
 
     samples = []
-
+    
+    """ loop over binary file in chunks of 6 bytes
+        and parse out:
+            FIFO Start Code - 0xaaaaaaaa
+            FIFO Data - 32x3x2-bytes
+            FIFO End Code - 0xeeeeeeeee
+            (optional) waketime log code 0xddee followed by waketime ticks as unsigned int 
+    """
     binval = f.read(6)
     while binval:
-        if struct.unpack("<Ibb", binval)[0] == 0xeeeeeeee:
+        data = struct.unpack("<IBB", binval)
+        end_unconfirm = (data[0] == 0xeeeeeeee)#FIFO end code
+        end_confirm = (data[0] == 0xcccccccc) #FIFO end code
+        if end_confirm or end_unconfirm:
             """end of fifo data"""
-            print("Found 0xeeeeeeee at 0x{:08x}".format(f.tell()))
-            samples.append((xs, ys, zs))
-            """ retain last 2 bytes """
-            binval = binval[-2:]
-            binval += f.read(4)
+            log.debug("Found fifo end at 0x{:08x}".format(f.tell()))
+            
+            print(data[1:])
+            if data[1:] == (0xdd, 0xee): #waketime log code
+                binval = f.read(4)
+                waketime_ticks = struct.unpack("<I", binval)[0]
+                waketime_ms = waketime_ticks/TICKS_PER_MS 
+                binval = f.read(6) # update binval with next 6 bytes
+            else:
+                """ waketime not include in this log dump"""
+                waketime_ms = 0
+                binval = binval[-2:] #retain last 2 bytes
+                binval += f.read(4)
+            
+            samples.append(WakeSample(xs,ys,zs, waketime_ms, end_confirm))
+            log.info("new sample: waketime={}ms confirmed={}".format(waketime_ms,
+                end_confirm))
             started = False
 
             xs = []
@@ -55,13 +88,13 @@ def analyze_fifo(f):
             zs = []
 
         if struct.unpack("<Ibb", binval)[0] == 0xdcdcdcdc:
-            print("Found DCLICK at 0x{:08x}".format(f.tell()))
+            log.debug("Found DCLICK at 0x{:08x}".format(f.tell()))
             """ retain last 2 bytes """
             binval = binval[-2:]
             binval += f.read(4)
 
-        if struct.unpack("<bbbbbb", binval)[2:3] == 0xddba:
-            print("Found BAD FIFO at 0x{:08x}".format(f.tell()))
+        if struct.unpack("<bbbbbb", binval)[2:3] == (0xdd, 0xba):
+            log.debug("Found BAD FIFO at 0x{:08x}".format(f.tell()))
             """ retain last 2 bytes """
             binval = binval[-2:]
             binval += f.read(4)
@@ -74,54 +107,108 @@ def analyze_fifo(f):
             zs.append(zl)
 
             binval = f.read(6)
-            print("0x{:08x}  {}\t{}\t{}".format(f.tell(), xl, yl, zl))
+            log.debug("0x{:08x}  {}\t{}\t{}".format(f.tell(), xl, yl, zl))
 
         else:
             """ Look for magic start code """
             if struct.unpack("<Ibb", binval)[0] == 0xaaaaaaaa:
-                print("Found start code 0x{:08x}".format(f.tell()))
+                log.debug("Found start code 0x{:08x}".format(f.tell()))
                 """ retain last 2 bytes """
                 binval = binval[-2:]
                 binval += f.read(4)
                 started = True
             else:
-                print("Skipping {} searching for start code".format(binval))
+                log.debug("Skipping {} searching for start code".format(binval))
                 binval = f.read(6)
 
         if struct.unpack("<Ibb", binval)[0] == 0xffffffff:
-            print("No more data after 0x{:08x}".format(f.tell()))
+            log.debug("No more data after 0x{:08x}".format(f.tell()))
             break
+    
 
+    return samples
 
-    import uuid
-    import csv
+def wakeup_check( xs, ys, zs, i ):
+    wakeup = False
+    XSUM_N = 5
+    YSUM_N = 8
+    ZSUM_N = 11
+    YSUM_THS = 220
+    XSUM_THS = 120
+    DZ_THS = 110
+    Y_LATEST_THS = 8
+    zsum_last_n = sum(zs[:-ZSUM_N-1:-1])
+    zsum_first_n = sum(zs[:ZSUM_N])
+    ysum_n = sum(ys[:YSUM_N])
+    xsum_n = sum(xs[:XSUM_N])
+    dzN = zsum_last_n - zsum_first_n
+    
+    if dzN > DZ_THS:
+        log.info("{}: passes dzN".format(i))
+        wakeup = True
 
-    YSUM_N = 15
-    ZSUM_N = 15
-    YSUM_N_THS = -140
-    ZSUM_N_THS = 140
+    if abs(ysum_n) >= YSUM_THS:
+        log.info("{}: passes YSUM_N THS".format(i))
+        wakeup = True
+    
+    if abs(xsum_n) >= XSUM_THS:
+        log.info("{}: passes XSUM_N THS".format(i))
+        wakeup = True
+    
+    if ys[-1] >= Y_LATEST_THS:
+        log.info("{}: passes Y_LAST THS".format(i))
+        wakeup = True
+    
+    if not wakeup:
+        log.info("{}: rejected with dzN={}  XSUM_N={}  YSUM_N={}  Y_LAST={}".format(i, dzN, xsum_n, ysum_n, ys[-1]))
+
+    return wakeup
+
+def analyze_fifo(f):
+    samples = parse_fifo(f) 
+    log.info("{} FIFO Samples".format(len(samples)))
+    
+    wakeups = 0
+    rejects = 0
+    
     sigma_zs = []
     sigma_zs_rev = []
     sigma_ys = []
     sigma_ys_rev = []
     sigma_xs = []
-    for i, (xs, ys, zs) in enumerate(samples):
+    for (i, sample) in enumerate(samples):
+        xs = sample.xs
+        ys = sample.ys
+        zs = sample.zs
+        waketime  = sample.waketime
+        confirmed = sample.confirmed
+
         if len(xs) < 1:
-            print("skipping invalid data {}".format((xs,ys,zs)))
+            log.debug("skipping invalid data {}".format((xs,ys,zs)))
             continue
         uid =  str(uuid.uuid4())[-6:]
+        ZSUM_N = 11
         zsum_n = sum(zs[:-ZSUM_N-1:-1])
         zsum_10 = sum(zs[:10])
         ysum_n = sum(ys[:10])
         xsum_n = sum(xs[:5])
         delta_z_12 = sum(zs[:-13:-1]) - sum(zs[:12])
-        print("dz 12: {}".format(delta_z_12))
-        if delta_z_12 < 100: #abs(sum(ys[:-11:-1])) > 80 or ysum_n > -255:
-            print("plotting {} with xsum_n {}: ysum_n: {}  zsum_n: {} dy_10: {} dz12: {}".format(uid,
+        wakeup_check_pass = wakeup_check(xs, ys, zs, i)
+        if wakeup_check_pass: 
+            wakeups+=1
+        else:
+            rejects+=1
+            global rejecttime
+            rejecttime+=waketime
+        
+        if args.plot_all or (wakeup_check_pass and args.plot_passes) or \
+                (not wakeup_check and args.plot_rejects):
+            log.debug("plotting {} with xsum_n {}: ysum_n: {}  zsum_n: {} dy_10: {} dz12: {}".format(uid,
                 xsum_n, ysum_n, zsum_n, sum(ys[:-11:-1]), delta_z_12))
             fig = plt.figure()
-            plt.title(uid)
             ax = fig.add_subplot(111)
+            plt.title("sample {}: pass={}  confirmed={}".format(i, 
+                wakeup_check_pass, confirmed))
             ax.grid()
             t = range(len(xs))
             x_line = plt.Line2D(t, xs, color='r', marker='o')
@@ -149,82 +236,90 @@ def analyze_fifo(f):
                 writer = csv.writer(csvfile, delimiter=' ')
                 for i, (x, y, z) in enumerate(zip(xs, ys, zs)):
                     writer.writerow([i, x, y, z])
+    
+    log.info("{} wakeups ({} %)".format(wakeups, 100.0*wakeups/len(samples)))
+    log.info("{} rejects ({} %)".format(rejects, 100.0*rejects/len(samples)))
+    total_waketime = sum([s.waketime for s in samples])
+    log.info("{:.2f}s total unfiltered waketime".format(total_waketime/1000.0))
+    log.info("{:.2f}s total reject-saved waketime ({:.1f}%)".format(
+        rejecttime/1000.0, 100*rejecttime/total_waketime))
+    
+    if args.plot_csums:
+        fig = plt.figure()
+        plt.title("Sigma x-values")
+        for vals in sigma_xs:
+            t = range(len(vals))
+            ax = fig.add_subplot(111)
+            ax.grid()
+            line = plt.Line2D(t, vals, marker='o')#, color='r', marker='o')
+            ax.add_line(line)
 
-    fig = plt.figure()
-    plt.title("Sigma x-values")
-    for vals in sigma_xs:
-        t = range(len(vals))
-        ax = fig.add_subplot(111)
-        ax.grid()
-        line = plt.Line2D(t, vals, marker='o')#, color='r', marker='o')
-        ax.add_line(line)
+        ax.relim()
+        ax.autoscale_view()
+        plt.show()
+        fig = plt.figure()
+        plt.title("Sigma y-values")
+        for cys in sigma_ys:
+            t = range(len(cys))
+            ax = fig.add_subplot(111)
+            ax.grid()
+            line = plt.Line2D(t, cys, marker='o')#, color='r', marker='o')
+            ax.add_line(line)
 
-    ax.relim()
-    ax.autoscale_view()
-    plt.show()
-    fig = plt.figure()
-    plt.title("Sigma y-values")
-    for cys in sigma_ys:
-        t = range(len(cys))
-        ax = fig.add_subplot(111)
-        ax.grid()
-        line = plt.Line2D(t, cys, marker='o')#, color='r', marker='o')
-        ax.add_line(line)
+        ax.relim()
+        ax.autoscale_view()
+        plt.show()
 
-    ax.relim()
-    ax.autoscale_view()
-    plt.show()
+        fig = plt.figure()
+        plt.title("Sigma y-values reverse")
+        for vals in sigma_ys_rev:
+            t = range(len(vals))
+            ax = fig.add_subplot(111)
+            ax.grid()
+            line = plt.Line2D(t, vals, marker='o')#, color='r', marker='o')
+            ax.add_line(line)
 
-    fig = plt.figure()
-    plt.title("Sigma y-values reverse")
-    for vals in sigma_ys_rev:
-        t = range(len(vals))
-        ax = fig.add_subplot(111)
-        ax.grid()
-        line = plt.Line2D(t, vals, marker='o')#, color='r', marker='o')
-        ax.add_line(line)
+        ax.relim()
+        ax.autoscale_view()
+        plt.show()
 
-    ax.relim()
-    ax.autoscale_view()
-    plt.show()
+        fig = plt.figure()
+        plt.title("Sigma z-values")
+        for vals in sigma_zs:
+            t = range(len(vals))
+            ax = fig.add_subplot(111)
+            ax.grid()
+            line = plt.Line2D(t, vals, marker='o')#, color='r', marker='o')
+            ax.add_line(line)
 
-    fig = plt.figure()
-    plt.title("Sigma z-values")
-    for vals in sigma_zs:
-        t = range(len(vals))
-        ax = fig.add_subplot(111)
-        ax.grid()
-        line = plt.Line2D(t, vals, marker='o')#, color='r', marker='o')
-        ax.add_line(line)
+        ax.relim()
+        ax.autoscale_view()
+        plt.show()
 
-    ax.relim()
-    ax.autoscale_view()
-    plt.show()
+        fig = plt.figure()
+        plt.title("Sigma z-values reverse")
+        for vals in sigma_zs_rev:
+            t = range(len(vals))
+            ax = fig.add_subplot(111)
+            ax.grid()
+            line = plt.Line2D(t, vals, marker='o')#, color='r', marker='o')
+            ax.add_line(line)
 
-    fig = plt.figure()
-    plt.title("Sigma z-values reverse")
-    for vals in sigma_zs_rev:
-        t = range(len(vals))
-        ax = fig.add_subplot(111)
-        ax.grid()
-        line = plt.Line2D(t, vals, marker='o')#, color='r', marker='o')
-        ax.add_line(line)
+        ax.relim()
+        ax.autoscale_view()
+        plt.show()
 
-    ax.relim()
-    ax.autoscale_view()
-    plt.show()
+        plt.title("dz delta N")
+        ns = range(8,20)
+        xs = []
+        dzs = []
+        log.debug(sigma_zs)
+        for n in ns:
+            dzs.extend([(czs[-1] - czs[-n-1]) - czs[n-1] for czs in sigma_zs])
+            xs.extend([n for i in range(len(sigma_zs))])
 
-    plt.title("dz delta N")
-    ns = range(8,20)
-    xs = []
-    dzs = []
-    print(sigma_zs)
-    for n in ns:
-        dzs.extend([(czs[-1] - czs[-n-1]) - czs[n-1] for czs in sigma_zs])
-        xs.extend([n for i in range(len(sigma_zs))])
-
-    plt.scatter(xs, dzs)
-    plt.show()
+        plt.scatter(xs, dzs)
+        plt.show()
 
 def analyze_streamed(f):
     binval = f.read(4)
@@ -243,7 +338,7 @@ def analyze_streamed(f):
         ts.append(t)
         xs.append(x)
         zs.append(z)
-        print("{}\t{}\t{}".format(t, x, z))
+        log.debug("{}\t{}\t{}".format(t, x, z))
 
         binval = f.read(4)
 
@@ -256,21 +351,26 @@ def analyze_streamed(f):
 
 
 if __name__ == "__main__":
-    global write_csv, plot_raw
+    global write_csv, args
+    log.basicConfig(level = log.INFO)
     parser = argparse.ArgumentParser(description='Analyze an accel log dump')
     parser.add_argument('dumpfile')
     parser.add_argument('-f', '--fifo', action='store_true', default=True)
     parser.add_argument('-s', '--streamed', action='store_true', default=False)
     parser.add_argument('-w', '--write_csv', action='store_true', default=False)
-    parser.add_argument('-p', '--plot_raw', action='store_true', default=False)
+    parser.add_argument('-a', '--plot_all', action='store_true', default=False)
+    parser.add_argument('-r', '--plot_rejects', action='store_true', default=False)
+    parser.add_argument('-p', '--plot_passes', action='store_true', default=False)
+    parser.add_argument('-c', '--plot_csums', action='store_true', default=False)
+    
     args = parser.parse_args()
     fname = args.dumpfile
     write_csv = args.write_csv
-    plot_raw = args.plot_raw
+
     try:
         f = open(fname, 'rb')
     except:
-        print ("Unable to open file \'{}\'".format(fname))
+        log.error ("Unable to open file \'{}\'".format(fname))
         exit()
     if args.fifo:
         analyze_fifo(f)

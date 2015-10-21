@@ -32,6 +32,17 @@
 #define BRIGHT_HIGH         5
 #define BRIGHT_MAX          MAX_BRIGHT_VAL
 
+/* Non-pwm blink of LEDs -- bypassing the LED TC controller */
+#define _BLINK( i )  do { \
+      _led_on_full( i ); \
+      delay_ms(100); \
+      _led_off_full( i ); \
+      delay_ms(50); \
+      _led_on_full( i ); \
+      delay_ms(100); \
+      _led_off_full( i ); \
+      delay_ms(50); \
+    } while(0);
 //___ T Y P E D E F S ________________________________________________________
 
 //___ V A R I A B L E S ______________________________________________________

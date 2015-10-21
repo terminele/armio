@@ -127,7 +127,7 @@ uint8_t main_get_multipress_count( void );
    * @retrn # of presses
    */
 
-bool main_log_data( uint8_t *data, uint16_t length, bool flush );
+void main_log_data( uint8_t *data, uint16_t length, bool flush );
   /* @brief store data in unused flash space
    * @param data - pointer to data array
    * @param len - number of 32-bit words (byte count / 4) to write
