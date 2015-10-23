@@ -504,7 +504,10 @@ static void main_tic( void ) {
 
 #ifdef LOG_ACCEL
         if (ax_fifo_depth == 32) {
-          uint32_t code = _accel_confirmed ? 0xCCCCCCCC : 0xEEEEEEEE; /* FIFO data end code */
+          uint32_t code = 0xAAAAAAAA; /* FIFO data begin code */
+          main_log_data((uint8_t *) &code, sizeof(uint32_t), false);
+          main_log_data((uint8_t *)ax_fifo, 6*ax_fifo_depth, true);
+          code = _accel_confirmed ? 0xCCCCCCCC : 0xEEEEEEEE; /* FIFO data end code */
           main_log_data((uint8_t *) &code, sizeof(uint32_t), true);
           uint16_t log_code = 0xEEDD; 
           main_log_data ((uint8_t *)&log_code, sizeof(uint16_t), true);
@@ -522,14 +525,6 @@ static void main_tic( void ) {
         } while(!wakeup_check());
 
         wakeup();
-#ifdef LOG_ACCEL
-        if (ax_fifo_depth == 32) {
-            uint32_t code = 0xAAAAAAAA; /* FIFO data begin code */
-            main_log_data((uint8_t *) &code, sizeof(uint32_t), false);
-            main_log_data((uint8_t *)ax_fifo, 6*ax_fifo_depth, true);
-        }
-
-#endif
         //main_set_current_sensor(sensor_light);
         //main_start_sensor_read();
         //main_gs.light_sensor_scaled_at_wakeup = adc_light_value_scale(
