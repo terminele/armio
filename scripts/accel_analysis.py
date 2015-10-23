@@ -18,12 +18,54 @@ rejecttime = 0
 args = None
 
 class WakeSample:
-    def __init__(self, xs, ys, zs, waketime = 0, confirmed = False):
+    def __init__(self, sample_num, xs, ys, zs, waketime = 0, confirmed = False):
         self.xs = xs
         self.ys = ys
         self.zs = zs
         self.waketime = waketime
         self.confirmed = confirmed
+        self.i = sample_num
+
+    def wakeup_check(self):
+        wakeup = False
+        XSUM_N = 5
+        YSUM_N = 8
+        ZSUM_N = 11
+        YSUM_THS = 220
+        XSUM_THS = 120
+        DZ_THS = 110
+        Y_LATEST_THS = 6
+        zsum_last_n = sum(self.zs[:-ZSUM_N-1:-1])
+        zsum_first_n = sum(self.zs[:ZSUM_N])
+        ysum_n = sum(self.ys[:YSUM_N])
+        xsum_n = sum(self.xs[:XSUM_N])
+        dzN = zsum_last_n - zsum_first_n
+        
+        if dzN > DZ_THS:
+            log.info("{}: passes dzN".format(self.i))
+            wakeup = True
+
+        if abs(ysum_n) >= YSUM_THS:
+            log.info("{}: passes YSUM_N THS".format(self.i))
+            wakeup = True
+        
+        if abs(xsum_n) >= XSUM_THS:
+            log.info("{}: passes XSUM_N THS".format(self.i))
+            wakeup = True
+        
+        if self.ys[-1] >= Y_LATEST_THS:
+            log.info("{}: passes Y_LAST THS".format(self.i))
+            wakeup = True
+        
+        if not wakeup and not self.confirmed:
+            log.info("{}: correctly rejected with dzN={}  XSUM_N={}  YSUM_N={}  Y_LAST={}".format(
+                self.i, dzN, xsum_n, ysum_n, self.ys[-1]))
+        elif not wakeup and self.confirmed:
+            log.error("{}: FALSELY rejected with dzN={}  XSUM_N={}  YSUM_N={}  Y_LAST={}".format(
+                self.i, dzN, xsum_n, ysum_n, self.ys[-1]))
+        
+
+        return wakeup
 
 def parse_fifo(f):
     binval = f.read(4)
@@ -57,8 +99,12 @@ def parse_fifo(f):
             FIFO End Code - 0xeeeeeeeee
             (optional) waketime log code 0xddee followed by waketime ticks as unsigned int 
     """
+    i = 0
     binval = f.read(6)
     while binval:
+        if len(binval) != 6:
+            log.info("end of file encountered")
+            break 
         data = struct.unpack("<IBB", binval)
         end_unconfirm = (data[0] == 0xeeeeeeee)#FIFO end code
         end_confirm = (data[0] == 0xcccccccc) #FIFO end code
@@ -78,7 +124,8 @@ def parse_fifo(f):
                 binval = binval[-2:] #retain last 2 bytes
                 binval += f.read(4)
             
-            samples.append(WakeSample(xs,ys,zs, waketime_ms, end_confirm))
+            samples.append(WakeSample(i, xs,ys,zs, waketime_ms, end_confirm))
+            i+=1
             log.info("new sample: waketime={}ms confirmed={}".format(waketime_ms,
                 end_confirm))
             started = False
@@ -111,6 +158,10 @@ def parse_fifo(f):
 
         else:
             """ Look for magic start code """
+            if len(binval) != 6:
+                log.info("end of file encountered")
+                break
+
             if struct.unpack("<Ibb", binval)[0] == 0xaaaaaaaa:
                 log.debug("Found start code 0x{:08x}".format(f.tell()))
                 """ retain last 2 bytes """
@@ -121,6 +172,9 @@ def parse_fifo(f):
                 log.debug("Skipping {} searching for start code".format(binval))
                 binval = f.read(6)
 
+        if len(binval) != 6:
+            log.info("end of file encountered")
+            break
         if struct.unpack("<Ibb", binval)[0] == 0xffffffff:
             log.debug("No more data after 0x{:08x}".format(f.tell()))
             break
@@ -128,48 +182,14 @@ def parse_fifo(f):
 
     return samples
 
-def wakeup_check( xs, ys, zs, i ):
-    wakeup = False
-    XSUM_N = 5
-    YSUM_N = 8
-    ZSUM_N = 11
-    YSUM_THS = 220
-    XSUM_THS = 120
-    DZ_THS = 110
-    Y_LATEST_THS = 8
-    zsum_last_n = sum(zs[:-ZSUM_N-1:-1])
-    zsum_first_n = sum(zs[:ZSUM_N])
-    ysum_n = sum(ys[:YSUM_N])
-    xsum_n = sum(xs[:XSUM_N])
-    dzN = zsum_last_n - zsum_first_n
-    
-    if dzN > DZ_THS:
-        log.info("{}: passes dzN".format(i))
-        wakeup = True
-
-    if abs(ysum_n) >= YSUM_THS:
-        log.info("{}: passes YSUM_N THS".format(i))
-        wakeup = True
-    
-    if abs(xsum_n) >= XSUM_THS:
-        log.info("{}: passes XSUM_N THS".format(i))
-        wakeup = True
-    
-    if ys[-1] >= Y_LATEST_THS:
-        log.info("{}: passes Y_LAST THS".format(i))
-        wakeup = True
-    
-    if not wakeup:
-        log.info("{}: rejected with dzN={}  XSUM_N={}  YSUM_N={}  Y_LAST={}".format(i, dzN, xsum_n, ysum_n, ys[-1]))
-
-    return wakeup
-
 def analyze_fifo(f):
     samples = parse_fifo(f) 
     log.info("{} FIFO Samples".format(len(samples)))
     
     wakeups = 0
     rejects = 0
+    false_negatives = 0
+    confirmed_wakeup_passes = 0
     
     sigma_zs = []
     sigma_zs_rev = []
@@ -193,16 +213,19 @@ def analyze_fifo(f):
         ysum_n = sum(ys[:10])
         xsum_n = sum(xs[:5])
         delta_z_12 = sum(zs[:-13:-1]) - sum(zs[:12])
-        wakeup_check_pass = wakeup_check(xs, ys, zs, i)
+        wakeup_check_pass = sample.wakeup_check()
         if wakeup_check_pass: 
             wakeups+=1
+            if confirmed: confirmed_wakeup_passes +=1
         else:
             rejects+=1
             global rejecttime
             rejecttime+=waketime
+            if confirmed: false_negatives+=1
+        
         
         if args.plot_all or (wakeup_check_pass and args.plot_passes) or \
-                (not wakeup_check and args.plot_rejects):
+                (not wakeup_check_pass and args.plot_rejects):
             log.debug("plotting {} with xsum_n {}: ysum_n: {}  zsum_n: {} dy_10: {} dz12: {}".format(uid,
                 xsum_n, ysum_n, zsum_n, sum(ys[:-11:-1]), delta_z_12))
             fig = plt.figure()
@@ -244,6 +267,12 @@ def analyze_fifo(f):
     log.info("{:.2f}s total reject-saved waketime ({:.1f}%)".format(
         rejecttime/1000.0, 100*rejecttime/total_waketime))
     
+    total_confirms = confirmed_wakeup_passes + false_negatives
+    log.info("{} confirmed wakeup passes ({} %)".format(confirmed_wakeup_passes, 
+        100*confirmed_wakeup_passes/total_confirms))
+    log.info("{} false_negatives ({} %)".format(false_negatives, 
+        100*false_negatives/total_confirms))
+     
     if args.plot_csums:
         fig = plt.figure()
         plt.title("Sigma x-values")
