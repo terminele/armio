@@ -516,8 +516,12 @@ static void main_tic( void ) {
         /* Update and store lifetime usage data */
         main_nvm_data.lifetime_wakes++;
         main_nvm_data.lifetime_ticks+=main_gs.waketicks;
-        nvm_update_buffer(NVM_CONF_ADDR, (uint8_t *) &main_nvm_data, 0,
-            sizeof(nvm_data_t));
+        if (main_nvm_data.lifetime_wakes % 20 == 0) {
+          /* Only update buffer once every 20 weeks to extend
+           * lifetime of the NVM -- may fail after 100k writes */
+          nvm_update_buffer(NVM_CONF_ADDR, (uint8_t *) &main_nvm_data, 0,
+              sizeof(nvm_data_t));
+        }
 
 #ifdef LOG_WAKETIME
         uint16_t log_code = 0xEEDD; 
