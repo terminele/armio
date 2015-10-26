@@ -503,7 +503,11 @@ static void main_tic( void ) {
         }
 
 #ifdef LOG_ACCEL
-        if (ax_fifo_depth == 32) {
+        if (ax_fifo_depth == 32  
+#ifdef LOG_CONFIRMED_ONLY 
+            && _accel_confirmed
+#endif
+           ) {
           uint32_t code = 0xAAAAAAAA; /* FIFO data begin code */
           main_log_data((uint8_t *) &code, sizeof(uint32_t), false);
           main_log_data((uint8_t *)ax_fifo, 6*ax_fifo_depth, true);
