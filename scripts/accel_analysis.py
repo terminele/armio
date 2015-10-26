@@ -18,13 +18,15 @@ rejecttime = 0
 args = None
 
 class WakeSample:
-    def __init__(self, sample_num, xs, ys, zs, waketime = 0, confirmed = False):
+    _sample_counter = 0
+    def __init__(self, xs, ys, zs, waketime = 0, confirmed = False):
         self.xs = xs
         self.ys = ys
         self.zs = zs
         self.waketime = waketime
         self.confirmed = confirmed
-        self.i = sample_num
+        WakeSample._sample_counter+=1
+        self.i = WakeSample._sample_counter
 
     def wakeup_check(self):
         wakeup = False
@@ -67,7 +69,13 @@ class WakeSample:
 
         return wakeup
 
-def parse_fifo(f):
+def parse_fifo(fname):
+    try:
+        f = open(fname, 'rb')
+    except:
+        log.error ("Unable to open file \'{}\'".format(fname))
+        return []
+    
     binval = f.read(4)
 
     """ find first start delimiter"""
@@ -112,7 +120,6 @@ def parse_fifo(f):
             """end of fifo data"""
             log.debug("Found fifo end at 0x{:08x}".format(f.tell()))
             
-            print(data[1:])
             if data[1:] == (0xdd, 0xee): #waketime log code
                 binval = f.read(4)
                 waketime_ticks = struct.unpack("<I", binval)[0]
@@ -124,9 +131,9 @@ def parse_fifo(f):
                 binval = binval[-2:] #retain last 2 bytes
                 binval += f.read(4)
             
-            samples.append(WakeSample(i, xs,ys,zs, waketime_ms, end_confirm))
+            samples.append(WakeSample(xs,ys,zs, waketime_ms, end_confirm))
             i+=1
-            log.info("new sample: waketime={}ms confirmed={}".format(waketime_ms,
+            log.debug("new sample: waketime={}ms confirmed={}".format(waketime_ms,
                 end_confirm))
             started = False
 
@@ -179,12 +186,12 @@ def parse_fifo(f):
             log.debug("No more data after 0x{:08x}".format(f.tell()))
             break
     
+    log.info("Parsed {} samples from {}".format(len(samples), fname))
 
     return samples
 
-def analyze_fifo(f):
-    samples = parse_fifo(f) 
-    log.info("{} FIFO Samples".format(len(samples)))
+def analyze_samples(samples):
+    log.info("Analyzing {} FIFO Samples".format(len(samples)))
     
     wakeups = 0
     rejects = 0
@@ -383,7 +390,7 @@ if __name__ == "__main__":
     global write_csv, args
     log.basicConfig(level = log.INFO)
     parser = argparse.ArgumentParser(description='Analyze an accel log dump')
-    parser.add_argument('dumpfile')
+    parser.add_argument('dumpfiles', nargs='+')
     parser.add_argument('-f', '--fifo', action='store_true', default=True)
     parser.add_argument('-s', '--streamed', action='store_true', default=False)
     parser.add_argument('-w', '--write_csv', action='store_true', default=False)
@@ -393,15 +400,19 @@ if __name__ == "__main__":
     parser.add_argument('-c', '--plot_csums', action='store_true', default=False)
     
     args = parser.parse_args()
-    fname = args.dumpfile
     write_csv = args.write_csv
-
-    try:
-        f = open(fname, 'rb')
-    except:
-        log.error ("Unable to open file \'{}\'".format(fname))
-        exit()
+    
     if args.fifo:
-        analyze_fifo(f)
+        samples = []
+        for fname in args.dumpfiles:
+            samples.extend(parse_fifo(fname))
+
+        analyze_samples(samples)
     else:
+        fname = args.dumpfiles[0]
+        try:
+            f = open(fname, 'rb')
+        except:
+            log.error ("Unable to open file \'{}\'".format(fname))
+            exit()
         analyze_streamed(f)
