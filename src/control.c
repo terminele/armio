@@ -19,7 +19,7 @@
 #endif
 #define LONG_TIMEOUT_TICKS                              MS_IN_TICKS(1000*(60*3 + 43)) ;
 #define TIME_SET_MODE_EDITING_SLEEP_TIMEOUT_TICKS       MS_IN_TICKS(80000)
-#define TIME_SET_MODE_NOEDIT_SLEEP_TIMEOUT_TICKS        MS_IN_TICKS(8000)
+#define TIME_SET_MODE_NOEDIT_SLEEP_TIMEOUT_TICKS        MS_IN_TICKS(10000)
 #define EE_MODE_SLEEP_TIMEOUT_TICKS                     MS_IN_TICKS(8000)
 #define EE_RUN_TIMEOUT_TICKS                            MS_IN_TICKS(3000)
 #define EE_RUN_MIN_INTERTICK                            MS_IN_TICKS(100)
@@ -869,8 +869,14 @@ bool time_set_mode_tic ( event_flags_t event_flags ) {
 
     if ( event_flags & EV_FLAG_SLEEP ||
          DCLICK(event_flags) || 
-         (!is_editing && modeticks > TIME_SET_MODE_NOEDIT_SLEEP_TIMEOUT_TICKS )) {
+         (!is_editing && (modeticks > TIME_SET_MODE_NOEDIT_SLEEP_TIMEOUT_TICKS ))) {
       goto finish;
+    }
+    
+    if (modeticks < 500) {
+        /* Pause briefly with the display off to indicate
+         * entrance into time setting mode */
+        return false;
     }
 
     if (!min_disp_ptr) {
@@ -912,6 +918,9 @@ bool time_set_mode_tic ( event_flags_t event_flags ) {
 
     if (!is_editing) return false;
 
+    /* Ensure main inactivity timeout is not triggered when editing */ 
+    main_inactivity_timeout_reset();
+   
     new_minute_pos = utils_spin_tracker_update();
 
     if (new_minute_pos == minute) {
@@ -928,7 +937,7 @@ bool time_set_mode_tic ( event_flags_t event_flags ) {
             return false;
         }
     } else {
-
+        
         timeout = 0;
         /* Check if hour should be incremented or decremented */
         if (new_minute_pos < minute) {
@@ -974,7 +983,6 @@ finish:
     control_mode_set(CONTROL_MODE_SHOW_TIME);
     return true; 
 }
-
 
 static bool toggle_pref_mode_tic( event_flags_t event_flags, bool *pref_ptr ) {
 
