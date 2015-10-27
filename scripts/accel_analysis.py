@@ -270,7 +270,9 @@ def analyze_samples(samples):
     log.info("{} wakeups ({} %)".format(wakeups, 100.0*wakeups/len(samples)))
     log.info("{} rejects ({} %)".format(rejects, 100.0*rejects/len(samples)))
     total_waketime = sum([s.waketime for s in samples])
+    filtered_waketime = total_waketime - rejecttime
     log.info("{:.2f}s total unfiltered waketime".format(total_waketime/1000.0))
+    log.info("{:.2f}s total filtered waketime ({:.2f}s per wake)".format(filtered_waketime/1000.0, filtered_waketime/wakeups/1000.0))
     log.info("{:.2f}s total reject-saved waketime ({:.1f}%)".format(
         rejecttime/1000.0, 100*rejecttime/total_waketime))
     
