@@ -43,8 +43,8 @@
  * estimate a good tick timeout count */
 #define EDIT_FINISH_TIMEOUT_TICKS   MS_IN_TICKS(1500)
 
-#define CONTROL_MODE_EE     9
-#define UTIL_MODE_COUNT     7
+#define CONTROL_MODE_EE     10
+#define UTIL_MODE_COUNT     8
 /* Util control modes start at index 3 in control mode array (e.g. util mode 1 is
  * index 3, etc)*/
 #define UTIL_CTRL_MODE(n) (n % (UTIL_MODE_COUNT + 1) + 2)
@@ -106,6 +106,18 @@ bool gesture_toggle_mode_tic ( event_flags_t event_flags );
    * @retrn true on finish
    */
 
+bool sparkle_mode_tic ( event_flags_t event_flags );
+  /* @brief sparkles
+   * @param event flags
+   * @retrn true on finish
+   */
+
+bool swirl_mode_tic ( event_flags_t event_flags );
+  /* @brief swirls
+   * @param event flags
+   * @retrn true on finish
+   */
+
 bool seconds_enable_toggle_mode_tic ( event_flags_t event_flags );
   /* @brief mode to allow user enable seconds always on
    * @param event flags
@@ -159,7 +171,7 @@ ctrl_mode_t control_modes[] = {
     {
         .enter_cb = NULL,
         .tic_cb = selector_mode_tic,
-        .sleep_timeout_ticks = MS_IN_TICKS(1000000),
+        .sleep_timeout_ticks = MS_IN_TICKS(20000),
         .about_to_sleep_cb = NULL,
         .wakeup_cb = NULL,
     }, 
@@ -202,10 +214,18 @@ ctrl_mode_t control_modes[] = {
         .about_to_sleep_cb = NULL,
         .wakeup_cb = NULL,
     },
+//    {
+//        /* UTIL MODE #5 */
+//        .enter_cb = NULL,
+//        .tic_cb = seconds_enable_toggle_mode_tic,
+//        .sleep_timeout_ticks = MS_IN_TICKS(15000),
+//        .about_to_sleep_cb = NULL,
+//        .wakeup_cb = NULL,
+//    },
     {
         /* UTIL MODE #5 */
         .enter_cb = NULL,
-        .tic_cb = seconds_enable_toggle_mode_tic,
+        .tic_cb = sparkle_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(15000),
         .about_to_sleep_cb = NULL,
         .wakeup_cb = NULL,
@@ -213,13 +233,21 @@ ctrl_mode_t control_modes[] = {
     {
         /* UTIL MODE #6 */
         .enter_cb = NULL,
+        .tic_cb = swirl_mode_tic,
+        .sleep_timeout_ticks = MS_IN_TICKS(15000),
+        .about_to_sleep_cb = NULL,
+        .wakeup_cb = NULL,
+    },
+    {
+        /* UTIL MODE #7 */
+        .enter_cb = NULL,
         .tic_cb = deep_sleep_enable_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(10000),
         .about_to_sleep_cb = NULL,
         .wakeup_cb = NULL,
     },
     {
-        /* UTIL MODE #7 */
+        /* UTIL MODE #8 */
         .enter_cb = NULL,
         .tic_cb = ee_mode_tic,
         .sleep_timeout_ticks = EE_MODE_SLEEP_TIMEOUT_TICKS,
@@ -459,6 +487,64 @@ finish:
 
 void set_ee_sleep_timeout(uint32_t timeout_ticks) {
   control_modes[CONTROL_MODE_EE].sleep_timeout_ticks = timeout_ticks;
+}
+
+
+bool sparkle_mode_tic( event_flags_t event_flags ) {
+    static display_comp_t* display_ptr = NULL;
+    static animation_t *anim_ptr = NULL;
+
+    if (!display_ptr) {
+        display_ptr = display_point(0, BRIGHT_DEFAULT);
+        anim_ptr = anim_random(display_ptr, MS_IN_TICKS(15), ANIMATION_DURATION_INF, false);
+    }
+    
+    if (TCLICK(event_flags) || QCLICK(event_flags)) {
+        ctrl_mode_active->sleep_timeout_ticks = LONG_TIMEOUT_TICKS;                              
+    }
+    
+    if ( event_flags & EV_FLAG_SLEEP ||
+        DCLICK(event_flags)) {
+
+        if (anim_ptr) {
+            anim_release(anim_ptr);
+            anim_ptr = NULL;
+        }
+
+        if (display_ptr) {
+            display_comp_release(display_ptr);
+            display_ptr = NULL;
+        }
+        control_mode_set(CONTROL_MODE_SHOW_TIME);
+        return true;
+    }
+
+    return false;
+}
+
+bool swirl_mode_tic( event_flags_t event_flags ) {
+    static animation_t *anim_ptr = NULL;
+
+    if (!anim_ptr) {
+        anim_ptr = anim_swirl(0, 5, MS_IN_TICKS(16), 5000000, true);
+    }
+    
+    if (TCLICK(event_flags) || QCLICK(event_flags)) {
+        ctrl_mode_active->sleep_timeout_ticks = LONG_TIMEOUT_TICKS;                              
+    }
+
+    if ( event_flags & EV_FLAG_SLEEP ||
+        DCLICK(event_flags)) {
+
+        if (anim_ptr) {
+            anim_release(anim_ptr);
+            anim_ptr = NULL;
+        }
+        control_mode_set(CONTROL_MODE_SHOW_TIME);
+        return true;
+    }
+
+    return false;
 }
 
 bool ee_mode_tic ( event_flags_t event_flags ) {
