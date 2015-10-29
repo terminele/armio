@@ -504,6 +504,7 @@ static void main_tic( void ) {
 
 #ifdef LOG_ACCEL
         if (ax_fifo_depth == 32  
+            && (_accel_confirmed || main_nvm_data.lifetime_wakes < 200)
 #ifdef LOG_CONFIRMED_ONLY 
             && _accel_confirmed
 #endif
@@ -568,10 +569,6 @@ static void main_tic( void ) {
           ctrl_mode_active->sleep_timeout_ticks ||
           (IS_CONTROL_MODE_SHOW_TIME() && (
            (event_flags & EV_FLAG_ACCEL_DOWN) || TCLICK(event_flags)))
-
-#ifdef LOG_ACCEL
-          || (IS_CONTROL_MODE_SHOW_TIME() && DCLICK(event_flags))
-#endif
 
           ) {
 
