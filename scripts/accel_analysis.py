@@ -8,7 +8,7 @@ import numpy as np
 import logging as log
 import uuid
 import csv
-
+import random
 
 TICKS_PER_MS = 1
 
@@ -27,23 +27,41 @@ class WakeSample:
         self.confirmed = confirmed
         WakeSample._sample_counter+=1
         self.i = WakeSample._sample_counter
+        self._check_result = None
 
     def wakeup_check(self):
+        if self._check_result is not None:
+            return self._check_result
+
+
         wakeup = False
         XSUM_N = 5
-        YSUM_N = 8
+        YSUM_N = 9
         ZSUM_N = 11
-        YSUM_THS = 220
+        YSUM_THS = 240
         XSUM_THS = 120
+        XYSUM_THS = 140
         DZ_THS = 110
         Y_LATEST_THS = 6
         zsum_last_n = sum(self.zs[:-ZSUM_N-1:-1])
         zsum_first_n = sum(self.zs[:ZSUM_N])
-        ysum_n = sum(self.ys[:YSUM_N])
-        xsum_n = sum(self.xs[:XSUM_N])
-        dzN = zsum_last_n - zsum_first_n
+        self.ysum_n = ysum_n = sum(self.ys[:YSUM_N])
+        self.xsum_n = xsum_n = sum(self.xs[:XSUM_N])
+        self.dzN = dzN = zsum_last_n - zsum_first_n
         
-        if dzN > DZ_THS:
+        #if abs(ysum_n) + abs(xsum_n) >= 140: 
+        #    return True
+        #else:
+        #    return False
+
+        #if dzN > DZ_THS:
+        #    log.info("{}: passes dzN".format(self.i))
+        #    wakeup = True
+        
+        if self.ys[-1] < -5 and abs(ysum_n) < YSUM_THS:
+            return False
+
+        if sum(self.zs[:5]) < 100 and dzN > DZ_THS:
             log.info("{}: passes dzN".format(self.i))
             wakeup = True
 
@@ -59,15 +77,54 @@ class WakeSample:
             log.info("{}: passes Y_LAST THS".format(self.i))
             wakeup = True
         
+        if sum(self.ys[:-6:-1]) > 20: #overshoot towards body
+            wakeup = True
+        
+        if sum(self.ys[:-10:-1]) > 40: #overshoot towards body
+            wakeup = True
+    
+        if abs(ysum_n) + abs(xsum_n) > XYSUM_THS:
+            wakeup = True
+        #if abs(ysum_n) + dzN > 325:
+        #    wakeup = True
+        
+        #if abs(xsum_n) + dzN > 225:
+        #    wakeup = True
+        
+        
         if not wakeup and not self.confirmed:
             log.info("{}: correctly rejected with dzN={}  XSUM_N={}  YSUM_N={}  Y_LAST={}".format(
                 self.i, dzN, xsum_n, ysum_n, self.ys[-1]))
         elif not wakeup and self.confirmed:
             log.error("{}: FALSELY rejected with dzN={}  XSUM_N={}  YSUM_N={}  Y_LAST={}".format(
                 self.i, dzN, xsum_n, ysum_n, self.ys[-1]))
-        
+         
+        self._check_result = wakeup
 
         return wakeup
+    
+    def is_false_negative(self):
+        return not self.wakeup_check() and self.confirmed
+
+    def sumN_score(self, n):
+        xN = sum(self.xs[:n])
+        yN = sum(self.ys[:n])
+        zN = sum(self.zs[:n])
+        dxN = sum(self.xs[:n:-1]) - xN
+        dyN = sum(self.ys[:n:-1]) - yN
+        dzN = sum(self.zs[:n:-1]) - zN
+        
+        #return abs(xN) + abs(yN) + abs(dxN) + abs(dyN) + dzN
+        
+        if self.ys[-1] < -10:
+            return 0
+
+
+        if abs(xN) > abs(yN):
+            return abs(xN) + abs(dxN) + dzN
+        else:
+            return abs(yN) + abs(dyN) + dzN
+
 
 def parse_fifo(fname):
     try:
@@ -90,8 +147,8 @@ def parse_fifo(fname):
         binval = f.read(4)
 
     if not started:
-        log.error("Could not find start patttern 0xaaaaaaaa")
-        return
+        log.error("Could not find start patttern 0xaaaaaaaa in {}".format(fname))
+        return []
 
     xs = []
     ys = []
@@ -190,6 +247,42 @@ def parse_fifo(fname):
 
     return samples
 
+def plot_sumN_scores(samples):
+    conf_scores = []
+    unconf_scores = []
+    for n in range(5, 20):
+        conf_scores_n = []
+        unconf_scores_n = []
+        for s in samples:
+            score = s.sumN_score(n)
+            if s.confirmed: conf_scores_n.append(score)
+            else: unconf_scores_n.append(score)
+        conf_scores.append(conf_scores_n)
+        unconf_scores.append(unconf_scores_n)
+    
+    for n in range(5, 20):
+        conf = conf_scores[n-5]
+        plt.plot(list(2*n-0.2 - 0.4*random.random() for i in range(len(conf))), conf, 'b.', label='confirmed')
+        unconf = unconf_scores[n-5]
+        plt.plot(list(2*n+0.2 + 0.4*random.random() for i in range(len(unconf))), unconf, 'r.', label='unconfirmed')
+
+def plot_sums(samples, x_cnt = 5, y_cnt = 8):
+    xsums = [sum(s.xs[:x_cnt]) for s in samples if s.confirmed]
+    ysums = [sum(s.ys[:y_cnt]) for s in samples if s.confirmed]
+    ssums = [abs(x) + abs(y) for x,y in zip(xsums, ysums)]
+    
+    xsums_u = [sum(s.xs[:x_cnt]) for s in samples if not s.confirmed]
+    ysums_u = [sum(s.ys[:y_cnt]) for s in samples if not s.confirmed]
+    ssums_u = [abs(x) + abs(y) for x,y in zip(xsums_u, ysums_u)]
+
+    #plt.plot(xsums, color="r")
+    plt.plot(ysums, marker=".", color="b")
+    #plt.plot(ssums, color="g")
+    
+    #plt.plot(xsums_u, linestyle=":", color="r")
+    plt.plot(ysums_u, linestyle=":",  color="b")
+    #plt.plot(ssums_u, linestyle=":",  color="g")
+
 def analyze_samples(samples):
     log.info("Analyzing {} FIFO Samples".format(len(samples)))
     
@@ -232,13 +325,14 @@ def analyze_samples(samples):
         
         
         if args.plot_all or (wakeup_check_pass and args.plot_passes) or \
-                (not wakeup_check_pass and args.plot_rejects):
+                (not wakeup_check_pass and args.plot_rejects) or \
+                (args.plot_false_negatives and sample.is_false_negative()):
             log.debug("plotting {} with xsum_n {}: ysum_n: {}  zsum_n: {} dy_10: {} dz12: {}".format(uid,
                 xsum_n, ysum_n, zsum_n, sum(ys[:-11:-1]), delta_z_12))
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            plt.title("sample {}: pass={}  confirmed={}".format(i, 
-                wakeup_check_pass, confirmed))
+            plt.title("sample {}: pass={} confirmed={} xN={} yN={} dzN={}".format(i, 
+                wakeup_check_pass, confirmed, sample.xsum_n, sample.ysum_n, sample.dzN))
             ax.grid()
             t = range(len(xs))
             x_line = plt.Line2D(t, xs, color='r', marker='o')
@@ -358,6 +452,8 @@ def analyze_samples(samples):
 
         plt.scatter(xs, dzs)
         plt.show()
+    
+    return samples
 
 def analyze_streamed(f):
     binval = f.read(4)
@@ -388,8 +484,9 @@ def analyze_streamed(f):
 
 
 
+samples = []
 if __name__ == "__main__":
-    global write_csv, args
+    global write_csv, args, samples
     log.basicConfig(level = log.INFO)
     parser = argparse.ArgumentParser(description='Analyze an accel log dump')
     parser.add_argument('dumpfiles', nargs='+')
@@ -400,6 +497,7 @@ if __name__ == "__main__":
     parser.add_argument('-r', '--plot_rejects', action='store_true', default=False)
     parser.add_argument('-p', '--plot_passes', action='store_true', default=False)
     parser.add_argument('-c', '--plot_csums', action='store_true', default=False)
+    parser.add_argument('-fn', '--plot_false_negatives', action='store_true', default=False)
     
     args = parser.parse_args()
     write_csv = args.write_csv
