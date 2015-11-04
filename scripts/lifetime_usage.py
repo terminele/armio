@@ -20,16 +20,18 @@ if __name__ == "__main__":
         exit()
 
     
-    NVM_DATA_SIZE = 12
+    NVM_DATA_SIZE = 16
     binval = f.read(NVM_DATA_SIZE)
-    vals = struct.unpack("<BBBBII", binval)
-    log.debug("unpack struct: {}".format(struct.unpack("<BBBBII", binval)))
+    vals = struct.unpack("<BBBBIII", binval)
+    log.debug("unpack struct: {}".format(struct.unpack("<BBBBIII", binval)))
     lifetime_wakes = vals[4]
     lifetime_ticks = vals[5]
+    lifetime_resets = vals[6]
 
     lifetime_s = lifetime_ticks/TICKS_PER_MS/1000.0
 
     print("Lifetime Wake Count:\t\t {}".format(lifetime_wakes))
     print("Lifetime Active Time (s):\t {:.2f}".format(lifetime_s))
+    print("Lifetime Resets:\t\t {}".format(lifetime_resets))
     print("Average Waketime (s):\t\t {:.2f}".format(lifetime_s/lifetime_wakes))
 
