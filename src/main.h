@@ -57,6 +57,7 @@ typedef struct {
     int8_t rtc_freq_corr;
     uint32_t lifetime_wakes; 
     uint32_t lifetime_ticks;
+    uint32_t lifetime_resets;
 } nvm_data_t;
 
 typedef struct {

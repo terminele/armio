@@ -696,6 +696,15 @@ static void main_init( void ) {
   if (main_nvm_data.lifetime_ticks == 0xffffffff) {
       main_nvm_data.lifetime_ticks = 0; 
   }
+
+  
+  if (main_nvm_data.lifetime_resets == 0xffffffff) {
+      main_nvm_data.lifetime_resets = 0; 
+  } else {
+      main_nvm_data.lifetime_resets++;
+      nvm_update_buffer(NVM_CONF_ADDR, (uint8_t *) &main_nvm_data, 0,
+            sizeof(nvm_data_t));
+  }
 }
 
 uint32_t main_get_waketime_ms( void ) {
