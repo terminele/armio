@@ -503,8 +503,9 @@ static void main_tic( void ) {
     case STARTUP:
       /* Stay in startup until animation is finished */
       if (anim_is_finished(sleep_wake_anim)) {
-        main_gs.state = RUNNING;
+        anim_release(sleep_wake_anim);
         sleep_wake_anim = NULL;
+        main_gs.state = RUNNING;
       }
       return;
     case ENTERING_SLEEP:
@@ -516,8 +517,8 @@ static void main_tic( void ) {
         /* Update and store lifetime usage data */
         main_nvm_data.lifetime_wakes++;
         main_nvm_data.lifetime_ticks+=main_gs.waketicks;
-        if (main_nvm_data.lifetime_wakes % 20 == 0) {
-          /* Only update buffer once every 20 weeks to extend
+        if (main_nvm_data.lifetime_wakes % 20 == 1) {
+          /* Only update buffer once every 20 wakes to extend
            * lifetime of the NVM -- may fail after 100k writes */
           nvm_update_buffer(NVM_CONF_ADDR, (uint8_t *) &main_nvm_data, 0,
               sizeof(nvm_data_t));
@@ -702,9 +703,9 @@ static void main_init( void ) {
       main_nvm_data.lifetime_resets = 0; 
   } else {
       main_nvm_data.lifetime_resets++;
-      nvm_update_buffer(NVM_CONF_ADDR, (uint8_t *) &main_nvm_data, 0,
-            sizeof(nvm_data_t));
   }
+  nvm_update_buffer(NVM_CONF_ADDR, (uint8_t *) &main_nvm_data, 0,
+          sizeof(nvm_data_t));
 }
 
 uint32_t main_get_waketime_ms( void ) {
@@ -953,7 +954,16 @@ int main (void) {
 #endif
 
   if (!sleep_wake_anim) {
-    sleep_wake_anim = anim_random(display_point(0, BRIGHT_DEFAULT), MS_IN_TICKS(15), MS_IN_TICKS(2000), true);
+    if (main_nvm_data.lifetime_resets == 0) {
+      /* This watch has just been born.  Display a slow swirl so we
+       * can ensure all the LEDs are working */
+        //sleep_wake_anim = anim_random(display_point(0, BRIGHT_DEFAULT), 
+        //    MS_IN_TICKS(15), MS_IN_TICKS(2000), true);
+        sleep_wake_anim = anim_swirl(0, 5, MS_IN_TICKS(50), 120, true);
+    } else {
+      /* A reset has occurred later in life - not good */
+        sleep_wake_anim = anim_swirl(0, 5, MS_IN_TICKS(10), 30, false);
+    }
   }
 
   /* get intial time */
