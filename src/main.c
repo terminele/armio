@@ -16,14 +16,6 @@
 #include "utils.h"
 
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
-#define BUTTON_PIN          PIN_PA31
-#define BUTTON_PIN_EIC      PIN_PA31A_EIC_EXTINT11
-#define BUTTON_PIN_EIC_MUX  MUX_PA31A_EIC_EXTINT11
-#define BUTTON_EIC_CHAN     11
-
-#define BUTTON_UP           true
-#define BUTTON_DOWN         false
-
 #define VBATT_ADC_PIN               ADC_POSITIVE_INPUT_SCALEDIOVCC
 #define LIGHT_ADC_PIN               ADC_POSITIVE_INPUT_PIN1
 
@@ -36,9 +28,6 @@
 #define DEEP_SLEEP_EV_DELTA_S   3 /* max time between double clicks */
 #define DEEP_SLEEP_SEQ_UP_COUNT    3 /* # of double clicks facing up to wakeup */
 #define DEEP_SLEEP_SEQ_DOWN_COUNT    2 /* # of double clicks facing down to wakeup */
-
-/* tick count before considering a button press "long" */
-#define LONG_PRESS_TICKS    MS_IN_TICKS(1500)
 
 /* max tick count between successive quick taps */
 #define QUICK_TAP_INTERVAL_TICKS    500
@@ -80,11 +69,6 @@ typedef enum main_state_t {
 } main_state_t;
 
 //___ P R O T O T Y P E S   ( P R I V A T E ) ________________________________
-static void configure_input( void );
-  /* @brief configure input buttons
-   * @param None
-   * @retrn None
-   */
 
 #ifdef CLOCK_OUTPUT
 static void setup_clock_pin_outputs( void );
@@ -95,11 +79,6 @@ static void setup_clock_pin_outputs( void );
 #endif
 
 
-static event_flags_t button_event_flags( void );
-  /* @brief check current button event flags
-   * @param None
-   * @retrn button event flags
-   */
 static void prepare_sleep( void );
   /* @brief enter into standby sleep
    * @param None
@@ -134,12 +113,6 @@ static struct {
    * user activity (e.g. click)
    */
   uint32_t inactivity_ticks;
-
-  /* Current button state */
-  bool button_state;
-
-  /* Counter for button ticks since pushed down */
-  uint32_t button_hold_ticks;
 
   /* Count of multiple quick presses in a row */
   uint8_t tap_count;
@@ -210,18 +183,6 @@ static void log_vbatt (bool wakeup) {
 }
 #endif
 
-static void configure_input(void) {
-    /* Configure our button as an input */
-  struct port_config pin_conf;
-  port_get_config_defaults(&pin_conf);
-  pin_conf.direction = PORT_PIN_DIR_INPUT;
-
-  port_get_config_defaults(&pin_conf);
-  pin_conf.direction = PORT_PIN_DIR_OUTPUT;
-  port_pin_set_config(LIGHT_SENSE_ENABLE_PIN, &pin_conf);
-  port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, false);
-}
-
 
 #ifdef CLOCK_OUTPUT
 static void setup_clock_pin_outputs( void ) {
@@ -246,11 +207,6 @@ static void setup_clock_pin_outputs( void ) {
 static void prepare_sleep( void ) {
   LOG_SLEEP();
 
-#ifdef ENABLE_BUTTON
-  /* Enable button callback to awake us from sleep */
-  extint_chan_enable_callback(BUTTON_EIC_CHAN,
-      EXTINT_CALLBACK_TYPE_DETECT);
-#endif
 
   if (light_vbatt_sens_adc.hw) {
     adc_disable(&light_vbatt_sens_adc);
@@ -269,14 +225,7 @@ static void prepare_sleep( void ) {
 
 static void wakeup (void) {
   
-  if (light_vbatt_sens_adc.hw) {
-    adc_enable(&light_vbatt_sens_adc);
-  }
-
-#ifdef ENABLE_BUTTON
-  extint_chan_disable_callback(BUTTON_EIC_CHAN,
-      EXTINT_CALLBACK_TYPE_DETECT);
-#endif
+  
   led_controller_enable();
   aclock_enable();
   accel_enable();
@@ -285,9 +234,12 @@ static void wakeup (void) {
   tc_reset(&main_tc);
   config_main_tc();
 
-
   tc_enable(&main_tc);
   system_interrupt_enable_global();
+
+  if (light_vbatt_sens_adc.hw) {
+    adc_enable(&light_vbatt_sens_adc);
+  }
 
   /* Update vbatt estimate on wakeup only */
 #if ENABLE_VBATT
@@ -316,43 +268,6 @@ static void wakeup (void) {
 
 
   LOG_WAKEUP();
-}
-
-static event_flags_t button_event_flags ( void ) {
-  event_flags_t event_flags = EV_FLAG_NONE;
-#ifdef ENABLE_BUTTON
-  bool new_btn_state = port_pin_get_input_level(BUTTON_PIN);
-
-  if (new_btn_state == BUTTON_UP &&
-      main_gs.button_state == BUTTON_DOWN) {
-    /* button has been released */
-    main_gs.button_state = BUTTON_UP;
-    if (main_gs.tap_count == 0) {
-      /* End of a single button push */
-      if (main_gs.button_hold_ticks  < LONG_PRESS_TICKS ) {
-        event_flags |= EV_FLAG_SINGLE_BTN_PRESS_END;
-      } else {
-        event_flags |= EV_FLAG_LONG_BTN_PRESS_END;
-      }
-      main_gs.button_hold_ticks = 0;
-    } else {
-      /* TODO -- multi-tap support */
-    }
-  } else if (new_btn_state == BUTTON_DOWN &&
-      main_gs.button_state == BUTTON_UP) {
-    /* button has been pushed down */
-    main_gs.button_state = BUTTON_DOWN;
-  } else {
-    /* button state has not changed */
-    if (main_gs.button_state == BUTTON_DOWN) {
-      main_gs.button_hold_ticks++;
-      if (main_gs.button_hold_ticks > LONG_PRESS_TICKS) {
-        event_flags |= EV_FLAG_LONG_BTN_PRESS;
-      }
-    }
-  }
-#endif
-  return event_flags;
 }
 
 /* 'wakestamps' are used to keep track of wakeup check times.
@@ -466,7 +381,6 @@ static void main_tic( void ) {
   main_gs.inactivity_ticks++;
   main_gs.waketicks++;
 
-  event_flags |= button_event_flags();
   event_flags |= accel_event_flags();
 
   /* Reset inactivity if any button/click event occurs */
@@ -528,13 +442,9 @@ static void main_tic( void ) {
         do {
           system_sleep();
         } while(!wakeup_check());
-
+    
         wakeup();
-        //main_set_current_sensor(sensor_light);
-        //main_start_sensor_read();
-        //main_gs.light_sensor_scaled_at_wakeup = adc_light_value_scale(
-        //    main_read_current_sensor(true) );
-
+        
         if (ctrl_mode_active->wakeup_cb)
           ctrl_mode_active->wakeup_cb();
 
@@ -608,10 +518,8 @@ static void main_tic( void ) {
 static void main_init( void ) {
   /* Initalize main state */
   main_gs.waketicks = 0;
-  main_gs.button_hold_ticks = 0;
   main_gs.tap_count = 0;
   main_gs.inactivity_ticks = 0;
-  main_gs.button_state = BUTTON_UP;
   main_gs.light_sensor_scaled_at_wakeup = 0;
   main_gs.brightness = MAX_BRIGHT_VAL;
   main_gs.state = STARTUP;
@@ -851,9 +759,6 @@ uint8_t main_get_multipress_count( void ) {
   return main_gs.tap_count;
 }
 
-uint32_t main_get_button_hold_ticks ( void ) {
-  return main_gs.button_hold_ticks;
-}
 
 int main (void) {
   PM_RCAUSE_Type rcause_bf;
@@ -925,16 +830,7 @@ int main (void) {
     }
   }
 
-  /* get intial time */
-  configure_input();
   system_interrupt_enable_global();
-#ifdef ENABLE_BUTTON
-  while (!port_pin_get_input_level(BUTTON_PIN)) {
-    //if btn down at startup, zero out time
-    //and dont continue until released
-    aclock_set_time(0, 0, 0);
-  }
-#endif
 
   while (1) {
     if (tc_get_status(&main_tc) & TC_STATUS_COUNT_OVERFLOW) {

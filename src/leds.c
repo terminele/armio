@@ -350,7 +350,6 @@ void led_controller_enable ( void ) {
 void led_controller_disable ( void ) {
   struct port_config pin_conf;
 
-
   tc_disable_callback(&pwm_tc_instance, TC_CALLBACK_CC_CHANNEL0);
   tc_disable(&pwm_tc_instance);
   tc_disable(&bank_tc_instance);
@@ -363,7 +362,6 @@ void led_controller_disable ( void ) {
   pin_conf.powersave = true;
   port_group_set_config(&PORTA, SEGMENT_PIN_PORT_MASK, &pin_conf );
   port_group_set_config(&PORTA, BANK_PIN_PORT_MASK, &pin_conf );
-
 
 }
 

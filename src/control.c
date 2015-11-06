@@ -386,6 +386,7 @@ bool clock_mode_tic ( event_flags_t event_flags ) {
             display_comp_update_length(hour_disp_ptr, hour_fifths + 1);
             
             break;
+    
     }
 
     return false;

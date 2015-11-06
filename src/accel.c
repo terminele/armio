@@ -237,7 +237,6 @@
 //#define Y_DOWN_THRESHOLD        -18 //assumes 4g scale
 //#define Y_DOWN_DUR_MS           200
 
-#define XY_DOWN_THRESHOLD_ABS    (XY_DOWN_THRESHOLD < 0 ? -XY_DOWN_THRESHOLD : XY_DOWN_THRESHOLD)
 #define XY_DOWN_DUR_ODR          MS_TO_ODRS(XY_DOWN_DUR_MS, SLEEP_SAMPLE_INT)
 
 #define Z_UP_THRESHOLD          20 //assumes 4g scale
@@ -437,13 +436,10 @@ static void wait_for_up_conf( void ) {
 }
 
 static void wait_for_down_conf( void ) {
-  /* Configure interrupt to detect orientaiton down (Y LOW) */
+  /* Configure interrupt to detect orientation down  XY High/LOW*/
   wake_gesture_state = WAIT_FOR_DOWN;
   accel_register_write ( AX_REG_CTL1, ( SLEEP_ODR | X_EN | Y_EN | Z_EN |
         ( BITS_PER_ACCEL_VAL == 8 ? LOW_PWR_EN : 0 ) ) );
-
-  accel_register_write (AX_REG_INT1_THS, XY_DOWN_THRESHOLD_ABS);
-  accel_register_write (AX_REG_INT1_DUR, XY_DOWN_DUR_ODR);
 
   /* Clear FIFO by writing bypass */
   accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS );
@@ -451,7 +447,10 @@ static void wait_for_down_conf( void ) {
   /* Enable stream to FIFO buffer mode */
   accel_register_write (AX_REG_FIFO_CTL, STREAM_TO_FIFO );
 
+  accel_register_write (AX_REG_INT1_THS, XY_DOWN_THRESHOLD);
+  accel_register_write (AX_REG_INT1_DUR, XY_DOWN_DUR_ODR);
   accel_register_write (AX_REG_INT1_CFG, AOI_POS | XLIE | XHIE | YLIE | YHIE);
+
 }
 
 static bool accel_register_consecutive_read (uint8_t start_reg, uint8_t count,
@@ -515,18 +514,26 @@ static void accel_isr(void) {
   }
 
 #if DEBUG_AX_ISR
-  _led_on_full(15*click_flags.ia + 5*int_flags.ia);
-  delay_ms(5);
-  _led_off_full(15*click_flags.ia + 5*int_flags.ia);
-  delay_ms(5);
+  _led_on_full(15*click_flags.ia + 3*int_flags.ia + 
+      5*int_flags.yl + 10*int_flags.yh + 
+      17*int_flags.zl + 24*int_flags.zh);
+  delay_ms(200);
+  _led_off_full(15*click_flags.ia + 3*int_flags.ia + 
+      5*int_flags.yl + 10*int_flags.yh + 
+      17*int_flags.zl + 24*int_flags.zh);
+  delay_ms(200);
 #endif
+  
   
   /* Wait for accelerometer to release interrupt */
   while(extint_chan_is_detected(AX_INT1_CHAN)) {
     extint_chan_clear_detected(AX_INT1_CHAN);
+    uint8_t dummy;
+    accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &dummy);
     _led_on_full(40);
     delay_ms(5);
     _led_off_full(40);
+    delay_ms(5);
   };
 
 
@@ -850,7 +857,7 @@ void accel_enable ( void ) {
   accel_register_write ( AX_REG_CTL1,
       ( ACTIVE_ODR | X_EN | Y_EN | Z_EN |
         ( BITS_PER_ACCEL_VAL == 8 ? LOW_PWR_EN : 0 ) ) );
-  accel_register_write (AX_REG_CLICK_CFG, Z_SCLICK | Y_SCLICK | X_SCLICK);
+  accel_register_write (AX_REG_CLICK_CFG, X_SCLICK);
   accel_register_write (AX_REG_CLICK_THS, CLICK_THS);
 
   accel_register_write (AX_REG_TIME_WIN, CLICK_TIME_WIN);
@@ -908,8 +915,9 @@ void accel_sleep ( void ) {
 
   if (accel_wakeup_gesture_enabled) {
     /* Configure interrupt to detect orientation down (Y LOW) */
-    accel_register_write (AX_REG_CTL3,  I1_CLICK_EN | I1_AOI1_EN );
+    accel_register_write (AX_REG_CTL3, 0);
     wait_for_down_conf();
+    accel_register_write (AX_REG_CTL3, I1_CLICK_EN | I1_AOI1_EN );
 
   }
 

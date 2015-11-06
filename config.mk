@@ -272,8 +272,8 @@ CPPFLAGS = \
        -D __MIN__=$(_MIN_)				  \
        -D __SEC__=$(_SEC_)				  \
        -D GESTURE_FILTERS=false				  \
-       -D LOG_ACCEL					  \
-       -D LOG_CONFIRMED_ONLY				  \
+       #-D LOG_ACCEL					  \
+       #-D LOG_CONFIRMED_ONLY				  \
        #-D FLICKER_MIN_MODE
        #-D USE_WAKEUP_ALARM				  \
        #-D NO_TIME_ANIMATION				  \
