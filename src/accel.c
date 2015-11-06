@@ -232,7 +232,7 @@
 #define Z_DOWN_DUR_ODR          MS_TO_ODRS(Z_DOWN_DUR_MS, SLEEP_SAMPLE_INT)
 
 /* Y_DOWN */
-#define XY_DOWN_THRESHOLD        -10 //assumes 4g scale
+#define XY_DOWN_THRESHOLD        25//-10 //assumes 4g scale
 #define XY_DOWN_DUR_MS           50
 //#define Y_DOWN_THRESHOLD        -18 //assumes 4g scale
 //#define Y_DOWN_DUR_MS           200
@@ -524,6 +524,9 @@ static void accel_isr(void) {
   /* Wait for accelerometer to release interrupt */
   while(extint_chan_is_detected(AX_INT1_CHAN)) {
     extint_chan_clear_detected(AX_INT1_CHAN);
+    _led_on_full(40);
+    delay_ms(5);
+    _led_off_full(40);
   };
 
 
