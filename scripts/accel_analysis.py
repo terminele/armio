@@ -42,6 +42,8 @@ class WakeSample:
         XSUM_THS = 120
         XYSUM_THS = 140
         DZ_THS = 110
+        XZ_SUM_THS = 240
+        YZ_SUM_THS = 360
         Y_LATEST_THS = 6
         zsum_last_n = sum(self.zs[:-ZSUM_N-1:-1])
         zsum_first_n = sum(self.zs[:ZSUM_N])
@@ -58,8 +60,6 @@ class WakeSample:
         #    log.info("{}: passes dzN".format(self.i))
         #    wakeup = True
         
-        if self.ys[-1] < -5 and abs(ysum_n) < YSUM_THS:
-            return False
 
         if sum(self.zs[:5]) < 100 and dzN > DZ_THS:
             log.info("{}: passes dzN".format(self.i))
@@ -85,6 +85,16 @@ class WakeSample:
     
         if abs(ysum_n) + abs(xsum_n) > XYSUM_THS:
             wakeup = True
+        
+        if self.ys[-1] < -5 and abs(ysum_n) < YSUM_THS:
+            wakeup = False
+        
+#        if abs(ysum_n) + abs(dzN) > YZ_SUM_THS:
+#            wakeup = True
+#
+#        if abs(xsum_n) + abs(dzN) > XZ_SUM_THS:
+#            wakeup = True
+
         #if abs(ysum_n) + dzN > 325:
         #    wakeup = True
         
