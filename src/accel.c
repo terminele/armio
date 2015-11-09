@@ -29,7 +29,7 @@
 #define USE_SELF_TEST       false
 #endif
 
-//#define DEBUG_AX_ISR true
+#define DEBUG_AX_ISR true
 
 #ifndef DEBUG_AX_ISR
 #define DEBUG_AX_ISR false
@@ -620,6 +620,15 @@ static void accel_wakeup_state_refresh(void) {
      *  between the sum of the first 10 values and the sum of the
      *  last 10 values
      */
+    
+    /* Highest priority filter is to check if the latest y
+     * is facing outward and the y-movement was not 
+     * deliberate enough */
+    if (y < -5 && ABS(csums[Y_SUM_N][1]) < Y_SUM_THS_HIGH) {
+      wait_for_down_conf();
+      return;
+    }
+    
     dzN = (csums[31][2] - csums[31-DZ_N][2]) - csums[DZ_N][2];
     if ( dzN >= DZ_THS) {
       wake_gesture_state = WAKE_TURN_UP;
