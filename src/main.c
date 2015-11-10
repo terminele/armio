@@ -484,12 +484,18 @@ static void main_tic( void ) {
 
           /* A sleep event has occurred */
           if (IS_CONTROL_MODE_SHOW_TIME() && TCLICK(event_flags)) {
-              //accel_wakeup_gesture_enabled = false;
+#ifdef LOG_ACCEL
               _accel_confirmed = true;
+#else
+              accel_wakeup_gesture_enabled = false;
+#endif
 
           } else {
-              //accel_wakeup_gesture_enabled = main_user_data.wake_gestures;
+#ifdef LOG_ACCEL
               _accel_confirmed = false;
+#else
+              accel_wakeup_gesture_enabled = main_user_data.wake_gestures;
+#endif
           }
 
           /* Notify control mode of sleep event and reset control mode */

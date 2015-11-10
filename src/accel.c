@@ -528,12 +528,13 @@ static void accel_isr(void) {
 #endif
   
   
-  extint_chan_clear_detected(AX_INT1_CHAN);
   
   uint8_t dummy;
   accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &dummy);
   accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &dummy);
   accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &dummy);
+ 
+  extint_chan_clear_detected(AX_INT1_CHAN);
 
   /* Wait for accelerometer to release interrupt */
   while(extint_chan_is_detected(AX_INT1_CHAN)) {
