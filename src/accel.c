@@ -29,7 +29,7 @@
 #define USE_SELF_TEST       false
 #endif
 
-#define DEBUG_AX_ISR true
+//#define DEBUG_AX_ISR true
 
 #ifndef DEBUG_AX_ISR
 #define DEBUG_AX_ISR false
@@ -433,6 +433,8 @@ static void wait_for_up_conf( void ) {
   /* Enable stream to FIFO buffer mode */
   accel_register_write (AX_REG_FIFO_CTL, STREAM_TO_FIFO );
   accel_register_write (AX_REG_INT1_CFG, AOI_POS | ZHIE);
+  
+  accel_register_write (AX_REG_CTL3, I1_CLICK_EN | I1_AOI1_EN );
 }
 
 static void wait_for_down_conf( void ) {
@@ -450,6 +452,7 @@ static void wait_for_down_conf( void ) {
   accel_register_write (AX_REG_INT1_THS, XY_DOWN_THRESHOLD);
   accel_register_write (AX_REG_INT1_DUR, XY_DOWN_DUR_ODR);
   accel_register_write (AX_REG_INT1_CFG, AOI_POS | XLIE | XHIE | YLIE | YHIE);
+  accel_register_write (AX_REG_CTL3, I1_CLICK_EN | I1_AOI1_EN );
 
 }
 
@@ -525,10 +528,16 @@ static void accel_isr(void) {
 #endif
   
   
+  extint_chan_clear_detected(AX_INT1_CHAN);
+  
+  uint8_t dummy;
+  accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &dummy);
+  accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &dummy);
+  accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &dummy);
+
   /* Wait for accelerometer to release interrupt */
   while(extint_chan_is_detected(AX_INT1_CHAN)) {
     extint_chan_clear_detected(AX_INT1_CHAN);
-    uint8_t dummy;
     accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &dummy);
     _led_on_full(40);
     delay_ms(5);
@@ -915,9 +924,7 @@ void accel_sleep ( void ) {
 
   if (accel_wakeup_gesture_enabled) {
     /* Configure interrupt to detect orientation down (Y LOW) */
-    accel_register_write (AX_REG_CTL3, 0);
     wait_for_down_conf();
-    accel_register_write (AX_REG_CTL3, I1_CLICK_EN | I1_AOI1_EN );
 
   }
 

@@ -331,14 +331,16 @@ void led_controller_enable ( void ) {
   led_clear_all();
 
   /* Errata 12227: perform a software reset of tc after waking up */
-  tc_reset(&pwm_tc_instance);
-  tc_reset(&bank_tc_instance);
-  configure_tc();
-
-  tc_enable_callback(&pwm_tc_instance, TC_CALLBACK_CC_CHANNEL0);
+  //tc_reset(&pwm_tc_instance);
+  //tc_reset(&bank_tc_instance);
+  
+  //configure_tc();
+    
   tc_enable(&pwm_tc_instance);
 
   tc_enable(&bank_tc_instance);
+  
+  tc_enable_callback(&pwm_tc_instance, TC_CALLBACK_CC_CHANNEL0);
   /* The bank tc shouldnt run -- it should only increment on pwm events
    * therefore, stop and reset its value immediately
    */

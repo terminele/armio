@@ -298,8 +298,13 @@ bool clock_mode_tic ( event_flags_t event_flags ) {
         hour = 12;
       }
     }
-
     
+    if (modeticks % 1000 == 0) {
+      _led_on_full(3);
+      delay_ms(5);
+      _led_off_full(3);
+    }
+
     /* Enable seconds on double click */
     if (DCLICK(event_flags)) {
       
