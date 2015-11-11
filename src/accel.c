@@ -529,21 +529,27 @@ static void accel_isr(void) {
   
   
   
-  uint8_t dummy;
-  accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &dummy);
-  accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &dummy);
-  accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &dummy);
- 
   extint_chan_clear_detected(AX_INT1_CHAN);
 
   /* Wait for accelerometer to release interrupt */
+  uint8_t i = 0;
   while(extint_chan_is_detected(AX_INT1_CHAN)) {
+    uint8_t dummy;
     extint_chan_clear_detected(AX_INT1_CHAN);
     accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &dummy);
-    _led_on_full(40);
+    _led_on_full(15*click_flags.ia + 30*int_flags.ia + 5*int_flags.zh);
     delay_ms(5);
-    _led_off_full(40);
-    delay_ms(5);
+    _led_off_full(15*click_flags.ia + 30*int_flags.ia + 5*int_flags.zh);
+    i+=1;
+
+    if (i > 30) {
+      /* ### HACK to guard against unreleased AX interrupt */
+      accel_register_write (AX_REG_CTL3,  0);
+      accel_register_write (AX_REG_CTL3,  I1_CLICK_EN);
+      _led_on_full(45);
+      delay_ms(100);
+      _led_off_full(45);
+    } 
   };
 
 
