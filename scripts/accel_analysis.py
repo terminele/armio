@@ -306,7 +306,9 @@ def analyze_samples(samples):
     sigma_ys = []
     sigma_ys_rev = []
     sigma_xs = []
-    for (i, sample) in enumerate(samples):
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    for (i, sample) in enumerate(samples[:64]):
         xs = sample.xs
         ys = sample.ys
         zs = sample.zs
@@ -339,8 +341,6 @@ def analyze_samples(samples):
                 (args.plot_false_negatives and sample.is_false_negative()):
             log.debug("plotting {} with xsum_n {}: ysum_n: {}  zsum_n: {} dy_10: {} dz12: {}".format(uid,
                 xsum_n, ysum_n, zsum_n, sum(ys[:-11:-1]), delta_z_12))
-            fig = plt.figure()
-            ax = fig.add_subplot(111)
             plt.title("sample {}: pass={} confirmed={} xN={} yN={} dzN={}".format(i, 
                 wakeup_check_pass, confirmed, sample.xsum_n, sample.ysum_n, sample.dzN))
             ax.grid()
@@ -357,7 +357,7 @@ def analyze_samples(samples):
             ax.set_xlim([0, len(xs)])
             ax.set_ylim([-60, 60])
 
-            plt.show()
+            #plt.show()
 
         sigma_zs.append(np.cumsum(zs))
         sigma_zs_rev.append(np.cumsum(zs[::-1]))
@@ -376,15 +376,19 @@ def analyze_samples(samples):
     total_waketime = sum([s.waketime for s in samples])
     filtered_waketime = total_waketime - rejecttime
     log.info("{:.2f}s total unfiltered waketime".format(total_waketime/1000.0))
-    log.info("{:.2f}s total filtered waketime ({:.2f}s per wake)".format(filtered_waketime/1000.0, filtered_waketime/wakeups/1000.0))
+    if wakeups > 0:
+        log.info("{:.2f}s total filtered waketime ({:.2f}s per wake)".format(filtered_waketime/1000.0, filtered_waketime/wakeups/1000.0))
+    else:
+        log.info("No confirmed wakeups")
+
     log.info("{:.2f}s total reject-saved waketime ({:.1f}%)".format(
         rejecttime/1000.0, 100*rejecttime/total_waketime))
     
     total_confirms = confirmed_wakeup_passes + false_negatives
     log.info("{} confirmed wakeup passes ({} %)".format(confirmed_wakeup_passes, 
-        100*confirmed_wakeup_passes/total_confirms))
+        100*confirmed_wakeup_passes/total_confirms if total_confirms > 0 else 0))
     log.info("{} false_negatives ({} %)".format(false_negatives, 
-        100*false_negatives/total_confirms))
+        100*false_negatives/total_confirms if total_confirms > 0 else 0))
      
     if args.plot_csums:
         fig = plt.figure()
@@ -463,6 +467,7 @@ def analyze_samples(samples):
         plt.scatter(xs, dzs)
         plt.show()
     
+    plt.show()
     return samples
 
 def analyze_streamed(f):
