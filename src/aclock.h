@@ -26,6 +26,7 @@ typedef struct aclock_state_t {
 
 //___ V A R I A B L E S ______________________________________________________
 
+aclock_state_t aclock_state;
 
 //___ P R O T O T Y P E S ____________________________________________________
 

@@ -38,7 +38,6 @@ void aclock_sync_ready_cb ( void );
 static struct rtc_module rtc_instance;
 
 static struct rtc_calendar_alarm_time alarm;
-static aclock_state_t global_state;
 
 //___ I N T E R R U P T S  ___________________________________________________
 
@@ -72,13 +71,13 @@ void rtc_alarm_short_callback( void ) {
 void aclock_sync_ready_cb ( void ) {
     struct rtc_calendar_time curr_time;
     rtc_calendar_get_time(&rtc_instance, &curr_time);
-    global_state.year = curr_time.year;
-    global_state.month = curr_time.month;
-    global_state.day = curr_time.day;
+    aclock_state.year = curr_time.year;
+    aclock_state.month = curr_time.month;
+    aclock_state.day = curr_time.day;
 
-    global_state.hour = curr_time.hour;
-    global_state.minute = curr_time.minute;
-    global_state.second = curr_time.second;
+    aclock_state.hour = curr_time.hour;
+    aclock_state.minute = curr_time.minute;
+    aclock_state.second = curr_time.second;
 
 
     /* ###continuous update doesn't seeem to be working so... */
@@ -98,9 +97,9 @@ void aclock_set_time( uint8_t hour, uint8_t minute, uint8_t second) {
 
 void aclock_get_time( uint8_t* hour_ptr, uint8_t* minute_ptr, uint8_t* second_ptr) {
 
-    *hour_ptr = global_state.hour;
-    *minute_ptr = global_state.minute;
-    *second_ptr = global_state.second;
+    *hour_ptr = aclock_state.hour;
+    *minute_ptr = aclock_state.minute;
+    *second_ptr = aclock_state.second;
 
 
 }
@@ -131,19 +130,20 @@ int32_t aclock_get_timestamp ( void ) {
   while (rtc_calendar_is_syncing(&rtc_instance));
   struct rtc_calendar_time curr_time;
   rtc_calendar_get_time(&rtc_instance, &curr_time);
-  global_state.year = curr_time.year;
-  global_state.month = curr_time.month;
-  global_state.day = curr_time.day;
-  global_state.hour = curr_time.hour;
-  global_state.minute = curr_time.minute;
-  global_state.second = curr_time.second;
+  aclock_state.year = curr_time.year;
+  aclock_state.month = curr_time.month;
+  aclock_state.day = curr_time.day;
+  aclock_state.hour = curr_time.hour;
+  aclock_state.minute = curr_time.minute;
+  aclock_state.second = curr_time.second;
+  aclock_state.pm = curr_time.pm;
 
-  int32_t value = ((uint32_t)global_state.year - 1970)*SECONDS_PER_YEAR;
+  int32_t value = ((uint32_t)aclock_state.year - 1970)*SECONDS_PER_YEAR;
 
   //account for extra day in leap years
-  value += ((uint32_t)(global_state.year - 1970)/4)*SECONDS_PER_DAY;
+  value += ((uint32_t)(aclock_state.year - 1970)/4)*SECONDS_PER_DAY;
 
-  switch (global_state.month) {
+  switch (aclock_state.month) {
     /* Each case accounts for the days of
      * the previous month */
     case 12:
@@ -175,10 +175,10 @@ int32_t aclock_get_timestamp ( void ) {
       break;
   }
 
-  value+=((uint32_t)global_state.day)*SECONDS_PER_DAY;
-  value+=((uint32_t)global_state.hour)*3600;
-  value+=((uint32_t)global_state.minute)*60;
-  value+=global_state.second;
+  value+=((uint32_t)aclock_state.day)*SECONDS_PER_DAY;
+  value+=((uint32_t)aclock_state.hour + aclock_state.pm ? 12 : 0)*3600;
+  value+=((uint32_t)aclock_state.minute)*60;
+  value+=aclock_state.second;
 
   return value;
 }
@@ -200,14 +200,29 @@ void aclock_init( void ) {
 
     /* Set current time */
     rtc_calendar_get_time_defaults(&initial_time);
-    initial_time.year   = global_state.year = __YEAR__;//2014;
-    initial_time.month  = global_state.month = __MONTH__;//10;
-    initial_time.day    =  global_state.day = __DAY__;//10;
+    
+    if (main_nvm_data.second < 60) {
+      /* Datetime has been saved in nvm */
+      initial_time.year   = aclock_state.year   = main_nvm_data.year;
+      initial_time.month  = aclock_state.month  = main_nvm_data.month; 
+      initial_time.day    = aclock_state.day    = main_nvm_data.day; 
+                                                 
+      initial_time.hour   = aclock_state.hour   = main_nvm_data.hour;
+      initial_time.minute = aclock_state.minute = main_nvm_data.minute;
+      initial_time.second = aclock_state.second = main_nvm_data.second;
+      initial_time.pm     = aclock_state.pm     = main_nvm_data.pm;
+    } else {
+      /* Use compile time flags for initial time if not configured in flash */
 
-    /* Use compile time for initial time */
-    initial_time.hour   = global_state.hour =  __HOUR__;//10*(__TIME__[0] - '0') +  (__TIME__[1] - '0');
-    initial_time.minute = global_state.minute = __MIN__;//10*(__TIME__[3] - '0') +  (__TIME__[4] - '0');
-    initial_time.second = global_state.second = __SEC__;//10*(__TIME__[6] - '0') +  (__TIME__[7] - '0') % 60;
+      initial_time.year   = aclock_state.year   = __YEAR__;
+      initial_time.month  = aclock_state.month  = __MONTH__;
+      initial_time.day    = aclock_state.day    = __DAY__;
+
+      initial_time.hour   = aclock_state.hour   =  __HOUR__;
+      initial_time.minute = aclock_state.minute = __MIN__;
+      initial_time.second = aclock_state.second = __SEC__;
+      initial_time.pm     = aclock_state.pm     = true; //We never work before noon anyway
+    }
 
     config_rtc_calendar.clock_24h = false;
     config_rtc_calendar.prescaler  = RTC_CALENDAR_PRESCALER_DIV_1024;

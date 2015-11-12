@@ -157,6 +157,8 @@ CSRCS += \
     src/asf/sam0/drivers/system/system.c                       	\
     src/asf/sam0/drivers/tc/tc.c			       	\
     src/asf/sam0/drivers/tc/tc_interrupt.c		       	\
+    src/asf/sam0/drivers/wdt/wdt.c			       	\
+    src/asf/sam0/drivers/wdt/wdt_callback.c		       	\
     src/asf/sam0/utils/cmsis/$(UCID)/source/gcc/startup_$(UCID).c \
     src/asf/sam0/utils/cmsis/$(UCID)/source/system_$(UCID).c   	\
     src/asf/sam0/utils/syscalls/gcc/syscalls.c
@@ -188,6 +190,7 @@ INC_PATH = \
     src/asf/sam0/drivers/system/interrupt/system_interrupt_$(UCID) \
     src/asf/sam0/drivers/system/pinmux                         \
     src/asf/sam0/drivers/tc	                               \
+    src/asf/sam0/drivers/wdt	                               \
     src/asf/sam0/utils                                         \
     src/asf/sam0/utils/cmsis/$(UCID)/include                    \
     src/asf/sam0/utils/cmsis/$(UCID)/source                     \
@@ -259,6 +262,7 @@ CPPFLAGS = \
        -D RTC_CALENDAR_ASYNC=true 		          \
        -D EXTINT_CALLBACK_MODE=true		          \
        -D EVENTS_INTERRUPT_HOOKS_MODE=false               \
+       -D WDT_CALLBACK_MODE=true                          \
        -D TC_ASYNC=true		 		          \
        -D SYSTICK_MODE                                    \
        -D $(PARTD)					  \

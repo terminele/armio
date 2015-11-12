@@ -288,7 +288,9 @@ bool clock_mode_tic ( event_flags_t event_flags ) {
     }
 
     /* Get latest time */
-    aclock_get_time(&hour, &minute, &second);
+    hour = aclock_state.hour;
+    minute = aclock_state.minute;
+    second = aclock_state.second;
 
     hour_fifths = minute/12;
     if (hour > 12) {

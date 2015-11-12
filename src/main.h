@@ -58,6 +58,15 @@ typedef struct {
     uint32_t lifetime_wakes; 
     uint32_t lifetime_ticks;
     uint32_t lifetime_resets;
+    uint16_t wdt_resets;
+    uint8_t  second;
+    uint8_t  minute;
+    uint8_t  hour;
+    bool     pm;
+    uint8_t  day;
+    uint8_t  month;
+    uint16_t year;
+
 } nvm_data_t;
 
 typedef struct {

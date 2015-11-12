@@ -78,12 +78,24 @@ static void setup_clock_pin_outputs( void );
    */
 #endif
 
+static void watchdog_early_warning_callback(void);
+  /* @brief gives us a chance to write time to flash before wdt timeout
+   * @param None
+   * @retrn None
+   */
+
+static void configure_wdt( void );
+  /* @brief configure watchdog timer
+   * @param None
+   * @retrn None
+   */
 
 static void prepare_sleep( void );
   /* @brief enter into standby sleep
    * @param None
    * @retrn None
    */
+
 static void wakeup( void );
   /* @brief wakeup from sleep (e.g. enable sleeping modules)
    * @param None
@@ -145,6 +157,7 @@ static struct adc_module light_vbatt_sens_adc;
 static uint32_t nvm_row_addr = NVM_LOG_ADDR_START;
 static uint8_t nvm_row_buffer[NVMCTRL_ROW_SIZE];
 static uint16_t nvm_row_ind;
+static struct wdt_conf config_wdt;
 
 nvm_data_t main_nvm_data;
 user_data_t main_user_data;
@@ -152,6 +165,53 @@ user_data_t main_user_data;
 bool _accel_confirmed = false; //FIXME -- REMOVEME
 
 //___ F U N C T I O N S   ( P R I V A T E ) __________________________________
+
+static void watchdog_early_warning_callback(void) {
+      main_nvm_data.year   = aclock_state.year;   
+      main_nvm_data.month  = aclock_state.month;  
+      main_nvm_data.day    = aclock_state.day;    
+                                               
+      main_nvm_data.hour   = aclock_state.hour;   
+      main_nvm_data.minute = aclock_state.minute;
+      main_nvm_data.second = aclock_state.second;
+      main_nvm_data.pm     = aclock_state.pm;     
+      
+      nvm_update_buffer(NVM_CONF_ADDR, (uint8_t *) &main_nvm_data, 0,
+             sizeof(nvm_data_t));
+}
+
+static void configure_wdt( void ) {
+	/* Create a new configuration structure for the Watchdog settings and fill
+	 * with the default module settings. */
+	wdt_get_config_defaults(&config_wdt);
+
+	/* Set the Watchdog configuration settings */
+	config_wdt.always_on            = false;
+	config_wdt.clock_source         = GCLK_GENERATOR_4;
+	config_wdt.early_warning_period = WDT_PERIOD_2048CLK; //~2s
+	config_wdt.timeout_period = WDT_PERIOD_4096CLK; //~4s
+
+	/* Initialize and enable the Watchdog with the user settings */
+	wdt_set_config(&config_wdt);
+	
+        wdt_register_callback(watchdog_early_warning_callback,
+		WDT_CALLBACK_EARLY_WARNING);
+}
+
+static void wdt_enable( void ) {
+      
+        config_wdt.enable = true;
+	wdt_set_config(&config_wdt);
+	wdt_enable_callback(WDT_CALLBACK_EARLY_WARNING);
+}
+
+static void wdt_disable( void ) {
+      
+        config_wdt.enable = false;
+	wdt_set_config(&config_wdt);
+	wdt_disable_callback(WDT_CALLBACK_EARLY_WARNING);
+}
+
 
 static void config_main_tc( void ) {
   struct tc_config config_tc;
@@ -206,7 +266,8 @@ static void setup_clock_pin_outputs( void ) {
 
 static void prepare_sleep( void ) {
   LOG_SLEEP();
-
+  
+  wdt_disable();
 
   if (light_vbatt_sens_adc.hw) {
     adc_disable(&light_vbatt_sens_adc);
@@ -225,6 +286,8 @@ static void prepare_sleep( void ) {
 
 static void wakeup (void) {
   
+  
+  wdt_enable();
   
   led_controller_enable();
   aclock_enable();
@@ -382,6 +445,12 @@ static void main_tic( void ) {
   main_gs.waketicks++;
 
   event_flags |= accel_event_flags();
+  
+  /* REMOVEME - WDT TEST */
+#warning REMOVE THIS SHIT
+  if (QCLICK(event_flags)) {
+    while(1);
+  }
 
   /* Reset inactivity if any button/click event occurs */
   if (IS_ACTIVITY_EVENT(event_flags)) {
@@ -578,6 +647,16 @@ static void main_init( void ) {
   } else {
       main_nvm_data.lifetime_resets++;
   }
+  
+  if (main_nvm_data.wdt_resets == 0xffff) {
+      main_nvm_data.wdt_resets = 0;
+  }
+  
+  enum system_reset_cause reset_cause = system_get_reset_cause();
+  if (reset_cause == SYSTEM_RESET_CAUSE_WDT) {
+      main_nvm_data.wdt_resets++;   
+  }
+
   nvm_update_buffer(NVM_CONF_ADDR, (uint8_t *) &main_nvm_data, 0,
           sizeof(nvm_data_t));
 }
@@ -767,8 +846,6 @@ uint8_t main_get_multipress_count( void ) {
 
 
 int main (void) {
-  PM_RCAUSE_Type rcause_bf;
-  uint32_t reset_cause;
 
   system_init();
   system_set_sleepmode(SYSTEM_SLEEPMODE_STANDBY);
@@ -782,20 +859,7 @@ int main (void) {
   display_init();
   anim_init();
   accel_init();
-
-  /* Log reset cause */
-  rcause_bf.reg = system_get_reset_cause();
-  if( rcause_bf.bit.POR || rcause_bf.bit.BOD12 || rcause_bf.bit.BOD33 ) {
-    /* TODO : jump into set time mode instead of general startup */
-  }
-  reset_cause = 0x000000FF & (uint32_t) rcause_bf.reg;
-  reset_cause |= 0xBADBAD00;
-#if LOG_USAGE
-  main_log_data((uint8_t *)&reset_cause, sizeof(uint32_t), true);
-
-  reset_cause = 0xABCD1234;
-  main_log_data((uint8_t *)&reset_cause, sizeof(uint32_t), true);
-#endif
+  configure_wdt();
 
   /* Errata 39.3.2 -- device may not wake up from
    * standby if nvm goes to sleep. Not needed
@@ -831,12 +895,13 @@ int main (void) {
         //    MS_IN_TICKS(15), MS_IN_TICKS(2000), true);
         sleep_wake_anim = anim_swirl(0, 5, MS_IN_TICKS(50), 120, true);
     } else {
-      /* A reset has occurred later in life - not good */
+      /* A reset has occurred later in life */
         sleep_wake_anim = anim_swirl(0, 5, MS_IN_TICKS(10), 30, false);
     }
   }
 
   system_interrupt_enable_global();
+  wdt_enable();
 
   while (1) {
     if (tc_get_status(&main_tc) & TC_STATUS_COUNT_OVERFLOW) {
@@ -844,6 +909,11 @@ int main (void) {
       main_tic();
       anim_tic();
       display_tic();
+      
+      if (main_gs.waketicks % 500 == 0) {
+        wdt_reset_count();
+      }
+
     }
   }
 }

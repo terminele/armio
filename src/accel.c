@@ -527,7 +527,9 @@ static void accel_isr(void) {
   delay_ms(200);
 #endif
   
-  
+  _led_on_full(15*click_flags.ia);// + 30*int_flags.ia + 5*int_flags.zh);
+  delay_ms(10);
+  _led_off_full(15*click_flags.ia);// + 30*int_flags.ia + 5*int_flags.zh);
   
   extint_chan_clear_detected(AX_INT1_CHAN);
 
@@ -537,15 +539,14 @@ static void accel_isr(void) {
     uint8_t dummy;
     extint_chan_clear_detected(AX_INT1_CHAN);
     accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &dummy);
-    _led_on_full(15*click_flags.ia + 30*int_flags.ia + 5*int_flags.zh);
-    delay_ms(5);
-    _led_off_full(15*click_flags.ia + 30*int_flags.ia + 5*int_flags.zh);
+    accel_register_consecutive_read(AX_REG_CLICK_SRC, 1, &dummy);
     i+=1;
 
     if (i > 30) {
       /* ### HACK to guard against unreleased AX interrupt */
       accel_register_write (AX_REG_CTL3,  0);
       accel_register_write (AX_REG_CTL3,  I1_CLICK_EN);
+      
       _led_on_full(45);
       delay_ms(100);
       _led_off_full(45);
