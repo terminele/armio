@@ -446,12 +446,6 @@ static void main_tic( void ) {
 
   event_flags |= accel_event_flags();
   
-  /* REMOVEME - WDT TEST */
-#warning REMOVE THIS SHIT
-  if (QCLICK(event_flags)) {
-    while(1);
-  }
-
   /* Reset inactivity if any button/click event occurs */
   if (IS_ACTIVITY_EVENT(event_flags)) {
      main_gs.inactivity_ticks = 0;
