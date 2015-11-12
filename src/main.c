@@ -39,7 +39,7 @@
 /* Starting flash address at which to store data */
 #define NVM_ADDR_START      ((1 << 15) + (1 << 14) + (1 << 13)) /* assumes program size < 56KB */
 #define NVM_CONF_ADDR       NVM_ADDR_START
-#define NVM_CONF_STORE_SIZE NVMCTRL_ROW_SIZE
+#define NVM_CONF_STORE_SIZE NVMCTRL_ROW_SIZE //256 bytes
 #define NVM_LOG_ADDR_START  (NVM_ADDR_START + NVM_CONF_STORE_SIZE)
 #define NVM_LOG_ADDR_MAX    NVM_MAX_ADDR
 
@@ -445,7 +445,7 @@ static void main_tic( void ) {
   main_gs.waketicks++;
 
   event_flags |= accel_event_flags();
-  
+
   /* Reset inactivity if any button/click event occurs */
   if (IS_ACTIVITY_EVENT(event_flags)) {
      main_gs.inactivity_ticks = 0;

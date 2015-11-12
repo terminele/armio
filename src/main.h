@@ -62,10 +62,10 @@ typedef struct {
     uint8_t  second;
     uint8_t  minute;
     uint8_t  hour;
-    bool     pm;
     uint8_t  day;
     uint8_t  month;
     uint16_t year;
+    bool     pm;
 
 } nvm_data_t;
 
