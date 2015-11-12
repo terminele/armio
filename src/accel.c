@@ -527,10 +527,11 @@ static void accel_isr(void) {
   delay_ms(200);
 #endif
   
-  _led_on_full(15*click_flags.ia);// + 30*int_flags.ia + 5*int_flags.zh);
-  delay_ms(10);
-  _led_off_full(15*click_flags.ia);// + 30*int_flags.ia + 5*int_flags.zh);
-  
+  if (click_flags.ia) {
+    _led_on_full(15); //*click_flags.ia);// + 30*int_flags.ia + 5*int_flags.zh);
+    delay_ms(10);
+    _led_off_full(15);//*click_flags.ia);// + 30*int_flags.ia + 5*int_flags.zh);
+  } 
   extint_chan_clear_detected(AX_INT1_CHAN);
 
   /* Wait for accelerometer to release interrupt */
@@ -542,10 +543,15 @@ static void accel_isr(void) {
     accel_register_consecutive_read(AX_REG_CLICK_SRC, 1, &dummy);
     i+=1;
 
-    if (i > 30) {
+    if (i > 1000) {
       /* ### HACK to guard against unreleased AX interrupt */
       accel_register_write (AX_REG_CTL3,  0);
       accel_register_write (AX_REG_CTL3,  I1_CLICK_EN);
+      accel_register_write (AX_REG_CLICK_CFG, X_DCLICK);
+      accel_register_write (AX_REG_CLICK_THS, WAKEUP_CLICK_THS);
+      accel_register_write (AX_REG_TIME_WIN, WAKEUP_CLICK_TIME_WIN);
+      accel_register_write (AX_REG_TIME_LIM, WAKEUP_CLICK_TIME_LIM);
+      accel_register_write (AX_REG_TIME_LAT, WAKEUP_CLICK_TIME_LAT);
       
       _led_on_full(45);
       delay_ms(100);
@@ -894,13 +900,13 @@ void accel_enable ( void ) {
   accel_register_write (AX_REG_CTL5, LIR_INT1 | FIFO_EN);
 
   /* Disable sleep activity threshold and duration */
-  if (!accel_register_write (AX_REG_ACT_THS, DEEP_SLEEP_THS)) {
-      main_terminate_in_error( error_group_accel, ACCEL_ERROR_WRITE_EN );
-  }
+  //if (!accel_register_write (AX_REG_ACT_THS, DEEP_SLEEP_THS)) {
+  //    main_terminate_in_error( error_group_accel, ACCEL_ERROR_WRITE_EN );
+  //}
 
-  if (!accel_register_write (AX_REG_ACT_DUR, DEEP_SLEEP_DUR)) {
-      main_terminate_in_error( error_group_accel, ACCEL_ERROR_WRITE_EN );
-  }
+  //if (!accel_register_write (AX_REG_ACT_DUR, DEEP_SLEEP_DUR)) {
+  //    main_terminate_in_error( error_group_accel, ACCEL_ERROR_WRITE_EN );
+  //}
 
 }
 
