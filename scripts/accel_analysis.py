@@ -308,7 +308,7 @@ def analyze_samples(samples):
     sigma_xs = []
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    for (i, sample) in enumerate(samples[:64]):
+    for (i, sample) in enumerate(samples):
         xs = sample.xs
         ys = sample.ys
         zs = sample.zs
