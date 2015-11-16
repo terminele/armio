@@ -282,8 +282,8 @@ bool clock_mode_tic ( event_flags_t event_flags ) {
     
     if (NCLICK(event_flags, 5) || \
         NCLICK(event_flags, 6) || 
-        NCLICK(event_flags, 7) ||
-        NCLICK(event_flags, 8)) {
+        NCLICK(event_flags, 8) ||
+        NCLICK(event_flags, 9)) {
       goto finish;
     }
 
@@ -413,8 +413,8 @@ finish:
         control_mode_set(CONTROL_MODE_SET_TIME);
         accel_events_clear();
     }
-    else if (NCLICK(event_flags, 7) || \
-        NCLICK(event_flags, 8)) {
+    else if (NCLICK(event_flags, 8) || \
+        NCLICK(event_flags, 9)) {
         control_mode_set(CONTROL_MODE_SELECTOR);
         accel_events_clear();
     }
