@@ -232,7 +232,7 @@
 #define Z_DOWN_DUR_ODR          MS_TO_ODRS(Z_DOWN_DUR_MS, SLEEP_SAMPLE_INT)
 
 /* Y_DOWN */
-#define XY_DOWN_THRESHOLD        25//-10 //assumes 4g scale
+#define XY_DOWN_THRESHOLD        10//-10 //assumes 4g scale
 #define XY_DOWN_DUR_MS           50
 //#define Y_DOWN_THRESHOLD        -18 //assumes 4g scale
 //#define Y_DOWN_DUR_MS           200
@@ -250,8 +250,8 @@
  * the sum of the last N z-values should exced DZ_THS
  * (i.e. face moves from vertical to  horizontal)
  */
-#define Y_SUM_N  8
-#define Y_SUM_THS_HIGH 210
+#define Y_SUM_N  9
+#define Y_SUM_THS_HIGH 240
 #define Y_SUM_THS_LOW 180
 #define DZ_N    11
 #define DZ_THS 110
@@ -264,6 +264,8 @@
 #define X_SUM_N 5
 #define X_SUM_THS_LOW 90
 #define X_SUM_THS_HIGH 120
+
+#define XY_SUM_THS 140
 
 /* Filter #3 - if the y-value is greater than a certain threshold
  * in positive direction (6 o'clock down, wrist turned in towards body)
@@ -682,9 +684,15 @@ static void accel_wakeup_state_refresh(void) {
       /* "Facing inwards" filter */
       _DISP_INFO(30);
       wake_gesture_state = WAKE_TURN_UP;
+    } else if (csums[31][1] - csums[26][1] > 20 ||
+               csums[31][1] - csums[22][1]){ //overshoot towards body 
+      wake_gesture_state = WAKE_TURN_UP;
+    } else if (ABS(csums[Y_SUM_N][1]) + ABS(csums[X_SUM_N][0]) > XY_SUM_THS){
+      wake_gesture_state = WAKE_TURN_UP;
+    }
 #define DEBUG_FILTERS
 #ifdef DEBUG_FILTERS
-    } else {
+     else {
       
       if (ABS(csums[Y_SUM_N][1]) >= Y_SUM_THS_LOW) {
         _BLINK(30);
@@ -697,8 +705,8 @@ static void accel_wakeup_state_refresh(void) {
         _BLINK(5);
       }
       _BLINK(43);
+     }
 #endif
-    }
 #else
       wake_gesture_state = WAKE_TURN_UP;
 #endif
