@@ -306,8 +306,6 @@ def analyze_samples(samples):
     sigma_ys = []
     sigma_ys_rev = []
     sigma_xs = []
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
     for (i, sample) in enumerate(samples):
         xs = sample.xs
         ys = sample.ys
@@ -339,6 +337,8 @@ def analyze_samples(samples):
         if args.plot_all or (wakeup_check_pass and args.plot_passes) or \
                 (not wakeup_check_pass and args.plot_rejects) or \
                 (args.plot_false_negatives and sample.is_false_negative()):
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
             log.debug("plotting {} with xsum_n {}: ysum_n: {}  zsum_n: {} dy_10: {} dz12: {}".format(uid,
                 xsum_n, ysum_n, zsum_n, sum(ys[:-11:-1]), delta_z_12))
             plt.title("sample {}: pass={} confirmed={} xN={} yN={} dzN={}".format(i, 
@@ -357,7 +357,7 @@ def analyze_samples(samples):
             ax.set_xlim([0, len(xs)])
             ax.set_ylim([-60, 60])
 
-            #plt.show()
+            plt.show()
 
         sigma_zs.append(np.cumsum(zs))
         sigma_zs_rev.append(np.cumsum(zs[::-1]))
@@ -467,7 +467,6 @@ def analyze_samples(samples):
         plt.scatter(xs, dzs)
         plt.show()
     
-    plt.show()
     return samples
 
 def analyze_streamed(f):
