@@ -256,7 +256,7 @@ ctrl_mode_t control_modes[] = {
     }
 };
 
-static uint32_t disp_vals[5];
+static uint32_t disp_vals[7];
 
 /* Ticks since entering current mode */
 static uint32_t modeticks = 0;
@@ -614,7 +614,9 @@ bool ee_mode_tic ( event_flags_t event_flags ) {
                 disp_vals[2] =  833462648UL;
                 disp_vals[3] =  882059723UL;
                 disp_vals[4] =  939617914UL;
-
+                disp_vals[5] =  0;
+                disp_vals[6] =  0;
+                
                 ee_submode_tic = digit_disp_mode_tic;
                 break;
             case 2:
@@ -623,24 +625,30 @@ bool ee_mode_tic ( event_flags_t event_flags ) {
                 disp_vals[2] =  747820635UL;
                 disp_vals[3] =  942662531UL;
                 disp_vals[4] =  907427577UL;
+                disp_vals[5] =  0;
+                disp_vals[6] =  0;
 
                 ee_submode_tic = digit_disp_mode_tic;
                 break;
-            case 7:
+            case 21:
                 disp_vals[0] =  108030918UL;
                 disp_vals[1] =  1802000418UL;
                 disp_vals[2] =  140125UL;
                 disp_vals[3] =  0;
                 disp_vals[4] =  0;
+                disp_vals[5] =  0;
+                disp_vals[6] =  0;
 
                 ee_submode_tic = char_disp_mode_tic;
                 break;
-            case 8:
+            case 86:
                 disp_vals[0] =  9035768;
                 disp_vals[1] =  0;
                 disp_vals[2] =  0;
                 disp_vals[3] =  0;
                 disp_vals[4] =  0;
+                disp_vals[5] =  0;
+                disp_vals[6] =  0;
                 ee_submode_tic = digit_disp_mode_tic;
                 break;
             case 1:
@@ -1175,7 +1183,7 @@ bool util_control_main_tic ( event_flags_t event_flags ) {
 
 bool char_disp_mode_tic ( event_flags_t event_flags ) {
 #define CHARS_PER_UINT32  5UL
-#define MAX_CHARS               25UL
+#define MAX_CHARS               35UL
     static display_comp_t *char_disp_ptr = NULL;
     static uint32_t char_idx = 0;
     static uint32_t val = 0;
