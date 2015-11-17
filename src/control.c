@@ -427,7 +427,6 @@ bool selector_mode_tic( event_flags_t event_flags ) {
     static display_comp_t *all_disp_ptr = NULL;
     static animation_t *mode_trans_blink = NULL;
     static uint8_t selected_mode = CONTROL_MODE_SHOW_TIME;
-    static enum {SELECTION, ANIM_SWIRL, ANIM_BLINK} state = SELECTION;
     
     if (accel_slow_click_cnt == 0 && modeticks > MS_IN_TICKS(3000)) {
       goto finish;
@@ -552,116 +551,64 @@ bool swirl_mode_tic( event_flags_t event_flags ) {
 bool ee_mode_tic ( event_flags_t event_flags ) {
     static display_comp_t* display_comp = NULL;
     static animation_t *anim = NULL;
-    static uint32_t ee_code = 0;
-    static uint32_t run_cnt = 0;
-    static uint32_t last_ev_tick = 0;
-    uint32_t last_tic_delta = 0;
     static tic_fun_t ee_submode_tic = NULL;
+    static enum {SELECTING, BLINKING, EE} phase = SELECTING;
+    static uint8_t selection = 0;
+    int8_t pos;
+    uint16_t blink_int;
 
     if ( event_flags & EV_FLAG_SLEEP ) {
       goto finish;
     }
-    
-    if (ee_submode_tic == NULL) {
-      if (!display_comp) {
-        /* Display ee mode start animation */
-        display_comp = display_point(0, BRIGHT_DEFAULT);
-        anim = anim_random(display_comp, MS_IN_TICKS(15), ANIMATION_DURATION_INF, false);
-        /* initialize last tic to prevent events from being counted too early */
-        last_ev_tick = modeticks;
-        //display_comp = display_polygon(0, BRIGHT_DEFAULT, 3);
-        //anim = anim_blink(display_comp, MS_IN_TICKS(400),
-        //                ANIMATION_DURATION_INF, false);
-        return false;
-      }
+
+    if (phase == SELECTING && event_flags & EV_FLAG_ACCEL_SLOW_CLICK_END) {
+        selection = accel_slow_click_cnt;
+        phase = BLINKING; 
+        if (!anim) {
+            display_comp = display_point(selection, BRIGHT_DEFAULT);
+            anim = anim_blink(display_comp, BLINK_INT_FAST, MS_IN_TICKS(800), false);
+        }
+        accel_events_clear();
+        main_inactivity_timeout_reset();
     }
 
-  #ifdef NOT_NOW
-    last_tic_delta = modeticks - last_ev_tick;
-
-    /* When still waiting for event run detection to end */
-    if (last_tic_delta < EE_RUN_TIMEOUT_TICKS &&
-        last_tic_delta > EE_RUN_MIN_INTERTICK) {
-        switch (event_flags) {
-            case EV_FLAG_ACCEL_SCLICK_X:
-                ee_code+=(0x1 << 4*run_cnt);
-                run_cnt++;
-                last_ev_tick = modeticks;
-                break;
-            case EV_FLAG_ACCEL_DCLICK_X:
-                ee_code+=(0x2 << 4*run_cnt);
-                run_cnt++;
-                last_ev_tick = modeticks;
-                break;
-            case EV_FLAG_ACCEL_TCLICK_X:
-                ee_code+=(0x3 << 4*run_cnt);
-                run_cnt++;
-                last_ev_tick = modeticks;
-                break;
-            case EV_FLAG_ACCEL_QCLICK_X:
-                ee_code+=(0x4 << 4*run_cnt);
-                run_cnt++;
-                last_ev_tick = modeticks;
-                break;
-            case EV_FLAG_ACCEL_5CLICK_X:
-                ee_code+=(0x5 << 4*run_cnt);
-                run_cnt++;
-                last_ev_tick = modeticks;
-                break;
-            case EV_FLAG_ACCEL_6CLICK_X:
-                ee_code+=(0x6 << 4*run_cnt);
-                run_cnt++;
-                last_ev_tick = modeticks;
-                break;
-            case EV_FLAG_ACCEL_7CLICK_X:
-                ee_code+=(0x7 << 4*run_cnt);
-                run_cnt++;
-                last_ev_tick = modeticks;
-                break;
-            case EV_FLAG_ACCEL_8CLICK_X:
-                ee_code+=(0x8 << 4*run_cnt);
-                run_cnt++;
-                last_ev_tick = modeticks;
-                break;
-            case EV_FLAG_ACCEL_9CLICK_X:
-                ee_code+=(0xA << 4*run_cnt);
-                run_cnt++;
-                last_ev_tick = modeticks;
-                break;
-
-        }
-
-        return false;
-    } else if (last_tic_delta == EE_RUN_TIMEOUT_TICKS) {
-        uint16_t tick_interval = ee_code > 0 ? MS_IN_TICKS(10 + 200/ee_code) : 1;
-        uint32_t duration = ee_code < 120 && ee_code > 0 ? tick_interval*ee_code : 1;
-
-        /* At end of event run detection. Start EE indicator animation */
-        anim_release(anim);
-        display_comp_show(display_comp);
-        anim = anim_rotate(display_comp, true, tick_interval, duration);
-        main_inactivity_timeout_reset();
-        set_ee_sleep_timeout(MS_IN_TICKS(2000) + duration);
-
-    } else if (last_tic_delta > EE_RUN_TIMEOUT_TICKS
-            && anim && anim_is_finished(anim)) {
-        /* EE code indicator has finished.  Figure out
-         * corresponding ee code behavior if any */
-        uint8_t pos = 0;
-        uint16_t blink_int = MS_IN_TICKS(800);
-
-        main_inactivity_timeout_reset();
-        set_ee_sleep_timeout(EE_MODE_SLEEP_TIMEOUT_TICKS);
+    if (phase == BLINKING && anim_is_finished(anim)) {
+        phase = EE;
         /* Cleanup transition animation */
         display_comp_release(display_comp);
         display_comp = NULL;
         anim_release(anim);
         anim = NULL;
-
+        main_inactivity_timeout_reset();
+        set_ee_sleep_timeout(EE_MODE_SLEEP_TIMEOUT_TICKS);
+   
         /* Setup EE depending on code */
-        switch (ee_code) {
-            case 0x413:
-            case 0x13:
+        switch (selection) {
+            case 3:
+                display_comp = display_polygon(0, BRIGHT_DEFAULT, 3);
+                anim = anim_rotate(display_comp, true, MS_IN_TICKS(30), ANIMATION_DURATION_INF);
+                break;
+            case 4:
+                display_comp = display_polygon(0, BRIGHT_DEFAULT, 4);
+                anim = anim_rotate(display_comp, true, MS_IN_TICKS(50), ANIMATION_DURATION_INF);
+                break;
+            case 5:
+                display_comp = display_polygon(0, BRIGHT_DEFAULT, 5);
+                anim = anim_rotate(display_comp, false, MS_IN_TICKS(50), ANIMATION_DURATION_INF);
+                break;
+            case 6:
+                display_comp = display_polygon(0, BRIGHT_DEFAULT, 6);
+                anim = anim_rotate(display_comp, false, MS_IN_TICKS(50), ANIMATION_DURATION_INF);
+                break;
+            case 10:
+                display_comp = display_polygon(0, BRIGHT_DEFAULT, 10);
+                anim = anim_rotate(display_comp, false, MS_IN_TICKS(50), ANIMATION_DURATION_INF);
+                break;
+            case 12:
+                display_comp = display_polygon(0, BRIGHT_DEFAULT, 12);
+                anim = anim_rotate(display_comp, false, MS_IN_TICKS(50), ANIMATION_DURATION_INF);
+                break;
+            case 14:
                 disp_vals[0] =  562951413UL;
                 disp_vals[1] =  323979853UL;
                 disp_vals[2] =  833462648UL;
@@ -670,7 +617,7 @@ bool ee_mode_tic ( event_flags_t event_flags ) {
 
                 ee_submode_tic = digit_disp_mode_tic;
                 break;
-            case 0x72:
+            case 2:
                 disp_vals[0] =  281828172UL;
                 disp_vals[1] =  325409548UL;
                 disp_vals[2] =  747820635UL;
@@ -679,7 +626,7 @@ bool ee_mode_tic ( event_flags_t event_flags ) {
 
                 ee_submode_tic = digit_disp_mode_tic;
                 break;
-            case 0x43:
+            case 7:
                 disp_vals[0] =  108030918UL;
                 disp_vals[1] =  1802000418UL;
                 disp_vals[2] =  140125UL;
@@ -688,35 +635,18 @@ bool ee_mode_tic ( event_flags_t event_flags ) {
 
                 ee_submode_tic = char_disp_mode_tic;
                 break;
-            case 0x68:
+            case 8:
                 disp_vals[0] =  9035768;
                 disp_vals[1] =  0;
                 disp_vals[2] =  0;
                 disp_vals[3] =  0;
                 disp_vals[4] =  0;
-
                 ee_submode_tic = digit_disp_mode_tic;
                 break;
-            case 0x2:
+            case 1:
                 ee_submode_tic = tick_counter_mode_tic;
                 break;
-            case 0x3:
-                display_comp = display_polygon(0, BRIGHT_DEFAULT, 3);
-                anim = anim_rotate(display_comp, true, MS_IN_TICKS(30), ANIMATION_DURATION_INF);
-                break;
-            case 0x4:
-                display_comp = display_polygon(0, BRIGHT_DEFAULT, 4);
-                anim = anim_rotate(display_comp, true, MS_IN_TICKS(50), ANIMATION_DURATION_INF);
-                break;
-            case 0x5:
-                display_comp = display_polygon(0, BRIGHT_DEFAULT, 5);
-                anim = anim_rotate(display_comp, false, MS_IN_TICKS(50), ANIMATION_DURATION_INF);
-                break;
-            case 0x6:
-                display_comp = display_polygon(0, BRIGHT_DEFAULT, 12);
-                anim = anim_rotate(display_comp, false, MS_IN_TICKS(50), ANIMATION_DURATION_INF);
-                break;
-            case 0x53:
+            case 9:
                 if (main_nvm_data.rtc_freq_corr >= 0) {
                     pos = main_nvm_data.rtc_freq_corr % 60;
                     blink_int = MS_IN_TICKS(800);
@@ -739,11 +669,8 @@ bool ee_mode_tic ( event_flags_t event_flags ) {
                 break;
                 //return true;
         }
-            ee_code = 0;
+            selection = 0;
     }
-
-
-#endif
 
    if (ee_submode_tic) {
       if(ee_submode_tic(event_flags)) {
@@ -766,13 +693,12 @@ finish:
         display_comp = NULL;
     }
 
+    
     /* Give submode tic a chance to cleanup as well */
     if (ee_submode_tic) ee_submode_tic(event_flags);
 
-    ee_code = 0;
-    run_cnt = 0;
-    last_ev_tick = 0;
     ee_submode_tic = NULL;
+    phase = SELECTING;
 
     set_ee_sleep_timeout(EE_MODE_SLEEP_TIMEOUT_TICKS);
 
@@ -1256,11 +1182,9 @@ bool char_disp_mode_tic ( event_flags_t event_flags ) {
     static uint32_t divisor = 1;
     static uint32_t last_update_tic = 0;
 
-    set_ee_sleep_timeout(MS_IN_TICKS(20000));
+    set_ee_sleep_timeout(MS_IN_TICKS(30000));
 
-
-    if ( event_flags & EV_FLAG_SLEEP ||
-         accel_fast_click_cnt > 3) {
+    if (DEFAULT_MODE_TRANS_CHK(event_flags)) {
       goto finish;
     }
 
@@ -1315,8 +1239,7 @@ bool digit_disp_mode_tic ( event_flags_t event_flags ) {
 
 
 
-    if ( event_flags & EV_FLAG_SLEEP ||
-         accel_fast_click_cnt > 3) {
+    if (DEFAULT_MODE_TRANS_CHK(event_flags)) {
       goto finish;
     }
 
