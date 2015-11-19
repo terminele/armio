@@ -185,16 +185,16 @@ ctrl_mode_t control_modes[] = {
     {
         /* UTIL MODE #1 */
         .enter_cb = NULL,
-        .tic_cb = vbatt_sense_mode_tic,
-        .sleep_timeout_ticks = MS_IN_TICKS(15000),
+        .tic_cb = light_sense_mode_tic,
+        .sleep_timeout_ticks = MS_IN_TICKS(30000),
         .about_to_sleep_cb = NULL,
         .wakeup_cb = NULL,
     },
     {
         /* UTIL MODE #2 */
         .enter_cb = NULL,
-        .tic_cb = light_sense_mode_tic,
-        .sleep_timeout_ticks = MS_IN_TICKS(30000),
+        .tic_cb = vbatt_sense_mode_tic,
+        .sleep_timeout_ticks = MS_IN_TICKS(15000),
         .about_to_sleep_cb = NULL,
         .wakeup_cb = NULL,
     },
@@ -687,7 +687,13 @@ bool ee_mode_tic ( event_flags_t event_flags ) {
       }
     }
 
-    return false;
+   if (phase == EE) {
+        if (DEFAULT_MODE_TRANS_CHK(event_flags)) {
+            goto finish;
+        }
+   }
+
+   return false;
 
 finish:
 
