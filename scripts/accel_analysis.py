@@ -470,11 +470,13 @@ def analyze_samples(samples):
     return samples
 
 def analyze_streamed(f):
+    f.seek(0x80) # skip usage data block
     binval = f.read(4)
     #skip any leading 0xffffff bytes
     while struct.unpack("<I", binval)[0] == 0xffffffff:
         binval = f.read(4)
-
+    
+    t_offset = 0
     ts = []
     xs = []
     zs = []
@@ -483,6 +485,11 @@ def analyze_streamed(f):
             break
 
         (z,x,t) = struct.unpack("<bbH", binval)
+        t+=t_offset
+        if len(ts) > 1 and t < ts[-1]:
+            t += 2**16 - 1 
+            t_offset += 2**16 - 1 
+        
         ts.append(t)
         xs.append(x)
         zs.append(z)
@@ -501,7 +508,7 @@ def analyze_streamed(f):
 samples = []
 if __name__ == "__main__":
     global write_csv, args, samples
-    log.basicConfig(level = log.INFO)
+    log.basicConfig(level = log.DEBUG)
     parser = argparse.ArgumentParser(description='Analyze an accel log dump')
     parser.add_argument('dumpfiles', nargs='+')
     parser.add_argument('-f', '--fifo', action='store_true', default=True)
@@ -516,7 +523,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     write_csv = args.write_csv
     
-    if args.fifo:
+    if not args.streamed and args.fifo:
         samples = []
         for fname in args.dumpfiles:
             samples.extend(parse_fifo(fname))
