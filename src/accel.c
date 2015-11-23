@@ -129,7 +129,8 @@
 
 /* CTRL_REG2 */
 #define HPCLICK     0x04
-#define HPCF        0x10
+#define HPCF        0x00
+#define HPMS_NORM   0x10
 
 /* CTRL_REG3 */
 #define I1_CLICK_EN 0x80
@@ -214,9 +215,9 @@
 #define DEEP_SLEEP_DUR       MS_TO_ODRS(1000, SLEEP_SAMPLE_INT)
 
 #define WAKEUP_CLICK_THS     60 //assumes 4g scale
-#define WAKEUP_CLICK_TIME_WIN      MS_TO_ODRS(400, SLEEP_SAMPLE_INT)
-#define WAKEUP_CLICK_TIME_LIM      MS_TO_ODRS(30, SLEEP_SAMPLE_INT)
-#define WAKEUP_CLICK_TIME_LAT      MS_TO_ODRS(100, SLEEP_SAMPLE_INT) //ms
+#define WAKEUP_CLICK_TIME_WIN      MS_TO_ODRS(200, SLEEP_SAMPLE_INT)
+#define WAKEUP_CLICK_TIME_LIM      MS_TO_ODRS(20, SLEEP_SAMPLE_INT)
+#define WAKEUP_CLICK_TIME_LAT      MS_TO_ODRS(120, SLEEP_SAMPLE_INT) //ms
 
 #define FAST_CLICK_WINDOW_MS 350
 #define SLOW_CLICK_WINDOW_MS 1800
@@ -549,7 +550,7 @@ static void accel_isr(void) {
       /* ### HACK to guard against unreleased AX interrupt */
       accel_register_write (AX_REG_CTL3,  0);
       accel_register_write (AX_REG_CTL3,  I1_CLICK_EN);
-      accel_register_write (AX_REG_CLICK_CFG, X_DCLICK);
+      accel_register_write (AX_REG_CLICK_CFG, X_DCLICK | Z_DCLICK);
       accel_register_write (AX_REG_CLICK_THS, WAKEUP_CLICK_THS);
       accel_register_write (AX_REG_TIME_WIN, WAKEUP_CLICK_TIME_WIN);
       accel_register_write (AX_REG_TIME_LIM, WAKEUP_CLICK_TIME_LIM);
@@ -849,8 +850,16 @@ bool accel_wakeup_check( void ) {
   } else if (wake_gesture_state == WAKE_DCLICK) {
     accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS );
     accel_data_read(&x, &y, &z);
+    
+    if (z >= 12) {
+      should_wakeup = true;
+    } else {
+      _led_on_full(31);
+      delay_ms(10);
+      _led_off_full(31);
 
-    should_wakeup = true;
+    }
+
   }
 
   return should_wakeup;
@@ -899,22 +908,22 @@ void accel_enable ( void ) {
   accel_register_write (AX_REG_CTL3, I1_CLICK_EN);
 
   /* Enable High Pass filter for Clicks */
-  accel_register_write (AX_REG_CTL2, HPCLICK | HPCF);
+  accel_register_write (AX_REG_CTL2, HPCLICK | HPCF | HPMS_NORM);
 
   /* Disable FIFO mode */
-  accel_register_write (AX_REG_FIFO_CTL,  FIFO_BYPASS );
+  accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS );
 
   /* Latch interrupts and enable FIFO */
   accel_register_write (AX_REG_CTL5, LIR_INT1 | FIFO_EN);
 
-  /* Disable sleep activity threshold and duration */
-  //if (!accel_register_write (AX_REG_ACT_THS, DEEP_SLEEP_THS)) {
-  //    main_terminate_in_error( error_group_accel, ACCEL_ERROR_WRITE_EN );
-  //}
+  /* Enable sleep-to-wake by setting activity threshold and duration */
+  if (!accel_register_write (AX_REG_ACT_THS, DEEP_SLEEP_THS)) {
+      main_terminate_in_error( error_group_accel, ACCEL_ERROR_WRITE_EN );
+  }
 
-  //if (!accel_register_write (AX_REG_ACT_DUR, DEEP_SLEEP_DUR)) {
-  //    main_terminate_in_error( error_group_accel, ACCEL_ERROR_WRITE_EN );
-  //}
+  if (!accel_register_write (AX_REG_ACT_DUR, DEEP_SLEEP_DUR)) {
+      main_terminate_in_error( error_group_accel, ACCEL_ERROR_WRITE_EN );
+  }
 
 }
 
@@ -938,7 +947,7 @@ void accel_sleep ( void ) {
   /* Configure click parameters */
   /* Only x-axis double clicks should wake us up */
   accel_register_write (AX_REG_CTL3,  I1_CLICK_EN );
-  accel_register_write (AX_REG_CLICK_CFG, X_DCLICK);
+  accel_register_write (AX_REG_CLICK_CFG, X_DCLICK | Z_DCLICK);
   accel_register_write (AX_REG_CLICK_THS, WAKEUP_CLICK_THS);
   accel_register_write (AX_REG_TIME_WIN, WAKEUP_CLICK_TIME_WIN);
   accel_register_write (AX_REG_TIME_LIM, WAKEUP_CLICK_TIME_LIM);

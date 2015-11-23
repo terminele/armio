@@ -479,7 +479,7 @@ static void main_tic( void ) {
               sizeof(nvm_data_t));
         }
 
-#ifdef LOG_ACCEL
+#ifdef LOG_FIFO
         if (ax_fifo_depth == 32  
             && (_accel_confirmed || main_nvm_data.lifetime_wakes < 200)
 #ifdef LOG_CONFIRMED_ONLY 
@@ -547,14 +547,14 @@ static void main_tic( void ) {
 
           /* A sleep event has occurred */
           if (IS_CONTROL_MODE_SHOW_TIME() && TCLICK(event_flags)) {
-#ifdef LOG_ACCEL
+#ifdef LOG_FIFO
               _accel_confirmed = true;
 #else
               accel_wakeup_gesture_enabled = false;
 #endif
 
           } else {
-#ifdef LOG_ACCEL
+#ifdef LOG_FIFO
               _accel_confirmed = false;
 #else
               accel_wakeup_gesture_enabled = main_user_data.wake_gestures;
