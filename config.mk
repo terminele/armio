@@ -244,8 +244,16 @@ _DAY_=$(shell date '+%-d')
 _HOUR_=$(shell date '+%-I')
 _MIN_=$(shell date '+%-M')
 _SEC_=$(shell date '+%-S')
+_AMPM_=$(shell date '+%-P')
 
-$(info $(_YEAR_)-$(_MONTH_)-$(_DAY_)  $(_HOUR_):$(_MIN_):$(_SEC_)s)
+ifeq ($(_AMPM_), am)
+    _PM_=false
+else
+    _PM_=true
+endif
+
+$(info pm is $(_PM_))
+$(info $(_YEAR_)-$(_MONTH_)-$(_DAY_)  $(_HOUR_):$(_MIN_):$(_SEC_)s $(_AMPM_))
 
 # Extra flags to use when preprocessing.
 #
@@ -275,8 +283,10 @@ CPPFLAGS = \
        -D __HOUR__=$(_HOUR_)				  \
        -D __MIN__=$(_MIN_)				  \
        -D __SEC__=$(_SEC_)				  \
-       -D GESTURE_FILTERS=false				  \
+       -D __PM__=$(_PM_)				  \
+       -D GESTURE_FILTERS=true 			  	  
        #-D LOG_ACCEL					  \
+       #-D LOG_FIFO					  \
        #-D LOG_CONFIRMED_ONLY				  \
        #-D FLICKER_MIN_MODE
        #-D USE_WAKEUP_ALARM				  \

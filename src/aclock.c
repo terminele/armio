@@ -213,15 +213,14 @@ void aclock_init( void ) {
       initial_time.pm     = aclock_state.pm     = main_nvm_data.pm;
     } else {
       /* Use compile time flags for initial time if not configured in flash */
-
-      initial_time.year   = aclock_state.year   = __YEAR__;
-      initial_time.month  = aclock_state.month  = __MONTH__;
-      initial_time.day    = aclock_state.day    = __DAY__;
-
-      initial_time.hour   = aclock_state.hour   =  __HOUR__;
-      initial_time.minute = aclock_state.minute = __MIN__;
-      initial_time.second = aclock_state.second = __SEC__;
-      initial_time.pm     = aclock_state.pm     = true; //We never work before noon anyway
+      main_nvm_data.year   =  initial_time.year   = aclock_state.year   = __YEAR__;
+      main_nvm_data.month  =  initial_time.month  = aclock_state.month  = __MONTH__;
+      main_nvm_data.day    =  initial_time.day    = aclock_state.day    = __DAY__;
+                           
+      main_nvm_data.hour   =  initial_time.hour   = aclock_state.hour   =  __HOUR__;
+      main_nvm_data.minute =  initial_time.minute = aclock_state.minute = __MIN__;
+      main_nvm_data.second =  initial_time.second = aclock_state.second = __SEC__;
+      main_nvm_data.pm     =  initial_time.pm     = aclock_state.pm     = __PM__;
     }
 
     config_rtc_calendar.clock_24h = false;
