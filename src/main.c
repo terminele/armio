@@ -405,7 +405,6 @@ static bool wakeup_check( void ) {
 
     if (main_gs.deep_sleep_down_ctr >= DEEP_SLEEP_SEQ_DOWN_COUNT &&
         main_gs.deep_sleep_up_ctr >= DEEP_SLEEP_SEQ_UP_COUNT) {
-      main_gs.deep_sleep_mode = false;
       accel_wakeup_gesture_enabled = true;
       wake = true;
     } else {
@@ -508,6 +507,15 @@ static void main_tic( void ) {
     
         wakeup();
         
+        if (main_gs.deep_sleep_mode) {
+          /* We have now woken up from deep sleep mode so
+           * display a sparkle animation
+           */
+          main_gs.deep_sleep_mode = false;
+          sleep_wake_anim = anim_random(display_point(0, BRIGHT_DEFAULT), 
+              MS_IN_TICKS(15), MS_IN_TICKS(4000), true);
+        }
+
         if (ctrl_mode_active->wakeup_cb)
           ctrl_mode_active->wakeup_cb();
 
@@ -852,9 +860,7 @@ int main (void) {
   control_init();
   display_init();
   anim_init();
-  accel_init();
-  configure_wdt();
-
+  
   /* Errata 39.3.2 -- device may not wake up from
    * standby if nvm goes to sleep. Not needed
    * for revision D or later */
@@ -872,6 +878,9 @@ int main (void) {
   }
 
 #endif
+
+  accel_init();
+  configure_wdt();
 
 
   LOG_WAKEUP();
