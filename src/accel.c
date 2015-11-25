@@ -550,7 +550,7 @@ static void accel_isr(void) {
       /* ### HACK to guard against unreleased AX interrupt */
       accel_register_write (AX_REG_CTL3,  0);
       accel_register_write (AX_REG_CTL3,  I1_CLICK_EN);
-      accel_register_write (AX_REG_CLICK_CFG, X_DCLICK | Z_DCLICK);
+      accel_register_write (AX_REG_CLICK_CFG, X_DCLICK );
       accel_register_write (AX_REG_CLICK_THS, WAKEUP_CLICK_THS);
       accel_register_write (AX_REG_TIME_WIN, WAKEUP_CLICK_TIME_WIN);
       accel_register_write (AX_REG_TIME_LIM, WAKEUP_CLICK_TIME_LIM);
@@ -947,7 +947,7 @@ void accel_sleep ( void ) {
   /* Configure click parameters */
   /* Only x-axis double clicks should wake us up */
   accel_register_write (AX_REG_CTL3,  I1_CLICK_EN );
-  accel_register_write (AX_REG_CLICK_CFG, X_DCLICK | Z_DCLICK);
+  accel_register_write (AX_REG_CLICK_CFG, X_DCLICK );
   accel_register_write (AX_REG_CLICK_THS, WAKEUP_CLICK_THS);
   accel_register_write (AX_REG_TIME_WIN, WAKEUP_CLICK_TIME_WIN);
   accel_register_write (AX_REG_TIME_LIM, WAKEUP_CLICK_TIME_LIM);
