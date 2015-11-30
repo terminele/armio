@@ -213,6 +213,24 @@ static void wdt_disable( void ) {
 }
 
 
+static void configure_input(void) {
+    /* Configure our button as an input */
+  struct port_config pin_conf;
+  port_get_config_defaults(&pin_conf);
+  pin_conf.direction = PORT_PIN_DIR_INPUT;
+#ifdef ENABLE_BUTTON
+  port_pin_set_config(BUTTON_PIN, &pin_conf);
+
+  /* Enable interrupts for the button */
+  configure_extint();
+#endif
+
+  port_get_config_defaults(&pin_conf);
+  pin_conf.direction = PORT_PIN_DIR_OUTPUT;
+  port_pin_set_config(LIGHT_SENSE_ENABLE_PIN, &pin_conf);
+  port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, false);
+}
+
 static void config_main_tc( void ) {
   struct tc_config config_tc;
 
@@ -414,8 +432,8 @@ static bool wakeup_check( void ) {
     }
 
   } else {
-    /* we will assume to first dclick is face down so we
-     * don't need to bother wasting power reading accelerometer */
+    /* we will assume the first dclick is face down so we
+     * don't bother wasting power reading accelerometer */
     main_gs.deep_sleep_down_ctr = 1; 
     main_gs.deep_sleep_up_ctr = 0;
     accel_wakeup_gesture_enabled = false;
@@ -903,6 +921,7 @@ int main (void) {
     }
   }
 
+  configure_input();
   system_interrupt_enable_global();
   wdt_enable();
 
