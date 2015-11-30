@@ -282,8 +282,8 @@ bool clock_mode_tic ( event_flags_t event_flags ) {
     
     if (NCLICK(event_flags, 5) || \
         NCLICK(event_flags, 6) || 
-        NCLICK(event_flags, 8) ||
-        NCLICK(event_flags, 9)) {
+        NCLICK(event_flags, 9) ||
+        NCLICK(event_flags, 10)) {
       goto finish;
     }
 
@@ -413,8 +413,8 @@ finish:
         control_mode_set(CONTROL_MODE_SET_TIME);
         accel_events_clear();
     }
-    else if (NCLICK(event_flags, 8) || \
-        NCLICK(event_flags, 9)) {
+    else if (NCLICK(event_flags, 9) || \
+        NCLICK(event_flags, 10)) {
         control_mode_set(CONTROL_MODE_SELECTOR);
         accel_events_clear();
     }
@@ -653,6 +653,7 @@ bool ee_mode_tic ( event_flags_t event_flags ) {
                 break;
             case 1:
                 ee_submode_tic = tick_counter_mode_tic;
+                set_ee_sleep_timeout(MS_IN_TICKS(300000));
                 break;
             case 9:
                 if (main_nvm_data.rtc_freq_corr >= 0) {
@@ -849,10 +850,8 @@ bool light_sense_mode_tic ( event_flags_t event_flags ) {
     }
 
 
-
     adc_val = main_read_current_sensor(false);
     display_comp_update_pos(adc_pt, adc_light_value_scale(adc_val) % 60 );
-
 
     return false;
 }
@@ -1311,8 +1310,8 @@ uint8_t control_mode_count( void ) {
 }
 
 void control_tic( event_flags_t ev_flags) {
-  modeticks++;
   ctrl_mode_active->tic_cb(ev_flags);
+  modeticks++;
 }
 
 void control_init( void ) {
