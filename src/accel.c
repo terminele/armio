@@ -528,13 +528,13 @@ static void accel_isr(void) {
       5*int_flags.yl + 10*int_flags.yh + 
       17*int_flags.zl + 24*int_flags.zh);
   delay_ms(200);
-#endif
-  
   if (click_flags.ia) {
     _led_on_full(15); //*click_flags.ia);// + 30*int_flags.ia + 5*int_flags.zh);
     delay_ms(10);
     _led_off_full(15);//*click_flags.ia);// + 30*int_flags.ia + 5*int_flags.zh);
   } 
+#endif
+
   extint_chan_clear_detected(AX_INT1_CHAN);
 
   /* Wait for accelerometer to release interrupt */
