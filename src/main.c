@@ -878,6 +878,7 @@ int main (void) {
   control_init();
   display_init();
   anim_init();
+  accel_init();
   
   /* Errata 39.3.2 -- device may not wake up from
    * standby if nvm goes to sleep. Not needed
@@ -897,7 +898,6 @@ int main (void) {
 
 #endif
 
-  accel_init();
   configure_wdt();
 
 

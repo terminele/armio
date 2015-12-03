@@ -149,7 +149,7 @@ uint8_t adc_vbatt_value_scale ( uint16_t value ) {
 
     /* Full */
     if (value >= 3000) //> 3V --> 3/4*4096
-        return 0;
+        return 60;
 
     /* Greater than 3/4 full */
     if (value >= 2900) // ~2.9V 
