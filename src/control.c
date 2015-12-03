@@ -201,7 +201,7 @@ ctrl_mode_t control_modes[] = {
     {
         /* UTIL MODE #3 */
         .enter_cb = NULL,
-        .tic_cb = accel_point_mode_tic,
+        .tic_cb = gesture_toggle_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(15000),
         .about_to_sleep_cb = NULL,
         .wakeup_cb = NULL,
@@ -209,7 +209,7 @@ ctrl_mode_t control_modes[] = {
     {
         /* UTIL MODE #4 */
         .enter_cb = NULL,
-        .tic_cb = gesture_toggle_mode_tic,
+        .tic_cb = accel_point_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(15000),
         .about_to_sleep_cb = NULL,
         .wakeup_cb = NULL,
@@ -748,7 +748,7 @@ bool accel_mode_tic ( event_flags_t event_flags ) {
         return true;
     }
 
-    if (main_get_waketime_ms() - last_update_ms < 5) {
+    if (main_get_waketime_ms() - last_update_ms < 10) {
         return false;
     }
 
@@ -760,9 +760,9 @@ bool accel_mode_tic ( event_flags_t event_flags ) {
     }
 
     if (!disp_x) {
-        disp_x = display_line(20, BRIGHT_MED_LOW, 1);
-        disp_y = display_line(40, BRIGHT_MED_LOW, 1);
-        disp_z = display_line(0, BRIGHT_MED_LOW, 1);
+        disp_x = display_point(20, BRIGHT_MED_LOW);//, 1);
+     //   disp_y = display_point(40, BRIGHT_MED_LOW);//, 1);
+     //   disp_z = display_point(0, BRIGHT_MED_LOW);//, 1);
     }
 
     x = y = z = 0;
@@ -791,10 +791,13 @@ bool accel_mode_tic ( event_flags_t event_flags ) {
     y >>= 3;
     z >>= 3;
 
-    display_relative( disp_x, 20, x );
-    display_relative( disp_y, 40, y );
-    display_relative( disp_z, 0, z );
-
+//    display_relative( disp_x, 20, x );
+//    display_relative( disp_y, 40, y );
+//    display_relative( disp_z, 0, z );
+    
+    display_comp_update_pos(disp_x, 20 + x);
+    //display_comp_update_pos(disp_y, 40 + y);
+    //display_comp_update_pos(disp_z, z);
     return false;
 }
 bool accel_point_mode_tic ( event_flags_t event_flags ) {
@@ -1131,7 +1134,7 @@ bool tick_counter_mode_tic ( event_flags_t event_flags ) {
     static display_comp_t *sec_disp_ptr = NULL;
     static display_comp_t *tick_sec_disp_ptr = NULL;
 
-    set_ee_sleep_timeout(MS_IN_TICKS(10000));
+    set_ee_sleep_timeout(MS_IN_TICKS(800000));
 
 
     aclock_get_time(&hour, &minute, &second);
