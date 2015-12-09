@@ -1,0 +1,9 @@
+RSetType 3
+RSetPulseLen 500
+r
+si 1
+device atsamd21e17
+speed 5000
+r
+erase
+exit

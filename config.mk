@@ -102,20 +102,22 @@ ifeq ($(debugger), atmel-ice)
 	    -c "verify_image $(target) 0x00000000 elf" \
 	    -c "reset run" \
 	    -c "shutdown"
-else
-ifeq ($(debugger), jlink)
-    INSTALL_CMD = JLinkExe utils/$(chip).jlink
-else
-$(error unuspported debugger)
-endif
-endif
-
-CHIPERASE_CMD = openocd \
+    
+    CHIPERASE_CMD = openocd \
 	    -f $(DEBUGGER_CFG) \
 	    -f $(OCD_PART_CFG) \
 	    -c "init" \
 	    -c "at91samd chip-erase" \
 	    -c "shutdown"
+else
+ifeq ($(debugger), jlink)
+    INSTALL_CMD = JLinkExe utils/$(chip).jlink
+    CHIPERASE_CMD = JLinkExe utils/$(chip)-erase.jlink
+else
+$(error unuspported debugger)
+endif
+endif
+
 #make bin output directory if it doesnt exist
 BUILD_DIR=bin
 $(shell mkdir $(BUILD_DIR) 2>/dev/null)
