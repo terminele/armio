@@ -185,15 +185,15 @@ ctrl_mode_t control_modes[] = {
     {
         /* UTIL MODE #1 */
         .enter_cb = NULL,
-        .tic_cb = light_sense_mode_tic,
-        .sleep_timeout_ticks = MS_IN_TICKS(30000),
+        .tic_cb = sparkle_mode_tic,
+        .sleep_timeout_ticks = MS_IN_TICKS(15000),
         .about_to_sleep_cb = NULL,
         .wakeup_cb = NULL,
     },
     {
         /* UTIL MODE #2 */
         .enter_cb = NULL,
-        .tic_cb = vbatt_sense_mode_tic,
+        .tic_cb = swirl_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(15000),
         .about_to_sleep_cb = NULL,
         .wakeup_cb = NULL,
@@ -201,13 +201,29 @@ ctrl_mode_t control_modes[] = {
     {
         /* UTIL MODE #3 */
         .enter_cb = NULL,
+        .tic_cb = light_sense_mode_tic,
+        .sleep_timeout_ticks = MS_IN_TICKS(30000),
+        .about_to_sleep_cb = NULL,
+        .wakeup_cb = NULL,
+    },
+    {
+        /* UTIL MODE #4 */
+        .enter_cb = NULL,
+        .tic_cb = vbatt_sense_mode_tic,
+        .sleep_timeout_ticks = MS_IN_TICKS(15000),
+        .about_to_sleep_cb = NULL,
+        .wakeup_cb = NULL,
+    },
+    {
+        /* UTIL MODE #5 */
+        .enter_cb = NULL,
         .tic_cb = gesture_toggle_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(15000),
         .about_to_sleep_cb = NULL,
         .wakeup_cb = NULL,
     },
     {
-        /* UTIL MODE #4 */
+        /* UTIL MODE #6 */
         .enter_cb = NULL,
         .tic_cb = accel_point_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(15000),
@@ -222,22 +238,6 @@ ctrl_mode_t control_modes[] = {
 //        .about_to_sleep_cb = NULL,
 //        .wakeup_cb = NULL,
 //    },
-    {
-        /* UTIL MODE #5 */
-        .enter_cb = NULL,
-        .tic_cb = sparkle_mode_tic,
-        .sleep_timeout_ticks = MS_IN_TICKS(15000),
-        .about_to_sleep_cb = NULL,
-        .wakeup_cb = NULL,
-    },
-    {
-        /* UTIL MODE #6 */
-        .enter_cb = NULL,
-        .tic_cb = swirl_mode_tic,
-        .sleep_timeout_ticks = MS_IN_TICKS(15000),
-        .about_to_sleep_cb = NULL,
-        .wakeup_cb = NULL,
-    },
     {
         /* UTIL MODE #7 */
         .enter_cb = NULL,
