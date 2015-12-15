@@ -13,6 +13,9 @@
 #define NCLICK(ev_flags, n) (ev_flags & EV_FLAG_ACCEL_FAST_CLICK_END && \
     accel_fast_click_cnt == n)
 
+#define MNCLICK(ev_flags, m, n) (ev_flags & EV_FLAG_ACCEL_FAST_CLICK_END && \
+    accel_fast_click_cnt >= m && accel_fast_click_cnt <=n)
+
 #define SCLICK(ev_flags) (NCLICK(ev_flags, 1))
 #define DCLICK(ev_flags) (NCLICK(ev_flags, 2))
 #define TCLICK(ev_flags) (NCLICK(ev_flags, 3))
@@ -48,7 +51,6 @@ uint8_t utils_spin_tracker_update ( void );
    * @retrn 6-degree location 0-59
    */
 
-/* functionality to read light sensor */
 uint8_t adc_light_value_scale ( uint16_t value );
   /* @brief scales a light adc read quasi-logarithmically
    * for displaying on led ring

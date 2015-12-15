@@ -235,10 +235,8 @@ bool clock_mode_tic ( event_flags_t event_flags ) {
       goto finish;
     }
     
-    if (NCLICK(event_flags, 5) || \
-        NCLICK(event_flags, 6) || 
-        NCLICK(event_flags, 9) ||
-        NCLICK(event_flags, 10)) {
+    if (MNCLICK(event_flags, 5, 6) || //set time mode 
+        MNCLICK(event_flags, 9, 12)) { //advanced modes
       goto finish;
     }
 
@@ -363,13 +361,11 @@ finish:
 
     phase = INIT;
     
-    if (NCLICK(event_flags, 5) || \
-        NCLICK(event_flags, 6)) {
+    if (MNCLICK(event_flags, 5, 6)) {
         control_mode_set(CONTROL_MODE_SET_TIME);
         accel_events_clear();
     }
-    else if (NCLICK(event_flags, 9) || \
-        NCLICK(event_flags, 10)) {
+    else if (MNCLICK(event_flags, 9, 12)) { //advanced modes
         control_mode_set(CONTROL_MODE_SELECTOR);
         accel_events_clear();
     }
