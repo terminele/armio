@@ -31,8 +31,6 @@
    * triggers the tc_pwm_isr
    */
 
-
-//FIXME
 #define CONF_EVENT_BANK_INC_GEN_ID       EVSYS_ID_GEN_TC3_OVF
 #define CONF_EVENT_BANK_INC_USER_ID            EVSYS_ID_USER_TC4_EVU
 

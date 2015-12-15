@@ -29,9 +29,6 @@
 #define DEEP_SLEEP_SEQ_UP_COUNT    3 /* # of double clicks facing up to wakeup */
 #define DEEP_SLEEP_SEQ_DOWN_COUNT    2 /* # of double clicks facing down to wakeup */
 
-/* max tick count between successive quick taps */
-#define QUICK_TAP_INTERVAL_TICKS    500
-
 /* Starting flash address at which to store data */
 #define NVM_ADDR_START      ((1 << 15) + (1 << 14) + (1 << 13)) /* assumes program size < 56KB */
 #define NVM_CONF_ADDR       NVM_ADDR_START
