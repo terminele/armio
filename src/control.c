@@ -380,6 +380,7 @@ bool selector_mode_tic( event_flags_t event_flags ) {
     static uint8_t selected_mode = CONTROL_MODE_SHOW_TIME;
     
     if (accel_slow_click_cnt == 0 && modeticks > MS_IN_TICKS(3000)) {
+      selected_mode = CONTROL_MODE_SHOW_TIME;
       goto finish;
     }
     
@@ -414,7 +415,13 @@ bool selector_mode_tic( event_flags_t event_flags ) {
     }
     
     if (event_flags & EV_FLAG_ACCEL_SLOW_CLICK_END) {
-        selected_mode = UTIL_CTRL_MODE(accel_slow_click_cnt);
+        if ((accel_slow_click_cnt % (UTIL_MODE_COUNT + 1)) == 0) {
+          /* There is not control mode 0, so if they end
+           * there just go to control mode 1 */
+          selected_mode = UTIL_CTRL_MODE(1); 
+        } else {
+          selected_mode = UTIL_CTRL_MODE(accel_slow_click_cnt);
+        }
         if (!mode_trans_blink) {
           mode_trans_blink = anim_blink(selector_disp_ptr,
               BLINK_INT_MED, MS_IN_TICKS(1200), false);
