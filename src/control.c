@@ -63,15 +63,13 @@ bool clock_mode_tic ( event_flags_t event_flags );
    */
 
 bool selector_mode_tic( event_flags_t event_flags);
-
-bool time_set_mode_tic ( event_flags_t event_flags );
-  /* @brief set clock time mode
+  /* @brief mode for selecting and entering advanced modes
    * @param event flags
    * @retrn flag indicating mode finish
    */
 
-bool util_control_main_tic ( event_flags_t event_flags );
-  /* @brief main tick callback when in the start util mode
+bool time_set_mode_tic ( event_flags_t event_flags );
+  /* @brief set clock time mode
    * @param event flags
    * @retrn flag indicating mode finish
    */
@@ -155,104 +153,61 @@ ctrl_mode_t *ctrl_mode_active;
 
 ctrl_mode_t control_modes[] = {
     {
-        .enter_cb = NULL,
         .tic_cb = clock_mode_tic,
         .sleep_timeout_ticks = CLOCK_MODE_SLEEP_TIMEOUT_TICKS,
-        .about_to_sleep_cb = NULL,
-        .wakeup_cb = NULL,
     },
     {
-        .enter_cb = NULL,
         .tic_cb = time_set_mode_tic,
         .sleep_timeout_ticks = TIME_SET_MODE_EDITING_SLEEP_TIMEOUT_TICKS,
-        .about_to_sleep_cb = NULL,
-        .wakeup_cb = NULL,
     }, 
     {
-        .enter_cb = NULL,
         .tic_cb = selector_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(20000),
-        .about_to_sleep_cb = NULL,
-        .wakeup_cb = NULL,
     }, 
-//    {
-//        .enter_cb = NULL,
-//        .tic_cb = util_control_main_tic,
-//        .sleep_timeout_ticks = MS_IN_TICKS(8000),
-//        .about_to_sleep_cb = NULL,
-//        .wakeup_cb = NULL,
-//    },
     {
         /* UTIL MODE #1 */
-        .enter_cb = NULL,
         .tic_cb = sparkle_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(15000),
-        .about_to_sleep_cb = NULL,
-        .wakeup_cb = NULL,
     },
     {
         /* UTIL MODE #2 */
-        .enter_cb = NULL,
         .tic_cb = swirl_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(15000),
-        .about_to_sleep_cb = NULL,
-        .wakeup_cb = NULL,
     },
     {
         /* UTIL MODE #3 */
-        .enter_cb = NULL,
         .tic_cb = light_sense_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(30000),
-        .about_to_sleep_cb = NULL,
-        .wakeup_cb = NULL,
     },
     {
         /* UTIL MODE #4 */
-        .enter_cb = NULL,
         .tic_cb = vbatt_sense_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(15000),
-        .about_to_sleep_cb = NULL,
-        .wakeup_cb = NULL,
     },
     {
         /* UTIL MODE #5 */
-        .enter_cb = NULL,
         .tic_cb = gesture_toggle_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(15000),
-        .about_to_sleep_cb = NULL,
-        .wakeup_cb = NULL,
     },
     {
         /* UTIL MODE #6 */
-        .enter_cb = NULL,
         .tic_cb = accel_point_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(15000),
-        .about_to_sleep_cb = NULL,
-        .wakeup_cb = NULL,
     },
 //    {
 //        /* UTIL MODE #5 */
-//        .enter_cb = NULL,
 //        .tic_cb = seconds_enable_toggle_mode_tic,
 //        .sleep_timeout_ticks = MS_IN_TICKS(15000),
-//        .about_to_sleep_cb = NULL,
-//        .wakeup_cb = NULL,
 //    },
     {
         /* UTIL MODE #7 */
-        .enter_cb = NULL,
         .tic_cb = deep_sleep_enable_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(10000),
-        .about_to_sleep_cb = NULL,
-        .wakeup_cb = NULL,
     },
     {
         /* UTIL MODE #8 */
-        .enter_cb = NULL,
         .tic_cb = ee_mode_tic,
         .sleep_timeout_ticks = EE_MODE_SLEEP_TIMEOUT_TICKS,
-        .about_to_sleep_cb = NULL,
-        .wakeup_cb = NULL,
     }
 };
 
@@ -1169,25 +1124,6 @@ bool tick_counter_mode_tic ( event_flags_t event_flags ) {
     return false;
 }
 
-bool util_control_main_tic ( event_flags_t event_flags ) {
-
-    /* Display a polygon representing the util modes */
-    static display_comp_t *disp_ptr = NULL;
-
-    if (!disp_ptr) {
-      disp_ptr = display_polygon(0, BRIGHT_DEFAULT, control_mode_count());
-    }
-
-    if (DEFAULT_MODE_TRANS_CHK(event_flags))  {
-        display_comp_release(disp_ptr);
-        disp_ptr = NULL;
-
-        control_mode_set(CONTROL_MODE_SHOW_TIME);
-        return true;
-    }
-
-    return false;
-}
 
 bool char_disp_mode_tic ( event_flags_t event_flags ) {
 #define CHARS_PER_UINT32  5UL

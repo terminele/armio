@@ -32,10 +32,6 @@
 /* max tick count between successive quick taps */
 #define QUICK_TAP_INTERVAL_TICKS    500
 
-/* covering the watch (when in watch mode) will turn off the display
- * if the scaled reading on the light sensor drops by this much */
-#define LIGHT_SENSOR_REDUCTION_SHUTOFF  15
-
 /* Starting flash address at which to store data */
 #define NVM_ADDR_START      ((1 << 15) + (1 << 14) + (1 << 13)) /* assumes program size < 56KB */
 #define NVM_CONF_ADDR       NVM_ADDR_START
@@ -162,7 +158,9 @@ static struct wdt_conf config_wdt;
 nvm_data_t main_nvm_data;
 user_data_t main_user_data;
 
-bool _accel_confirmed = false; //FIXME -- REMOVEME
+#ifdef LOG_FIFO
+bool _accel_confirmed = false; 
+#endif
 
 //___ F U N C T I O N S   ( P R I V A T E ) __________________________________
 
@@ -533,9 +531,6 @@ static void main_tic( void ) {
           sleep_wake_anim = anim_random(display_point(0, BRIGHT_DEFAULT), 
               MS_IN_TICKS(15), MS_IN_TICKS(4000), true);
         }
-
-        if (ctrl_mode_active->wakeup_cb)
-          ctrl_mode_active->wakeup_cb();
 
         led_clear_all();
 

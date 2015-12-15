@@ -14,16 +14,9 @@
 
 //___ T Y P E D E F S ________________________________________________________
 
-/* FIXME -- only tic_cb is used for right now */
-
 typedef bool (*tic_fun_t)(event_flags_t event_flags);
 
 typedef struct {
-
-    /* Intialization routine for the control mode
-     * called when transitioning into the mode
-     * May be NULL */
-    void (*enter_cb)(void);
 
     /* Main loop function for the control mode.  This
      * callback is called on every "tick" (i.e.
@@ -37,16 +30,6 @@ typedef struct {
      * can occur in this mode before we
      * should enter into sleep */
     uint32_t sleep_timeout_ticks;
-
-    /* Called just before entering sleep so the
-     * mode controller can perform any cleanup
-     * functions. */
-    void (*about_to_sleep_cb)(void);
-
-    /* Called just after wakeup so the
-     * mode controller can perform any wakeup
-     * functions. */
-    void (*wakeup_cb)(void);
 
 } ctrl_mode_t;
 
