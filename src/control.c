@@ -512,24 +512,30 @@ bool ee_mode_tic ( event_flags_t event_flags ) {
     static tic_fun_t ee_submode_tic = NULL;
     static enum {SELECTING, BLINKING, EE} phase = SELECTING;
     static uint8_t selection = 0;
-    int8_t pos;
+    uint8_t pos;
     uint16_t blink_int;
 
     if ( event_flags & EV_FLAG_SLEEP ) {
       goto finish;
     }
-
-    if (phase == SELECTING && 
-        ((event_flags & EV_FLAG_ACCEL_SLOW_CLICK_END) ||
-         (accel_slow_click_cnt == 0 && modeticks > MS_IN_TICKS(3000) ))) {
-        selection = accel_slow_click_cnt;
-        phase = BLINKING; 
-        if (!anim) {
+        
+    if (phase == SELECTING) {
+        if (!display_comp) {
             display_comp = display_point(selection, BRIGHT_DEFAULT);
-            anim = anim_blink(display_comp, BLINK_INT_FAST, MS_IN_TICKS(800), false);
+        } 
+        
+        display_comp_update_pos(display_comp, accel_slow_click_cnt % 60);
+
+        if ((event_flags & EV_FLAG_ACCEL_SLOW_CLICK_END) ||
+             (accel_slow_click_cnt == 0 && modeticks > MS_IN_TICKS(3000) )) {
+            selection = accel_slow_click_cnt;
+            phase = BLINKING; 
+            if (!anim) {
+                anim = anim_blink(display_comp, BLINK_INT_FAST, MS_IN_TICKS(800), false);
+            }
+            accel_events_clear();
+            main_inactivity_timeout_reset();
         }
-        accel_events_clear();
-        main_inactivity_timeout_reset();
     }
 
     if (phase == BLINKING && anim_is_finished(anim)) {
@@ -621,7 +627,7 @@ bool ee_mode_tic ( event_flags_t event_flags ) {
                     blink_int = MS_IN_TICKS(800);
                 } else {
 
-                    pos = (-1*main_nvm_data.rtc_freq_corr) % 60;
+                    pos = (60 - main_nvm_data.rtc_freq_corr) % 60;
                     blink_int = MS_IN_TICKS(100);
                 }
 
@@ -671,10 +677,10 @@ finish:
 
     ee_submode_tic = NULL;
     phase = SELECTING;
-
+    
     set_ee_sleep_timeout(EE_MODE_SLEEP_TIMEOUT_TICKS);
-
     control_mode_set(CONTROL_MODE_SHOW_TIME);
+    
     return true;
 }
 bool accel_mode_tic ( event_flags_t event_flags ) {
