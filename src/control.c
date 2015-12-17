@@ -363,11 +363,9 @@ finish:
     
     if (MNCLICK(event_flags, 5, 6)) {
         control_mode_set(CONTROL_MODE_SET_TIME);
-        accel_events_clear();
     }
     else if (MNCLICK(event_flags, 9, 12)) { //advanced modes
         control_mode_set(CONTROL_MODE_SELECTOR);
-        accel_events_clear();
     }
 
     return true;
@@ -439,6 +437,8 @@ finish:
     mode_trans_blink = NULL;
     
     control_mode_set(selected_mode);
+    
+    /* Reset selected mode to default */
     selected_mode = CONTROL_MODE_SHOW_TIME;
 
     return true;
@@ -519,7 +519,9 @@ bool ee_mode_tic ( event_flags_t event_flags ) {
       goto finish;
     }
 
-    if (phase == SELECTING && event_flags & EV_FLAG_ACCEL_SLOW_CLICK_END) {
+    if (phase == SELECTING && 
+        ((event_flags & EV_FLAG_ACCEL_SLOW_CLICK_END) ||
+         (accel_slow_click_cnt == 0 && modeticks > MS_IN_TICKS(3000) ))) {
         selection = accel_slow_click_cnt;
         phase = BLINKING; 
         if (!anim) {
@@ -628,13 +630,11 @@ bool ee_mode_tic ( event_flags_t event_flags ) {
                         false);
                 break;
             default:
-                //display_comp = display_point(ee_code % 60, BRIGHT_DEFAULT);
-                /* Display a blinking X */
-                display_comp = display_polygon(7, BRIGHT_DEFAULT, 15);
+                /* Display a blinking hexagon */
+                display_comp = display_polygon(5, BRIGHT_DEFAULT, 6);
                 anim = anim_blink(display_comp, MS_IN_TICKS(500), ANIMATION_DURATION_INF, false );
                 set_ee_sleep_timeout(MS_IN_TICKS(3000));
                 break;
-                //return true;
         }
             selection = 0;
     }
@@ -644,9 +644,7 @@ bool ee_mode_tic ( event_flags_t event_flags ) {
         /* submode is finished */
         goto finish;
       }
-    }
-
-   if (phase == EE) {
+    } else if (phase == EE) {
         if (DEFAULT_MODE_TRANS_CHK(event_flags)) {
             goto finish;
         }
@@ -1241,6 +1239,8 @@ void control_mode_set( uint8_t mode_index) {
       mode_index = 0;
   }
   ctrl_mode_active = control_modes + mode_index;
+  
+  accel_events_clear();
 }
 
 uint8_t control_mode_index( ctrl_mode_t* mode_ptr ) {
