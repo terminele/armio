@@ -642,6 +642,7 @@ bool ee_mode_tic ( event_flags_t event_flags ) {
    if (ee_submode_tic) {
       if(ee_submode_tic(event_flags)) {
         /* submode is finished */
+        ee_submode_tic = NULL;
         goto finish;
       }
     } else if (phase == EE) {
@@ -1189,8 +1190,6 @@ bool digit_disp_mode_tic ( event_flags_t event_flags ) {
 #define MAX_DIGITS          45UL
 
     set_ee_sleep_timeout(MS_IN_TICKS(25000));
-
-
 
     if (DEFAULT_MODE_TRANS_CHK(event_flags)) {
       goto finish;
