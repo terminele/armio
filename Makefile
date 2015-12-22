@@ -499,6 +499,10 @@ install: all $(target)
 chiperase:
 	$(CHIPERASE_CMD)
 
+.PHONY: secure 
+secure:
+	$(SSB_CMD)
+
 .PHONY: dump_log
 dump_log:
 	openocd -f $(DEBUGGER_CFG) \
