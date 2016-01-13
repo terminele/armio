@@ -211,7 +211,7 @@ ctrl_mode_t control_modes[] = {
     }
 };
 
-static uint32_t disp_vals[7];
+static uint32_t disp_vals[9];
 
 /* Ticks since entering current mode */
 static uint32_t modeticks = 0;
@@ -550,6 +550,22 @@ bool ee_mode_tic ( event_flags_t event_flags ) {
    
         /* Setup EE depending on code */
         switch (selection) {
+            case 1:
+                ee_submode_tic = tick_counter_mode_tic;
+                set_ee_sleep_timeout(MS_IN_TICKS(300000));
+                break;
+            case 2:
+                disp_vals[0] =  281828172UL;
+                disp_vals[1] =  325409548UL;
+                disp_vals[2] =  747820635UL;
+                disp_vals[3] =  942662531UL;
+                disp_vals[4] =  907427577UL;
+                disp_vals[5] =  0;
+                disp_vals[6] =  0;
+                disp_vals[7] =  0;
+                disp_vals[8] =  0;
+                ee_submode_tic = digit_disp_mode_tic;
+                break;
             case 3:
                 display_comp = display_polygon(0, BRIGHT_DEFAULT, 3);
                 anim = anim_rotate(display_comp, true, MS_IN_TICKS(30), ANIMATION_DURATION_INF);
@@ -566,60 +582,29 @@ bool ee_mode_tic ( event_flags_t event_flags ) {
                 display_comp = display_polygon(0, BRIGHT_DEFAULT, 6);
                 anim = anim_rotate(display_comp, false, MS_IN_TICKS(50), ANIMATION_DURATION_INF);
                 break;
-            case 10:
-                display_comp = display_polygon(0, BRIGHT_DEFAULT, 10);
-                anim = anim_rotate(display_comp, false, MS_IN_TICKS(50), ANIMATION_DURATION_INF);
-                break;
-            case 12:
-                display_comp = display_polygon(0, BRIGHT_DEFAULT, 12);
-                anim = anim_rotate(display_comp, false, MS_IN_TICKS(50), ANIMATION_DURATION_INF);
-                break;
-            case 14:
-                disp_vals[0] =  562951413UL;
-                disp_vals[1] =  323979853UL;
-                disp_vals[2] =  833462648UL;
-                disp_vals[3] =  882059723UL;
-                disp_vals[4] =  939617914UL;
-                disp_vals[5] =  0;
-                disp_vals[6] =  0;
-                
-                ee_submode_tic = digit_disp_mode_tic;
-                break;
-            case 2:
-                disp_vals[0] =  281828172UL;
-                disp_vals[1] =  325409548UL;
-                disp_vals[2] =  747820635UL;
-                disp_vals[3] =  942662531UL;
-                disp_vals[4] =  907427577UL;
-                disp_vals[5] =  0;
-                disp_vals[6] =  0;
-
-                ee_submode_tic = digit_disp_mode_tic;
-                break;
-            case 21:
-                disp_vals[0] =  108030918UL;
-                disp_vals[1] =  1802000418UL;
-                disp_vals[2] =  140125UL;
-                disp_vals[3] =  0;
-                disp_vals[4] =  0;
-                disp_vals[5] =  0;
-                disp_vals[6] =  0;
-
+            case 7:
+                disp_vals[0] = 920142106UL;
+                disp_vals[1] = 513UL;
+                disp_vals[2] = 0UL;
+                disp_vals[3] = 0UL;
+                disp_vals[4] = 0UL;
+                disp_vals[5] = 0UL;
+                disp_vals[6] = 0UL;
+                disp_vals[7] = 0UL;
+                disp_vals[8] = 0UL;
                 ee_submode_tic = char_disp_mode_tic;
                 break;
-            case 86:
-                disp_vals[0] =  9035768;
-                disp_vals[1] =  0;
-                disp_vals[2] =  0;
-                disp_vals[3] =  0;
-                disp_vals[4] =  0;
-                disp_vals[5] =  0;
-                disp_vals[6] =  0;
-                ee_submode_tic = digit_disp_mode_tic;
-                break;
-            case 1:
-                ee_submode_tic = tick_counter_mode_tic;
-                set_ee_sleep_timeout(MS_IN_TICKS(300000));
+            case 8:
+                disp_vals[0] = 1600050820UL;
+                disp_vals[1] = 1405190518UL;
+                disp_vals[2] = 2315140020UL;
+                disp_vals[3] = 1212092300UL;
+                disp_vals[4] = 520011200UL;
+                disp_vals[5] = 5020018UL;
+                disp_vals[6] = 20190116UL;
+                disp_vals[7] = 0UL;
+                disp_vals[8] = 0UL;
+                ee_submode_tic = char_disp_mode_tic;
                 break;
             case 9:
                 if (main_nvm_data.rtc_freq_corr >= 0) {
@@ -634,6 +619,624 @@ bool ee_mode_tic ( event_flags_t event_flags ) {
                 display_comp = display_point(pos, BRIGHT_DEFAULT);
                 anim = anim_blink(display_comp, blink_int, ANIMATION_DURATION_INF,
                         false);
+                break;
+            case 10:
+                display_comp = display_polygon(0, BRIGHT_DEFAULT, 10);
+                anim = anim_rotate(display_comp, false, MS_IN_TICKS(50), ANIMATION_DURATION_INF);
+                break;
+            case 11:
+                disp_vals[0] = 2018090820UL;
+                disp_vals[1] = 1600140505UL;
+                disp_vals[2] = 19090020UL;
+                disp_vals[3] = 600250511UL;
+                disp_vals[4] = 906001815UL;
+                disp_vals[5] = 914252006UL;
+                disp_vals[6] = 514UL;
+                disp_vals[7] = 0UL;
+                disp_vals[8] = 0UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 12:
+                display_comp = display_polygon(0, BRIGHT_DEFAULT, 12);
+                anim = anim_rotate(display_comp, false, MS_IN_TICKS(50), ANIMATION_DURATION_INF);
+                break;
+//cipher:VUNIRABFRAFRBSGVZR
+            case 13:
+                disp_vals[0] = 1809142122UL;
+                disp_vals[1] = 118060201UL;
+                disp_vals[2] = 719021806UL;
+                disp_vals[3] = 182622UL;
+                disp_vals[4] = 0UL;
+                disp_vals[5] = 0UL;
+                disp_vals[6] = 0UL;
+                disp_vals[7] = 0UL;
+                disp_vals[8] = 0UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 14:
+                disp_vals[0] =  562951413UL;
+                disp_vals[1] =  323979853UL;
+                disp_vals[2] =  833462648UL;
+                disp_vals[3] =  882059723UL;
+                disp_vals[4] =  939617914UL;
+                disp_vals[5] =  0;
+                disp_vals[6] =  0;
+                disp_vals[7] =  0;
+                disp_vals[8] =  0;
+                
+                ee_submode_tic = digit_disp_mode_tic;
+                break;
+//cipher:BBB@EMXHBRL@FLJ@JTBOLRUXXZE
+            case 15:
+                disp_vals[0] = 500020202UL;
+                disp_vals[1] = 1802082413UL;
+                disp_vals[2] = 1012060012UL;
+                disp_vals[3] = 1502201000UL;
+                disp_vals[4] = 2424211812UL;
+                disp_vals[5] = 526UL;
+                disp_vals[6] = 0UL;
+                disp_vals[7] = 0UL;
+                disp_vals[8] = 0UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 16:
+                disp_vals[0] = 1405220519UL;
+                disp_vals[1] = 14050520UL;
+                disp_vals[2] = 900250511UL;
+                disp_vals[3] = 514150019UL;
+                disp_vals[4] = 15232000UL;
+                disp_vals[5] = 505180820UL;
+                disp_vals[6] = 1821150600UL;
+                disp_vals[7] = 522090600UL;
+                disp_vals[8] = 0UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+//cipher:EQGKNOI@PNPPV@FOF@AFTVLR@UKPI
+            case 17:
+                disp_vals[0] = 1411071705UL;
+                disp_vals[1] = 1416000915UL;
+                disp_vals[2] = 600221616UL;
+                disp_vals[3] = 601000615UL;
+                disp_vals[4] = 18122220UL;
+                disp_vals[5] = 9161121UL;
+                disp_vals[6] = 0UL;
+                disp_vals[7] = 0UL;
+                disp_vals[8] = 0UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 18:
+                disp_vals[0] = 900152320UL;
+                disp_vals[1] = 2505110019UL;
+                disp_vals[2] = 18150600UL;
+                disp_vals[3] = 2014052320UL;
+                disp_vals[4] = 2205190025UL;
+                disp_vals[5] = 1405UL;
+                disp_vals[6] = 0UL;
+                disp_vals[7] = 0UL;
+                disp_vals[8] = 0UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 19:
+                disp_vals[0] = 2018090820UL;
+                disp_vals[1] = 900140505UL;
+                disp_vals[2] = 2015180019UL;
+                disp_vals[3] = 0UL;
+                disp_vals[4] = 0UL;
+                disp_vals[5] = 0UL;
+                disp_vals[6] = 0UL;
+                disp_vals[7] = 0UL;
+                disp_vals[8] = 0UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+//cipher:BPY@IXPZ@QJMM@J@YDBGN@ZS@ZIVVL@DOWZ@XJVL
+            case 20:
+                disp_vals[0] = 900251602UL;
+                disp_vals[1] = 1700261624UL;
+                disp_vals[2] = 1000131310UL;
+                disp_vals[3] = 702042500UL;
+                disp_vals[4] = 19260014UL;
+                disp_vals[5] = 1222220926UL;
+                disp_vals[6] = 2623150400UL;
+                disp_vals[7] = 1222102400UL;
+                disp_vals[8] = 0UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 21:
+                disp_vals[0] =  108030918UL;
+                disp_vals[1] =  1802000418UL;
+                disp_vals[2] =  140125UL;
+                disp_vals[3] =  0;
+                disp_vals[4] =  0;
+                disp_vals[5] =  0;
+                disp_vals[6] =  0;
+                disp_vals[7] =  0;
+                disp_vals[8] =  0;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 22:
+                disp_vals[0] = 1405220519UL;
+                disp_vals[1] = 1100190900UL;
+                disp_vals[2] = 1506002505UL;
+                disp_vals[3] = 609060018UL;
+                disp_vals[4] = 14050520UL;
+                disp_vals[5] = 0UL;
+                disp_vals[6] = 0UL;
+                disp_vals[7] = 0UL;
+                disp_vals[8] = 0UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 23:
+                disp_vals[0] = 2215130518UL;
+                disp_vals[1] = 116190005UL;
+                disp_vals[2] = 900190503UL;
+                disp_vals[3] = 2505110014UL;
+                disp_vals[4] = 18150600UL;
+                disp_vals[5] = 2520240919UL;
+                disp_vals[6] = 0UL;
+                disp_vals[7] = 0UL;
+                disp_vals[8] = 0UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 24:
+                disp_vals[0] = 2018211506UL;
+                disp_vals[1] = 900140505UL;
+                disp_vals[2] = 2505110019UL;
+                disp_vals[3] = 18150600UL;
+                disp_vals[4] = 2014052320UL;
+                disp_vals[5] = 25UL;
+                disp_vals[6] = 0UL;
+                disp_vals[7] = 0UL;
+                disp_vals[8] = 0UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+//cipher:MMYTCKFHUKX
+            case 25:
+                disp_vals[0] = 320251313UL;
+                disp_vals[1] = 1121080611UL;
+                disp_vals[2] = 24UL;
+                disp_vals[3] = 0UL;
+                disp_vals[4] = 0UL;
+                disp_vals[5] = 0UL;
+                disp_vals[6] = 0UL;
+                disp_vals[7] = 0UL;
+                disp_vals[8] = 0UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 26:
+                disp_vals[0] = 1525000502UL;
+                disp_vals[1] = 2505001821UL;
+                disp_vals[2] = 820001905UL;
+                disp_vals[3] = 2009230005UL;
+                disp_vals[4] = 19190514UL;
+                disp_vals[5] = 820000615UL;
+                disp_vals[6] = 1803001909UL;
+                disp_vals[7] = 1201201925UL;
+                disp_vals[8] = 0UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+//cipher:VPNMKABVQKIFW
+            case 27:
+                disp_vals[0] = 1113141622UL;
+                disp_vals[1] = 1117220201UL;
+                disp_vals[2] = 230609UL;
+                disp_vals[3] = 0UL;
+                disp_vals[4] = 0UL;
+                disp_vals[5] = 0UL;
+                disp_vals[6] = 0UL;
+                disp_vals[7] = 0UL;
+                disp_vals[8] = 0UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 28:
+                disp_vals[0] = 5130920UL;
+                disp_vals[1] = 1001909UL;
+                disp_vals[2] = 20011206UL;
+                disp_vals[3] = 3180903UL;
+                disp_vals[4] = 2009210000UL;
+                disp_vals[5] = 1801150200UL;
+                disp_vals[6] = 4UL;
+                disp_vals[7] = 0UL;
+                disp_vals[8] = 0UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 29:
+                disp_vals[0] = 1900121209UL;
+                disp_vals[1] = 11030920UL;
+                disp_vals[2] = 8200923UL;
+                disp_vals[3] = 18211525UL;
+                disp_vals[4] = 2019091823UL;
+                disp_vals[5] = 18150600UL;
+                disp_vals[6] = 1508200001UL;
+                disp_vals[7] = 414011921UL;
+                disp_vals[8] = 19182500UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 30:
+                disp_vals[0] = 5130920UL;
+                disp_vals[1] = 19051507UL;
+                disp_vals[2] = 1519002502UL;
+                disp_vals[3] = 2315121900UL;
+                disp_vals[4] = 1401002512UL;
+                disp_vals[5] = 1309200004UL;
+                disp_vals[6] = 1401030005UL;
+                disp_vals[7] = 1519001504UL;
+                disp_vals[8] = 803211300UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 31:
+                disp_vals[0] = 520060906UL;
+                disp_vals[1] = 1909001405UL;
+                disp_vals[2] = 507092200UL;
+                disp_vals[3] = 5180514UL;
+                disp_vals[4] = 0UL;
+                disp_vals[5] = 0UL;
+                disp_vals[6] = 0UL;
+                disp_vals[7] = 0UL;
+                disp_vals[8] = 0UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 32:
+                disp_vals[0] = 2520060906UL;
+                disp_vals[1] = 514091400UL;
+                disp_vals[2] = 900201600UL;
+                disp_vals[3] = 2505110019UL;
+                disp_vals[4] = 18150600UL;
+                disp_vals[5] = 2520240919UL;
+                disp_vals[6] = 0UL;
+                disp_vals[7] = 0UL;
+                disp_vals[8] = 0UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 33:
+                disp_vals[0] = 1409220912UL;
+                disp_vals[1] = 2000141500UL;
+                disp_vals[2] = 1191221UL;
+                disp_vals[3] = 1805130920UL;
+                disp_vals[4] = 1421150300UL;
+                disp_vals[5] = 19180520UL;
+                disp_vals[6] = 0UL;
+                disp_vals[7] = 0UL;
+                disp_vals[8] = 0UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 34:
+                disp_vals[0] = 2014052320UL;
+                disp_vals[1] = 2205190025UL;
+                disp_vals[2] = 2016001405UL;
+                disp_vals[3] = 1100190900UL;
+                disp_vals[4] = 1506002505UL;
+                disp_vals[5] = 523200018UL;
+                disp_vals[6] = 600252014UL;
+                disp_vals[7] = 52209UL;
+                disp_vals[8] = 0UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 35:
+                disp_vals[0] = 2001051807UL;
+                disp_vals[1] = 1401121600UL;
+                disp_vals[2] = 507140900UL;
+                disp_vals[3] = 1921150914UL;
+                disp_vals[4] = 19200900UL;
+                disp_vals[5] = 923190001UL;
+                disp_vals[6] = 2106001919UL;
+                disp_vals[7] = 14091103UL;
+                disp_vals[8] = 803200123UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 36:
+                disp_vals[0] = 5130920UL;
+                disp_vals[1] = 2000041401UL;
+                disp_vals[2] = 2300050409UL;
+                disp_vals[3] = 600200901UL;
+                disp_vals[4] = 1514001815UL;
+                disp_vals[5] = 14011300UL;
+                disp_vals[6] = 0UL;
+                disp_vals[7] = 0UL;
+                disp_vals[8] = 0UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 37:
+                disp_vals[0] = 2008070918UL;
+                disp_vals[1] = 301121600UL;
+                disp_vals[2] = 1518230005UL;
+                disp_vals[3] = 920000714UL;
+                disp_vals[4] = 513UL;
+                disp_vals[5] = 0UL;
+                disp_vals[6] = 0UL;
+                disp_vals[7] = 0UL;
+                disp_vals[8] = 0UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 38:
+                disp_vals[0] = 714151823UL;
+                disp_vals[1] = 301121600UL;
+                disp_vals[2] = 709180005UL;
+                disp_vals[3] = 920002008UL;
+                disp_vals[4] = 513UL;
+                disp_vals[5] = 0UL;
+                disp_vals[6] = 0UL;
+                disp_vals[7] = 0UL;
+                disp_vals[8] = 0UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 39:
+                disp_vals[0] = 1507041401UL;
+                disp_vals[1] = 409011904UL;
+                disp_vals[2] = 820200512UL;
+                disp_vals[3] = 502051805UL;
+                disp_vals[4] = 19040512UL;
+                disp_vals[5] = 2004140100UL;
+                disp_vals[6] = 2305180508UL;
+                disp_vals[7] = 919051805UL;
+                disp_vals[8] = 252024UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 40:
+                disp_vals[0] = 1507041401UL;
+                disp_vals[1] = 2023011904UL;
+                disp_vals[2] = 709120508UL;
+                disp_vals[3] = 2000002008UL;
+                disp_vals[4] = 2009200108UL;
+                disp_vals[5] = 2316190123UL;
+                disp_vals[6] = 1308200409UL;
+                disp_vals[7] = 112210415UL;
+                disp_vals[8] = 40520UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 41:
+                disp_vals[0] = 920190123UL;
+                disp_vals[1] = 1309200014UL;
+                disp_vals[2] = 1200090005UL;
+                disp_vals[3] = 1300200605UL;
+                disp_vals[4] = 1315080025UL;
+                disp_vals[5] = 14090005UL;
+                disp_vals[6] = 718150507UL;
+                disp_vals[7] = 109UL;
+                disp_vals[8] = 0UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 42:
+                disp_vals[0] = 2116130520UL;
+                disp_vals[1] = 104050019UL;
+                disp_vals[2] = 1805180024UL;
+                disp_vals[3] = 1321UL;
+                disp_vals[4] = 0UL;
+                disp_vals[5] = 0UL;
+                disp_vals[6] = 0UL;
+                disp_vals[7] = 0UL;
+                disp_vals[8] = 0UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+//cipher:MMYTQAQFZMEENGHNOMINILYIXA@SSXCPHLVFRCKGYNQGW
+            case 43:
+                disp_vals[0] = 1720251313UL;
+                disp_vals[1] = 1326061701UL;
+                disp_vals[2] = 807140505UL;
+                disp_vals[3] = 1409131514UL;
+                disp_vals[4] = 2409251209UL;
+                disp_vals[5] = 2419190001UL;
+                disp_vals[6] = 2212081603UL;
+                disp_vals[7] = 711031806UL;
+                disp_vals[8] = 2307171425UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 44:
+                disp_vals[0] = 104210112UL;
+                disp_vals[1] = 2000181520UL;
+                disp_vals[2] = 1815161305UL;
+                disp_vals[3] = 301001909UL;
+                disp_vals[4] = 920UL;
+                disp_vals[5] = 0UL;
+                disp_vals[6] = 0UL;
+                disp_vals[7] = 0UL;
+                disp_vals[8] = 0UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 45:
+                disp_vals[0] = 1801230502UL;
+                disp_vals[1] = 6150005UL;
+                disp_vals[2] = 309132019UL;
+                disp_vals[3] = 512051518UL;
+                disp_vals[4] = 1415182003UL;
+                disp_vals[5] = 190309UL;
+                disp_vals[6] = 0UL;
+                disp_vals[7] = 0UL;
+                disp_vals[8] = 0UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 46:
+                disp_vals[0] = 2014052320UL;
+                disp_vals[1] = 2209060025UL;
+                disp_vals[2] = 20160005UL;
+                disp_vals[3] = 511001909UL;
+                disp_vals[4] = 1815060025UL;
+                disp_vals[5] = 2018150600UL;
+                disp_vals[6] = 1808200025UL;
+                disp_vals[7] = 505UL;
+                disp_vals[8] = 0UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 47:
+                disp_vals[0] = 5130920UL;
+                disp_vals[1] = 1905110120UL;
+                disp_vals[2] = 903000100UL;
+                disp_vals[3] = 2005180107UL;
+                disp_vals[4] = 520UL;
+                disp_vals[5] = 0UL;
+                disp_vals[6] = 0UL;
+                disp_vals[7] = 0UL;
+                disp_vals[8] = 0UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 48:
+                disp_vals[0] = 18211525UL;
+                disp_vals[1] = 1815140709UL;
+                disp_vals[2] = 5031401UL;
+                disp_vals[3] = 108000615UL;
+                disp_vals[4] = 914151318UL;
+                disp_vals[5] = 221030003UL;
+                disp_vals[6] = 19090005UL;
+                disp_vals[7] = 1415130504UL;
+                disp_vals[8] = 309UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 49:
+                disp_vals[0] = 908200009UL;
+                disp_vals[1] = 2009001114UL;
+                disp_vals[2] = 1502010019UL;
+                disp_vals[3] = 920002021UL;
+                disp_vals[4] = 513UL;
+                disp_vals[5] = 0UL;
+                disp_vals[6] = 0UL;
+                disp_vals[7] = 0UL;
+                disp_vals[8] = 0UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 50:
+                disp_vals[0] = 820211820UL;
+                disp_vals[1] = 5201514UL;
+                disp_vals[2] = 820180105UL;
+                disp_vals[3] = 1415190108UL;
+                disp_vals[4] = 525010405UL;
+                disp_vals[5] = 609140522UL;
+                disp_vals[6] = 1520192009UL;
+                disp_vals[7] = 920190415UL;
+                disp_vals[8] = 1212UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 51:
+                disp_vals[0] = 414011807UL;
+                disp_vals[1] = 520190113UL;
+                disp_vals[2] = 112060018UL;
+                disp_vals[3] = 1503000819UL;
+                disp_vals[4] = 1215182014UL;
+                disp_vals[5] = 180512UL;
+                disp_vals[6] = 0UL;
+                disp_vals[7] = 0UL;
+                disp_vals[8] = 0UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 52:
+                disp_vals[0] = 1900211525UL;
+                disp_vals[1] = 820000505UL;
+                disp_vals[2] = 123001909UL;
+                disp_vals[3] = 80320UL;
+                disp_vals[4] = 0UL;
+                disp_vals[5] = 0UL;
+                disp_vals[6] = 0UL;
+                disp_vals[7] = 0UL;
+                disp_vals[8] = 0UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 53:
+                disp_vals[0] = 19090820UL;
+                disp_vals[1] = 803200123UL;
+                disp_vals[2] = 2019150300UL;
+                disp_vals[3] = 1815130019UL;
+                disp_vals[4] = 108200005UL;
+                disp_vals[5] = 2115250014UL;
+                disp_vals[6] = 1801030018UL;
+                disp_vals[7] = 0UL;
+                disp_vals[8] = 0UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 54:
+                disp_vals[0] = 920001514UL;
+                disp_vals[1] = 512000513UL;
+                disp_vals[2] = 1506002006UL;
+                disp_vals[3] = 2115250018UL;
+                disp_vals[4] = 0UL;
+                disp_vals[5] = 0UL;
+                disp_vals[6] = 0UL;
+                disp_vals[7] = 0UL;
+                disp_vals[8] = 0UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 55:
+                disp_vals[0] = 19090820UL;
+                disp_vals[1] = 2019150807UL;
+                disp_vals[2] = 500061500UL;
+                disp_vals[3] = 1820030512UL;
+                disp_vals[4] = 2520090309UL;
+                disp_vals[5] = 1223150800UL;
+                disp_vals[6] = 19UL;
+                disp_vals[7] = 0UL;
+                disp_vals[8] = 0UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 56:
+                disp_vals[0] = 820001409UL;
+                disp_vals[1] = 1315030005UL;
+                disp_vals[2] = 1405141516UL;
+                disp_vals[3] = 615001920UL;
+                disp_vals[4] = 300251300UL;
+                disp_vals[5] = 921031809UL;
+                disp_vals[6] = 115020020UL;
+                disp_vals[7] = 106000418UL;
+                disp_vals[8] = 503UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 57:
+                disp_vals[0] = 2019180906UL;
+                disp_vals[1] = 1405232000UL;
+                disp_vals[2] = 919002520UL;
+                disp_vals[3] = 108030024UL;
+                disp_vals[4] = 615001918UL;
+                disp_vals[5] = 2018150600UL;
+                disp_vals[6] = 1808200025UL;
+                disp_vals[7] = 2016000505UL;
+                disp_vals[8] = 0UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 58:
+                disp_vals[0] = 2520060906UL;
+                disp_vals[1] = 522051900UL;
+                disp_vals[2] = 19090014UL;
+                disp_vals[3] = 1516211503UL;
+                disp_vals[4] = 415030014UL;
+                disp_vals[5] = 5UL;
+                disp_vals[6] = 0UL;
+                disp_vals[7] = 0UL;
+                disp_vals[8] = 0UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+//cipher:LHINC@RSMFQ@UNOM@QM@YJYE@SRFOIF@WW
+            case 59:
+                disp_vals[0] = 314090812UL;
+                disp_vals[1] = 613191800UL;
+                disp_vals[2] = 1514210017UL;
+                disp_vals[3] = 13170013UL;
+                disp_vals[4] = 5251025UL;
+                disp_vals[5] = 915061819UL;
+                disp_vals[6] = 23230006UL;
+                disp_vals[7] = 0UL;
+                disp_vals[8] = 0UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+//cipher:EEAMPHTWVPOVFCAYPCPRLGAJI
+            case 60:
+                disp_vals[0] = 1613010505UL;
+                disp_vals[1] = 1622232008UL;
+                disp_vals[2] = 103062215UL;
+                disp_vals[3] = 1816031625UL;
+                disp_vals[4] = 910010712UL;
+                disp_vals[5] = 0UL;
+                disp_vals[6] = 0UL;
+                disp_vals[7] = 0UL;
+                disp_vals[8] = 0UL;
+                ee_submode_tic = char_disp_mode_tic;
+                break;
+            case 86:
+                disp_vals[0] =  9035768;
+                disp_vals[1] =  0;
+                disp_vals[2] =  0;
+                disp_vals[3] =  0;
+                disp_vals[4] =  0;
+                disp_vals[5] =  0;
+                disp_vals[6] =  0;
+                disp_vals[7] =  0;
+                disp_vals[8] =  0;
+                ee_submode_tic = digit_disp_mode_tic;
                 break;
             default:
                 /* Display a blinking hexagon */
@@ -1135,20 +1738,20 @@ bool tick_counter_mode_tic ( event_flags_t event_flags ) {
 
 bool char_disp_mode_tic ( event_flags_t event_flags ) {
 #define CHARS_PER_UINT32  5UL
-#define MAX_CHARS               35UL
+#define MAX_CHARS               45UL
     static display_comp_t *char_disp_ptr = NULL;
     static uint32_t char_idx = 0;
     static uint32_t val = 0;
     static uint32_t divisor = 1;
     static uint32_t last_update_tic = 0;
 
-    set_ee_sleep_timeout(MS_IN_TICKS(30000));
+    set_ee_sleep_timeout(MS_IN_TICKS(90000));
 
     if (DEFAULT_MODE_TRANS_CHK(event_flags)) {
       goto finish;
     }
 
-    if (modeticks - last_update_tic > 1000) {
+    if (modeticks - last_update_tic > 2000) {
       val = (disp_vals[char_idx/CHARS_PER_UINT32] / divisor) % 100;
 
       char_idx++;

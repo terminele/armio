@@ -33,8 +33,10 @@ if __name__ == "__main__":
             exit()
         
         if args.rot13: 
-            v+=13
-            v = v % 26
+            if v >=1 and v <= 13:
+                v+=13
+            elif v > 13 and v <= 26:
+                v-=13
             cipher+=chr(ord('A') + v - 1)
         elif args.key:
             o = ord(args.key[i % len(args.key)])
@@ -47,18 +49,21 @@ if __name__ == "__main__":
             else:
                 print("Invalid key character '{}'".format(args.key[i]))
                 exit()
-            v+=key_offset
-            v = v % 26
+            if v != 0:
+                v+=key_offset
+                v = v % 26
+                if v == 0:
+                    v = 26
             cipher+=chr(ord('A') + v - 1)
         
         ints[int(i/CHARS_PER_UINT32)]+=v*pow(100, i % CHARS_PER_UINT32)
     
     if len(cipher):
-        print("cipher:{}".format(cipher))
+        print("//cipher:{}".format(cipher))
 
-    print("case {}:".format(args.index))
+    print("            case {}:".format(args.index))
     for i in range(INTS):
-        print("\tdisp_vals[{}] = {}UL;".format(i, ints[i]))
+        print("                disp_vals[{}] = {}UL;".format(i, ints[i]))
 
-    print("\tee_submod_tic = char_disp_mode_tic;")
-    print("break;")
+    print("                ee_submode_tic = char_disp_mode_tic;")
+    print("                break;")
