@@ -907,6 +907,9 @@ int main (void) {
         //sleep_wake_anim = anim_random(display_point(0, BRIGHT_DEFAULT), 
         //    MS_IN_TICKS(15), MS_IN_TICKS(2000), true);
         sleep_wake_anim = anim_swirl(0, 5, MS_IN_TICKS(50), 120, true);
+#ifdef DEEP_SLEEP_AT_BIRTH
+        main_deep_sleep_enable();
+#endif
     } else {
       /* A reset has occurred later in life */
         sleep_wake_anim = anim_swirl(0, 5, MS_IN_TICKS(10), 30, false);

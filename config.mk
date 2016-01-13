@@ -311,13 +311,16 @@ CPPFLAGS = \
        #-D SIMPLE_TIME_MODE
        #-D ENABLE_BUTTON				  	  \
 
+PREBUILD_CMD =
+
 ifdef simple_time
     CPPFLAGS += -D SIMPLE_TIME_MODE=true
+    PREBUILD_CMD += touch src/control.c;
 endif
-PREBUILD_CMD =
 
 ifdef flicker_time
     CPPFLAGS+= -D FLICKER_MIN_MODE=$(flicker_time)
+    PREBUILD_CMD += touch src/control.c;
 else
     #CPPFLAGS+= -D SHOW_SEC
 endif
@@ -344,6 +347,7 @@ endif
 ifdef wakeup_alarm
     CPPFLAGS+= -D USE_WAKEUP_ALARM
     CPPFLAGS+= -D ALARM_INTERVAL_SEC=60
+    PREBUILD_CMD += touch src/aclock.c; src/main.c;
 endif
 
 ifdef log_usage 
@@ -356,11 +360,13 @@ ifdef self_test
     CPPFLAGS+= -D USE_SELF_TEST=$(self_test)
 endif
 
+ifdef release
+    CPPFLAGS+= -D DEEP_SLEEP_AT_BIRTH=true
+endif
+
 # Extra flags to use when linking
 LDFLAGS =
 
-# Pre- and post-build commands
-PREBUILD_CMD += touch src/aclock.c; touch src/control.c; touch src/main.c;
 ifdef test
     if [-a bin/src/main.o]; \
 	then \
