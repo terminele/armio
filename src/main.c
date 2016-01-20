@@ -397,7 +397,7 @@ static bool wakeup_check( void ) {
     accel_enable();
     accel_data_read(&x, &y, &z);
 
-    if (z < 0) {
+    if (z < -5) {
       main_gs.deep_sleep_down_ctr++;
 #ifdef DEEP_SLEEP_DEBUG
       _led_on_full( 30 + main_gs.deep_sleep_down_ctr ); 
@@ -405,7 +405,7 @@ static bool wakeup_check( void ) {
       _led_off_full( 30 + main_gs.deep_sleep_down_ctr ); 
       delay_ms(50);
 #endif
-    } else if (main_gs.deep_sleep_down_ctr >= DEEP_SLEEP_SEQ_DOWN_COUNT) {
+    } else if (z > 5 && main_gs.deep_sleep_down_ctr >= DEEP_SLEEP_SEQ_DOWN_COUNT) {
       main_gs.deep_sleep_up_ctr++;
 #ifdef DEEP_SLEEP_DEBUG
       _led_on_full( main_gs.deep_sleep_up_ctr ); 
@@ -907,7 +907,7 @@ int main (void) {
         //sleep_wake_anim = anim_random(display_point(0, BRIGHT_DEFAULT), 
         //    MS_IN_TICKS(15), MS_IN_TICKS(2000), true);
         sleep_wake_anim = anim_swirl(0, 5, MS_IN_TICKS(50), 120, true);
-#ifdef DEEP_SLEEP_AT_BIRTH
+#ifdef NOT_NOW //DEEP_SLEEP_AT_BIRTH
         main_deep_sleep_enable();
 #endif
     } else {
