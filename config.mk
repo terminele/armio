@@ -347,7 +347,7 @@ endif
 ifdef wakeup_alarm
     CPPFLAGS+= -D USE_WAKEUP_ALARM
     CPPFLAGS+= -D ALARM_INTERVAL_SEC=60
-    PREBUILD_CMD += touch src/aclock.c; src/main.c;
+    PREBUILD_CMD += touch src/aclock.c; touch src/main.c;
 endif
 
 ifdef log_usage 
@@ -362,6 +362,7 @@ endif
 
 ifdef release
     CPPFLAGS+= -D DEEP_SLEEP_AT_BIRTH=true
+    PREBUILD_CMD += touch src/aclock.c; touch src/main.c;
 endif
 
 # Extra flags to use when linking
@@ -379,4 +380,4 @@ else
 	fi;
 endif
 
-POSTBUILD_CMD =
+POSTBUILD_CMD += touch src/aclock.c;
