@@ -211,7 +211,7 @@
 #define SLEEP_SAMPLE_INT   SAMPLE_INT_100HZ
 
 /* parameters for ST sleep-to-wake/return-to-sleep functionality */
-#define DEEP_SLEEP_THS      4
+#define DEEP_SLEEP_THS      2
 #define DEEP_SLEEP_DUR       MS_TO_ODRS(1000, SLEEP_SAMPLE_INT)
 
 #define WAKEUP_CLICK_THS     50 //assumes 4g scale
