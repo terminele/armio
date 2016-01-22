@@ -51,7 +51,7 @@
 #endif
 
 #define IS_LOW_BATT(vbatt_adc_val) \
-  (adc_vbatt_value_scale(vbatt_adc_val) < 8)
+  ((vbatt_adc_val >> 4) < 2600) //~2.5v
 
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 typedef enum main_state_t {
@@ -883,15 +883,10 @@ int main (void) {
 #if ENABLE_VBATT
   main_set_current_sensor(sensor_vbatt);
   main_start_sensor_read();
-  if (IS_LOW_BATT(main_read_current_sensor(true))) {
-        sleep_wake_anim = anim_blink(display_polygon(30, BRIGHT_MED_LOW, 3),
-             MS_IN_TICKS(300), MS_IN_TICKS(2100), true);
-  }
-
+  main_read_current_sensor(true);
 #endif
 
   configure_wdt();
-
 
   LOG_WAKEUP();
 

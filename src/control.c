@@ -38,6 +38,14 @@
 /* Max tick interval for hour animation (so 1 and 2 o'clock are faster) */
 #define MAX_HOUR_ANIM_TICKS     MS_IN_TICKS(40)
 
+/* Blink intervals and duration for minute hand */
+#define MIN_BLINK_INT    MS_IN_TICKS(175)
+#define MIN_BLINK_DUR    MS_IN_TICKS(1400)
+
+/* Blink faster and longer for low battery warning */
+#define MIN_BLINK_INT_LOW_BATT    MS_IN_TICKS(100)
+#define MIN_BLINK_DUR_LOW_BATT    MS_IN_TICKS(5000)
+
 /* Ticks run slow during edit mode (due to
  * accelerometer and floating point calcs) so
  * estimate a good tick timeout count */
@@ -299,6 +307,9 @@ bool clock_mode_tic ( event_flags_t event_flags ) {
             break;
         case ANIM_HOUR_YOYO:
             if (anim_is_finished(anim_ptr)) {
+                uint16_t blink_int = MIN_BLINK_INT;
+                uint16_t blink_dur = MIN_BLINK_DUR;
+
                 anim_release(anim_ptr);
                 min_disp_ptr = display_point(minute, BRIGHT_DEFAULT);
 #if FLICKER_MIN_MODE
@@ -307,8 +318,13 @@ bool clock_mode_tic ( event_flags_t event_flags ) {
                   MS_IN_TICKS(1500), false);
                 phase = ANIM_MIN;
 #else
-                anim_ptr = anim_blink(min_disp_ptr, MS_IN_TICKS(150),
-                        MS_IN_TICKS(1200), false);
+                if (main_is_low_vbatt()) {
+                    /* Blink faster, longer for low batt warning */
+                    blink_int = MIN_BLINK_INT_LOW_BATT;
+                    blink_dur = MIN_BLINK_DUR_LOW_BATT;
+                }
+
+                anim_ptr = anim_blink(min_disp_ptr, blink_int, blink_dur, false);
                 phase = ANIM_MIN;
 #endif
             }
