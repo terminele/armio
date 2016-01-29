@@ -18,6 +18,7 @@
 #define CLOCK_MODE_SLEEP_TIMEOUT_TICKS                  MS_IN_TICKS(7000)
 #endif
 #define LONG_TIMEOUT_TICKS                              MS_IN_TICKS(1000*(60*3 + 43)) ;
+#define INF_TIMEOUT_TICKS                               MS_IN_TICKS(1000*60*60*8)
 #define TIME_SET_MODE_EDITING_SLEEP_TIMEOUT_TICKS       MS_IN_TICKS(80000)
 #define TIME_SET_MODE_NOEDIT_SLEEP_TIMEOUT_TICKS        MS_IN_TICKS(10000)
 #define EE_MODE_SLEEP_TIMEOUT_TICKS                     MS_IN_TICKS(8000)
@@ -474,8 +475,8 @@ bool sparkle_mode_tic( event_flags_t event_flags ) {
         anim_ptr = anim_random(display_ptr, MS_IN_TICKS(15), ANIMATION_DURATION_INF, false);
     }
     
-    if (TCLICK(event_flags) || QCLICK(event_flags)) {
-        ctrl_mode_active->sleep_timeout_ticks = LONG_TIMEOUT_TICKS;                              
+    if (MNCLICK(event_flags, 4, 20)) {
+        ctrl_mode_active->sleep_timeout_ticks = INF_TIMEOUT_TICKS;
     }
     
     if ( event_flags & EV_FLAG_SLEEP ||
@@ -490,6 +491,7 @@ bool sparkle_mode_tic( event_flags_t event_flags ) {
             display_comp_release(display_ptr);
             display_ptr = NULL;
         }
+        ctrl_mode_active->sleep_timeout_ticks = MS_IN_TICKS(15000);
         control_mode_set(CONTROL_MODE_SHOW_TIME);
         return true;
     }
@@ -504,8 +506,8 @@ bool swirl_mode_tic( event_flags_t event_flags ) {
         anim_ptr = anim_swirl(0, 5, MS_IN_TICKS(16), 5000000, true);
     }
     
-    if (TCLICK(event_flags) || QCLICK(event_flags)) {
-        ctrl_mode_active->sleep_timeout_ticks = LONG_TIMEOUT_TICKS;                              
+    if (MNCLICK(event_flags, 4, 20)) {
+        ctrl_mode_active->sleep_timeout_ticks = INF_TIMEOUT_TICKS;
     }
 
     if ( event_flags & EV_FLAG_SLEEP ||
@@ -515,6 +517,7 @@ bool swirl_mode_tic( event_flags_t event_flags ) {
             anim_release(anim_ptr);
             anim_ptr = NULL;
         }
+        ctrl_mode_active->sleep_timeout_ticks = MS_IN_TICKS(15000);
         control_mode_set(CONTROL_MODE_SHOW_TIME);
         return true;
     }
