@@ -295,6 +295,7 @@ static void prepare_sleep( void ) {
   /* The vbatt adc may have enabled the voltage reference, so disable
    * it in standby to save power */
   system_voltage_reference_disable(SYSTEM_VOLTAGE_REFERENCE_BANDGAP);
+  
 }
 
 static void wakeup (void) {
@@ -465,6 +466,17 @@ static void main_tic( void ) {
     main_gs.brightness = MAX_BRIGHT_VAL;
     led_set_max_brightness( main_gs.brightness );
   }
+  
+  /* ### DEBUG led controller */
+  if (MNCLICK(event_flags, 12, 20)) {
+      _led_on_full( 15 ); 
+      delay_ms(100);
+      _led_off_full( 15 );
+  }
+
+  if (MNCLICK(event_flags, 20, 30)) {
+    while(1);
+  }
 
   switch (main_gs.state) {
     case STARTUP:
@@ -482,14 +494,16 @@ static void main_tic( void ) {
         sleep_wake_anim = NULL;
         
         /* Update and store lifetime usage data */
+#ifdef LOG_USAGE
         main_nvm_data.lifetime_wakes++;
         main_nvm_data.lifetime_ticks+=main_gs.waketicks;
-        if (main_nvm_data.lifetime_wakes % 20 == 1) {
-          /* Only update buffer once every 20 wakes to extend
+        if (main_nvm_data.lifetime_wakes % 100 == 1) {
+          /* Only update buffer once every 100 wakes to extend
            * lifetime of the NVM -- may fail after 100k writes */
           nvm_update_buffer(NVM_CONF_ADDR, (uint8_t *) &main_nvm_data, 0,
               sizeof(nvm_data_t));
         }
+#endif
 
 #ifdef LOG_FIFO
         if (ax_fifo_depth == 32  
@@ -629,6 +643,7 @@ static void main_init( void ) {
 
   uint32_t data = 0xffffffff;
 
+#ifdef LOG_USAGE
   /* Set row address to first open space by
    * iterating through log data until an
    * empty (4 bytes of 1s) row is found */
@@ -640,6 +655,7 @@ static void main_init( void ) {
 
     nvm_row_addr+=NVMCTRL_ROW_SIZE;
   }
+#endif
 
   /* Read configuration data stored in nvm */
   nvm_read_buffer(NVM_CONF_ADDR, (uint8_t *) &main_nvm_data,
