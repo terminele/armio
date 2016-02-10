@@ -474,9 +474,9 @@ static void main_tic( void ) {
       _led_off_full( 15 );
   }
 
-  if (MNCLICK(event_flags, 20, 30)) {
-    while(1);
-  }
+//  if (MNCLICK(event_flags, 20, 30)) {
+//    while(1);
+//  }
 
   switch (main_gs.state) {
     case STARTUP:
@@ -494,7 +494,7 @@ static void main_tic( void ) {
         sleep_wake_anim = NULL;
         
         /* Update and store lifetime usage data */
-#ifdef LOG_USAGE
+#ifdef LOG_LIFETIME_USAGE
         main_nvm_data.lifetime_wakes++;
         main_nvm_data.lifetime_ticks+=main_gs.waketicks;
         if (main_nvm_data.lifetime_wakes % 100 == 1) {
@@ -568,13 +568,14 @@ static void main_tic( void ) {
       /* Check for inactivity timeout */
       if (
 #ifdef ALWAYS_ACTIVE
-          true || 
-#endif
+          false
+#else
           main_gs.inactivity_ticks > \
           ctrl_mode_active->sleep_timeout_ticks ||
           (IS_CONTROL_MODE_SHOW_TIME() && (
            (event_flags & EV_FLAG_ACCEL_DOWN) || TCLICK(event_flags)))
 
+#endif
           ) {
 
           /* A sleep event has occurred */

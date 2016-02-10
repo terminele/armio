@@ -11,8 +11,8 @@
 #include "main.h"
 
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
-#ifndef ALARM_INTERVAL_SEC
-#define ALARM_INTERVAL_SEC 20
+#ifndef ALARM_INTERVAL_MIN
+#define ALARM_INTERVAL_MIN 1 
 #endif
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 
@@ -50,15 +50,8 @@ void rtc_alarm_short_callback( void ) {
     aclock_enable();
 
     /* Set next alarm */
-    //alarm.time.minute += 1;
-    //alarm.time.minute %= 60;
-    alarm.time.second += ALARM_INTERVAL_SEC;
-
-    if (alarm.time.second > 59) {
-      alarm.time.minute+=1;
-      alarm.time.minute %= 60;
-      alarm.time.second %= 60;
-    }
+    alarm.time.minute += ALARM_INTERVAL_MIN;
+    alarm.time.minute %= 60;
 
     rtc_calendar_set_alarm(&rtc_instance, &alarm, RTC_CALENDAR_ALARM_0);
 
@@ -247,13 +240,11 @@ void aclock_init( void ) {
 
 #ifdef USE_WAKEUP_ALARM
     /* Configure alarm  */
-    alarm.time.second = initial_time.second + ALARM_INTERVAL_SEC;
-    alarm.time.minute = initial_time.minute;
+    alarm.time.second = initial_time.second; 
+    alarm.time.minute = initial_time.minute + ALARM_INTERVAL_MIN;
 
-    if (alarm.time.second >= 60) {
-      alarm.time.second %= 60;
-      alarm.time.minute++;
-    }
+    alarm.time.minute %= 60;
+
 
     alarm.mask = RTC_CALENDAR_ALARM_MASK_MIN;
     rtc_calendar_set_alarm(&rtc_instance, &alarm, RTC_CALENDAR_ALARM_0);

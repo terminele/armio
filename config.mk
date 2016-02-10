@@ -300,6 +300,7 @@ CPPFLAGS = \
        -D __MIN__=$(_MIN_)				  \
        -D __SEC__=$(_SEC_)				  \
        -D __PM__=$(_PM_)				  \
+       -D LOG_LIFETIME_USAGE				  \
        -D GESTURE_FILTERS=true 			  	  
        #-D LOG_ACCEL					  \
        #-D LOG_FIFO					  \
@@ -346,8 +347,19 @@ endif
 
 ifdef wakeup_alarm
     CPPFLAGS+= -D USE_WAKEUP_ALARM
-    CPPFLAGS+= -D ALARM_INTERVAL_SEC=60
+    CPPFLAGS+= -D ALARM_INTERVAL_MIN=1
     PREBUILD_CMD += touch src/aclock.c; touch src/main.c;
+endif
+
+ifdef wakeup_alarm_5m
+    CPPFLAGS+= -D USE_WAKEUP_ALARM
+    CPPFLAGS+= -D ALARM_INTERVAL_MIN=5
+    PREBUILD_CMD += touch src/aclock.c; touch src/main.c;
+endif
+
+ifdef always_active
+    CPPFLAGS+= -D ALWAYS_ACTIVE=true
+    PREBUILD_CMD += touch src/main.c;
 endif
 
 ifdef log_usage 
