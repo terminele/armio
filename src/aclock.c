@@ -194,7 +194,9 @@ void aclock_init( void ) {
     /* Set current time */
     rtc_calendar_get_time_defaults(&initial_time);
     
-    if (main_nvm_data.second < 60) {
+    if (main_nvm_data.second >= 0 && main_nvm_data.second < 60 &&
+        main_nvm_data.minute >= 0 && main_nvm_data.minute < 60 &&
+        main_nvm_data.hour > 0 && main_nvm_data.hour <= 12) {
       /* Datetime has been saved in nvm */
       initial_time.year   = aclock_state.year   = main_nvm_data.year;
       initial_time.month  = aclock_state.month  = main_nvm_data.month; 
