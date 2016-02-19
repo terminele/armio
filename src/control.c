@@ -268,9 +268,11 @@ bool clock_mode_tic ( event_flags_t event_flags ) {
       
       control_modes[CONTROL_MODE_SHOW_TIME].sleep_timeout_ticks = LONG_TIMEOUT_TICKS;
 
+#ifndef DISABLE_SECONDS
       if (!sec_disp_ptr) {
         sec_disp_ptr = display_point(second, BRIGHT_LOW);
       }
+#endif
     }
 
     hour_anim_tick_int = MS_IN_TICKS(HOUR_ANIM_DUR_MS/(hour * 5));

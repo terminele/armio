@@ -362,6 +362,12 @@ ifdef always_active
     PREBUILD_CMD += touch src/main.c;
 endif
 
+ifdef picture_mode
+    CPPFLAGS+= -D ALWAYS_ACTIVE=true
+    CPPFLAGS+= -D DISABLE_SECONDS=true
+    PREBUILD_CMD += touch src/main.c; touch src/control.c;
+endif
+
 ifdef log_usage 
     CPPFLAGS += -D LOG_USAGE=true
 else
