@@ -31,6 +31,7 @@ typedef enum {
   error_group_animation,
   error_group_control,
   error_group_assertion,
+  error_group_rtc,
 } error_group_code_t;
 
 
@@ -44,6 +45,11 @@ typedef enum {
 
 #define assert(B) if (!(B)) main_terminate_in_error( error_group_assertion, 0 )
 
+/* Starting flash address at which to store data */
+#define NVM_ADDR_START      ((1 << 15) + (1 << 14) + (1 << 13)) /* assumes program size < 56KB */
+#define NVM_DATA_ADDR       NVM_ADDR_START
+#define NVM_DATA_STORE_SIZE NVMCTRL_ROW_SIZE //256 bytes
+
 //___ T Y P E D E F S ________________________________________________________
 typedef uint32_t event_flags_t;
 
@@ -53,8 +59,11 @@ typedef enum sensor_type_t {
 } sensor_type_t;
 
 typedef struct {
-    /* RTC Frequency Correction value in ppm */
-    int8_t rtc_freq_corr;
+    /* configuration data and usage stats stored in flash 
+     * If updating this struct, ensure size does not 
+     * exceed NVM_DATA_STORE_SIZE 
+     */
+    int8_t rtc_freq_corr; 
     uint32_t lifetime_wakes; 
     uint32_t lifetime_ticks;
     uint32_t lifetime_resets;

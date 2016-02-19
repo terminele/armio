@@ -85,7 +85,6 @@
 #include <i2c_master.h>
 //#include <i2c_master_interrupt.h>
 
-// From module: SYSTEM - Clock Management for SAMD20
 #include <clock.h>
 #include <gclk.h>
 
@@ -96,6 +95,12 @@
 // timer counter
 #include <tc.h>
 #include <tc_interrupt.h>
+
+#ifdef RTC_CALIBRATE
+#if RTC_CALIBRATE
+#include <tcc.h>
+#endif
+#endif
 
 // From module: SYSTEM - Core System Driver
 #include <system.h>

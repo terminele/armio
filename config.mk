@@ -302,13 +302,14 @@ CPPFLAGS = \
        -D __PM__=$(_PM_)				  \
        -D LOG_LIFETIME_USAGE				  \
        -D GESTURE_FILTERS=true 			  	  
+       #-D NO_ACCEL					  \
+       #-D ALWAYS_ACTIVE=true				  \
        #-D LOG_ACCEL					  \
        #-D LOG_FIFO					  \
        #-D LOG_CONFIRMED_ONLY				  \
        #-D FLICKER_MIN_MODE
        #-D USE_WAKEUP_ALARM				  \
        #-D NO_TIME_ANIMATION				  \
-       #-D NO_ACCEL					\
        #-D SIMPLE_TIME_MODE
        #-D ENABLE_BUTTON				  	  \
 
@@ -377,6 +378,19 @@ ifdef release
     PREBUILD_CMD += touch src/aclock.c; touch src/main.c;
 endif
 
+ifdef rtc_cal
+    CPPFLAGS+=-D RTC_CALIBRATE=true -D TCC_ASYNC=false
+    CSRCS+=src/asf/sam0/drivers/tcc/tcc.c			       
+    INC_PATH+=src/asf/sam0/drivers/tcc
+    PREBUILD_CMD += touch src/utils.c; touch src/main.c; touch src/conf/conf_clocks.h; touch src/asf/asf.h;
+    TARGET_FLASH = bin/armio_rtc_cal_flash.elf
+    TARGET_SRAM = bin/armio_rtc_cal_sram.elf
+    $(warning !####!!!####!!!!!!!REBUILD ALL before installing regular program )
+    $(warning !####!!!####!!!!!!!REBUILD ALL before installing regular program )
+    $(warning !####!!!####!!!!!!!REBUILD ALL before installing regular program )
+    $(warning !####!!!####!!!!!!!REBUILD ALL before installing regular program )
+    $(warning !####!!!####!!!!!!!REBUILD ALL before installing regular program )
+endif
 # Extra flags to use when linking
 LDFLAGS =
 

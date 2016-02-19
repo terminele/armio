@@ -29,11 +29,7 @@
 #define DEEP_SLEEP_SEQ_UP_COUNT    3 /* # of double clicks facing up to wakeup */
 #define DEEP_SLEEP_SEQ_DOWN_COUNT    2 /* # of double clicks facing down to wakeup */
 
-/* Starting flash address at which to store data */
-#define NVM_ADDR_START      ((1 << 15) + (1 << 14) + (1 << 13)) /* assumes program size < 56KB */
-#define NVM_CONF_ADDR       NVM_ADDR_START
-#define NVM_CONF_STORE_SIZE NVMCTRL_ROW_SIZE //256 bytes
-#define NVM_LOG_ADDR_START  (NVM_ADDR_START + NVM_CONF_STORE_SIZE)
+#define NVM_LOG_ADDR_START  (NVM_ADDR_START + NVM_DATA_STORE_SIZE)
 #define NVM_LOG_ADDR_MAX    NVM_MAX_ADDR
 
 #define IS_ACTIVITY_EVENT(ev_flags) \
@@ -171,7 +167,7 @@ static void watchdog_early_warning_callback(void) {
       main_nvm_data.second = aclock_state.second;
       main_nvm_data.pm     = aclock_state.pm;     
       
-      nvm_update_buffer(NVM_CONF_ADDR, (uint8_t *) &main_nvm_data, 0,
+      nvm_update_buffer(NVM_DATA_ADDR, (uint8_t *) &main_nvm_data, 0,
              sizeof(nvm_data_t));
 }
 
@@ -206,6 +202,7 @@ static void wdt_disable( void ) {
 	wdt_set_config(&config_wdt);
 	wdt_disable_callback(WDT_CALLBACK_EARLY_WARNING);
 }
+
 
 
 static void configure_input(void) {
@@ -500,7 +497,7 @@ static void main_tic( void ) {
         if (main_nvm_data.lifetime_wakes % 100 == 1) {
           /* Only update buffer once every 100 wakes to extend
            * lifetime of the NVM -- may fail after 100k writes */
-          nvm_update_buffer(NVM_CONF_ADDR, (uint8_t *) &main_nvm_data, 0,
+          nvm_update_buffer(NVM_DATA_ADDR, (uint8_t *) &main_nvm_data, 0,
               sizeof(nvm_data_t));
         }
 #endif
@@ -613,6 +610,7 @@ static void main_tic( void ) {
 
       /* Call mode's main tic loop/event handler */
       control_tic(event_flags); 
+      
       return; /* END OF RUNNING STATE SWITCH CASE */
   }
 }
@@ -659,7 +657,7 @@ static void main_init( void ) {
 #endif
 
   /* Read configuration data stored in nvm */
-  nvm_read_buffer(NVM_CONF_ADDR, (uint8_t *) &main_nvm_data,
+  nvm_read_buffer(NVM_DATA_ADDR, (uint8_t *) &main_nvm_data,
       sizeof(nvm_data_t));
 
   if (main_nvm_data.lifetime_wakes == 0xffffffff) {
@@ -686,7 +684,7 @@ static void main_init( void ) {
       main_nvm_data.wdt_resets++;   
   }
 
-  nvm_update_buffer(NVM_CONF_ADDR, (uint8_t *) &main_nvm_data, 0,
+  nvm_update_buffer(NVM_DATA_ADDR, (uint8_t *) &main_nvm_data, 0,
           sizeof(nvm_data_t));
 }
 
@@ -873,22 +871,22 @@ uint8_t main_get_multipress_count( void ) {
   return main_gs.tap_count;
 }
 
-
+#if !(RTC_CALIBRATE)
 int main (void) {
 
   system_init();
   system_set_sleepmode(SYSTEM_SLEEPMODE_STANDBY);
-
+  
   delay_init();
   main_init();
-  aclock_init();
   led_controller_init();
   led_controller_enable();
+  aclock_init();
   control_init();
   display_init();
   anim_init();
   accel_init();
-  
+
   /* Errata 39.3.2 -- device may not wake up from
    * standby if nvm goes to sleep. Not needed
    * for revision D or later */
@@ -930,6 +928,7 @@ int main (void) {
 
   configure_input();
   system_interrupt_enable_global();
+  
   wdt_enable();
 
   while (1) {
@@ -938,13 +937,31 @@ int main (void) {
       main_tic();
       anim_tic();
       display_tic();
-      
+     
       if (main_gs.waketicks % 500 == 0) {
         wdt_reset_count();
       }
 
     }
   }
+
 }
 
+#else /* RTC_CALIBRATE enabled */
+int main (void) {
+  system_init();
+  system_set_sleepmode(SYSTEM_SLEEPMODE_STANDBY);
+  
+  delay_init();
+  main_init();
+  led_controller_conf_output();
+  led_clear_all();
+  
+  _led_on_full(0);
+  delay_ms(1000);
+  _led_off_full(0);
+  
+  rtc_cal_run();
+}
+#endif /* RTC_CALIBRATE */
 // vim:shiftwidth=2

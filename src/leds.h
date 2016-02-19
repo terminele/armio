@@ -60,12 +60,19 @@ void led_controller_disable( void );
    * @retrn None
    */
 
+void led_controller_conf_output( void );
+  /* @brief configure led pins for output
+   * @brief enables _led_on/_led_off to function without
+   * @brief running timer counters
+   * @param None
+   * @retrn None
+   */
+
 void led_controller_enable( void );
   /* @brief enable the led controller
    * @param None
    * @retrn None
    */
-
 
 void led_set_intensity( uint8_t led, uint8_t intensity );
   /* @brief set led intensity
