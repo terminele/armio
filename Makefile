@@ -525,12 +525,12 @@ write_conf_data:
 	-openocd -f $(DEBUGGER_CFG) \
 	-f $(OCD_PART_CFG) \
 	-c init -c "reset init" \
-	-c "flash erase_address 0xc000 $(sector_len)" \
+	-c "flash erase_address 0xe000 $(sector_len)" \
 	-c "shutdown"
 	openocd -f $(DEBUGGER_CFG) \
 	-f $(OCD_PART_CFG) \
 	-c init -c "reset init" \
-	-c "flash fillb 0xc000 $(conf_data) $(conf_data_byte_cnt)" \
+	-c "flash fillb 0xe000 $(conf_data) $(conf_data_byte_cnt)" \
 	-c "shutdown"
 
 # Build Doxygen generated documentation.
