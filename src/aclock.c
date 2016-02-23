@@ -100,7 +100,6 @@ void aclock_get_time( uint8_t* hour_ptr, uint8_t* minute_ptr, uint8_t* second_pt
 void aclock_enable ( void ) {
 
   rtc_calendar_enable_callback(&rtc_instance, RTC_CALENDAR_CALLBACK_SYNCRDY);
-  rtc_calendar_enable(&rtc_instance);
 
   /* ###continuous update doesn't seeem to be working so... */
   /* Make another calendar read request */
@@ -225,13 +224,16 @@ void aclock_init( void ) {
 
     rtc_calendar_init(&rtc_instance, RTC, &config_rtc_calendar);
 
-    rtc_calendar_enable(&rtc_instance);
 
     if ((uint8_t)main_nvm_data.rtc_freq_corr == 0xff) {
       main_nvm_data.rtc_freq_corr = 0;
     }
-    rtc_calendar_frequency_correction(&rtc_instance, main_nvm_data.rtc_freq_corr);
-
+    if (STATUS_OK != rtc_calendar_frequency_correction(&rtc_instance, main_nvm_data.rtc_freq_corr)) {
+      main_terminate_in_error(error_group_assertion, 0); 
+    }
+    
+    rtc_calendar_enable(&rtc_instance);
+    
     rtc_calendar_set_time(&rtc_instance, &initial_time);
 
     /* Register sync ready callback */
@@ -239,6 +241,7 @@ void aclock_init( void ) {
         aclock_sync_ready_cb, RTC_CALENDAR_CALLBACK_SYNCRDY);
 
     rtc_calendar_enable_callback(&rtc_instance, RTC_CALENDAR_CALLBACK_SYNCRDY);
+    
 
 #ifdef USE_WAKEUP_ALARM
     /* Configure alarm  */

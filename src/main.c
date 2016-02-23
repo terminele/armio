@@ -881,9 +881,9 @@ int main (void) {
 
   delay_init();
   main_init();
-  aclock_init();
   led_controller_init();
   led_controller_enable();
+  aclock_init();
   control_init();
   display_init();
   anim_init();
