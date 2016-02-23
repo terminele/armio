@@ -454,7 +454,7 @@ static void wait_for_down_conf( void ) {
 
   accel_register_write (AX_REG_INT1_THS, XY_DOWN_THRESHOLD);
   accel_register_write (AX_REG_INT1_DUR, XY_DOWN_DUR_ODR);
-  accel_register_write (AX_REG_INT1_CFG, AOI_POS | XLIE | XHIE | YLIE | YHIE);
+  accel_register_write (AX_REG_INT1_CFG, AOI_POS | XLIE | XHIE | YLIE | YHIE | ZLIE);
   accel_register_write (AX_REG_CTL3, I1_CLICK_EN | I1_AOI1_EN );
 
 }
