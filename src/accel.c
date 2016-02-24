@@ -208,7 +208,7 @@
 
 #define ACTIVE_ODR              ODR_400HZ
 #define ACTIVE_SAMPLE_INT       SAMPLE_INT_400HZ
-#define CLICK_THS     43 //assumes 4g scale
+#define CLICK_THS       55 //assumes 4g scale
 #define CLICK_TIME_WIN      MS_TO_ODRS(200, ACTIVE_SAMPLE_INT)
 #define CLICK_TIME_LIM      MS_TO_ODRS(20, ACTIVE_SAMPLE_INT)
 #define CLICK_TIME_LAT      MS_TO_ODRS(40, ACTIVE_SAMPLE_INT) //ms
@@ -220,7 +220,7 @@
 #define DEEP_SLEEP_THS      2
 #define DEEP_SLEEP_DUR       MS_TO_ODRS(1000, SLEEP_SAMPLE_INT)
 
-#define WAKEUP_CLICK_THS     45 //assumes 4g scale
+#define WAKEUP_CLICK_THS     47 //assumes 4g scale
 #define WAKEUP_CLICK_TIME_WIN      MS_TO_ODRS(400, SLEEP_SAMPLE_INT)
 #define WAKEUP_CLICK_TIME_LIM      MS_TO_ODRS(30, SLEEP_SAMPLE_INT)
 #define WAKEUP_CLICK_TIME_LAT      MS_TO_ODRS(100, SLEEP_SAMPLE_INT) //ms
