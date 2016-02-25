@@ -777,26 +777,9 @@ z_sum_slope_accept = SampleTest( "Z slope sum accept",
 fail_all_test = SampleTest( "Fail remaining", lambda s : -1, reject_below=0 )
 
 traditional_tests = [ y_turn_accept, y_not_delib_fail,
-        #xy_turn_accept,
-        x_turn_accept,
-        z_sum_slope_accept, y_ovs1_accept, y_ovs2_accept, fail_all_test ]
+        y_ovs1_accept, xy_turn_accept, x_turn_accept, z_sum_slope_accept,
+        y_ovs2_accept, fail_all_test ]
 
-
-def mean_center_columns( matrix ):
-    """ matrix has the form
-      [ [ ===  row 0  === ],
-        [ ===  .....  === ],
-        [ === row N-1 === ] ]
-        we want each column to be mean centered
-    """
-    N_inv = 1.0 / len( matrix )
-    cms = ( sum( c ) * N_inv for c in zip( *matrix ) )
-    mT = ( [ x - cm for x in c ] for cm, c in zip( cms, zip( *matrix )) )
-    return list( zip( *mT ) )
-
-def get_col_variances( matrix ):
-    N_inv = 1.0 / len( matrix )
-    vars = [ sum( x**2 for x in c ) * N_inv for c in zip( *matrix ) ]
 
 def run_tests( tests, samples, plot=False ):
     for test in tests:
@@ -809,6 +792,37 @@ def run_tests( tests, samples, plot=False ):
         if plot:
             test.plot_result()
         samples = test.passed_samples
+
+
+
+def mean_center_columns( matrix ):
+    """ matrix has the form
+      [ [ ===  row 0  === ],
+        [ ===  .....  === ],
+        [ === row N-1 === ] ]
+        we want each column to be mean centered
+    """
+    cms = get_col_means( matrix )
+    mT = ( [ x - cm for x in c ] for cm, c in zip( cms, zip( *matrix )) )
+    return list( zip( *mT ) )
+
+def get_col_means( matrix ):
+    N_inv = 1.0 / len( matrix )
+    cms = ( sum( c ) * N_inv for c in zip( *matrix ) )
+    return cms
+
+def get_col_variances( matrix ):
+    N_inv = 1.0 / len( matrix )
+    vars = ( sum( x**2 for x in c ) * N_inv for c in zip( *matrix ) )
+    return vars
+
+def univarance_scale_columns( matrix ):
+    vars = get_col_variances( matrix )
+    mT = ( [ x / cv**0.5 for x in c ] for cv, c in zip( vars, zip( *matrix )) )
+    return list( zip( *mT ) )
+
+def find_xTx( matrix ):
+    return np.dot( np.transpose( matrix ), matrix )
 
 def plot_sumN_scores(samples):
     conf_scores = []
