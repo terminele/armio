@@ -503,26 +503,27 @@ static void main_tic( void ) {
           nvm_update_buffer(NVM_CONF_ADDR, (uint8_t *) &main_nvm_data, 0,
               sizeof(nvm_data_t));
         }
-#endif
+#endif  /* LOG_LIFETIME_USAGE */
 
 #ifdef LOG_FIFO
-        if (ax_fifo_depth == 32  
+        if (accel_fifo.depth == 32
             && (_accel_confirmed || main_nvm_data.lifetime_wakes < 200)
 #ifdef LOG_CONFIRMED_ONLY 
             && _accel_confirmed
-#endif
+#endif  /* LOG_CONFIRMED_ONLY */
            ) {
           uint32_t code = 0xAAAAAAAA; /* FIFO data begin code */
           main_log_data((uint8_t *) &code, sizeof(uint32_t), false);
-          main_log_data((uint8_t *)ax_fifo, 6*ax_fifo_depth, true);
+          main_log_data( accel_fifo.bytes,
+              sizeof(accel_xyz_t) * accel_fifo.depth, true );
           code = _accel_confirmed ? 0xCCCCCCCC : 0xEEEEEEEE; /* FIFO data end code */
           main_log_data((uint8_t *) &code, sizeof(uint32_t), true);
           uint16_t log_code = 0xEEDD; 
           main_log_data ((uint8_t *)&log_code, sizeof(uint16_t), true);
           main_log_data ((uint8_t *)&main_gs.waketicks, sizeof(uint32_t), true);
         }
-#endif
-  
+#endif  /* LOG_FIFO */
+
         prepare_sleep();
         accel_sleep();
 

@@ -20,23 +20,19 @@
 #define ACCEL_ERROR_WRONG_ID(id)       (((uint32_t) 5) \
     | (((uint32_t) id)<<8) )
 
-
 #ifndef ABS
 #define ABS(a)       ( a < 0 ? -1 * a : a )
 #endif
 
 #ifndef USE_SELF_TEST
-#define USE_SELF_TEST       false
+# define USE_SELF_TEST       false
 #endif
-
-//#define DEBUG_AX_ISR true
 
 #ifndef DEBUG_AX_ISR
-#define DEBUG_AX_ISR false
+# define DEBUG_AX_ISR false
 #endif
 
-#define INFO_ON DEBUG_AX_ISR
-#if INFO_ON
+#if ( DEBUG_AX_ISR )
 #define _DISP_INFO( i )  do { \
       _led_on_full( i ); \
       delay_ms(100); \
@@ -47,11 +43,10 @@
       _led_off_full( i ); \
       delay_ms(50); \
     } while(0);
-#else
+#else   /* DEBUG_AX_ISR */
 #define _DISP_INFO( i )
-#endif
+#endif  /* DEBUG_AX_ISR */
 
-#if DEBUG_AX_ISR
 #define _DISP_ERROR( i )  do { \
       _led_on_full( i ); \
       delay_ms(1000); \
@@ -62,9 +57,23 @@
       _led_off_full( i ); \
       delay_ms(100); \
     } while(0);
-#else
-#define _DISP_ERROR( i )
-#endif
+
+#define DISP_ERR_FIFO_READ()            _DISP_ERROR( 30 )
+#define DISP_ERR_CONSEC_READ_1()        _DISP_ERROR(  5 )
+#define DISP_ERR_CONSEC_READ_2()        _DISP_ERROR(  7 )
+#if ( DEBUG_AX_ISR )
+#define DISP_ERR_WAKE_1()               _DISP_ERROR( 19 )
+#define DISP_ERR_WAKE_2()               _DISP_ERROR( 56 )
+#define DISP_ERR_WAKE_3()               _DISP_ERROR( 55 )
+#define DISP_ERR_WAKE_4()               _DISP_ERROR( 54 )
+#define DISP_ERR_WAKE_GEST( state )     _DISP_ERROR( state + 40 )
+#else   /* DEBUG_AX_ISR */
+#define DISP_ERR_WAKE_1()
+#define DISP_ERR_WAKE_2()
+#define DISP_ERR_WAKE_3()
+#define DISP_ERR_WAKE_4()
+#define DISP_ERR_WAKE_GEST( state )
+#endif /* DEBUG_AX_ISR */
 
 #define AX_SDA_PIN      PIN_PA08
 #define AX_SDA_PAD      PINMUX_PA08C_SERCOM0_PAD0
@@ -105,8 +114,6 @@
 #define AX_REG_TIME_WIN     0x3D
 #define AX_REG_ACT_THS      0x3E
 #define AX_REG_ACT_DUR      0x3F
-
-#define BITS_PER_ACCEL_VAL 8
 
 /* CTRL_REG1 */
 #define X_EN        0x01
@@ -227,13 +234,12 @@
 
 #define Z_SLEEP_DOWN_THRESHOLD      18 //assumes 4g scale
 #define Y_SLEEP_DOWNOUT_THRESHOLD      -8 //assumes 4g scale
-#define Y_SLEEP_DOWNIN_THRESHOLD      4 //assumes 4g scale
+#define Y_SLEEP_DOWNIN_THRESHOLD      8 //assumes 4g scale
 
 #define Z_DOWN_THRESHOLD_ABS    (Z_DOWN_THRESHOLD < 0 ? -Z_DOWN_THRESHOLD : Z_DOWN_THRESHOLD)
 #define Z_DOWN_DUR_ODR          MS_TO_ODRS(Z_DOWN_DUR_MS, SLEEP_SAMPLE_INT)
 
-/* Y_DOWN */
-#define XY_DOWN_THRESHOLD        10//-10 //assumes 4g scale
+#define XY_DOWN_THRESHOLD        10 //assumes 4g scale
 #define XY_DOWN_DUR_MS           50
 //#define Y_DOWN_THRESHOLD        -18 //assumes 4g scale
 //#define Y_DOWN_DUR_MS           200
@@ -244,9 +250,15 @@
 #define Z_UP_DUR_ODR            MS_TO_ODRS(130, SLEEP_SAMPLE_INT)
 
 /* TURN GESTURE FILTERING PARAMETERS */
+#ifndef GESTURE_FILTERS
+# define GESTURE_FILTERS    true
+#endif
+
 /* Filter #1 - when turning wrist up from horizontal position,
  * the sum of the first N y-values should exceed a certain threshold
  * in the negative direction (i.e. 12 oclock facing downward)
+ *
+ * Filter #2
  * and the difference between the sum of thefirst N z-values and
  * the sum of the last N z-values should exced DZ_THS
  * (i.e. face moves from vertical to  horizontal)
@@ -283,6 +295,47 @@ static void configure_i2c(void);
    * @retrn none
    */
 
+static inline void fltr_run_gesture_filters( void );
+    /* @brief read the accel fifo and filter turn to wake gestures
+     *        and set wake_gesture_state accordingly
+     * @param None
+     * @retrn None
+     */
+
+static inline bool fltr_y_not_deliberate_fail( int16_t y_last, accel_xyz_t* sums );
+    /* @brief Highest priority filter is to check if the latest y
+     *        is facing outward and the y-movement was not deliberate enough
+     * @param y_last : the last (most recent) y value
+     * @param sums : the sum history pointer
+     * @retrn true on fail
+     */
+
+static inline bool fltr_z_sum_slope_accept( accel_xyz_t* sums );
+    /* @brief
+     * @param the sum history pointer
+     * @retrn true on pass
+     */
+
+static inline bool fltr_turn_arm_accept( accel_xyz_t* sums );
+    /* @brief if the sum after a certain number of values is high enough
+     * @param the sum history pointer
+     * @retrn true on pass
+     */
+
+static inline bool fltr_y_overshoot_accept( accel_xyz_t* sums );
+    /* @brief edge case test for when watch gets into a position closer to
+     *        looking at you, then falls back into more of a flat position
+     * @param the sum history pointer
+     * @retrn true on pass
+     */
+
+static inline bool fltr_y_facing_inwards_accept( int16_t y_last );
+    /* @brief for when the watch is really facing inwards, this is a farily
+     *        'uncomfortable' position that indicates you are looking at the
+     *        watch
+     * @param the last y value in the fifo
+     * @retrn true on pass
+     */
 
 static bool accel_register_consecutive_read (uint8_t start_reg,
     uint8_t count, uint8_t *data_ptr);
@@ -317,9 +370,7 @@ void accel_fifo_read ( void );
 
 
 //___ V A R I A B L E S ______________________________________________________
-
-int8_t ax_fifo[32][6] = {{0}};
-uint8_t ax_fifo_depth = 0;
+accel_fifo_t accel_fifo = { .bytes = { 0 }, .depth = 0 };
 bool accel_wakeup_gesture_enabled = true;
 uint8_t accel_slow_click_cnt = 0;
 uint8_t accel_fast_click_cnt = 0;
@@ -489,6 +540,104 @@ static bool accel_register_consecutive_read (uint8_t start_reg, uint8_t count,
 
   return true;
 }
+
+static inline void fltr_run_gesture_filters( void ) {
+    uint8_t i;
+    accel_xyz_t curr;
+    accel_xyz_t csum = { .x = 0, .y = 0, .z = 0 };
+    accel_xyz_t csums[32];
+    //accel_xyz_t prev = { .x = 0, .y = 0, .z = 0 };
+    //accel_xyz_t diff;
+
+    if( accel_fifo.depth == 0 ) {
+        /* there was some error reading the fifo */
+        wake_gesture_state = WAKE_TURN_UP;
+        return;
+    }
+
+    for( i = 0; i < accel_fifo.depth; i++ ) {
+        /* find x, y, z values from raw 'left aligned' fifo data */
+        curr.x = accel_fifo.values[i].x_leftalign; /* same as bit shift right */
+        curr.y = accel_fifo.values[i].y_leftalign;
+        curr.z = accel_fifo.values[i].z_leftalign;
+
+        /* maintain integrated value */
+        csum.x += curr.x;
+        csum.y += curr.y;
+        csum.z += curr.z;
+
+        /* record integrated value */
+        csums[i].x = csum.x;
+        csums[i].y = csum.y;
+        csums[i].z = csum.z;
+#if 0
+        /* find differential */
+        diff.x = curr.x - prev.x;
+        diff.y = curr.y - prev.y;
+        diff.z = curr.z - prev.z;
+
+        /* reset previous values */
+        prev.x = curr.x;
+        prev.y = curr.y;
+        prev.z = curr.z;
+
+        if ( diff.z + diff.y > 25 ) {
+            wake_gesture_state = WAKE_TURN_UP;
+            break;
+        }
+#endif
+    }
+
+    if( fltr_y_not_deliberate_fail( curr.y, csums ) ) {
+      return;
+    } else if( fltr_z_sum_slope_accept( csums ) ) {
+        wake_gesture_state = WAKE_TURN_UP;
+        _DISP_INFO(40);
+    } else if( fltr_turn_arm_accept( csums ) ) {
+        wake_gesture_state = WAKE_TURN_UP;
+        _DISP_INFO(15);
+    } else if( fltr_y_facing_inwards_accept( curr.y ) ) {
+        wake_gesture_state = WAKE_TURN_UP;
+        _DISP_INFO(30);
+    } else if( fltr_y_overshoot_accept( csums ) ) {
+        wake_gesture_state = WAKE_TURN_UP;
+    }
+}
+
+static inline bool fltr_y_not_deliberate_fail( int16_t y_last, accel_xyz_t* sums ) {
+    bool y_test = y_last < -5;
+    bool sumtest = ABS( sums[Y_SUM_N].y ) < Y_SUM_THS_HIGH;
+    return y_test && sumtest;
+}
+
+static inline bool fltr_z_sum_slope_accept( accel_xyz_t* sums ) {
+    bool ztest = sums[31].z - sums[31-DZ_N].z - sums[DZ_N].z >= DZ_THS;
+    return ztest;
+}
+
+static inline bool fltr_turn_arm_accept( accel_xyz_t* sums ) {
+    /* "Turn Arm Up" filter */
+    bool ytest = ABS( sums[Y_SUM_N].y ) >= Y_SUM_THS_HIGH;
+    bool xtest = ABS( sums[X_SUM_N].x ) >= X_SUM_THS_HIGH;
+        /*  for xtest, check if sum of first N x-values are large enough in
+         *  the negative (or positive for lefties) direction
+         *  (3 or 9 o'clock facing down)
+         */
+    bool xytest = ABS( sums[Y_SUM_N].y ) + ABS( sums[X_SUM_N].x ) > XY_SUM_THS;
+    return ytest || xtest || xytest;
+}
+
+static inline bool fltr_y_overshoot_accept( accel_xyz_t* sums ) {
+    bool test1 = sums[31].y - sums[26].y > 20;
+    bool test2 = sums[31].y - sums[22].y > 40;
+    return test1 || test2;
+}
+
+static inline bool fltr_y_facing_inwards_accept( int16_t y_last ) {
+    bool test = y_last >= Y_LATEST_THS;
+    return test;
+}
+
 static bool accel_register_write (uint8_t reg, uint8_t val) {
   uint8_t data[2] = {reg, val};
   /* Write the register address (SUB) to the accelerometer */
@@ -512,22 +661,21 @@ static bool accel_register_write (uint8_t reg, uint8_t val) {
 static void accel_isr(void) {
   
   if (!accel_register_consecutive_read(AX_REG_CLICK_SRC, 1, &click_flags.b8)) {
-     _DISP_ERROR(5);
+      DISP_ERR_CONSEC_READ_1();
   }
 
   if (!accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &int_flags.b8)) {
-     _DISP_ERROR(7);
+      DISP_ERR_CONSEC_READ_2();
   }
 
 #if DEBUG_AX_ISR
   _led_on_full(15*click_flags.ia + 3*int_flags.ia + 
       5*int_flags.yl + 10*int_flags.yh + 
       17*int_flags.zl + 24*int_flags.zh);
-  delay_ms(200);
+  delay_ms(50);
   _led_off_full(15*click_flags.ia + 3*int_flags.ia + 
       5*int_flags.yl + 10*int_flags.yh + 
       17*int_flags.zl + 24*int_flags.zh);
-  delay_ms(200);
   if (click_flags.ia) {
     _led_on_full(15); //*click_flags.ia);// + 30*int_flags.ia + 5*int_flags.zh);
     delay_ms(10);
@@ -573,7 +721,7 @@ static void accel_wakeup_state_refresh(void) {
   }
 
   if (!accel_wakeup_gesture_enabled) {
-     _DISP_ERROR(19);
+      DISP_ERR_WAKE_1();
     /* FIXME -- this means the dclick interrupt flag
      * was not set but the interrupt for it occurred */
     wake_gesture_state = WAKE_DCLICK;
@@ -581,7 +729,7 @@ static void accel_wakeup_state_refresh(void) {
   }
 
   if (!int_flags.ia) {
-    _DISP_ERROR(56);
+      DISP_ERR_WAKE_2();
 
     /* The accelerometer is in an error state (probably a timing
      * error between interrupt trigger and register read) so just
@@ -597,120 +745,31 @@ static void accel_wakeup_state_refresh(void) {
   }
 
   if (wake_gesture_state == WAIT_FOR_DOWN) {
-    if (int_flags.yl || int_flags.xl || int_flags.yh || int_flags.xh) {
+    if (int_flags.yl || int_flags.xl || int_flags.yh || int_flags.xh || int_flags.zl) {
       wait_for_up_conf();
     } else {
-      _DISP_ERROR(55);
+        DISP_ERR_WAKE_3();
       wait_for_up_conf();
     }
   } else if (wake_gesture_state == WAIT_FOR_UP) {
     if (!int_flags.zh) {
-      _DISP_ERROR(54);
+        DISP_ERR_WAKE_4();
       wake_gesture_state = WAKE_TURN_UP;
       return;
     }
 
+
+#if ( GESTURE_FILTERS )
     /* Read FIFO to determine if a turn-up gesture occurred */
-    uint8_t i;
-    int16_t x = 0, y = 0, z = 0;
-    int16_t x_p = 0, y_p = 0, z_p = 0;
-    int16_t dx = 0, dy = 0, dz = 0;
-    int16_t csums[32][3];
-    int16_t dzN = 0;
-
-
     accel_fifo_read();
-
-    for (i = 0; i < ax_fifo_depth; i++) {
-      x_p = x; y_p = y; z_p = z;
-      x = ((int16_t)ax_fifo[i][0] | ((int16_t) ax_fifo[i][1] << 8)) >> (16 - BITS_PER_ACCEL_VAL);
-      y = ((int16_t)ax_fifo[i][2] | ((int16_t) ax_fifo[i][3] << 8)) >> (16 - BITS_PER_ACCEL_VAL);
-      z = ((int16_t)ax_fifo[i][4] | ((int16_t) ax_fifo[i][5] << 8)) >> (16 - BITS_PER_ACCEL_VAL);
-
-      csums[i][0] = x;
-      csums[i][1] = y;
-      csums[i][2] = z;
-
-      if (i > 0) {
-        csums[i][0] += csums[i-1][0];
-        csums[i][1] += csums[i-1][1];
-        csums[i][2] += csums[i-1][2];
-      }
-
-      dx += x - x_p;
-      dy += y - y_p;
-      dz += z - z_p;
-
-
-      //if (dx + dy > 25) {
-      //  wake_gesture_state = WAKE_TURN_UP;
-      //  break;
-      //}
-
-
-    }
-
-#if GESTURE_FILTERS
-    /* "Turn Up Horizontal" filter */
-    /*  check if sum of first N y-values are large enough in the negative
-     *  direction (12 o'clock facing down) or that the z-values
-     *  have gone from low to high by calculating the difference
-     *  between the sum of the first 10 values and the sum of the
-     *  last 10 values
-     */
-    
-    /* Highest priority filter is to check if the latest y
-     * is facing outward and the y-movement was not 
-     * deliberate enough */
-    if (y < -5 && ABS(csums[Y_SUM_N][1]) < Y_SUM_THS_HIGH) {
-      wait_for_down_conf();
-      return;
-    }
-    
-    dzN = (csums[31][2] - csums[31-DZ_N][2]) - csums[DZ_N][2];
-    if ( dzN >= DZ_THS) {
-      wake_gesture_state = WAKE_TURN_UP;
-        _DISP_INFO(40);
-    } else if (ABS(csums[Y_SUM_N][1]) >= Y_SUM_THS_HIGH) {
-      wake_gesture_state = WAKE_TURN_UP;
-      _DISP_INFO(0);
-    } else if (ABS(csums[X_SUM_N][0]) >= X_SUM_THS_HIGH) {
-      /* "Turn Arm Up" filter */
-      /*  check if sum of first N x-values are large enough in the negative
-       *  (or positive for lefties) direction (3 or 9 o'clock facing down)
-       */
-      _DISP_INFO(15);
-      wake_gesture_state = WAKE_TURN_UP;
-    } else if (y >= Y_LATEST_THS) {
-      /* "Facing inwards" filter */
-      _DISP_INFO(30);
-      wake_gesture_state = WAKE_TURN_UP;
-    } else if (csums[31][1] - csums[26][1] > 20 ||
-               csums[31][1] - csums[22][1]){ //overshoot towards body 
-      wake_gesture_state = WAKE_TURN_UP;
-    } else if (ABS(csums[Y_SUM_N][1]) + ABS(csums[X_SUM_N][0]) > XY_SUM_THS){
-      wake_gesture_state = WAKE_TURN_UP;
-    }
-#define DEBUG_FILTERS
-#ifdef DEBUG_FILTERS
-     else {
-      
-      if (ABS(csums[Y_SUM_N][1]) >= Y_SUM_THS_LOW) {
-        _BLINK(30);
-      } 
-      if (ABS(csums[X_SUM_N][0]) >= X_SUM_THS_LOW) {
-        _BLINK(15);
-      }
-      
-      if (dzN >= DZ_THS_LOW) {
-        _BLINK(5);
-      }
-      _BLINK(43);
-     }
-#endif
-#else
-      wake_gesture_state = WAKE_TURN_UP;
-#endif
+// TODO : change fltr_run_gesture_filters to return a bool
+    fltr_run_gesture_filters();
+#else   /* GESTURE_FILTERS */
+# ifdef LOG_FIFO
+    accel_fifo_read();
+# endif
+    wake_gesture_state = WAKE_TURN_UP;
+#endif  /* GESTURE_FILTERS */
 
     if ( wake_gesture_state == WAKE_TURN_UP) {
 
@@ -719,11 +778,12 @@ static void accel_wakeup_state_refresh(void) {
       accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS );
 
     } else {
+      /* No filter has accepted -- do not turn on */
       wait_for_down_conf();
     }
   } else {
     /* Unexpected wake_gesture_state */
-    _DISP_ERROR(40 + wake_gesture_state);
+      DISP_ERR_WAKE_GEST( wake_gesture_state );
     wake_gesture_state = WAKE_TURN_UP;
 
   }
@@ -816,20 +876,22 @@ static void run_self_test( void ) {
         ACCEL_ERROR_SELF_TEST( st_failure ) );
   }
 }
-#endif
+#endif      /* USE_SELF_TEST */
 
 void accel_fifo_read ( void ) {
 
 
     /* Read fifo depth first (should be 0x1f usually ) */
-    accel_register_consecutive_read( AX_REG_FIFO_SRC, 1, &ax_fifo_depth );
+    accel_register_consecutive_read( AX_REG_FIFO_SRC, 1, &accel_fifo.depth );
     /* Note: STM's FSS FIFO Size register reports the size off-by-1
       * (i.e. as an index instead of actual size).  So a value of 31 means
       * there the depth is 32 and so on */
-    ax_fifo_depth = 1 + (ax_fifo_depth & FIFO_SIZE);
+    accel_fifo.depth = 1 + (accel_fifo.depth & FIFO_SIZE);
 
-    if (!accel_register_consecutive_read (AX_REG_OUT_X_L, 6*ax_fifo_depth,(uint8_t *) ax_fifo)) {
-      ax_fifo_depth = 0;
+    if ( !accel_register_consecutive_read( AX_REG_OUT_X_L,
+                sizeof(accel_xyz_t) * accel_fifo.depth, accel_fifo.bytes ) ) {
+      accel_fifo.depth = 0;
+      DISP_ERR_FIFO_READ();
     }
 }
 
@@ -936,7 +998,7 @@ void accel_sleep ( void ) {
   /* Reset click counters */
   accel_slow_click_cnt = slow_click_counter = 0;
   accel_fast_click_cnt = fast_click_counter = 0;
-  ax_fifo_depth = 0;
+  accel_fifo.depth = 0;
 
   accel_data_read(&x, &y, &z);
 
@@ -1095,5 +1157,3 @@ void accel_init ( void ) {
 
   extint_register_callback(accel_isr, AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
 }
-
-// vim:shiftwidth=2
