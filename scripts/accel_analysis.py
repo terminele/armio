@@ -177,7 +177,7 @@ class SampleTest( object ):
     def show_result( self ):
         if not self.analyzed:
             self.analyze()
-        print( "Analysis for '{}', {} samples".format( self.name, self.total ) )
+        print( "Analysis for '{}'".format( self.name ) )
         print( "{:10}|{:12}|{:12}|{:12}".format( "", "Confirmed", "Unconfirmed", "Totals" ) )
         print( "{:10}|{:12}|{:12}|{:12}".format( "Accepted", self.confirmed_accepted, self.unconfirmed_accepted, self.accepted ) )
         print( "{:10}|{:12}|{:12}|{:12}".format( "Passed", self.confirmed_passed, self.unconfirmed_passed, self.passed ) )
@@ -331,7 +331,7 @@ class Samples( object ):
                         self.unconfirmed_time_max = sample.waketime
 
     def show_analysis( self ):
-        print( "Analysis for '{}', {} samples".format( self.name, self.total ) )
+        print( "Analysis for '{}'".format( self.name ) )
         print( "{:10}|{:12}|{:12}|{:12}".format( "", "Confirmed", "Unconfirmed", "Totals" ) )
         print( "{:10}|{:12}|{:12}|{:12}".format( "Accepted", self.confirmed_accepted, self.unconfirmed_accepted, self.accepted ) )
         print( "{:10}|{:12}|{:12}|{:12}".format( "Rejected", self.confirmed_rejected, self.unconfirmed_rejected, self.rejected ) )
@@ -482,13 +482,9 @@ class Samples( object ):
 
     @staticmethod
     def _parse_fifo( fname ):
-        try:
-            f = open(fname, 'rb')
-        except:
-            log.error ("Unable to open file \'{}\'".format(fname))
-            return []
-
-        binval = f.read(4)
+     try:
+       with open( fname, 'rb' ) as fh:
+        binval = fh.read(4)
 
         """ find first start delimiter"""
         started = False
@@ -498,7 +494,7 @@ class Samples( object ):
                 log.debug("Found start pattern 0xaaaaaaaa")
                 break
 
-            binval = f.read(4)
+            binval = fh.read(4)
 
         if not started:
             log.error("Could not find start patttern 0xaaaaaaaa in {}".format(fname))
@@ -518,7 +514,7 @@ class Samples( object ):
                 (optional) waketime log code 0xddee followed by waketime ticks as unsigned int
         """
         i = 0
-        binval = f.read(6)
+        binval = fh.read(6)
         while binval:
             if len(binval) != 6:
                 log.info("end of file encountered")
@@ -528,20 +524,22 @@ class Samples( object ):
             end_confirm = (data[0] == 0xcccccccc) #FIFO end code
             if end_confirm or end_unconfirm:
                 """end of fifo data"""
-                log.debug("Found fifo end at 0x{:08x}".format(f.tell()))
+                log.debug("Found fifo end at 0x{:08x}".format(fh.tell()))
 
                 if data[1:] == (0xdd, 0xee): #waketime log code
-                    binval = f.read(4)
+                    binval = fh.read(4)
                     waketime_ticks = struct.unpack("<I", binval)[0]
                     waketime_ms = waketime_ticks/TICKS_PER_MS
-                    binval = f.read(6) # update binval with next 6 bytes
+                    binval = fh.read(6) # update binval with next 6 bytes
                 else:
                     """ waketime not include in this log dump"""
                     waketime_ms = 0
                     binval = binval[-2:] #retain last 2 bytes
-                    binval += f.read(4)
+                    binval += fh.read(4)
 
-                samples.append( WakeSample(xs, ys, zs, waketime_ms, end_confirm) )
+                ws = WakeSample( xs, ys, zs, waketime_ms, end_confirm, fname )
+                samples.append(
+                        WakeSample(xs, ys, zs, waketime_ms, end_confirm) )
                 i+=1
                 log.debug( "new sample: waketime={}ms confirmed={}".format(
                     waketime_ms, end_confirm ) )
@@ -552,16 +550,16 @@ class Samples( object ):
                 zs = []
 
             if struct.unpack("<Ibb", binval)[0] == 0xdcdcdcdc:
-                log.debug("Found DCLICK at 0x{:08x}".format(f.tell()))
+                log.debug("Found DCLICK at 0x{:08x}".format(fh.tell()))
                 """ retain last 2 bytes """
                 binval = binval[-2:]
-                binval += f.read(4)
+                binval += fh.read(4)
 
             if struct.unpack("<bbbbbb", binval)[2:3] == (0xdd, 0xba):
-                log.debug("Found BAD FIFO at 0x{:08x}".format(f.tell()))
+                log.debug("Found BAD FIFO at 0x{:08x}".format(fh.tell()))
                 """ retain last 2 bytes """
                 binval = binval[-2:]
-                binval += f.read(4)
+                binval += fh.read(4)
 
             if started:
                 (xh, xl, yh, yl, zh, zl) = struct.unpack("<bbbbbb", binval)
@@ -569,8 +567,8 @@ class Samples( object ):
                 ys.append(yl)
                 zs.append(zl)
 
-                binval = f.read(6)
-                log.debug("0x{:08x}  {}\t{}\t{}".format(f.tell(), xl, yl, zl))
+                binval = fh.read(6)
+                log.debug("0x{:08x}  {}\t{}\t{}".format(fh.tell(), xl, yl, zl))
 
             else:
                 """ Look for magic start code """
@@ -579,35 +577,39 @@ class Samples( object ):
                     break
 
                 if struct.unpack( "<Ibb", binval )[0] == 0xaaaaaaaa:
-                    log.debug("Found start code 0x{:08x}".format(f.tell()))
+                    log.debug("Found start code 0x{:08x}".format(fh.tell()))
                     """ retain last 2 bytes """
                     binval = binval[-2:]
-                    binval += f.read(4)
+                    binval += fh.read(4)
                     started = True
                 else:
                     log.debug("Skipping {} searching for start code".format(binval))
-                    binval = f.read(6)
+                    binval = fh.read(6)
 
             if len(binval) != 6:
                 log.info("end of file encountered")
                 break
             if struct.unpack("<Ibb", binval)[0] == 0xffffffff:
-                log.debug("No more data after 0x{:08x}".format(f.tell()))
+                log.debug("No more data after 0x{:08x}".format(fh.tell()))
                 break
         log.debug("Parsed {} samples from {}".format(len(samples), fname))
         return samples
+     except:
+         log.error ("Unable to open file \'{}\'".format(fname))
+         return []
 
 
 class WakeSample( object ):
     _sample_counter = 0
-    def __init__(self, xs, ys, zs, waketime = 0, confirmed = False):
+    def __init__( self, xs, ys, zs, waketime=0, confirmed=False, logfile="" ):
         self.uid = uuid.uuid4().hex[-8:]
+        self.logfile = logfile
         self.xs = xs
         self.ys = ys
         self.zs = zs
         self.waketime = waketime
         self.confirmed = confirmed
-        WakeSample._sample_counter+=1
+        WakeSample._sample_counter += 1
         self.i = WakeSample._sample_counter
         self._check_result = None
         self._collect_sums()
@@ -774,7 +776,9 @@ z_sum_slope_accept = SampleTest( "Z slope sum accept",
 
 fail_all_test = SampleTest( "Fail remaining", lambda s : -1, reject_below=0 )
 
-traditional_tests = [ y_turn_accept, y_not_delib_fail, xy_turn_accept, x_turn_accept,
+traditional_tests = [ y_turn_accept, y_not_delib_fail,
+        #xy_turn_accept,
+        x_turn_accept,
         z_sum_slope_accept, y_ovs1_accept, y_ovs2_accept, fail_all_test ]
 
 
@@ -888,16 +892,19 @@ if __name__ == "__main__":
     parser.add_argument('-r', '--rejects_only', action='store_true', default=False)
     parser.add_argument('-p', '--accepts_only', action='store_true', default=False)
     parser.add_argument('-fn', '--false_negatives', action='store_true', default=False)
+    parser.add_argument('-t', '--run-tests', action='store_true', default=False)
 
     args = parser.parse_args()
 
     if not args.streamed and args.fifo:
         allsamples = Samples()
+        sampleslist = []
         for fname in args.dumpfiles:
             newsamples = Samples()
             newsamples.load( fname )
             newsamples.analyze()
             if newsamples.total:
+                sampleslist.append( newsamples )
                 newsamples.show_analysis()
                 allsamples.combine( newsamples )
 
@@ -915,8 +922,13 @@ if __name__ == "__main__":
         else:
             kwargs = dict()
 
-        if args.plot:
-            allsamples.show_plots( **kwargs )
+        if args.run_tests:
+            run_tests( traditional_tests,
+                    allsamples.filter_samples( **kwargs ), plot=args.plot )
+        else:
+            if args.plot:
+                allsamples.show_plots( **kwargs )
+
         if args.export:
             allsamples.export_csv( **kwargs )
         if args.plot_csums:
