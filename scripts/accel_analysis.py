@@ -4,6 +4,7 @@ import math
 import struct
 import argparse
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import logging as log
 import uuid
@@ -210,6 +211,8 @@ class SampleTest( object ):
         if len( dims ) != 1:
             raise ValueError( "{} has {} dimensions".format( self.name, dims ) )
         dim = dims.pop()
+        if dim > 3 or dim == 0:
+            raise ValueError( "Don't know how to plot {} dimensions".format( dim ) )
 
         wake_short = self.unconfirmed_time_max / 4
         wake_med = self.unconfirmed_time_max / 2
@@ -243,7 +246,12 @@ class SampleTest( object ):
             lines[ ( tv, cv ) ].append( val )
 
         fig = plt.figure()
-        ax_sigx = fig.add_subplot(111)
+        if dim == 3:
+            #kw = {'projection': '3d'} if dim == 3 else dict()
+            #ax_sigx = fig.add_subplot( 111, *kw )
+            ax_sigx = Axes3D( fig )    # old way of doing this
+        else:
+            ax_sigx = fig.add_subplot( 111 )
         ax_sigx.set_title( self.name )
         markers = [ 'x', '.', 'o' ]
         colors = [ 'green', 'yellow', 'orange', 'red' ]
@@ -253,11 +261,17 @@ class SampleTest( object ):
                 continue
             marker = markers[test]
             color = colors[confirm]
-            xs, ys = list( zip( *data ) )
-            plt.scatter( xs, ys, color=color, marker=marker )
+            if dim == 3:
+                xs, ys, zs = list( zip( *data ) )
+                plt.scatter( xs, ys, zs, c=color, marker=marker )
+                #plt.scatter( xs, ys, zs=zs, c=color )
+            else:
+                xs, ys = list( zip( *data ) )
+                plt.scatter( xs, ys, color=color, marker=marker )
 
         ths = ( self._reject_below, self._reject_above,
                 self._accept_below, self._accept_above )
+
         for th in ths:
             if th is None:
                 continue
@@ -268,6 +282,8 @@ class SampleTest( object ):
             elif dim == 2:
                 plt.plot( [th[0], th[0]], plt.ylim(), 'k-' )
                 plt.plot( plt.xlim(), [th[1], th[1]], 'k-' )
+            elif dim == 3:
+                pass        # for now
         ax_sigx.autoscale( tight=True )
 
         plt.show()
@@ -868,8 +884,20 @@ def univarance_scale_columns( matrix ):
     mT = ( [ x / cv**0.5 for x in c ] for cv, c in zip( vars, zip( *matrix )) )
     return list( zip( *mT ) )
 
-def find_xTx( matrix ):
-    return np.dot( np.transpose( matrix ), matrix )
+def find_weights( matrix, k=None ):
+    xTx = np.dot( np.transpose( matrix ), matrix )
+    evals, evect = np.linalg.eig( xTx )
+    """ v should be zero by definition of eigenvalues / eigenvectors
+        where A v = lambda v
+
+        v_k is evect[:, k]
+    v = [ a - b for a, b in zip( np.dot( xTx, evect[:,0] ), evals[0], evect[:,0] ) ]
+    v should contain all zeros
+    """
+    weights = evect
+    if k is None:
+        return weights
+    return [ w[k] for w in weights ]
 
 ### Relics ###
 def plot_sumN_scores(samples):
@@ -910,19 +938,22 @@ def plot_sums(samples, x_cnt = 5, y_cnt = 8):
 
 if __name__ == "__main__":
     log.basicConfig( level = log.INFO )
-    parser = argparse.ArgumentParser(description='Analyze an accel log dump')
-    parser.add_argument('dumpfiles', nargs='+')
-    parser.add_argument('-f', '--fifo', action='store_true', default=True)
-    parser.add_argument('-t', '--run-tests', action='store_true', default=True)
-    parser.add_argument('-s', '--streamed', action='store_true', default=False)
-    parser.add_argument('-w', '--export', action='store_true', default=False)
-    parser.add_argument('-a', '--plot', action='store_true', default=False)
-    parser.add_argument('-c', '--plot_csums', action='store_true', default=False)
-    parser.add_argument('-r', '--rejects_only', action='store_true', default=False)
-    parser.add_argument('-p', '--accepts_only', action='store_true', default=False)
-    parser.add_argument('-fn', '--false_negatives', action='store_true', default=False)
 
-    args = parser.parse_args()
+    def parse_args(  ):
+        parser = argparse.ArgumentParser(description='Analyze an accel log dump')
+        parser.add_argument('dumpfiles', nargs='+')
+        parser.add_argument('-f', '--fifo', action='store_true', default=True)
+        parser.add_argument('-t', '--run-tests', action='store_true', default=True)
+        parser.add_argument('-s', '--streamed', action='store_true', default=False)
+        parser.add_argument('-w', '--export', action='store_true', default=False)
+        parser.add_argument('-a', '--plot', action='store_true', default=False)
+        parser.add_argument('-c', '--plot_csums', action='store_true', default=False)
+        parser.add_argument('-r', '--rejects_only', action='store_true', default=False)
+        parser.add_argument('-p', '--accepts_only', action='store_true', default=False)
+        parser.add_argument('-fn', '--false_negatives', action='store_true', default=False)
+        return parser.parse_args()
+
+    args = parse_args()
 
     if not args.streamed and args.fifo:
         allsamples = Samples()
@@ -964,3 +995,37 @@ if __name__ == "__main__":
     elif args.streamed:
         fname = args.dumpfiles[0]
         t, x, y, z = analyze_streamed( fname, plot=args.plot )
+
+
+    #m = [ r[:10] for r in allsamples.measurematrix ]
+    m = allsamples.measurematrix
+    m_mc = mean_center_columns( m )
+    m_uv = univarance_scale_columns( m_mc )
+    w0 = find_weights( m_uv, 0 )
+    w1 = find_weights( m_uv, 1 )
+    w2 = find_weights( m_uv, 2 )
+
+    def transform( weights, sample ):
+        svals = sample.xs + sample.ys + sample.zs
+        return sum( wi + si for wi, si in zip( weights, svals ) )
+
+    def pctest( sample ):
+        return transform( w0, sample ), transform( w1, sample ), transform( w2, sample )
+
+    pc_test = SampleTest( "Principle components", pctest,
+            accept_above=(0, None, None), accept_below=(None, 0, None),
+            reject_below=(None, None, 0))
+
+    pc0_test = SampleTest( "Principle component 0",
+            lambda s: transform( w0, s ), accept_above=0 )
+    pc1_test = SampleTest( "Principle component 1",
+            lambda s: transform( w1, s ), accept_above=0 )
+    pc2_test = SampleTest( "Principle component 2",
+            lambda s: transform( w2, s ), accept_above=0 )
+
+    for test in pc_test, pc0_test, pc1_test, pc2_test:
+        test.clear_samples()
+        test.add_samples( allsamples.samples )
+        test.analyze()
+        test.show_result()
+        test.plot_result()
