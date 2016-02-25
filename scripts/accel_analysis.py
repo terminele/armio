@@ -16,14 +16,270 @@ SAMPLE_INT_MS = 10
 rejecttime = 0
 args = None
 
+REJECT, PASS, ACCEPT = range( 3 )
+
+
+class SampleTest( object ):
+    def __init__( self, name, test_fcn, **kwargs ):
+        self.name = name
+        self._test_fcn = test_fcn
+        self._reject_below = kwargs.pop( "reject_below", None )
+        self._reject_above = kwargs.pop( "reject_above", None )
+        self._accept_below = kwargs.pop( "accept_below", None )
+        self._accept_above = kwargs.pop( "accept_above", None )
+        self.samples = []
+        self.values = []
+        self.clear_results()
+
+    def clear_samples( self ):
+        self.samples = []
+        self.values = []
+        self.clear_results()
+
+    def _getPassedSamples( self ):
+        if not self.analyzed:
+            self.analyze()
+        return self._passed_samples
+    passed_samples = property( fget=_getPassedSamples )
+
+    def clear_results( self ):
+        self.analyzed = False
+        self.total = 0
+
+        self.test_results = []
+
+        self.rejected = 0
+        self.passed = 0
+        self._passed_samples = []
+        self.accepted = 0
+
+        self.confirmed = 0
+        self.unconfirmed = 0
+
+        self.confirmed_accepted = 0
+        self.confirmed_passed = 0
+        self.confirmed_rejected = 0
+
+        self.unconfirmed_accepted = 0
+        self.unconfirmed_passed = 0
+        self.unconfirmed_rejected = 0
+
+        self.unconfirmed_time = 0
+        self.unconfirmed_time_cnt = 0
+        self.unconfirmed_time_max = 0
+
+        self.unconfirmed_rejected_time = 0
+        self.unconfirmed_passed_time = 0
+        self.unconfirmed_accepted_time = 0
+
+    def _test_sample( self, value, fltr_num=None ):
+        """ if value is multidimensional, filters
+            must also be multi dimensional (this is for 'and' style) """
+        if isinstance( value, ( tuple, list ) ):
+            tests = [ self._test_sample( vi, i ) for i, vi in enumerate( value ) ]
+            if all( test == ACCEPT for test in tests ):
+                return ACCEPT
+            elif all( test == REJECT for test in tests ):
+                return REJECT
+            else:
+                return PASS
+
+        if fltr_num is None:
+            rb = self._reject_below
+            ra = self._reject_above
+            ab = self._accept_below
+            aa = self._accept_above
+        else:
+            if self._reject_below is None:
+                rb = None
+            else:
+                rb = self._reject_below[ fltr_num ]
+            if self._reject_above is None:
+                ra = None
+            else:
+                ra = self._reject_above[ fltr_num ]
+            if self._accept_below is None:
+                ab = None
+            else:
+                ab = self._accept_below[ fltr_num ]
+            if self._accept_above is None:
+                aa = None
+            else:
+                aa = self._accept_above[ fltr_num ]
+
+        if rb is not None:
+            if value < rb:
+                return REJECT
+        if ra is not None:
+            if value > ra:
+                return REJECT
+        if aa is not None:
+            if value > aa:
+                return ACCEPT
+        if ab is not None:
+            if value < ab:
+                return ACCEPT
+        return PASS
+
+    def add_samples( self, samples ):
+        for sample in samples:
+            if len( sample.xs ) == 0:
+                continue
+            self.analyzed = False
+            val = self._test_fcn( sample )
+            self.samples.append( sample )
+            self.values.append( val )
+
+    def analyze( self ):
+        self.clear_results()
+        for val, sample in zip( self.values, self.samples ):
+            self.total += 1
+            test = self._test_sample( val )
+            self.test_results.append( test )
+            if test == ACCEPT:
+                self.accepted += 1
+            elif test == REJECT:
+                self.rejected += 1
+            elif test == PASS:
+                self.passed += 1
+                self._passed_samples.append( sample )
+
+            if sample.confirmed:
+                self.confirmed += 1
+                if test == ACCEPT:
+                    self.confirmed_accepted += 1
+                elif test == REJECT:
+                    self.confirmed_rejected += 1
+                elif test == PASS:
+                    self.confirmed_passed += 1
+            else:
+                self.unconfirmed += 1
+                if test == ACCEPT:
+                    self.unconfirmed_accepted += 1
+                elif test == REJECT:
+                    self.unconfirmed_rejected += 1
+                elif test == PASS:
+                    self.unconfirmed_passed += 1
+
+                if sample.waketime:
+                    self.unconfirmed_time_cnt += 1
+                    self.unconfirmed_time += sample.waketime
+                    if sample.waketime > self.unconfirmed_time_max:
+                        self.unconfirmed_time_max = sample.waketime
+                    if test == ACCEPT:
+                        self.unconfirmed_accepted_time += sample.waketime
+                    elif test == REJECT:
+                        self.unconfirmed_rejected_time += sample.waketime
+                    elif test == PASS:
+                        self.unconfirmed_passed_time += sample.waketime
+        self.analyzed = True
+
+    def show_result( self ):
+        if not self.analyzed:
+            self.analyze()
+        print( "Analysis for '{}', {} samples".format( self.name, self.total ) )
+        print( "{:10}|{:12}|{:12}|{:12}".format( "", "Confirmed", "Unconfirmed", "Totals" ) )
+        print( "{:10}|{:12}|{:12}|{:12}".format( "Accepted", self.confirmed_accepted, self.unconfirmed_accepted, self.accepted ) )
+        print( "{:10}|{:12}|{:12}|{:12}".format( "Passed", self.confirmed_passed, self.unconfirmed_passed, self.passed ) )
+        print( "{:10}|{:12}|{:12}|{:12}".format( "Rejected", self.confirmed_rejected, self.unconfirmed_rejected, self.rejected ) )
+        print( "{:10}|{:12}|{:12}|{:12}".format( "Total", self.confirmed, self.unconfirmed, self.total ) )
+        if self.unconfirmed_time_cnt:
+            print( "Unconfirmed time analysis ({} values):".format( self.unconfirmed_time_cnt ) )
+            print( "  average unconfirmed time {:.1f} seconds".format(
+                1e-3 * self.unconfirmed_time / self.unconfirmed_time_cnt ) )
+            print( "  maximum unconfirmed time {:.1f} seconds".format(
+                1e-3 * self.unconfirmed_time_max ) )
+            print( "  {:.1f} of {:.1f} unconf sec accepted, {:.0%}".format(
+                self.unconfirmed_accepted_time * 1e-3, self.unconfirmed_time * 1e-3,
+                self.unconfirmed_accepted_time / self.unconfirmed_time ) )
+            print( "  {:.1f} of {:.1f} unconf sec passed, {:.0%}".format(
+                self.unconfirmed_passed_time * 1e-3, self.unconfirmed_time * 1e-3,
+                self.unconfirmed_passed_time / self.unconfirmed_time ) )
+            print( "  {:.1f} of {:.1f} unconf sec rejected, {:.0%}".format(
+                self.unconfirmed_rejected_time * 1e-3, self.unconfirmed_time * 1e-3,
+                self.unconfirmed_rejected_time / self.unconfirmed_time ) )
+        print()
+
+    def plot_result( self ):
+        if not self.analyzed:
+            self.analyze()
+        ths = ( self._reject_below, self._reject_above,
+                self._accept_below, self._accept_above )
+        dims = set( len( th ) if isinstance( th, ( list, tuple ) ) else 1
+                for th in ths if th is not None )
+        if len( dims ) != 1:
+            raise ValueError( "{} has {} dimensions".format( self.name, dims ) )
+        dim = dims.pop()
+
+        wake_short = self.unconfirmed_time_max / 4
+        wake_med = self.unconfirmed_time_max / 2
+
+        CONFIRMED, SHORT, MED, LONG = range( 4 )
+
+        lines = dict()
+        for tv in ( PASS, ACCEPT, REJECT ):
+            for cv in ( CONFIRMED, SHORT, MED, LONG ):
+                lines[ (tv, cv) ] = []
+
+        if (len( self.test_results ) != len( self.values ) or
+                len( self.samples ) != len( self.test_results )):
+            raise ValueError( "We are missing something {} {} {}".format(
+                len( self.test_results ), len( self.values ), len( self.samples ) ))
+        log.info( "Plotting {} samples".format( len( self.values ) ) )
+
+        for tv, val, sample in zip( self.test_results, self.values, self.samples ):
+            if sample.confirmed:
+                cv = CONFIRMED
+            elif sample.waketime == 0:
+                cv = MED
+            elif sample.waketime < wake_short:
+                cv = SHORT
+            elif sample.waketime < wake_med:
+                cv = MED
+            else:
+                cv = LONG
+            if dim == 1:
+                val = (sample.i, val)
+            lines[ ( tv, cv ) ].append( val )
+
+        fig = plt.figure()
+        ax_sigx = fig.add_subplot(111)
+        ax_sigx.set_title( self.name )
+        markers = [ 'x', '.', 'o' ]
+        colors = [ 'green', 'yellow', 'orange', 'red' ]
+
+        for ( test, confirm ), data in lines.items():
+            if not len( data ):
+                continue
+            marker = markers[test]
+            color = colors[confirm]
+            xs, ys = list( zip( *data ) )
+            plt.scatter( xs, ys, color=color, marker=marker )
+
+        ths = ( self._reject_below, self._reject_above,
+                self._accept_below, self._accept_above )
+        for th in ths:
+            if th is None:
+                continue
+            elif dim == 1:
+                xs = plt.xlim()
+                ys = [ th, th ]
+                plt.plot( plt.xlim(), [th, th], 'k-' )
+            elif dim == 2:
+                plt.plot( [th[0], th[0]], plt.ylim(), 'k-' )
+                plt.plot( plt.xlim(), [th[1], th[1]], 'k-' )
+        ax_sigx.autoscale( tight=True )
+
+        plt.show()
+
 
 class Samples( object ):
     def __init__( self, name=None ):
         self.samples = []
         self.name = name
-        self.clear()
+        self.clear_results()
 
-    def clear( self ):
+    def clear_results( self ):
         self.total = 0
         self.rejected = 0
         self.accepted = 0
@@ -42,7 +298,7 @@ class Samples( object ):
         self.unconfirmed_time_max = 0
 
     def analyze( self ):
-        self.clear()
+        self.clear_results()
         for sample in self.samples:
             if len( sample.xs ) < 1:
                 log.debug( "skipping invalid data {}".format(
@@ -167,12 +423,15 @@ class Samples( object ):
         ax_sigz_rev.set_title( "Sigma z-values reverse" )
 
         vals = 0
-        xs = []
-        dzs = []
+        xs_confirm = []
+        dzs_confirm = []
+        xs_unconfirm = []
+        dzs_unconfirm = []
         for sample in self.filter_samples( **kwargs ):
             vals += 1
             t = range( len( sample.xsums ) )
             c = 'b' if sample.confirmed else 'r'
+
 
             line = plt.Line2D( t, sample.xsums, marker='o' , color=c )
             ax_sigx.add_line( line )
@@ -195,8 +454,12 @@ class Samples( object ):
             x = list( range( 8, 20 ) )
             try:
                 dz = [ sample.zsums[-1] - sample.zsums[-n-1] - sample.zsums[n-1] for n in x ]
-                dzs.extend( dz )
-                xs.extend( x )
+                if sample.confirmed:
+                    dzs_confirm.extend( dz )
+                    xs_confirm.extend( x )
+                else:
+                    dzs_unconfirm.extend( dz )
+                    xs_unconfirm.extend( x )
             except IndexError as e:
                 log.error( "zsums only has {} values".format( len( sample.zsums ) ) )
 
@@ -208,8 +471,131 @@ class Samples( object ):
 
         fig = plt.figure()
         plt.title( "dz delta N" )
-        plt.scatter( xs, dzs )
+        plt.scatter( xs_unconfirm, dzs_unconfirm, color='r' )
+        plt.scatter( xs_confirm, dzs_confirm, color='b' )
         plt.show()
+
+    def _getMeasureMatrix( self, **kwargs ):
+        return [ sample.measures for sample in self.filter_samples( **kwargs )
+                if len( sample.measures ) == 96 ]
+    measurematrix = property( fget=_getMeasureMatrix )
+
+    @staticmethod
+    def _parse_fifo( fname ):
+        try:
+            f = open(fname, 'rb')
+        except:
+            log.error ("Unable to open file \'{}\'".format(fname))
+            return []
+
+        binval = f.read(4)
+
+        """ find first start delimiter"""
+        started = False
+        while binval:
+            if struct.unpack("<I", binval)[0] == 0xaaaaaaaa:
+                started = True
+                log.debug("Found start pattern 0xaaaaaaaa")
+                break
+
+            binval = f.read(4)
+
+        if not started:
+            log.error("Could not find start patttern 0xaaaaaaaa in {}".format(fname))
+            return []
+
+        xs = []
+        ys = []
+        zs = []
+
+        samples = []
+
+        """ loop over binary file in chunks of 6 bytes
+            and parse out:
+                FIFO Start Code - 0xaaaaaaaa
+                FIFO Data - 32x3x2-bytes
+                FIFO End Code - 0xeeeeeeeee
+                (optional) waketime log code 0xddee followed by waketime ticks as unsigned int
+        """
+        i = 0
+        binval = f.read(6)
+        while binval:
+            if len(binval) != 6:
+                log.info("end of file encountered")
+                break
+            data = struct.unpack("<IBB", binval)
+            end_unconfirm = (data[0] == 0xeeeeeeee)#FIFO end code
+            end_confirm = (data[0] == 0xcccccccc) #FIFO end code
+            if end_confirm or end_unconfirm:
+                """end of fifo data"""
+                log.debug("Found fifo end at 0x{:08x}".format(f.tell()))
+
+                if data[1:] == (0xdd, 0xee): #waketime log code
+                    binval = f.read(4)
+                    waketime_ticks = struct.unpack("<I", binval)[0]
+                    waketime_ms = waketime_ticks/TICKS_PER_MS
+                    binval = f.read(6) # update binval with next 6 bytes
+                else:
+                    """ waketime not include in this log dump"""
+                    waketime_ms = 0
+                    binval = binval[-2:] #retain last 2 bytes
+                    binval += f.read(4)
+
+                samples.append( WakeSample(xs, ys, zs, waketime_ms, end_confirm) )
+                i+=1
+                log.debug( "new sample: waketime={}ms confirmed={}".format(
+                    waketime_ms, end_confirm ) )
+                started = False
+
+                xs = []
+                ys = []
+                zs = []
+
+            if struct.unpack("<Ibb", binval)[0] == 0xdcdcdcdc:
+                log.debug("Found DCLICK at 0x{:08x}".format(f.tell()))
+                """ retain last 2 bytes """
+                binval = binval[-2:]
+                binval += f.read(4)
+
+            if struct.unpack("<bbbbbb", binval)[2:3] == (0xdd, 0xba):
+                log.debug("Found BAD FIFO at 0x{:08x}".format(f.tell()))
+                """ retain last 2 bytes """
+                binval = binval[-2:]
+                binval += f.read(4)
+
+            if started:
+                (xh, xl, yh, yl, zh, zl) = struct.unpack("<bbbbbb", binval)
+                xs.append(xl)
+                ys.append(yl)
+                zs.append(zl)
+
+                binval = f.read(6)
+                log.debug("0x{:08x}  {}\t{}\t{}".format(f.tell(), xl, yl, zl))
+
+            else:
+                """ Look for magic start code """
+                if len(binval) != 6:
+                    log.info("end of file encountered")
+                    break
+
+                if struct.unpack( "<Ibb", binval )[0] == 0xaaaaaaaa:
+                    log.debug("Found start code 0x{:08x}".format(f.tell()))
+                    """ retain last 2 bytes """
+                    binval = binval[-2:]
+                    binval += f.read(4)
+                    started = True
+                else:
+                    log.debug("Skipping {} searching for start code".format(binval))
+                    binval = f.read(6)
+
+            if len(binval) != 6:
+                log.info("end of file encountered")
+                break
+            if struct.unpack("<Ibb", binval)[0] == 0xffffffff:
+                log.debug("No more data after 0x{:08x}".format(f.tell()))
+                break
+        log.debug("Parsed {} samples from {}".format(len(samples), fname))
+        return samples
 
 
 class WakeSample( object ):
@@ -225,6 +611,9 @@ class WakeSample( object ):
         self.i = WakeSample._sample_counter
         self._check_result = None
         self._collect_sums()
+
+    def _getMeasures( self ): return self.xs + self.ys + self.zs
+    measures = property( fget=_getMeasures )
 
     def _collect_sums( self ):
         self.xsums = [ sum( self.xs[:i+1] ) for i in range( len( self.xs ) ) ]
@@ -361,122 +750,61 @@ class WakeSample( object ):
                 writer.writerow( [ i, x, y, z ] )
 
 
-def _parse_fifo(fname):
-    try:
-        f = open(fname, 'rb')
-    except:
-        log.error ("Unable to open file \'{}\'".format(fname))
-        return []
+y_not_delib_fail = SampleTest( "Y not deliberate fail / Inwards accept",
+        lambda s : s.ys[-1], reject_below=-5, accept_above=6 )
 
-    binval = f.read(4)
+y_turn_accept = SampleTest( "Y turn accept",
+        lambda s : abs(s.ysums[8]), accept_above=240 )
 
-    """ find first start delimiter"""
-    started = False
-    while binval:
-        if struct.unpack("<I", binval)[0] == 0xaaaaaaaa:
-            started = True
-            log.debug("Found start pattern 0xaaaaaaaa")
-            break
+x_turn_accept = SampleTest( "X turn accept",
+        lambda s : abs(s.xsums[4]), accept_above=120 )
 
-        binval = f.read(4)
+xy_turn_accept = SampleTest( "XY Turn Accept",
+        lambda s : abs( s.ysums[8] ) + abs( s.xsums[4] ), accept_above=140 )
 
-    if not started:
-        log.error("Could not find start patttern 0xaaaaaaaa in {}".format(fname))
-        return []
+y_ovs1_accept = SampleTest( "Y overshoot 1 accept",
+        lambda s : s.ysums[-1] - s.ysums[26], accept_above=20 )
 
-    xs = []
-    ys = []
-    zs = []
+y_ovs2_accept = SampleTest( "Y overshoot 2 accept",
+        lambda s : s.ysums[-1] - s.ysums[22], accept_above=40 )
 
-    samples = []
+z_sum_slope_accept = SampleTest( "Z slope sum accept",
+        lambda s : ( s.zsums[4], s.zsums[31] - s.zsums[31-11] - s.zsums[10] ),
+        accept_above=( None, 110 ), accept_below=( 100, None ) )
 
-    """ loop over binary file in chunks of 6 bytes
-        and parse out:
-            FIFO Start Code - 0xaaaaaaaa
-            FIFO Data - 32x3x2-bytes
-            FIFO End Code - 0xeeeeeeeee
-            (optional) waketime log code 0xddee followed by waketime ticks as unsigned int
+fail_all_test = SampleTest( "Fail remaining", lambda s : -1, reject_below=0 )
+
+traditional_tests = [ y_turn_accept, y_not_delib_fail, xy_turn_accept, x_turn_accept,
+        z_sum_slope_accept, y_ovs1_accept, y_ovs2_accept, fail_all_test ]
+
+
+def mean_center_columns( matrix ):
+    """ matrix has the form
+      [ [ ===  row 0  === ],
+        [ ===  .....  === ],
+        [ === row N-1 === ] ]
+        we want each column to be mean centered
     """
-    i = 0
-    binval = f.read(6)
-    while binval:
-        if len(binval) != 6:
-            log.info("end of file encountered")
-            break
-        data = struct.unpack("<IBB", binval)
-        end_unconfirm = (data[0] == 0xeeeeeeee)#FIFO end code
-        end_confirm = (data[0] == 0xcccccccc) #FIFO end code
-        if end_confirm or end_unconfirm:
-            """end of fifo data"""
-            log.debug("Found fifo end at 0x{:08x}".format(f.tell()))
+    N_inv = 1.0 / len( matrix )
+    cms = ( sum( c ) * N_inv for c in zip( *matrix ) )
+    mT = ( [ x - cm for x in c ] for cm, c in zip( cms, zip( *matrix )) )
+    return list( zip( *mT ) )
 
-            if data[1:] == (0xdd, 0xee): #waketime log code
-                binval = f.read(4)
-                waketime_ticks = struct.unpack("<I", binval)[0]
-                waketime_ms = waketime_ticks/TICKS_PER_MS
-                binval = f.read(6) # update binval with next 6 bytes
-            else:
-                """ waketime not include in this log dump"""
-                waketime_ms = 0
-                binval = binval[-2:] #retain last 2 bytes
-                binval += f.read(4)
+def get_col_variances( matrix ):
+    N_inv = 1.0 / len( matrix )
+    vars = [ sum( x**2 for x in c ) * N_inv for c in zip( *matrix ) ]
 
-            samples.append( WakeSample(xs, ys, zs, waketime_ms, end_confirm) )
-            i+=1
-            log.debug( "new sample: waketime={}ms confirmed={}".format(
-                waketime_ms, end_confirm ) )
-            started = False
+def run_tests( tests, samples, plot=False ):
+    for test in tests:
+        test.clear_samples()
 
-            xs = []
-            ys = []
-            zs = []
-
-        if struct.unpack("<Ibb", binval)[0] == 0xdcdcdcdc:
-            log.debug("Found DCLICK at 0x{:08x}".format(f.tell()))
-            """ retain last 2 bytes """
-            binval = binval[-2:]
-            binval += f.read(4)
-
-        if struct.unpack("<bbbbbb", binval)[2:3] == (0xdd, 0xba):
-            log.debug("Found BAD FIFO at 0x{:08x}".format(f.tell()))
-            """ retain last 2 bytes """
-            binval = binval[-2:]
-            binval += f.read(4)
-
-        if started:
-            (xh, xl, yh, yl, zh, zl) = struct.unpack("<bbbbbb", binval)
-            xs.append(xl)
-            ys.append(yl)
-            zs.append(zl)
-
-            binval = f.read(6)
-            log.debug("0x{:08x}  {}\t{}\t{}".format(f.tell(), xl, yl, zl))
-
-        else:
-            """ Look for magic start code """
-            if len(binval) != 6:
-                log.info("end of file encountered")
-                break
-
-            if struct.unpack( "<Ibb", binval )[0] == 0xaaaaaaaa:
-                log.debug("Found start code 0x{:08x}".format(f.tell()))
-                """ retain last 2 bytes """
-                binval = binval[-2:]
-                binval += f.read(4)
-                started = True
-            else:
-                log.debug("Skipping {} searching for start code".format(binval))
-                binval = f.read(6)
-
-        if len(binval) != 6:
-            log.info("end of file encountered")
-            break
-        if struct.unpack("<Ibb", binval)[0] == 0xffffffff:
-            log.debug("No more data after 0x{:08x}".format(f.tell()))
-            break
-    log.debug("Parsed {} samples from {}".format(len(samples), fname))
-    return samples
-
+    for test in tests:
+        test.add_samples( samples )
+        test.analyze()
+        test.show_result()
+        if plot:
+            test.plot_result()
+        samples = test.passed_samples
 
 def plot_sumN_scores(samples):
     conf_scores = []
@@ -513,7 +841,6 @@ def plot_sums(samples, x_cnt = 5, y_cnt = 8):
     #plt.plot(xsums_u, linestyle=":", color="r")
     plt.plot(ysums_u, linestyle=":",  color="b")
     #plt.plot(ssums_u, linestyle=":",  color="g")
-
 
 def analyze_streamed(f):
     f.seek(0x80) # skip usage data block
