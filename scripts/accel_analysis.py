@@ -867,30 +867,33 @@ def analyze_streamed(f):
     while struct.unpack("<I", binval)[0] == 0xffffffff:
         binval = f.read(4)
 
-    t_offset = 0
+    t = 0
     ts = []
     xs = []
+    ys = []
     zs = []
+    mag = []
     while binval:
-        if struct.unpack("<I", binval)[0] == 0xffffffff:
+        if struct.unpack ("<I", binval)[0] == 0xffffffff:
             break
 
-        (z,x,t) = struct.unpack("<bbH", binval)
-        t+=t_offset
-        if len(ts) > 1 and t < ts[-1]:
-            t += 2**16 - 1
-            t_offset += 2**16 - 1
+        ( z, y, x, dt ) = struct.unpack ( "<bbbB", binval )
+        t += dt
 
-        ts.append(t)
-        xs.append(x)
-        zs.append(z)
-        log.debug("{}\t{}\t{}".format(t, x, z))
+        ts.append( t )
+        xs.append( x )
+        ys.append( y )
+        zs.append( z )
+        mag.append( ( x**2 + y**2 + z**2 )**0.5 )
+        log.debug("{}\t{}\t{}\t{}".format(t, x, y, z))
 
         binval = f.read(4)
 
     plt.plot(ts, xs, 'r-', label='x')
-    plt.show()
+    plt.plot(ts, ys, 'g-', label='y')
     plt.plot(ts, zs, 'b-', label='z')
+    plt.plot( ts, mag, 'k-', label="mag" )
+    plt.legend()
     plt.show()
 
 

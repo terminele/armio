@@ -175,8 +175,13 @@ ctrl_mode_t control_modes[] = {
     }, 
     {
         /* UTIL MODE #1 */
+#ifdef LOG_ACCEL
+        .tic_cb = accel_mode_tic,
+        .sleep_timeout_ticks = MS_IN_TICKS(1500000),
+#else
         .tic_cb = sparkle_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(15000),
+#endif
     },
     {
         /* UTIL MODE #2 */
@@ -1315,6 +1320,7 @@ bool accel_mode_tic ( event_flags_t event_flags ) {
     int16_t x,y,z;
     static uint32_t last_update_ms = 0;
 #ifdef LOG_ACCEL
+    uint8_t delta_time = 0;
     uint32_t log_data;
 #endif
 
@@ -1338,7 +1344,9 @@ bool accel_mode_tic ( event_flags_t event_flags ) {
     if (main_get_waketime_ms() - last_update_ms < 10) {
         return false;
     }
-
+#ifdef LOG_ACCEL
+    delta_time = main_get_waketime_ms() - last_update_ms;
+#endif
     last_update_ms = main_get_waketime_ms();
 
     if (anim_ptr && !anim_is_finished(anim_ptr)) {
@@ -1363,11 +1371,14 @@ bool accel_mode_tic ( event_flags_t event_flags ) {
 
 #ifdef LOG_ACCEL
     /* log x and z values for now with timestamp */
-    log_data = last_update_ms << 16 \
-            | (((int8_t) x) << 8 & 0x0000ffff) \
-            | (((int8_t) z) & 0x0000ffff);
-    if (log_data == 0xffffffff) {
-        log_data = 0xfffffffe;
+    log_data = ( delta_time & 0xff ) << 24 \
+            | (((int8_t) x) << 16 & 0x00ff0000) \
+            | (((int8_t) y) << 8 & 0x0000ff00) \
+            | (((int8_t) z) & 0x000000ff);
+
+    if ( log_data == 0xffffffff ) {
+        /* make sure we dont have an accidental 'stop' word */
+        log_data = 0x00ffffff;
     }
     main_log_data((uint8_t *)&log_data, sizeof(log_data), false);
 #endif

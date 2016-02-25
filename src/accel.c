@@ -236,12 +236,16 @@
 #define Z_DOWN_DUR_MS           50
 #define Z_DOWN_DUR_ODR          MS_TO_ODRS(Z_DOWN_DUR_MS, SLEEP_SAMPLE_INT)
 
-#define Z_SLEEP_DOWN_THRESHOLD          18  // assumes 4g scale
+#define Z_SLEEP_DOWN_THRESHOLD          18  /* assumes 4g scale */
 #define Y_SLEEP_DOWNOUT_THRESHOLD       -8  // assumes 4g scale
 #define Y_SLEEP_DOWNIN_THRESHOLD        8   // assumes 4g scale
 #define Z_SLEEP_DOWN_DUR_MS           200
 
-#define XY_DOWN_THRESHOLD           10 // assumes 4g scale
+#define XY_DOWN_THRESHOLD       20  /* we want something in the 1/3 g range
+                                       which seems like around 10 would work best
+                                       documentation is 'wrong', we got this
+                                       value from trial and error with
+                                       make flag accel_debug=true */
 #define XY_DOWN_DUR_MS              50
 //#define Y_DOWN_THRESHOLD        -18 //assumes 4g scale
 //#define Y_DOWN_DUR_MS           200
@@ -577,6 +581,7 @@ static inline bool fltr_run_gesture_filters( void ) {
     } else if( fltr_y_overshoot_accept( csums ) ) {
         return true;
     }
+    return false;
 }
 
 static inline bool fltr_y_not_deliberate_fail( int16_t y_last,
@@ -652,7 +657,7 @@ static void accel_isr(void) {
         DISP_ERR_CONSEC_READ_1();
     }
 
-    if (!accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &int_flags.b8)) {
+    if (!accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &int1_flags.b8)) {
         DISP_ERR_CONSEC_READ_2();
     }
 
@@ -661,22 +666,23 @@ static void accel_isr(void) {
     }
 
 #if ( DEBUG_AX_ISR )
+    uint8_t led_info;
     if( click_flags.ia ) {
         _led_on_full(15); //*click_flags.ia);// + 30*int1_flags.ia + 5*int1_flags.zh);
         delay_ms(10);
         _led_off_full(15);//*click_flags.ia);// + 30*int1_flags.ia + 5*int1_flags.zh);
     } else if (int1_flags.ia) {
-        _led_on_full(3*int1_flags.ia +
-                5*int1_flags.yl + 10*int1_flags.yh +
-                17*int1_flags.zl + 24*int1_flags.zh);
+        led_info = ( /* int1_flags.ia + */
+                15*int1_flags.xl + 45*int1_flags.xh +
+                 1*int1_flags.yl + 31*int1_flags.yh +
+                23*int1_flags.zl + 52*int1_flags.zh );
+        _led_on_full( led_info );
         delay_ms(200);
-        _led_off_full(3*int1_flags.ia +
-                5*int1_flags.yl + 10*int1_flags.yh +
-                17*int1_flags.zl + 24*int1_flags.zh);
+        _led_off_full( led_info );
     } else if (int2_flags.ia) {
-        _led_on_full(30*int2_flags.ia +
+        _led_on_full( 30*int2_flags.ia +
                 int2_flags.yl + 3*int1_flags.yh +
-                5*int2_flags.zl + 10*int1_flags.zh);
+                5*int2_flags.zl + 10*int1_flags.zh );
         delay_ms(200);
         _led_off_full(30*int2_flags.ia +
                 int2_flags.yl + 3*int1_flags.yh +
