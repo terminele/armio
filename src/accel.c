@@ -59,8 +59,9 @@
     } while(0);
 
 #define DISP_ERR_FIFO_READ()            _DISP_ERROR( 30 )
-#define DISP_ERR_CONSEC_READ_1()        _DISP_ERROR(  5 )
-#define DISP_ERR_CONSEC_READ_2()        _DISP_ERROR(  7 )
+#define DISP_ERR_CONSEC_READ_1()        _DISP_ERROR( 57 )
+#define DISP_ERR_CONSEC_READ_2()        _DISP_ERROR( 58 )
+#define DISP_ERR_CONSEC_READ_3()        _DISP_ERROR( 59 )
 #if ( DEBUG_AX_ISR )
 #define DISP_ERR_WAKE_1()               _DISP_ERROR( 19 )
 #define DISP_ERR_WAKE_2()               _DISP_ERROR( 56 )
@@ -93,6 +94,7 @@
 #define AX_REG_CTL3         0x22
 #define AX_REG_CTL4         0x23
 #define AX_REG_CTL5         0x24
+#define AX_REG_CTL6         0x25
 #define AX_STATUS_REG       0x27
 #define AX_REG_FIFO_CTL     0x2E
 #define AX_REG_FIFO_SRC     0x2F
@@ -157,6 +159,7 @@
 #define BOOT        0x80
 #define FIFO_EN     0x40
 #define LIR_INT1    0x08
+#define LIR_INT2    0x02
 
 /* STATUS_REG */
 #define ZYXDA       0x08
@@ -209,7 +212,7 @@
 
 #define ACTIVE_ODR              ODR_400HZ
 #define ACTIVE_SAMPLE_INT       SAMPLE_INT_400HZ
-#define CLICK_THS     43 //assumes 4g scale
+#define CLICK_THS       55 //assumes 4g scale
 #define CLICK_TIME_WIN      MS_TO_ODRS(200, ACTIVE_SAMPLE_INT)
 #define CLICK_TIME_LIM      MS_TO_ODRS(20, ACTIVE_SAMPLE_INT)
 #define CLICK_TIME_LAT      MS_TO_ODRS(40, ACTIVE_SAMPLE_INT) //ms
@@ -221,7 +224,7 @@
 #define DEEP_SLEEP_THS      2
 #define DEEP_SLEEP_DUR       MS_TO_ODRS(1000, SLEEP_SAMPLE_INT)
 
-#define WAKEUP_CLICK_THS     45 //assumes 4g scale
+#define WAKEUP_CLICK_THS     47 //assumes 4g scale
 #define WAKEUP_CLICK_TIME_WIN      MS_TO_ODRS(400, SLEEP_SAMPLE_INT)
 #define WAKEUP_CLICK_TIME_LIM      MS_TO_ODRS(30, SLEEP_SAMPLE_INT)
 #define WAKEUP_CLICK_TIME_LAT      MS_TO_ODRS(100, SLEEP_SAMPLE_INT) //ms
@@ -229,18 +232,17 @@
 #define FAST_CLICK_WINDOW_MS 400
 #define SLOW_CLICK_WINDOW_MS 1800
 
-#define Z_DOWN_THRESHOLD        8 //assumes 4g scale
-#define Z_DOWN_DUR_MS           200
-
-#define Z_SLEEP_DOWN_THRESHOLD      18 //assumes 4g scale
-#define Y_SLEEP_DOWNOUT_THRESHOLD      -8 //assumes 4g scale
-#define Y_SLEEP_DOWNIN_THRESHOLD      8 //assumes 4g scale
-
-#define Z_DOWN_THRESHOLD_ABS    (Z_DOWN_THRESHOLD < 0 ? -Z_DOWN_THRESHOLD : Z_DOWN_THRESHOLD)
+#define Z_DOWN_THRESHOLD        2 //assumes 4g scale
+#define Z_DOWN_DUR_MS           50
 #define Z_DOWN_DUR_ODR          MS_TO_ODRS(Z_DOWN_DUR_MS, SLEEP_SAMPLE_INT)
 
-#define XY_DOWN_THRESHOLD        10 //assumes 4g scale
-#define XY_DOWN_DUR_MS           50
+#define Z_SLEEP_DOWN_THRESHOLD          18  // assumes 4g scale
+#define Y_SLEEP_DOWNOUT_THRESHOLD       -8  // assumes 4g scale
+#define Y_SLEEP_DOWNIN_THRESHOLD        8   // assumes 4g scale
+#define Z_SLEEP_DOWN_DUR_MS           200
+
+#define XY_DOWN_THRESHOLD           10 // assumes 4g scale
+#define XY_DOWN_DUR_MS              50
 //#define Y_DOWN_THRESHOLD        -18 //assumes 4g scale
 //#define Y_DOWN_DUR_MS           200
 
@@ -404,7 +406,7 @@ static union {
   uint8_t b8;
 } click_flags;
 
-static union {
+typedef union {
   struct {
     uint8_t xl:1;
     uint8_t xh:1;
@@ -417,7 +419,10 @@ static union {
   };
 
   uint8_t b8;
-} int_flags;
+} int_reg_flags_t;
+
+static int_reg_flags_t int1_flags;
+static int_reg_flags_t int2_flags;
 
 static enum {SLEEP_START = 0, WAIT_FOR_DOWN, WAIT_FOR_UP, WAKE_DCLICK, WAKE_TURN_UP} wake_gesture_state;
 
@@ -478,15 +483,15 @@ static void wait_for_up_conf( void ) {
       ( SLEEP_ODR | X_EN | Y_EN | Z_EN |
         ( BITS_PER_ACCEL_VAL == 8 ? LOW_PWR_EN : 0 ) ) );
 
-  accel_register_write (AX_REG_INT1_THS, Z_UP_THRESHOLD);
-  accel_register_write (AX_REG_INT1_DUR, Z_UP_DUR_ODR);
 
   /* Clear FIFO by writing bypass */
   accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS );
 
   /* Enable stream to FIFO buffer mode */
   accel_register_write (AX_REG_FIFO_CTL, STREAM_TO_FIFO );
-  accel_register_write (AX_REG_INT1_CFG, AOI_POS | ZHIE);
+  accel_register_write (AX_REG_INT1_CFG, AOI_POS | ZHIE | YHIE);
+  accel_register_write (AX_REG_INT1_THS, Z_UP_THRESHOLD);
+  accel_register_write (AX_REG_INT1_DUR, Z_UP_DUR_ODR);
   
   accel_register_write (AX_REG_CTL3, I1_CLICK_EN | I1_AOI1_EN );
 }
@@ -505,7 +510,7 @@ static void wait_for_down_conf( void ) {
 
   accel_register_write (AX_REG_INT1_THS, XY_DOWN_THRESHOLD);
   accel_register_write (AX_REG_INT1_DUR, XY_DOWN_DUR_ODR);
-  accel_register_write (AX_REG_INT1_CFG, AOI_POS | XLIE | XHIE | YLIE | YHIE | ZLIE);
+  accel_register_write (AX_REG_INT1_CFG, AOI_POS | YHIE | XLIE | XHIE | YLIE | YHIE | ZLIE); 
   accel_register_write (AX_REG_CTL3, I1_CLICK_EN | I1_AOI1_EN );
 
 }
@@ -668,19 +673,34 @@ static void accel_isr(void) {
       DISP_ERR_CONSEC_READ_2();
   }
 
-#if DEBUG_AX_ISR
-  _led_on_full(15*click_flags.ia + 3*int_flags.ia + 
-      5*int_flags.yl + 10*int_flags.yh + 
-      17*int_flags.zl + 24*int_flags.zh);
-  delay_ms(50);
-  _led_off_full(15*click_flags.ia + 3*int_flags.ia + 
-      5*int_flags.yl + 10*int_flags.yh + 
-      17*int_flags.zl + 24*int_flags.zh);
-  if (click_flags.ia) {
-    _led_on_full(15); //*click_flags.ia);// + 30*int_flags.ia + 5*int_flags.zh);
+  if (!accel_register_consecutive_read(AX_REG_INT2_SRC, 1, &int2_flags.b8)) {
+      DISP_ERR_CONSEC_READ_3();
+  }
+
+#if ( DEBUG_AX_ISR )
+  if( click_flags.ia ) {
+    _led_on_full(15); //*click_flags.ia);// + 30*int1_flags.ia + 5*int1_flags.zh);
     delay_ms(10);
-    _led_off_full(15);//*click_flags.ia);// + 30*int_flags.ia + 5*int_flags.zh);
-  } 
+    _led_off_full(15);//*click_flags.ia);// + 30*int1_flags.ia + 5*int1_flags.zh);
+  } else if (int1_flags.ia) {
+    _led_on_full(3*int1_flags.ia + 
+        5*int1_flags.yl + 10*int1_flags.yh + 
+        17*int1_flags.zl + 24*int1_flags.zh);
+    delay_ms(200);
+    _led_off_full(3*int1_flags.ia + 
+        5*int1_flags.yl + 10*int1_flags.yh + 
+        17*int1_flags.zl + 24*int1_flags.zh);
+  } else if (int2_flags.ia) {
+    _led_on_full(30*int2_flags.ia + 
+        int2_flags.yl + 3*int1_flags.yh + 
+        5*int2_flags.zl + 10*int1_flags.zh);
+    delay_ms(200);
+    _led_off_full(30*int2_flags.ia + 
+        int2_flags.yl + 3*int1_flags.yh + 
+        5*int2_flags.zl + 10*int1_flags.zh);
+  }
+
+
 #endif
 
   extint_chan_clear_detected(AX_INT1_CHAN);
@@ -691,6 +711,7 @@ static void accel_isr(void) {
     uint8_t dummy;
     extint_chan_clear_detected(AX_INT1_CHAN);
     accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &dummy);
+    accel_register_consecutive_read(AX_REG_INT2_SRC, 1, &dummy);
     accel_register_consecutive_read(AX_REG_CLICK_SRC, 1, &dummy);
     i+=1;
 
@@ -714,7 +735,6 @@ static void accel_isr(void) {
 };
 
 static void accel_wakeup_state_refresh(void) {
-
   if (click_flags.ia) {
     wake_gesture_state = WAKE_DCLICK;
     return;
@@ -728,7 +748,7 @@ static void accel_wakeup_state_refresh(void) {
     return;
   }
 
-  if (!int_flags.ia) {
+  if ( !int1_flags.ia && !int2_flags.ia ) {
       DISP_ERR_WAKE_2();
 
     /* The accelerometer is in an error state (probably a timing
@@ -745,14 +765,14 @@ static void accel_wakeup_state_refresh(void) {
   }
 
   if (wake_gesture_state == WAIT_FOR_DOWN) {
-    if (int_flags.yl || int_flags.xl || int_flags.yh || int_flags.xh || int_flags.zl) {
+    if ( int1_flags.yl || int1_flags.xl || int1_flags.yh || int1_flags.xh || int1_flags.zl ) {
       wait_for_up_conf();
     } else {
         DISP_ERR_WAKE_3();
       wait_for_up_conf();
     }
   } else if (wake_gesture_state == WAIT_FOR_UP) {
-    if (!int_flags.zh) {
+    if (!int1_flags.zh && !int1_flags.yh) {
         DISP_ERR_WAKE_4();
       wake_gesture_state = WAKE_TURN_UP;
       return;
@@ -879,8 +899,7 @@ static void run_self_test( void ) {
 #endif      /* USE_SELF_TEST */
 
 void accel_fifo_read ( void ) {
-
-
+    
     /* Read fifo depth first (should be 0x1f usually ) */
     accel_register_consecutive_read( AX_REG_FIFO_SRC, 1, &accel_fifo.depth );
     /* Note: STM's FSS FIFO Size register reports the size off-by-1
@@ -977,7 +996,7 @@ void accel_enable ( void ) {
 
   /* Latch interrupts and enable FIFO */
   accel_register_write (AX_REG_CTL5, LIR_INT1 | FIFO_EN);
-
+  
   /* Enable sleep-to-wake by setting activity threshold and duration */
   if (!accel_register_write (AX_REG_ACT_THS, DEEP_SLEEP_THS)) {
       main_terminate_in_error( error_group_accel, ACCEL_ERROR_WRITE_EN );
@@ -1083,7 +1102,7 @@ event_flags_t accel_event_flags( void ) {
     if (!accel_down) {
       accel_down = true;
       accel_down_start_ms = main_get_waketime_ms();
-    } else if (main_get_waketime_ms() - accel_down_start_ms > Z_DOWN_DUR_MS) {
+    } else if (main_get_waketime_ms() - accel_down_start_ms > Z_SLEEP_DOWN_DUR_MS) {
       /* Check for accel low-z timeout */
       ev_flags |= EV_FLAG_ACCEL_DOWN;
     }
@@ -1092,10 +1111,7 @@ event_flags_t accel_event_flags( void ) {
   }
 
   if (port_pin_get_input_level(AX_INT1_PIN)) {
-    uint8_t aoi_flags;
-    
     accel_register_consecutive_read(AX_REG_CLICK_SRC, 1, &click_flags.b8);
-    accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &aoi_flags);
 
     if (int_state) return ev_flags; //we've already handled this interrupt
     int_state = true;
