@@ -12,14 +12,210 @@ import random
 
 TICKS_PER_MS = 1
 
-write_csv = False
 SAMPLE_INT_MS = 10
 rejecttime = 0
 args = None
 
+
+class Samples( object ):
+    def __init__( self, name=None ):
+        self.samples = []
+        self.name = name
+        self.clear()
+
+    def clear( self ):
+        self.total = 0
+        self.rejected = 0
+        self.accepted = 0
+
+        self.confirmed = 0
+        self.unconfirmed = 0
+
+        self.confirmed_accepted = 0
+        self.confirmed_rejected = 0
+        self.unconfirmed_accepted = 0
+        self.unconfirmed_rejected = 0
+
+        self.unconfirmed_time = 0
+        self.unconfirmed_rejected_time = 0
+        self.unconfirmed_time_cnt = 0
+        self.unconfirmed_time_max = 0
+
+    def analyze( self ):
+        self.clear()
+        for sample in self.samples:
+            if len( sample.xs ) < 1:
+                log.debug( "skipping invalid data {}".format(
+                    (sample.xs, sample.ys, sample.zs) ) )
+                continue
+
+            self.total += 1
+            if sample.wakeup_check( force=True ):
+                self.accepted += 1
+            else:
+                self.rejected += 1
+            if sample.confirmed:
+                self.confirmed += 1
+                if sample.accepted:
+                    self.confirmed_accepted += 1
+                else:
+                    self.confirmed_rejected += 1
+            else:
+                self.unconfirmed += 1
+                if sample.accepted:
+                    self.unconfirmed_accepted += 1
+                else:
+                    self.unconfirmed_rejected += 1
+                if sample.waketime:
+                    self.unconfirmed_time_cnt += 1
+                    self.unconfirmed_time += sample.waketime
+                    if not sample.accepted:
+                        self.unconfirmed_rejected_time += sample.waketime
+                    if sample.waketime > self.unconfirmed_time_max:
+                        self.unconfirmed_time_max = sample.waketime
+
+    def show_analysis( self ):
+        print( "Analysis for '{}', {} samples".format( self.name, self.total ) )
+        print( "{:10}|{:12}|{:12}|{:12}".format( "", "Confirmed", "Unconfirmed", "Totals" ) )
+        print( "{:10}|{:12}|{:12}|{:12}".format( "Accepted", self.confirmed_accepted, self.unconfirmed_accepted, self.accepted ) )
+        print( "{:10}|{:12}|{:12}|{:12}".format( "Rejected", self.confirmed_rejected, self.unconfirmed_rejected, self.rejected ) )
+        print( "{:10}|{:12}|{:12}|{:12}".format( "Total", self.confirmed, self.unconfirmed, self.total ) )
+        if self.unconfirmed_time_cnt:
+            print( "Unconfirmed time analysis ({} values):".format( self.unconfirmed_time_cnt ) )
+            print( "  average unconfirmed time {:.1f} seconds".format(
+                1e-3 * self.unconfirmed_time / self.unconfirmed_time_cnt ) )
+            print( "  maximum unconfirmed time {:.1f} seconds".format(
+                1e-3 * self.unconfirmed_time_max ) )
+            print( "  {:.1f} of {:.1f} seconds filtered, {:.0%}".format(
+                self.unconfirmed_rejected_time * 1e-3, self.unconfirmed_time * 1e-3,
+                self.unconfirmed_rejected_time / self.unconfirmed_time ) )
+        print()
+
+    def load( self, fn ):
+        if self.name is None:
+            self.name = fn
+        newsamples = self._parse_fifo( fn )
+        self.samples.extend( newsamples )
+
+    def combine( self, other ):
+        if self.name is None:
+            self.name = "Combined"
+        self.samples.extend( other.samples )
+        self.total += other.total
+        self.rejected += other.rejected
+        self.accepted += other.accepted
+
+        self.confirmed += other.confirmed
+        self.unconfirmed += other.unconfirmed
+
+        self.confirmed_accepted += other.confirmed_accepted
+        self.confirmed_rejected += other.confirmed_rejected
+        self.unconfirmed_accepted += other.unconfirmed_accepted
+        self.unconfirmed_rejected += other.unconfirmed_rejected
+
+        self.unconfirmed_time += other.unconfirmed_time
+        self.unconfirmed_rejected_time += other.unconfirmed_rejected_time
+        self.unconfirmed_time_cnt += other.unconfirmed_time_cnt
+
+        if other.unconfirmed_time_max > self.unconfirmed_time_max:
+            self.unconfirmed_time_max = other.unconfirmed_time_max
+
+    def filter_samples( self, **kwargs ):
+        reject = kwargs.pop( "reject_only", False )
+        accept = kwargs.pop( "accept_only", False )
+        fnonly = kwargs.pop( "false_negatives", False )
+        for sample in self.samples:
+            if reject and sample.accepted:
+                continue
+            elif accept and not sample.accepted:
+                continue
+            elif fnonly and ( not sample.confirmed or sample.accepted ):
+                continue
+            yield sample
+
+    def show_plots( self, **kwargs ):
+        for sample in self.filter_samples( **kwargs ):
+            sample.show_plot()
+
+    def export_csv( self, **kwargs ):
+        for sample in self.filter_samples( **kwargs ):
+            sample.export_csv()
+
+    def show_csums( self, **kwargs ):
+        fig = plt.figure()
+        ax_sigx = fig.add_subplot(111)
+        ax_sigx.set_title( "Sigma x-values" )
+
+        fig = plt.figure()
+        ax_sigx_rev = fig.add_subplot(111)
+        ax_sigx_rev.set_title( "Sigma x-values reverse" )
+
+        fig = plt.figure()
+        ax_sigy = fig.add_subplot(111)
+        ax_sigy.set_title( "Sigma y-values" )
+
+        fig = plt.figure()
+        ax_sigy_rev = fig.add_subplot(111)
+        ax_sigy_rev.set_title( "Sigma y-values reverse" )
+
+        fig = plt.figure()
+        ax_sigz = fig.add_subplot(111)
+        ax_sigz.set_title( "Sigma z-values" )
+
+        fig = plt.figure()
+        ax_sigz_rev = fig.add_subplot(111)
+        ax_sigz_rev.set_title( "Sigma z-values reverse" )
+
+        vals = 0
+        xs = []
+        dzs = []
+        for sample in self.filter_samples( **kwargs ):
+            vals += 1
+            t = range( len( sample.xsums ) )
+            c = 'b' if sample.confirmed else 'r'
+
+            line = plt.Line2D( t, sample.xsums, marker='o' , color=c )
+            ax_sigx.add_line( line )
+
+            line = plt.Line2D( t, sample.ysums, marker='o', color=c )
+            ax_sigy.add_line( line )
+
+            line = plt.Line2D( t, sample.zsums, marker='o', color=c )
+            ax_sigz.add_line( line )
+
+            line = plt.Line2D( t, sample.xsumrev, marker='o', color=c )
+            ax_sigx_rev.add_line( line )
+
+            line = plt.Line2D( t, sample.ysumrev, marker='o', color=c )
+            ax_sigy_rev.add_line( line )
+
+            line = plt.Line2D( t, sample.zsumrev, marker='o', color=c )
+            ax_sigz_rev.add_line( line )
+
+            x = list( range( 8, 20 ) )
+            try:
+                dz = [ sample.zsums[-1] - sample.zsums[-n-1] - sample.zsums[n-1] for n in x ]
+                dzs.extend( dz )
+                xs.extend( x )
+            except IndexError as e:
+                log.error( "zsums only has {} values".format( len( sample.zsums ) ) )
+
+        for ax in ( ax_sigx, ax_sigx_rev, ax_sigy, ax_sigy_rev, ax_sigz, ax_sigz_rev ):
+            ax.set_title( ax.get_title() + ": {} values".format( vals ) )
+            ax.grid()
+            ax.relim()
+            ax.autoscale_view()
+
+        fig = plt.figure()
+        plt.title( "dz delta N" )
+        plt.scatter( xs, dzs )
+        plt.show()
+
+
 class WakeSample( object ):
     _sample_counter = 0
     def __init__(self, xs, ys, zs, waketime = 0, confirmed = False):
+        self.uid = uuid.uuid4().hex[-8:]
         self.xs = xs
         self.ys = ys
         self.zs = zs
@@ -34,6 +230,9 @@ class WakeSample( object ):
         self.xsums = [ sum( self.xs[:i+1] ) for i in range( len( self.xs ) ) ]
         self.ysums = [ sum( self.ys[:i+1] ) for i in range( len( self.ys ) ) ]
         self.zsums = [ sum( self.zs[:i+1] ) for i in range( len( self.zs ) ) ]
+        self.xsumrev = [ sum( self.xs[-i-1:] ) for i in range( len( self.xs ) ) ]
+        self.ysumrev = [ sum( self.ys[-i-1:] ) for i in range( len( self.ys ) ) ]
+        self.zsumrev = [ sum( self.zs[-i-1:] ) for i in range( len( self.zs ) ) ]
 
     def _fltr_y_not_deliberate_fail( self ):
         return self.ys[-1] < -5
@@ -77,15 +276,20 @@ class WakeSample( object ):
         test2 = testsum2a > 40
         return test1 or test2
 
-    def wakeup_check(self):
+    def wakeup_check( self, force=False ):
+        if force:
+            self._check_result = None
         if self._check_result is not None:
+            return self._check_result
+        elif len( self.xs ) < 1:
+            self._check_result = False
             return self._check_result
 
         self.dzN = sum( self.zs[-11:] ) - sum( self.zs[:11] )
         self.ysum_n = self.ysums[8]
         self.xsum_n = self.xsums[4]
 
-        if False:
+        if False: # to make it easier to re-arrange below tests
             pass
         elif self._fltr_y_turn_accept():
             self._check_result = True
@@ -103,12 +307,8 @@ class WakeSample( object ):
             self._check_result = True
         else:
             self._check_result = False
-
-        log.info("{}: {} rejected with dzN={}  XSUM_N={}  YSUM_N={}  Y_LAST={}".format(
-            self.i, "correctly" if not self._check_result and not self.confirmed else "falsely",
-            self.dzN, self.xsum_n, self.ysum_n, self.ys[-1]))
-
         return self._check_result
+    accepted = property( fget=wakeup_check )
 
     def is_false_negative(self):
         return not self.wakeup_check() and self.confirmed
@@ -132,8 +332,36 @@ class WakeSample( object ):
         else:
             return abs(yN) + abs(dyN) + dzN
 
+    def show_plot( self ):
+        fig = plt.figure()
+        ax = fig.add_subplot( 111 )
+        plt.title( "sample {} pass={} confirm={} xN={} yN={} dzN={}".format(
+            self.uid, self.accepted, self.confirmed,
+            self.xsum_n, self.ysum_n, self.dzN ) )
+        ax.grid()
+        t = range( len( self.xs ) )
+        x_line = plt.Line2D( t, self.xs, color='r', marker='o' )
+        y_line = plt.Line2D( t, self.ys, color = 'g', marker='o' )
+        z_line = plt.Line2D( t, self.zs, color = 'b', marker='o' )
+        ax.add_line( x_line )
+        ax.add_line( y_line )
+        ax.add_line( z_line )
+        plt.figlegend( ( x_line, y_line, z_line ), ( "x", "y", "z" ),
+                "upper right" )
+        ax.set_xlim( [0, len(xs)] )
+        ax.set_ylim( [-60, 60] )
+        plt.xlabel( "1 / Output Data Rate" )
+        plt.ylabel( "1/32 * g's for +/-4g" )
+        plt.show()
 
-def parse_fifo(fname):
+    def export_csv( self ):
+        with open('{}.csv'.format( self.uid ), 'wt') as csvfile:
+            writer = csv.writer( csvfile, delimiter=' ' )
+            for i, (x, y, z) in enumerate( zip( self.xs, self.ys, self.zs ) ):
+                writer.writerow( [ i, x, y, z ] )
+
+
+def _parse_fifo(fname):
     try:
         f = open(fname, 'rb')
     except:
@@ -143,7 +371,6 @@ def parse_fifo(fname):
     binval = f.read(4)
 
     """ find first start delimiter"""
-
     started = False
     while binval:
         if struct.unpack("<I", binval)[0] == 0xaaaaaaaa:
@@ -160,7 +387,6 @@ def parse_fifo(fname):
     xs = []
     ys = []
     zs = []
-
 
     samples = []
 
@@ -195,10 +421,10 @@ def parse_fifo(fname):
                 binval = binval[-2:] #retain last 2 bytes
                 binval += f.read(4)
 
-            samples.append(WakeSample(xs,ys,zs, waketime_ms, end_confirm))
+            samples.append( WakeSample(xs, ys, zs, waketime_ms, end_confirm) )
             i+=1
-            log.debug("new sample: waketime={}ms confirmed={}".format(waketime_ms,
-                end_confirm))
+            log.debug( "new sample: waketime={}ms confirmed={}".format(
+                waketime_ms, end_confirm ) )
             started = False
 
             xs = []
@@ -217,7 +443,6 @@ def parse_fifo(fname):
             binval = binval[-2:]
             binval += f.read(4)
 
-
         if started:
             (xh, xl, yh, yl, zh, zl) = struct.unpack("<bbbbbb", binval)
             xs.append(xl)
@@ -233,7 +458,7 @@ def parse_fifo(fname):
                 log.info("end of file encountered")
                 break
 
-            if struct.unpack("<Ibb", binval)[0] == 0xaaaaaaaa:
+            if struct.unpack( "<Ibb", binval )[0] == 0xaaaaaaaa:
                 log.debug("Found start code 0x{:08x}".format(f.tell()))
                 """ retain last 2 bytes """
                 binval = binval[-2:]
@@ -249,10 +474,9 @@ def parse_fifo(fname):
         if struct.unpack("<Ibb", binval)[0] == 0xffffffff:
             log.debug("No more data after 0x{:08x}".format(f.tell()))
             break
-
-    log.info("Parsed {} samples from {}".format(len(samples), fname))
-
+    log.debug("Parsed {} samples from {}".format(len(samples), fname))
     return samples
+
 
 def plot_sumN_scores(samples):
     conf_scores = []
@@ -290,184 +514,6 @@ def plot_sums(samples, x_cnt = 5, y_cnt = 8):
     plt.plot(ysums_u, linestyle=":",  color="b")
     #plt.plot(ssums_u, linestyle=":",  color="g")
 
-def analyze_samples(samples):
-    log.info("Analyzing {} FIFO Samples".format(len(samples)))
-
-    wakeups = 0
-    rejects = 0
-    false_negatives = 0
-    confirmed_wakeup_passes = 0
-
-    sigma_zs = []
-    sigma_zs_rev = []
-    sigma_ys = []
-    sigma_ys_rev = []
-    sigma_xs = []
-    for (i, sample) in enumerate(samples):
-        xs = sample.xs
-        ys = sample.ys
-        zs = sample.zs
-        waketime  = sample.waketime
-        confirmed = sample.confirmed
-
-        if len(xs) < 1:
-            log.debug("skipping invalid data {}".format((xs,ys,zs)))
-            continue
-        uid =  str(uuid.uuid4())[-6:]
-        ZSUM_N = 11
-        zsum_n = sum(zs[:-ZSUM_N-1:-1])
-        zsum_10 = sum(zs[:10])
-        ysum_n = sum(ys[:10])
-        xsum_n = sum(xs[:5])
-        delta_z_12 = sum(zs[:-13:-1]) - sum(zs[:12])
-        wakeup_check_pass = sample.wakeup_check()
-        if wakeup_check_pass:
-            wakeups+=1
-            if confirmed: confirmed_wakeup_passes +=1
-        else:
-            rejects+=1
-            global rejecttime
-            rejecttime+=waketime
-            if confirmed: false_negatives+=1
-
-
-        if args.plot_all or (wakeup_check_pass and args.plot_passes) or \
-                (not wakeup_check_pass and args.plot_rejects) or \
-                (args.plot_false_negatives and sample.is_false_negative()):
-            fig = plt.figure()
-            ax = fig.add_subplot(111)
-            log.debug("plotting {} with xsum_n {}: ysum_n: {}  zsum_n: {} dy_10: {} dz12: {}".format(uid,
-                xsum_n, ysum_n, zsum_n, sum(ys[:-11:-1]), delta_z_12))
-            plt.title("sample {}: pass={} confirmed={} xN={} yN={} dzN={}".format(i,
-                wakeup_check_pass, confirmed, sample.xsum_n, sample.ysum_n, sample.dzN))
-            ax.grid()
-            t = range(len(xs))
-            x_line = plt.Line2D(t, xs, color='r', marker='o')
-            y_line = plt.Line2D(t, ys, color = 'g', marker='o')
-            z_line = plt.Line2D(t, zs, color = 'b', marker='o')
-
-            ax.add_line(x_line)
-            ax.add_line(y_line)
-            ax.add_line(z_line)
-
-            plt.figlegend((x_line, y_line, z_line), ("x", "y", "z"), "upper right")
-            ax.set_xlim([0, len(xs)])
-            ax.set_ylim([-60, 60])
-
-            plt.xlabel( "1 / Output Data Rate" )
-            plt.ylabel( "1/32 * g's for +/-4g" )
-
-            plt.show()
-
-        sigma_zs.append(np.cumsum(zs))
-        sigma_zs_rev.append(np.cumsum(zs[::-1]))
-        sigma_ys.append(np.cumsum(ys))
-        sigma_ys_rev.append(np.cumsum(ys[::-1]))
-        sigma_xs.append(np.cumsum(xs))
-
-        if write_csv:
-            with open('{}.csv'.format(uid), 'wt') as csvfile:
-                writer = csv.writer(csvfile, delimiter=' ')
-                for i, (x, y, z) in enumerate(zip(xs, ys, zs)):
-                    writer.writerow([i, x, y, z])
-
-    log.info("{} wakeups ({} %)".format(wakeups, 100.0*wakeups/len(samples)))
-    log.info("{} rejects ({} %)".format(rejects, 100.0*rejects/len(samples)))
-    total_waketime = sum([s.waketime for s in samples])
-    filtered_waketime = total_waketime - rejecttime
-    log.info("{:.2f}s total unfiltered waketime".format(total_waketime/1000.0))
-    if wakeups > 0:
-        log.info("{:.2f}s total filtered waketime ({:.2f}s per wake)".format(filtered_waketime/1000.0, filtered_waketime/wakeups/1000.0))
-    else:
-        log.info("No confirmed wakeups")
-
-    log.info("{:.2f}s total reject-saved waketime ({:.1f}%)".format(
-        rejecttime/1000.0, 100*rejecttime/total_waketime))
-
-    total_confirms = confirmed_wakeup_passes + false_negatives
-    log.info("{} confirmed wakeup passes ({} %)".format(confirmed_wakeup_passes,
-        100*confirmed_wakeup_passes/total_confirms if total_confirms > 0 else 0))
-    log.info("{} false_negatives ({} %)".format(false_negatives,
-        100*false_negatives/total_confirms if total_confirms > 0 else 0))
-
-    if args.plot_csums:
-        fig = plt.figure()
-        plt.title("Sigma x-values")
-        for vals in sigma_xs:
-            t = range(len(vals))
-            ax = fig.add_subplot(111)
-            ax.grid()
-            line = plt.Line2D(t, vals, marker='o')#, color='r', marker='o')
-            ax.add_line(line)
-
-        ax.relim()
-        ax.autoscale_view()
-        plt.show()
-        fig = plt.figure()
-        plt.title("Sigma y-values")
-        for cys in sigma_ys:
-            t = range(len(cys))
-            ax = fig.add_subplot(111)
-            ax.grid()
-            line = plt.Line2D(t, cys, marker='o')#, color='r', marker='o')
-            ax.add_line(line)
-
-        ax.relim()
-        ax.autoscale_view()
-        plt.show()
-
-        fig = plt.figure()
-        plt.title("Sigma y-values reverse")
-        for vals in sigma_ys_rev:
-            t = range(len(vals))
-            ax = fig.add_subplot(111)
-            ax.grid()
-            line = plt.Line2D(t, vals, marker='o')#, color='r', marker='o')
-            ax.add_line(line)
-
-        ax.relim()
-        ax.autoscale_view()
-        plt.show()
-
-        fig = plt.figure()
-        plt.title("Sigma z-values")
-        for vals in sigma_zs:
-            t = range(len(vals))
-            ax = fig.add_subplot(111)
-            ax.grid()
-            line = plt.Line2D(t, vals, marker='o')#, color='r', marker='o')
-            ax.add_line(line)
-
-        ax.relim()
-        ax.autoscale_view()
-        plt.show()
-
-        fig = plt.figure()
-        plt.title("Sigma z-values reverse")
-        for vals in sigma_zs_rev:
-            t = range(len(vals))
-            ax = fig.add_subplot(111)
-            ax.grid()
-            line = plt.Line2D(t, vals, marker='o')#, color='r', marker='o')
-            ax.add_line(line)
-
-        ax.relim()
-        ax.autoscale_view()
-        plt.show()
-
-        plt.title("dz delta N")
-        ns = range(8,20)
-        xs = []
-        dzs = []
-        log.debug(sigma_zs)
-        for n in ns:
-            dzs.extend([(czs[-1] - czs[-n-1]) - czs[n-1] for czs in sigma_zs])
-            xs.extend([n for i in range(len(sigma_zs))])
-
-        plt.scatter(xs, dzs)
-        plt.show()
-
-    return samples
 
 def analyze_streamed(f):
     f.seek(0x80) # skip usage data block
@@ -503,32 +549,52 @@ def analyze_streamed(f):
     plt.show()
 
 
-
-
-samples = []
 if __name__ == "__main__":
-    global write_csv, args, samples
-    log.basicConfig(level = log.DEBUG)
+    log.basicConfig( level = log.INFO )
     parser = argparse.ArgumentParser(description='Analyze an accel log dump')
     parser.add_argument('dumpfiles', nargs='+')
     parser.add_argument('-f', '--fifo', action='store_true', default=True)
     parser.add_argument('-s', '--streamed', action='store_true', default=False)
-    parser.add_argument('-w', '--write_csv', action='store_true', default=False)
-    parser.add_argument('-a', '--plot_all', action='store_true', default=False)
-    parser.add_argument('-r', '--plot_rejects', action='store_true', default=False)
-    parser.add_argument('-p', '--plot_passes', action='store_true', default=False)
+    parser.add_argument('-w', '--export', action='store_true', default=False)
+    parser.add_argument('-a', '--plot', action='store_true', default=False)
     parser.add_argument('-c', '--plot_csums', action='store_true', default=False)
-    parser.add_argument('-fn', '--plot_false_negatives', action='store_true', default=False)
+    parser.add_argument('-r', '--rejects_only', action='store_true', default=False)
+    parser.add_argument('-p', '--accepts_only', action='store_true', default=False)
+    parser.add_argument('-fn', '--false_negatives', action='store_true', default=False)
 
     args = parser.parse_args()
-    write_csv = args.write_csv
 
     if not args.streamed and args.fifo:
-        samples = []
+        allsamples = Samples()
         for fname in args.dumpfiles:
-            samples.extend(parse_fifo(fname))
+            newsamples = Samples()
+            newsamples.load( fname )
+            newsamples.analyze()
+            if newsamples.total:
+                newsamples.show_analysis()
+                allsamples.combine( newsamples )
 
-        analyze_samples(samples)
+        allsamples.show_analysis()
+
+        if args.rejects_only:
+            log.info( "showing rejects only" )
+            kwargs = { "reject_only": True }
+        elif args.false_negatives:
+            log.info( "showing false_negatives only" )
+            kwargs = { "false_negatives": True }
+        elif args.accepts_only:
+            log.info( "showing accepts only" )
+            kwargs = { "accepts_only": True }
+        else:
+            kwargs = dict()
+
+        if args.plot:
+            allsamples.show_plots( **kwargs )
+        if args.export:
+            allsamples.export_csv( **kwargs )
+        if args.plot_csums:
+            allsamples.show_csums( **kwargs )
+
     else:
         fname = args.dumpfiles[0]
         try:
