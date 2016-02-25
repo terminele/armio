@@ -752,34 +752,82 @@ class WakeSample( object ):
                 writer.writerow( [ i, x, y, z ] )
 
 
-y_not_delib_fail = SampleTest( "Y not deliberate fail / Inwards accept",
-        lambda s : s.ys[-1], reject_below=-5, accept_above=6 )
 
-y_turn_accept = SampleTest( "Y turn accept",
-        lambda s : abs(s.ysums[8]), accept_above=240 )
+### Analysis function for streaming xyz data ###
+def analyze_streamed( fname, plot=True ):
+    try:
+        with open( fname, 'rb' ) as fh:
+            fh.seek(0x80) # skip usage data block
+            binval = fh.read(4)
+            #skip any leading 0xffffff bytes
+            while struct.unpack("<I", binval)[0] == 0xffffffff:
+                binval = fh.read(4)
 
-x_turn_accept = SampleTest( "X turn accept",
-        lambda s : abs(s.xsums[4]), accept_above=120 )
+            t = 0
+            ts = []
+            xs = []
+            ys = []
+            zs = []
+            mag = []
+            while binval:
+                if struct.unpack ("<I", binval)[0] == 0xffffffff:
+                    break
 
-xy_turn_accept = SampleTest( "XY Turn Accept",
-        lambda s : abs( s.ysums[8] ) + abs( s.xsums[4] ), accept_above=140 )
+                ( z, y, x, dt ) = struct.unpack ( "<bbbB", binval )
+                t += dt
 
-y_ovs1_accept = SampleTest( "Y overshoot 1 accept",
-        lambda s : s.ysums[-1] - s.ysums[26], accept_above=20 )
+                ts.append( t )
+                xs.append( x )
+                ys.append( y )
+                zs.append( z )
+                mag.append( ( x**2 + y**2 + z**2 )**0.5 )
+                log.debug("{}\t{}\t{}\t{}".format(t, x, y, z))
 
-y_ovs2_accept = SampleTest( "Y overshoot 2 accept",
-        lambda s : s.ysums[-1] - s.ysums[22], accept_above=40 )
+                binval = fh.read(4)
 
-z_sum_slope_accept = SampleTest( "Z slope sum accept",
-        lambda s : ( s.zsums[4], s.zsums[31] - s.zsums[31-11] - s.zsums[10] ),
-        accept_above=( None, 110 ), accept_below=( 100, None ) )
+            if plot:
+                plt.plot(ts, xs, 'r-', label='x')
+                plt.plot(ts, ys, 'g-', label='y')
+                plt.plot(ts, zs, 'b-', label='z')
+                plt.plot( ts, mag, 'k-', label="mag" )
+                plt.legend()
+                plt.show()
+            return ts, xs, ys, zs
+    except OSError as e:
+        log.error( "Unable to open file '{}': {}".format(fname, e) )
+        return [], [], [], []
 
-fail_all_test = SampleTest( "Fail remaining", lambda s : -1, reject_below=0 )
+### Filter tests functions ###
+def make_traditional_tests():
+    y_not_delib_fail = SampleTest( "Y not deliberate fail / Inwards accept",
+            lambda s : s.ys[-1], reject_below=-5, accept_above=6 )
 
-traditional_tests = [ y_turn_accept, y_not_delib_fail,
-        y_ovs1_accept, xy_turn_accept, x_turn_accept, z_sum_slope_accept,
-        y_ovs2_accept, fail_all_test ]
+    y_turn_accept = SampleTest( "Y turn accept",
+            lambda s : abs(s.ysums[8]), accept_above=240 )
 
+    x_turn_accept = SampleTest( "X turn accept",
+            lambda s : abs(s.xsums[4]), accept_above=120 )
+
+    xy_turn_accept = SampleTest( "XY Turn Accept",
+            lambda s : abs( s.ysums[8] ) + abs( s.xsums[4] ), accept_above=140 )
+
+    y_ovs1_accept = SampleTest( "Y overshoot 1 accept",
+            lambda s : s.ysums[-1] - s.ysums[26], accept_above=20 )
+
+    y_ovs2_accept = SampleTest( "Y overshoot 2 accept",
+            lambda s : s.ysums[-1] - s.ysums[22], accept_above=40 )
+
+    z_sum_slope_accept = SampleTest( "Z slope sum accept",
+            lambda s : ( s.zsums[4], s.zsums[31] - s.zsums[31-11] - s.zsums[10] ),
+            accept_above=( None, 110 ), accept_below=( 100, None ) )
+
+    fail_all_test = SampleTest( "Fail remaining", lambda s : -1, reject_below=0 )
+
+    tests = [ y_turn_accept, y_not_delib_fail,
+            y_ovs1_accept, xy_turn_accept, x_turn_accept, z_sum_slope_accept,
+            y_ovs2_accept, fail_all_test ]
+
+    return tests
 
 def run_tests( tests, samples, plot=False ):
     for test in tests:
@@ -793,8 +841,7 @@ def run_tests( tests, samples, plot=False ):
             test.plot_result()
         samples = test.passed_samples
 
-
-
+### Linear algebra functions ###
 def mean_center_columns( matrix ):
     """ matrix has the form
       [ [ ===  row 0  === ],
@@ -824,6 +871,7 @@ def univarance_scale_columns( matrix ):
 def find_xTx( matrix ):
     return np.dot( np.transpose( matrix ), matrix )
 
+### Relics ###
 def plot_sumN_scores(samples):
     conf_scores = []
     unconf_scores = []
@@ -857,51 +905,15 @@ def plot_sums(samples, x_cnt = 5, y_cnt = 8):
     #plt.plot(ssums, color="g")
 
     #plt.plot(xsums_u, linestyle=":", color="r")
-    plt.plot(ysums_u, linestyle=":",  color="b")
     #plt.plot(ssums_u, linestyle=":",  color="g")
-
-def analyze_streamed(f):
-    f.seek(0x80) # skip usage data block
-    binval = f.read(4)
-    #skip any leading 0xffffff bytes
-    while struct.unpack("<I", binval)[0] == 0xffffffff:
-        binval = f.read(4)
-
-    t = 0
-    ts = []
-    xs = []
-    ys = []
-    zs = []
-    mag = []
-    while binval:
-        if struct.unpack ("<I", binval)[0] == 0xffffffff:
-            break
-
-        ( z, y, x, dt ) = struct.unpack ( "<bbbB", binval )
-        t += dt
-
-        ts.append( t )
-        xs.append( x )
-        ys.append( y )
-        zs.append( z )
-        mag.append( ( x**2 + y**2 + z**2 )**0.5 )
-        log.debug("{}\t{}\t{}\t{}".format(t, x, y, z))
-
-        binval = f.read(4)
-
-    plt.plot(ts, xs, 'r-', label='x')
-    plt.plot(ts, ys, 'g-', label='y')
-    plt.plot(ts, zs, 'b-', label='z')
-    plt.plot( ts, mag, 'k-', label="mag" )
-    plt.legend()
-    plt.show()
-
+    plt.plot(ysums_u, linestyle=":",  color="b")
 
 if __name__ == "__main__":
     log.basicConfig( level = log.INFO )
     parser = argparse.ArgumentParser(description='Analyze an accel log dump')
     parser.add_argument('dumpfiles', nargs='+')
     parser.add_argument('-f', '--fifo', action='store_true', default=True)
+    parser.add_argument('-t', '--run-tests', action='store_true', default=True)
     parser.add_argument('-s', '--streamed', action='store_true', default=False)
     parser.add_argument('-w', '--export', action='store_true', default=False)
     parser.add_argument('-a', '--plot', action='store_true', default=False)
@@ -909,7 +921,6 @@ if __name__ == "__main__":
     parser.add_argument('-r', '--rejects_only', action='store_true', default=False)
     parser.add_argument('-p', '--accepts_only', action='store_true', default=False)
     parser.add_argument('-fn', '--false_negatives', action='store_true', default=False)
-    parser.add_argument('-t', '--run-tests', action='store_true', default=False)
 
     args = parser.parse_args()
 
@@ -940,22 +951,16 @@ if __name__ == "__main__":
             kwargs = dict()
 
         if args.run_tests:
+            traditional_tests = make_traditional_tests()
             run_tests( traditional_tests,
                     allsamples.filter_samples( **kwargs ), plot=args.plot )
         else:
             if args.plot:
                 allsamples.show_plots( **kwargs )
-
         if args.export:
             allsamples.export_csv( **kwargs )
         if args.plot_csums:
             allsamples.show_csums( **kwargs )
-
-    else:
+    elif args.streamed:
         fname = args.dumpfiles[0]
-        try:
-            f = open(fname, 'rb')
-        except:
-            log.error ("Unable to open file \'{}\'".format(fname))
-            exit()
-        analyze_streamed(f)
+        t, x, y, z = analyze_streamed( fname, plot=args.plot )
