@@ -1,4 +1,4 @@
-#!/bin/python
+#!/usr/bin/python3
 
 import math
 import struct
@@ -22,12 +22,17 @@ REJECT, PASS, ACCEPT = range( 3 )
 
 class SampleTest( object ):
     def __init__( self, name, test_fcn, **kwargs ):
+        """
+        kwargs:
+          test_names : optional individual names for multi-dimensional tests
+        """
         self.name = name
         self._test_fcn = test_fcn
         self._reject_below = kwargs.pop( "reject_below", None )
         self._reject_above = kwargs.pop( "reject_above", None )
         self._accept_below = kwargs.pop( "accept_below", None )
         self._accept_above = kwargs.pop( "accept_above", None )
+        self._test_names = kwargs.pop( "test_names", None )
         self.samples = []
         self.values = []
         self.clear_results()
@@ -208,11 +213,23 @@ class SampleTest( object ):
                 self._accept_below, self._accept_above )
         dims = set( len( th ) if isinstance( th, ( list, tuple ) ) else 1
                 for th in ths if th is not None )
-        if len( dims ) != 1:
-            raise ValueError( "{} has {} dimensions".format( self.name, dims ) )
-        dim = dims.pop()
-        if dim > 3 or dim == 0:
-            raise ValueError( "Don't know how to plot {} dimensions".format( dim ) )
+        if not len(self.values):
+            raise ValueError("Nothing to plot")
+
+        if len(dims) == 0:
+            if isinstance(self.values[0], (list, tuple)):
+                dim = len(self.values[0])
+            else:
+                dim = 1
+        elif len(dims) == 1:
+            dim = dims.pop()
+        else:           # all tests should have same num dimensions
+            raise ValueError( "{} has different dimensions {}".format(
+                self.name, dims ) )
+        if dim == 0:
+            raise ValueError("Must have at least one dimensions")
+        elif dim > 3:
+            log.warning("Truncating to first 3 dimensions")
 
         wake_short = self.unconfirmed_time_max / 4
         wake_med = self.unconfirmed_time_max / 2
@@ -220,17 +237,16 @@ class SampleTest( object ):
         CONFIRMED, SHORT, MED, LONG = range( 4 )
 
         lines = dict()
-        for tv in ( PASS, ACCEPT, REJECT ):
-            for cv in ( CONFIRMED, SHORT, MED, LONG ):
-                lines[ (tv, cv) ] = []
+        for tv in (PASS, ACCEPT, REJECT):
+            for cv in (CONFIRMED, SHORT, MED, LONG):
+                lines[(tv, cv)] = []
 
-        if (len( self.test_results ) != len( self.values ) or
-                len( self.samples ) != len( self.test_results )):
+        if 1 != len(set((len(self.test_results), len(self.samples), len(self.values)))):
             raise ValueError( "We are missing something {} {} {}".format(
-                len( self.test_results ), len( self.values ), len( self.samples ) ))
+                len(self.test_results), len(self.values), len(self.samples)))
         log.info( "Plotting {} samples".format( len( self.values ) ) )
 
-        for tv, val, sample in zip( self.test_results, self.values, self.samples ):
+        for tv, val, sample in zip(self.test_results, self.values, self.samples):
             if sample.confirmed:
                 cv = CONFIRMED
             elif sample.waketime == 0:
@@ -241,19 +257,39 @@ class SampleTest( object ):
                 cv = MED
             else:
                 cv = LONG
-            if dim == 1:
-                val = (sample.i, val)
-            lines[ ( tv, cv ) ].append( val )
+            if dim == 1:        # add an axis
+                val = ( sample.i, val )
+            elif dim > 2:       # truncate axes
+                val = val[:3]
+                val = ( val[2], val[0], val[1] )
+            lines[ (tv, cv) ].append( val )
 
         fig = plt.figure()
-        if dim == 3:
-            #kw = {'projection': '3d'} if dim == 3 else dict()
-            #ax_sigx = fig.add_subplot( 111, *kw )
-            ax_sigx = Axes3D( fig )    # old way of doing this
-        else:
+        if dim == 1:
             ax_sigx = fig.add_subplot( 111 )
+            ax_sigx.set_xlabel("Sample Number")
+            ax_sigx.set_ylabel("Test Value")
+        elif dim == 2:
+            ax_sigx = fig.add_subplot( 111 )
+            if self._test_names is not None:
+                ax_sigx.set_xlabel(self._test_names[0])
+                ax_sigx.set_ylabel(self._test_names[1])
+            else:
+                ax_sigx.set_xlabel("Test Value 0")
+                ax_sigx.set_ylabel("Test Value 1")
+        elif dim > 2:
+            ax_sigx = fig.add_subplot( 111, projection='3d' )
+            if self._test_names is not None:
+                ax_sigx.set_xlabel(self._test_names[0])
+                ax_sigx.set_ylabel(self._test_names[1])
+                ax_sigx.set_zlabel(self._test_names[2])
+            else:
+                ax_sigx.set_xlabel("Test Value 0")
+                ax_sigx.set_ylabel("Test Value 1")
+                ax_sigx.set_zlabel("Test Value 2")
+
         ax_sigx.set_title( self.name )
-        markers = [ 'x', '.', 'o' ]
+        markers = [ 'x', '+', 'd' ]
         colors = [ 'green', 'yellow', 'orange', 'red' ]
 
         for ( test, confirm ), data in lines.items():
@@ -261,10 +297,9 @@ class SampleTest( object ):
                 continue
             marker = markers[test]
             color = colors[confirm]
-            if dim == 3:
+            if dim > 2:
                 xs, ys, zs = list( zip( *data ) )
-                plt.scatter( xs, ys, zs, c=color, marker=marker )
-                #plt.scatter( xs, ys, zs=zs, c=color )
+                plt.scatter( xs, ys, zs=zs, c=color, marker=marker )
             else:
                 xs, ys = list( zip( *data ) )
                 plt.scatter( xs, ys, color=color, marker=marker )
@@ -282,11 +317,93 @@ class SampleTest( object ):
             elif dim == 2:
                 plt.plot( [th[0], th[0]], plt.ylim(), 'k-' )
                 plt.plot( plt.xlim(), [th[1], th[1]], 'k-' )
-            elif dim == 3:
+            elif dim > 2:
                 pass        # for now
         ax_sigx.autoscale( tight=True )
 
         plt.show()
+
+
+class PrincipalComponentTest( SampleTest ):
+    def __init__(self, trainingset, test_axis=0, univariance=True, **kwargs):
+        """ use principal component analysis to find linear combinations
+            of the accel data to test
+
+            if trainingset is Samples instance, also add the samples
+            test_axis : single int index or list of index to select for test
+        """
+        if isinstance( trainingset, Samples ):
+            samples = trainingset.samples
+            trainingset = trainingset.measurematrix
+        else:
+            samples = None
+        mc = self.mean_center_columns(trainingset)
+        uv = self.univarance_scale_columns(mc) if univariance else mc
+        if isinstance(test_axis, int):
+            w = self.find_weights(uv, test_axis)
+            test_fcn = lambda s : self.apply_weighting(w, s)
+            name = "Principle Component {}".format(test_axis)
+        else:
+            W = self.find_weights(uv)
+            weights = [[r[i] for r in W] for i in test_axis]
+            weight = self.apply_weighting
+            test_fcn = lambda s : [weight(w, s) for w in weights]
+            name = "Principle Components {}".format(tuple(test_axis))
+            if "test_names" not in kwargs:
+                kwargs["test_names"] = ["PC {}".format(i) for i in test_axis]
+        super().__init__(name, test_fcn, **kwargs)
+        if samples is not None:
+            self.add_samples( samples )
+
+    @staticmethod
+    def apply_weighting(weights, sample):
+        s_v = sample.xs + sample.ys + sample.zs
+        return sum(wi * si for wi, si in zip(weights, s_v))
+
+    @staticmethod
+    def get_col_means(matrix):
+        N_inv = 1.0 / len(matrix)
+        cms = (sum(c) * N_inv for c in zip(*matrix))
+        return cms
+
+    @staticmethod
+    def get_col_variances(matrix):
+        N_inv = 1.0 / len(matrix)
+        return (sum(x**2 for x in c) * N_inv for c in zip(*matrix))
+
+    @classmethod
+    def mean_center_columns(cls, matrix):
+        """ matrix has the form
+          [ [ ===  row 0  === ],
+            [ ===  .....  === ],
+            [ === row N-1 === ] ]
+            we want each column to be mean centered
+        """
+        cms = cls.get_col_means(matrix)
+        mT = ([x - cm for x in c] for cm, c in zip(cms, zip(*matrix)))
+        return list(zip(*mT))
+
+    @classmethod
+    def univarance_scale_columns(cls, matrix):
+        vars = cls.get_col_variances(matrix)
+        mT = ([x / cv**0.5 for x in c] for cv, c in zip(vars, zip(*matrix)))
+        return list(zip(*mT))
+
+    @staticmethod
+    def find_weights(matrix, k=None):
+        xTx = np.dot(np.transpose(matrix), matrix)
+        evals, evect = np.linalg.eig(xTx)
+        """ v should be zero by definition of eigenvalues / eigenvectors
+            where A v = lambda v
+
+            v_k is evect[:, k]
+        v = [ a - b for a, b in zip( np.dot( xTx, evect[:,0] ), evals[0], evect[:,0] ) ]
+        v should contain all zeros
+        """
+        weights = evect
+        if k is None:
+            return weights
+        return [w[k] for w in weights]
 
 
 class Samples( object ):
@@ -857,48 +974,6 @@ def run_tests( tests, samples, plot=False ):
             test.plot_result()
         samples = test.passed_samples
 
-### Linear algebra functions ###
-def mean_center_columns( matrix ):
-    """ matrix has the form
-      [ [ ===  row 0  === ],
-        [ ===  .....  === ],
-        [ === row N-1 === ] ]
-        we want each column to be mean centered
-    """
-    cms = get_col_means( matrix )
-    mT = ( [ x - cm for x in c ] for cm, c in zip( cms, zip( *matrix )) )
-    return list( zip( *mT ) )
-
-def get_col_means( matrix ):
-    N_inv = 1.0 / len( matrix )
-    cms = ( sum( c ) * N_inv for c in zip( *matrix ) )
-    return cms
-
-def get_col_variances( matrix ):
-    N_inv = 1.0 / len( matrix )
-    vars = ( sum( x**2 for x in c ) * N_inv for c in zip( *matrix ) )
-    return vars
-
-def univarance_scale_columns( matrix ):
-    vars = get_col_variances( matrix )
-    mT = ( [ x / cv**0.5 for x in c ] for cv, c in zip( vars, zip( *matrix )) )
-    return list( zip( *mT ) )
-
-def find_weights( matrix, k=None ):
-    xTx = np.dot( np.transpose( matrix ), matrix )
-    evals, evect = np.linalg.eig( xTx )
-    """ v should be zero by definition of eigenvalues / eigenvectors
-        where A v = lambda v
-
-        v_k is evect[:, k]
-    v = [ a - b for a, b in zip( np.dot( xTx, evect[:,0] ), evals[0], evect[:,0] ) ]
-    v should contain all zeros
-    """
-    weights = evect
-    if k is None:
-        return weights
-    return [ w[k] for w in weights ]
-
 ### Relics ###
 def plot_sumN_scores(samples):
     conf_scores = []
@@ -939,7 +1014,7 @@ def plot_sums(samples, x_cnt = 5, y_cnt = 8):
 if __name__ == "__main__":
     log.basicConfig( level = log.INFO )
 
-    def parse_args(  ):
+    def parse_args():
         parser = argparse.ArgumentParser(description='Analyze an accel log dump')
         parser.add_argument('dumpfiles', nargs='+')
         parser.add_argument('-f', '--fifo', action='store_true', default=True)
@@ -996,36 +1071,9 @@ if __name__ == "__main__":
         fname = args.dumpfiles[0]
         t, x, y, z = analyze_streamed( fname, plot=args.plot )
 
+    pc_test = PrincipalComponentTest(allsamples, [0, 1, 2])
+    pc_test.plot_result()
 
-    #m = [ r[:10] for r in allsamples.measurematrix ]
-    m = allsamples.measurematrix
-    m_mc = mean_center_columns( m )
-    m_uv = univarance_scale_columns( m_mc )
-    w0 = find_weights( m_uv, 0 )
-    w1 = find_weights( m_uv, 1 )
-    w2 = find_weights( m_uv, 2 )
-
-    def transform( weights, sample ):
-        svals = sample.xs + sample.ys + sample.zs
-        return sum( wi + si for wi, si in zip( weights, svals ) )
-
-    def pctest( sample ):
-        return transform( w0, sample ), transform( w1, sample ), transform( w2, sample )
-
-    pc_test = SampleTest( "Principle components", pctest,
-            accept_above=(0, None, None), accept_below=(None, 0, None),
-            reject_below=(None, None, 0))
-
-    pc0_test = SampleTest( "Principle component 0",
-            lambda s: transform( w0, s ), accept_above=0 )
-    pc1_test = SampleTest( "Principle component 1",
-            lambda s: transform( w1, s ), accept_above=0 )
-    pc2_test = SampleTest( "Principle component 2",
-            lambda s: transform( w2, s ), accept_above=0 )
-
-    for test in pc_test, pc0_test, pc1_test, pc2_test:
-        test.clear_samples()
-        test.add_samples( allsamples.samples )
-        test.analyze()
-        test.show_result()
+    for i in range(15):
+        test = PrincipalComponentTest(allsamples, i)
         test.plot_result()
