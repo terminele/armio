@@ -266,11 +266,11 @@ class SampleTest( object ):
 
         fig = plt.figure()
         if dim == 1:
-            ax_sigx = fig.add_subplot( 111 )
+            ax_sigx = fig.add_subplot(111)
             ax_sigx.set_xlabel("Sample Number")
             ax_sigx.set_ylabel("Test Value")
         elif dim == 2:
-            ax_sigx = fig.add_subplot( 111 )
+            ax_sigx = fig.add_subplot(111)
             if self._test_names is not None:
                 ax_sigx.set_xlabel(self._test_names[0])
                 ax_sigx.set_ylabel(self._test_names[1])
@@ -278,7 +278,7 @@ class SampleTest( object ):
                 ax_sigx.set_xlabel("Test Value 0")
                 ax_sigx.set_ylabel("Test Value 1")
         elif dim > 2:
-            ax_sigx = fig.add_subplot( 111, projection='3d' )
+            ax_sigx = fig.add_subplot(111, projection='3d')
             if self._test_names is not None:
                 ax_sigx.set_xlabel(self._test_names[0])
                 ax_sigx.set_ylabel(self._test_names[1])
@@ -288,21 +288,21 @@ class SampleTest( object ):
                 ax_sigx.set_ylabel("Test Value 1")
                 ax_sigx.set_zlabel("Test Value 2")
 
-        ax_sigx.set_title( self.name )
-        markers = [ 'x', '+', 'd' ]
-        colors = [ 'green', 'yellow', 'orange', 'red' ]
+        ax_sigx.set_title(self.name)
+        markers = ['x', '+', 'd']
+        colors = ['green', 'yellow', 'orange', 'red']
 
-        for ( test, confirm ), data in lines.items():
-            if not len( data ):
+        for (test, confirm), data in lines.items():
+            if not len(data):
                 continue
             marker = markers[test]
             color = colors[confirm]
             if dim > 2:
-                xs, ys, zs = list( zip( *data ) )
+                xs, ys, zs = list(zip(*data))
                 plt.scatter( xs, ys, zs=zs, c=color, marker=marker )
             else:
-                xs, ys = list( zip( *data ) )
-                plt.scatter( xs, ys, color=color, marker=marker )
+                xs, ys = list(zip(*data))
+                plt.scatter(xs, ys, color=color, marker=marker)
 
         ths = ( self._reject_below, self._reject_above,
                 self._accept_below, self._accept_above )
@@ -324,8 +324,8 @@ class SampleTest( object ):
         plt.show()
 
 
-class PrincipalComponentTest( SampleTest ):
-    def __init__(self, trainingset, test_axis=0, univariance=True, **kwargs):
+class PrincipalComponentTest(SampleTest):
+    def __init__(self, trainingset, test_axis=0, univariance=False, **kwargs):
         """ use principal component analysis to find linear combinations
             of the accel data to test
 
@@ -334,26 +334,38 @@ class PrincipalComponentTest( SampleTest ):
         """
         if isinstance( trainingset, Samples ):
             samples = trainingset.samples
-            trainingset = trainingset.measurematrix
         else:
             samples = None
-        mc = self.mean_center_columns(trainingset)
-        uv = self.univarance_scale_columns(mc) if univariance else mc
-        if isinstance(test_axis, int):
-            w = self.find_weights(uv, test_axis)
-            test_fcn = lambda s : self.apply_weighting(w, s)
-            name = "Principle Component {}".format(test_axis)
-        else:
-            W = self.find_weights(uv)
-            weights = [[r[i] for r in W] for i in test_axis]
-            weight = self.apply_weighting
-            test_fcn = lambda s : [weight(w, s) for w in weights]
-            name = "Principle Components {}".format(tuple(test_axis))
-            if "test_names" not in kwargs:
-                kwargs["test_names"] = ["PC {}".format(i) for i in test_axis]
+        name, test_names = self._configure_name( test_axis )
+        test_fcn = self._configure_test( trainingset, test_axis, **kwargs )
+        kwargs.setdefault( 'test_names', test_names )
         super().__init__(name, test_fcn, **kwargs)
         if samples is not None:
-            self.add_samples( samples )
+            self.add_samples(samples)
+
+    def _configure_test( self, trainingset, test_axis, **kwargs ):
+        univariance = kwargs.pop( "univariance", False )
+        if isinstance( trainingset, Samples ):
+            trainingset = trainingset.measurematrix
+        mc = self.mean_center_columns(trainingset)
+        uv = self.univarance_scale_columns(mc) if univariance else mc
+        self._find_weights(uv)
+        if isinstance(test_axis, int):
+            w = self.eigvects[test_axis]
+            test_fcn = lambda s : self.apply_weighting(w, s)
+        else:
+            weights = [self.eigvects[i] for i in test_axis]
+            test_fcn = lambda s : [self.apply_weighting(w, s) for w in weights]
+        return test_fcn
+
+    def _configure_name( self, test_axis ):
+        test_names = None
+        if isinstance(test_axis, int):
+            name = "Principle Component {}".format(test_axis)
+        else:
+            name = "Principle Components {}".format(tuple(test_axis))
+            test_names = ["PC {}".format(i) for i in test_axis]
+        return name, test_names
 
     @staticmethod
     def apply_weighting(weights, sample):
@@ -389,8 +401,19 @@ class PrincipalComponentTest( SampleTest ):
         mT = ([x / cv**0.5 for x in c] for cv, c in zip(vars, zip(*matrix)))
         return list(zip(*mT))
 
-    @staticmethod
-    def find_weights(matrix, k=None):
+    def _find_weights(self, matrix):
+        n = len(matrix[0])
+        m = np.array(matrix)
+        S = np.zeros((n, n))
+        for row in m:
+            rT = row.reshape(n, 1)
+            S += rT.dot(rT.T)
+        evals, evect = np.linalg.eig(S)
+        self.eigvals = [float(ev) for ev in evals]
+        self.eigvects = [[float(r[i]) for r in evect] for i in range(len(evals))]
+
+    def _find_weights_old(self, matrix):
+        """ find the eigenvalues and eigenvectors of the matrix """
         xTx = np.dot(np.transpose(matrix), matrix)
         evals, evect = np.linalg.eig(xTx)
         """ v should be zero by definition of eigenvalues / eigenvectors
@@ -400,10 +423,105 @@ class PrincipalComponentTest( SampleTest ):
         v = [ a - b for a, b in zip( np.dot( xTx, evect[:,0] ), evals[0], evect[:,0] ) ]
         v should contain all zeros
         """
-        weights = evect
-        if k is None:
-            return weights
-        return [w[k] for w in weights]
+        self.eigvals = [float(ev) for ev in evals]
+        self.eigvects = [[float(r[i]) for r in evect] for i in range(len(evals))]
+
+    def show_eigvals(self):
+        for i in range(len(eig_vals)):
+            eigvec_sc = eig_vecs[:,i].reshape(4,1)
+            print('\nEigenvector {}: \n{}'.format(i+1, eigvec_sc.real))
+            print('Eigenvalue {:}: {:.2e}'.format(i+1, eig_vals[i].real))
+
+        for i in range(len(eig_vals)):
+            eigv = eig_vecs[:,i].reshape(4,1)
+            np.testing.assert_array_almost_equal(np.linalg.inv(S_W).dot(S_B).dot(eigv),
+                                                 eig_vals[i] * eigv,
+                                                 decimal=6, err_msg='', verbose=True)
+        print('ok')
+
+        # Make a list of (eigenvalue, eigenvector) tuples
+        eig_pairs = [(np.abs(eig_vals[i]), eig_vecs[:,i]) for i in range(len(eig_vals))]
+
+        # Sort the (eigenvalue, eigenvector) tuples from high to low
+        eig_pairs = sorted(eig_pairs, key=lambda k: k[0], reverse=True)
+
+        # Visually confirm that the list is correctly sorted by decreasing eigenvalues
+        print('Eigenvalues in decreasing order:\n')
+        for i in eig_pairs:
+            print(i[0])
+
+        print('Variance explained:\n')
+        eigv_sum = sum(eig_vals)
+        for i,j in enumerate(eig_pairs):
+            print('eigenvalue {0:}: {1:.2%}'.format(i+1, (j[0]/eigv_sum).real))
+
+    def plot_eigvals(self):
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.set_xlabel("Principal Component Axis Number")
+        ax.set_ylabel("Eigenvalue")
+        ax.set_title("Eigenvalue Magnitude Analysis")
+        eigs = plt.Line2D(list(range(len(self.eigvals))), self.eigvals,
+                color='k', marker='d', linestyle=None)
+        ax.add_line(eigs)
+        ax.set_xlim([-0.1, 8.1])
+        ax.set_ylim([0, max(self.eigvals) * 1.05])
+        plt.show()
+
+    def plot_weightings(self, ndx=0):
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.set_xlabel("Time (sample num)")
+        ax.set_ylabel("Scale Factor")
+        ax.set_title("Scale factor for PCA index {}".format(ndx))
+        wt = self.eigvects[ndx]
+        n = len(wt)//3
+        t = list(range(n))
+        x = wt[:n]
+        y = wt[n:2*n]
+        z = wt[2*n:]
+        ax.add_line( plt.Line2D(t, x, color='r', label='x') )
+        ax.add_line( plt.Line2D(t, y, color='g', label='y') )
+        ax.add_line( plt.Line2D(t, z, color='b', label='z') )
+        ax.relim()
+        ax.autoscale_view()
+        plt.legend()
+        plt.show()
+
+
+class LinearDiscriminantTest(PrincipalComponentTest):
+    def __init__(self, samples, test_axis=0, **kwargs):
+        kwargs.setdefault('univariance', False)
+        super().__init__(trainingset, test_axis, **kwargs)
+
+    def _get_S_W( self ):
+        n = len(matrix[0])
+        S_W = np.zeros((n, n))
+        for cl, mv in zip(range(1,n), mean_vectors):
+            class_sc_mat = np.zeros((n, n))                 # scatter matrix for every class
+            for row in X[y == cl]:
+                row, mv = row.reshape(n,1), mv.reshape(n,1) # make column vectors
+                class_sc_mat += (row-mv).dot((row-mv).T)
+            S_W += class_sc_mat                             # sum class scatter matrices
+        return S_W
+
+    def _get_S_B( self ):
+        overall_mean = np.mean(X, axis=0)
+        S_B = np.zeros((n, n))
+        for i, mean_vec in enumerate(mean_vectors):
+            n = X[y==i+1,:].shape[0]
+            mean_vec = mean_vec.reshape(n, 1) # make column vector
+            overall_mean = overall_mean.reshape(n, 1) # make column vector
+            S_B += n * (mean_vec - overall_mean).dot((mean_vec - overall_mean).T)
+        return S_B
+
+    def _find_weights(self, matrix):
+        """ want S_W**-1 dot S_B """
+        S_W = self._get_S_W()
+        S_B = self._get_S_B()
+        evals,  evects = np.linalg.eig(np.linalg.inv(S_W).dot(S_B))
+        self.eigvals = [float(ev) for ev in evals]
+        self.eigvects = [[float(r[i]) for r in evect] for i in range(len(evals))]
 
 
 class Samples( object ):
@@ -884,8 +1002,6 @@ class WakeSample( object ):
             for i, (x, y, z) in enumerate( zip( self.xs, self.ys, self.zs ) ):
                 writer.writerow( [ i, x, y, z ] )
 
-
-
 ### Analysis function for streaming xyz data ###
 def analyze_streamed( fname, plot=True ):
     try:
@@ -1072,8 +1188,11 @@ if __name__ == "__main__":
         t, x, y, z = analyze_streamed( fname, plot=args.plot )
 
     pc_test = PrincipalComponentTest(allsamples, [0, 1, 2])
+    pc_test.plot_eigvals()
+    pc_test.plot_weightings(0)
+    pc_test.plot_weightings(1)
     pc_test.plot_result()
 
-    for i in range(15):
+    for i in range(4):
         test = PrincipalComponentTest(allsamples, i)
         test.plot_result()
