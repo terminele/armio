@@ -631,12 +631,18 @@ class Samples( object ):
         reject = kwargs.pop( "reject_only", False )
         accept = kwargs.pop( "accept_only", False )
         fnonly = kwargs.pop( "false_negatives", False )
+        confirmed = kwargs.pop( "confirmed_only", False )
+        unconfirmed = kwargs.pop( "unconfirmed_only", False )
         for sample in self.samples:
             if reject and sample.accepted:
                 continue
             elif accept and not sample.accepted:
                 continue
             elif fnonly and ( not sample.confirmed or sample.accepted ):
+                continue
+            elif confirmed and not sample.confirmed:
+                continue
+            elif unconfirmed and sample.confirmed:
                 continue
             yield sample
 
@@ -727,8 +733,8 @@ class Samples( object ):
         plt.show()
 
     def _getMeasureMatrix( self, **kwargs ):
-        return [ sample.measures for sample in self.filter_samples( **kwargs )
-                if len( sample.measures ) == 96 ]
+        return [ self.transform(sample.measures) for sample
+                in self.filter_samples( **kwargs ) ]
     measurematrix = property( fget=_getMeasureMatrix )
 
     @staticmethod
@@ -764,7 +770,6 @@ class Samples( object ):
                 FIFO End Code - 0xeeeeeeeee
                 (optional) waketime log code 0xddee followed by waketime ticks as unsigned int
         """
-        i = 0
         binval = fh.read(6)
         while binval:
             if len(binval) != 6:
@@ -788,12 +793,14 @@ class Samples( object ):
                     binval = binval[-2:] #retain last 2 bytes
                     binval += fh.read(4)
 
-                ws = WakeSample( xs, ys, zs, waketime_ms, end_confirm, fname )
-                samples.append(
-                        WakeSample(xs, ys, zs, waketime_ms, end_confirm) )
-                i+=1
-                log.debug( "new sample: waketime={}ms confirmed={}".format(
-                    waketime_ms, end_confirm ) )
+                if len(xs) == 32 and len(ys)==32 and len(zs)==32:
+                    ws = WakeSample(xs, ys, zs, waketime_ms, end_confirm, fname)
+                    samples.append( ws )
+                    log.debug( "new sample: waketime={}ms confirmed={}".format(
+                        waketime_ms, end_confirm ) )
+                else:
+                    log.info("Skipping invalid sample {}:{}:{}".format(
+                        len(xs), len(ys), len(zs)))
                 started = False
 
                 xs = []
