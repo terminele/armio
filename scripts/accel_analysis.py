@@ -19,6 +19,7 @@ args = None
 
 REJECT, PASS, ACCEPT = range( 3 )
 
+np.set_printoptions(precision=6, linewidth=120)
 
 class SampleTest( object ):
     def __init__( self, name, test_fcn, **kwargs ):
@@ -325,7 +326,7 @@ class SampleTest( object ):
 
 
 class PrincipalComponentTest(SampleTest):
-    def __init__(self, trainingset, test_axis=0, univariance=False, **kwargs):
+    def __init__(self, trainingset, test_axis=0, **kwargs):
         """ use principal component analysis to find linear combinations
             of the accel data to test
 
@@ -347,9 +348,7 @@ class PrincipalComponentTest(SampleTest):
         univariance = kwargs.pop( "univariance", False )
         if isinstance( trainingset, Samples ):
             trainingset = trainingset.measurematrix
-        mc = self.mean_center_columns(trainingset)
-        uv = self.univarance_scale_columns(mc) if univariance else mc
-        self._find_weights(uv)
+        self._find_weights(trainingset)
         if isinstance(test_axis, int):
             w = self.eigvects[test_axis]
             test_fcn = lambda s : self.apply_weighting(w, s)
@@ -366,6 +365,12 @@ class PrincipalComponentTest(SampleTest):
             name = "Principle Components {}".format(tuple(test_axis))
             test_names = ["PC {}".format(i) for i in test_axis]
         return name, test_names
+
+    def getTransformationMatrix(self, num_axis=8):
+        """ return the first <num_axis> values as a transformation matrix """
+        evs = self.eigvects[:num_axis]
+        tf = list(zip(*evs))
+        return [list(r) for r in tf]
 
     @staticmethod
     def apply_weighting(weights, sample):
@@ -403,19 +408,27 @@ class PrincipalComponentTest(SampleTest):
 
     def _find_weights(self, matrix):
         n = len(matrix[0])
-        m = np.array(matrix)
+        M = np.array(matrix)
+        means = np.mean(M, axis=0)
+        mT = means.reshape(n, 1)
         S = np.zeros((n, n))
-        for row in m:
+        for row in M:
             rT = row.reshape(n, 1)
-            S += rT.dot(rT.T)
-        evals, evect = np.linalg.eig(S)
-        self.eigvals = [float(ev) for ev in evals]
-        self.eigvects = [[float(r[i]) for r in evect] for i in range(len(evals))]
+            rT_mc = rT - mT
+            S += rT_mc.dot(rT_mc.T)
+        self.matrix = S
+        self.getEigens(S)
 
-    def _find_weights_old(self, matrix):
+    def _find_weights_old(self, matrix, univarance_scale=False):
+        """ mean center the columns """
+        mc = self.mean_center_columns(matrix)
+        uv = self.univarance_scale_columns(mc) if univarance_scale else mc
         """ find the eigenvalues and eigenvectors of the matrix """
-        xTx = np.dot(np.transpose(matrix), matrix)
-        evals, evect = np.linalg.eig(xTx)
+        xTx = np.dot(np.transpose(uv), uv)
+        self.matrix = xTx
+        self.getEigens(xTx)
+
+    def getEigens(self, matrix):
         """ v should be zero by definition of eigenvalues / eigenvectors
             where A v = lambda v
 
@@ -423,37 +436,87 @@ class PrincipalComponentTest(SampleTest):
         v = [ a - b for a, b in zip( np.dot( xTx, evect[:,0] ), evals[0], evect[:,0] ) ]
         v should contain all zeros
         """
-        self.eigvals = [float(ev) for ev in evals]
-        self.eigvects = [[float(r[i]) for r in evect] for i in range(len(evals))]
+        evals, evect = np.linalg.eig(matrix)
+        eva = [float(ev.real) for ev in evals]
+        evv = [[float(r[i].real) for r in evect] for i in range(len(evals))]
+        joined = (( ea, ev ) for ea, ev in zip(eva, evv))
+        sort = sorted(joined, key=lambda k:k[0], reverse=True)
+        eva, evv = list(zip(*sort))
+        self.eigvals = eva
+        self.eigvects = evv
 
-    def show_eigvals(self):
-        for i in range(len(eig_vals)):
-            eigvec_sc = eig_vecs[:,i].reshape(4,1)
-            print('\nEigenvector {}: \n{}'.format(i+1, eigvec_sc.real))
-            print('Eigenvalue {:}: {:.2e}'.format(i+1, eig_vals[i].real))
+    def show_xyz_filter(self, num=1):
+        print('Variance explained:')
+        eigv_cum = 0
+        eigv_sum = sum(self.eigvals)
+        for i, eigval in enumerate(self.eigvals):
+            if num is not None and i >= num:
+                break
+            eigv_cum += eigval
+            print('Eigenvalue{0: 3}:{1: 8.2%},{2: 8.2%}'.format(i,
+                (eigval/eigv_sum), (eigv_cum/eigv_sum)))
 
-        for i in range(len(eig_vals)):
-            eigv = eig_vecs[:,i].reshape(4,1)
-            np.testing.assert_array_almost_equal(np.linalg.inv(S_W).dot(S_B).dot(eigv),
-                                                 eig_vals[i] * eigv,
-                                                 decimal=6, err_msg='', verbose=True)
-        print('ok')
+        for i in range( num ):
+            print('Eigenvalue {}: {:.2e}'.format(i, self.eigvals[i]))
+            vec = self.eigvects[i]
+            n = len(vec)//3
+            xvals = vec[:n]
+            yvals = vec[n:2*n]
+            zvals = vec[2*n:]
+            print("float result = 0;")
+            print("static const float xfltr[] = {", end='\n    ')
+            for j, f in enumerate(xvals):
+                end = ', ' if (j + 1) % 4 else ',\n    '
+                print( "{:9.6f}".format(f), end=end )
+            print( '};' )
+            print("static const float yfltr[] = {", end='\n    ')
+            for j, f in enumerate(yvals):
+                end = ', ' if (j + 1) % 4 else ',\n    '
+                print( "{:9.6f}".format(f), end=end )
+            print( '};' )
+            print("static const float zfltr[] = {", end='\n    ')
+            for j, f in enumerate(zvals):
+                end = ', ' if (j + 1) % 4 else ',\n    '
+                print( "{:9.6f}".format(f), end=end )
+            print( '};' )
 
-        # Make a list of (eigenvalue, eigenvector) tuples
-        eig_pairs = [(np.abs(eig_vals[i]), eig_vecs[:,i]) for i in range(len(eig_vals))]
 
-        # Sort the (eigenvalue, eigenvector) tuples from high to low
-        eig_pairs = sorted(eig_pairs, key=lambda k: k[0], reverse=True)
+    def show_eigvals(self, num=8):
+        n = len( self.eigvals )
+        for i in range( n ):
+            if num is not None and i >= num:
+                break
+            print('Eigenvalue {}: {:.2e}'.format(i, self.eigvals[i]))
+            print('Eigenvector {}: {}'.format(i, self.eigvects[i]), end='\n\n')
 
-        # Visually confirm that the list is correctly sorted by decreasing eigenvalues
-        print('Eigenvalues in decreasing order:\n')
-        for i in eig_pairs:
-            print(i[0])
+        if False:
+            for i in range(len(eig_vals)):
+                eigv = eig_vecs[:,i].reshape(n,1)
+                np.testing.assert_array_almost_equal(np.linalg.inv(S_W).dot(S_B).dot(eigv),
+                                                     eig_vals[i] * eigv,
+                                                     decimal=6, err_msg='', verbose=True)
+            print('ok')
 
-        print('Variance explained:\n')
-        eigv_sum = sum(eig_vals)
-        for i,j in enumerate(eig_pairs):
-            print('eigenvalue {0:}: {1:.2%}'.format(i+1, (j[0]/eigv_sum).real))
+            # Make a list of (eigenvalue, eigenvector) tuples
+            eig_pairs = [(np.abs(self.eigvals[i]), self.eig_vecs[i]) for i in range(n)]
+
+            # Sort the (eigenvalue, eigenvector) tuples from high to low
+            eig_pairs = sorted(eig_pairs, key=lambda k: k[0], reverse=True)
+
+            # Visually confirm that the list is correctly sorted by decreasing eigenvalues
+            print('Eigenvalues in decreasing order:\n')
+            for i in eig_pairs:
+                print(i[0])
+
+        print('Variance explained:')
+        eigv_cum = 0
+        eigv_sum = sum(self.eigvals)
+        for i, eigval in enumerate(self.eigvals):
+            if num is not None and i >= num:
+                break
+            eigv_cum += eigval
+            print('Eigenvalue{0: 3}:{1: 8.2%},{2: 8.2%}'.format(i,
+                (eigval/eigv_sum), (eigv_cum/eigv_sum)))
 
     def plot_eigvals(self):
         fig = plt.figure()
@@ -476,13 +539,15 @@ class PrincipalComponentTest(SampleTest):
         ax.set_title("Scale factor for PCA index {}".format(ndx))
         wt = self.eigvects[ndx]
         n = len(wt)//3
-        t = list(range(n))
         x = wt[:n]
         y = wt[n:2*n]
         z = wt[2*n:]
-        ax.add_line( plt.Line2D(t, x, color='r', label='x') )
-        ax.add_line( plt.Line2D(t, y, color='g', label='y') )
-        ax.add_line( plt.Line2D(t, z, color='b', label='z') )
+        xt = list(range(len(x)))
+        yt = list(range(len(y)))
+        zt = list(range(len(z)))
+        ax.add_line( plt.Line2D(xt, x, color='r', label='x') )
+        ax.add_line( plt.Line2D(yt, y, color='g', label='y') )
+        ax.add_line( plt.Line2D(zt, z, color='b', label='z') )
         ax.relim()
         ax.autoscale_view()
         plt.legend()
@@ -490,38 +555,64 @@ class PrincipalComponentTest(SampleTest):
 
 
 class LinearDiscriminantTest(PrincipalComponentTest):
-    def __init__(self, samples, test_axis=0, **kwargs):
-        kwargs.setdefault('univariance', False)
-        super().__init__(trainingset, test_axis, **kwargs)
+    """ this analysis should create the scaling matricies
+        based on the difference between our groups instead of
+        just maximizing variance
+    """
+    def _find_weights(self, *datasets):
+        ds = [ np.array(d) for d in datasets ]
+        ns = [ len(d) for d in ds ]
+        N_inv = 1.0 / sum(len(d) for d in ds)
+        sum_all = np.sum([np.sum(d, axis=0) for d in ds], axis=0)
+        mean_all = np.array([si*N_inv for si in sum_all])
+        mean_groups = [np.mean(d, axis=0) for d in ds]
 
-    def _get_S_W( self ):
-        n = len(matrix[0])
-        S_W = np.zeros((n, n))
-        for cl, mv in zip(range(1,n), mean_vectors):
-            class_sc_mat = np.zeros((n, n))                 # scatter matrix for every class
-            for row in X[y == cl]:
-                row, mv = row.reshape(n,1), mv.reshape(n,1) # make column vectors
-                class_sc_mat += (row-mv).dot((row-mv).T)
-            S_W += class_sc_mat                             # sum class scatter matrices
-        return S_W
+        dim = len(ds[0][0])
+        mean_all = mean_all.reshape(dim, 1)
+        mean_groups = [m.reshape(dim, 1) for m in mean_groups]
 
-    def _get_S_B( self ):
-        overall_mean = np.mean(X, axis=0)
-        S_B = np.zeros((n, n))
-        for i, mean_vec in enumerate(mean_vectors):
-            n = X[y==i+1,:].shape[0]
-            mean_vec = mean_vec.reshape(n, 1) # make column vector
-            overall_mean = overall_mean.reshape(n, 1) # make column vector
-            S_B += n * (mean_vec - overall_mean).dot((mean_vec - overall_mean).T)
-        return S_B
+        S_W = np.zeros((dim, dim))
+        for d, means in zip(ds, mean_groups):
+            S = np.zeros((dim, dim))
+            for row in d:
+                rT = row.reshape(dim, 1)
+                rT_mc = rT - means
+                S += rT_mc.dot(rT_mc.T)
+            S_W += S
 
-    def _find_weights(self, matrix):
-        """ want S_W**-1 dot S_B """
-        S_W = self._get_S_W()
-        S_B = self._get_S_B()
-        evals,  evects = np.linalg.eig(np.linalg.inv(S_W).dot(S_B))
-        self.eigvals = [float(ev) for ev in evals]
-        self.eigvects = [[float(r[i]) for r in evect] for i in range(len(evals))]
+
+        S_B = np.zeros((dim, dim))
+        for n, means in zip(ns, mean_groups):
+            S_B += n * (means - mean_all).dot((means - mean_all).T)
+        SWinvSB = np.linalg.inv(S_W).dot(S_B)
+
+        self.SW = S_W
+        self.SB = S_B
+        self.matrix = SWinvSB
+        self.getEigens(SWinvSB)
+
+    def _configure_test( self, trainingset, test_axis, **kwargs ):
+        if not isinstance(trainingset, Samples):
+            raise ValueError("we need the original samples for grouping")
+        goodset = trainingset._getMeasureMatrix(confirmed_only=True)
+        badset = trainingset._getMeasureMatrix(unconfirmed_only=True)
+        self._find_weights( goodset, badset )
+        if isinstance(test_axis, int):
+            w = self.eigvects[test_axis]
+            test_fcn = lambda s : self.apply_weighting(w, s)
+        else:
+            weights = [self.eigvects[i] for i in test_axis]
+            test_fcn = lambda s : [self.apply_weighting(w, s) for w in weights]
+        return test_fcn
+
+    def _configure_name( self, test_axis ):
+        test_names = None
+        if isinstance(test_axis, int):
+            name = "Linear Discriminant Component {}".format(test_axis)
+        else:
+            name = "Linear Discriminant Components {}".format(tuple(test_axis))
+            test_names = ["LDC {}".format(i) for i in test_axis]
+        return name, test_names
 
 
 class Samples( object ):
@@ -529,6 +620,7 @@ class Samples( object ):
         self.samples = []
         self.name = name
         self.clear_results()
+        self.transformation = None
 
     def clear_results( self ):
         self.total = 0
@@ -580,6 +672,18 @@ class Samples( object ):
                         self.unconfirmed_rejected_time += sample.waketime
                     if sample.waketime > self.unconfirmed_time_max:
                         self.unconfirmed_time_max = sample.waketime
+
+    def setTransformation( self, transformation ):
+        """ set a vector / matrix that will transform each reading into a
+            new reading on a new plane --- for example to reduce the number
+            of dimensions.  set to None to remove
+        """
+        self.transformation = transformation
+
+    def transform( self, sample ):
+        if self.transformation is None:
+            return sample
+        return list(np.dot(np.array([sample]), np.array(self.transformation))[0])
 
     def show_analysis( self ):
         print( "Analysis for '{}'".format( self.name ) )
@@ -1194,12 +1298,26 @@ if __name__ == "__main__":
         fname = args.dumpfiles[0]
         t, x, y, z = analyze_streamed( fname, plot=args.plot )
 
-    pc_test = PrincipalComponentTest(allsamples, [0, 1, 2])
-    pc_test.plot_eigvals()
-    pc_test.plot_weightings(0)
-    pc_test.plot_weightings(1)
-    pc_test.plot_result()
+    if False:
+        pc_test = PrincipalComponentTest(allsamples, [0, 1, 2])
+        pc_test.plot_eigvals()
+        pc_test.plot_weightings(0)
+        pc_test.plot_weightings(1)
+        pc_test.plot_result()
 
-    for i in range(4):
+    #tf = pc_test.getTransformationMatrix(32)
+    #allsamples.setTransformation(tf)
+
+    if True:
+        ld_test = LinearDiscriminantTest(allsamples, 0,
+                accept_below=3, reject_above=3)
+        ld_test.show_result()
+        ld_test.show_xyz_filter()
+        ld_test.plot_eigvals()
+        ld_test.plot_weightings(0)
+        ld_test.plot_result()
+
+    #for i in range(4):
+    if False:
         test = PrincipalComponentTest(allsamples, i)
         test.plot_result()
