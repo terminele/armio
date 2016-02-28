@@ -133,6 +133,7 @@ class SampleTest( object ):
             if len( sample.xs ) == 0:
                 continue
             self.analyzed = False
+
             val = self._test_fcn( sample )
             self.samples.append( sample )
             self.values.append( val )
@@ -235,20 +236,22 @@ class SampleTest( object ):
         wake_short = self.unconfirmed_time_max / 4
         wake_med = self.unconfirmed_time_max / 2
 
-        CONFIRMED, SHORT, MED, LONG = range( 4 )
+        CONFIRMED, SHORT, MED, LONG, TRAINSET = range( 5 )
 
         lines = dict()
         for tv in (PASS, ACCEPT, REJECT):
-            for cv in (CONFIRMED, SHORT, MED, LONG):
+            for cv in (CONFIRMED, SHORT, MED, LONG, TRAINSET):
                 lines[(tv, cv)] = []
 
         if 1 != len(set((len(self.test_results), len(self.samples), len(self.values)))):
             raise ValueError( "We are missing something {} {} {}".format(
                 len(self.test_results), len(self.values), len(self.samples)))
-        log.info( "Plotting {} samples".format( len( self.values ) ) )
+        log.debug( "Plotting {} samples".format( len( self.values ) ) )
 
         for tv, val, sample in zip(self.test_results, self.values, self.samples):
-            if sample.confirmed:
+            if getattr( sample, 'trainset', False ):
+                cv = TRAINSET
+            elif sample.confirmed:
                 cv = CONFIRMED
             elif sample.waketime == 0:
                 cv = MED
@@ -291,7 +294,7 @@ class SampleTest( object ):
 
         ax_sigx.set_title(self.name)
         markers = ['x', '+', 'd']
-        colors = ['green', 'yellow', 'orange', 'red']
+        colors = ['green', 'yellow', 'orange', 'red', 'blue']
 
         for (test, confirm), data in lines.items():
             if not len(data):
@@ -325,24 +328,30 @@ class SampleTest( object ):
         plt.show()
 
 
-class PrincipalComponentTest(SampleTest):
+class PrincipalComponentTest( SampleTest ):
     def __init__(self, trainingset, test_axis=0, **kwargs):
         """ use principal component analysis to find linear combinations
             of the accel data to test
 
             if trainingset is Samples instance, also add the samples
             test_axis : single int index or list of index to select for test
+            kwargs:
+               prereduce (None): pre-reduce matrix for reducing dimensions
         """
-        if isinstance( trainingset, Samples ):
-            samples = trainingset.samples
+        if not isinstance(trainingset, Samples) and len(trainingset) == 96 and isinstance(trainingset[0], float):
+            """ This is a fixed set from a previous test """
+            name = kwargs.pop( 'name', "Fixed Test" )
+            test_fcn = lambda s : self.apply_weighting(trainingset, s)
+            test_axis = 0       # should be, but force anyway
+            self._prereduce = None
         else:
-            samples = None
-        name, test_names = self._configure_name( test_axis )
-        test_fcn = self._configure_test( trainingset, test_axis, **kwargs )
-        kwargs.setdefault( 'test_names', test_names )
+            self._prereduce = kwargs.pop("prereduce", None)
+            name, test_names = self._configure_name( test_axis )
+            test_fcn = self._configure_test( trainingset, test_axis, **kwargs )
+            kwargs.setdefault( 'test_names', test_names )
         super().__init__(name, test_fcn, **kwargs)
-        if samples is not None:
-            self.add_samples(samples)
+        if isinstance(trainingset, Samples):
+            self.add_samples(trainingset.samples)
 
     def _configure_test( self, trainingset, test_axis, **kwargs ):
         univariance = kwargs.pop( "univariance", False )
@@ -372,9 +381,22 @@ class PrincipalComponentTest(SampleTest):
         tf = list(zip(*evs))
         return [list(r) for r in tf]
 
-    @staticmethod
-    def apply_weighting(weights, sample):
-        s_v = sample.xs + sample.ys + sample.zs
+    def reduce_sample(self, sample):
+        """ if we have a pre-reducer, use it to reduce dimensionality
+            of original sample
+        """
+        if self._prereduce is None:
+            return sample
+        if not len( sample ):
+            raise ValueError( "No samples!!" )
+        if isinstance( sample[0], (list, tuple) ):
+            return np.dot(np.array(sample), np.array(self._prereduce))
+        # convert to a 'row' of a matrix and back again
+        samplerow = np.array([sample])
+        return list(np.dot(samplerow, np.array(self._prereduce))[0])
+
+    def apply_weighting(self, weights, sample):
+        s_v = self.reduce_sample(sample.xs + sample.ys + sample.zs)
         return sum(wi * si for wi, si in zip(weights, s_v))
 
     @staticmethod
@@ -407,8 +429,9 @@ class PrincipalComponentTest(SampleTest):
         return list(zip(*mT))
 
     def _find_weights(self, matrix):
-        n = len(matrix[0])
-        M = np.array(matrix)
+        m = self.reduce_sample(matrix)
+        n = len(m[0])
+        M = np.array(m)
         means = np.mean(M, axis=0)
         mT = means.reshape(n, 1)
         S = np.zeros((n, n))
@@ -446,24 +469,21 @@ class PrincipalComponentTest(SampleTest):
         self.eigvects = evv
 
     def show_xyz_filter(self, num=1):
-        print('Variance explained:')
+        print('                        variance explained')
         eigv_cum = 0
         eigv_sum = sum(self.eigvals)
         for i, eigval in enumerate(self.eigvals):
             if num is not None and i >= num:
                 break
             eigv_cum += eigval
-            print('Eigenvalue{0: 3}:{1: 8.2%},{2: 8.2%}'.format(i,
-                (eigval/eigv_sum), (eigv_cum/eigv_sum)))
+            print('Eigenvalue{: 3},{: 9.2e}: {: 8.2%},{: 8.2%}'.format(i,
+                eigval, (eigval/eigv_sum), (eigv_cum/eigv_sum)))
 
-        for i in range( num ):
-            print('Eigenvalue {}: {:.2e}'.format(i, self.eigvals[i]))
-            vec = self.eigvects[i]
+            vec = self.get_xyz_weights(i)
             n = len(vec)//3
             xvals = vec[:n]
             yvals = vec[n:2*n]
             zvals = vec[2*n:]
-            print("float result = 0;")
             print("static const float xfltr[] = {", end='\n    ')
             for j, f in enumerate(xvals):
                 end = ', ' if (j + 1) % 4 else ',\n    '
@@ -479,44 +499,48 @@ class PrincipalComponentTest(SampleTest):
                 end = ', ' if (j + 1) % 4 else ',\n    '
                 print( "{:9.6f}".format(f), end=end )
             print( '};' )
+            print()
+            print('PrincipalComponentTest([', end='\n    ')
+            for j, f in enumerate(vec):
+                end = ', ' if (j + 1) % 4 else ',\n    '
+                print( "{:9.6f}".format(f), end=end )
+            print( '])' )
 
 
-    def show_eigvals(self, num=8):
-        n = len( self.eigvals )
-        for i in range( n ):
-            if num is not None and i >= num:
-                break
-            print('Eigenvalue {}: {:.2e}'.format(i, self.eigvals[i]))
-            print('Eigenvector {}: {}'.format(i, self.eigvects[i]), end='\n\n')
 
-        if False:
-            for i in range(len(eig_vals)):
-                eigv = eig_vecs[:,i].reshape(n,1)
-                np.testing.assert_array_almost_equal(np.linalg.inv(S_W).dot(S_B).dot(eigv),
-                                                     eig_vals[i] * eigv,
-                                                     decimal=6, err_msg='', verbose=True)
-            print('ok')
 
-            # Make a list of (eigenvalue, eigenvector) tuples
-            eig_pairs = [(np.abs(self.eigvals[i]), self.eig_vecs[i]) for i in range(n)]
+    def get_xyz_weights(self, ndx=0):
+        if self._prereduce is not None:
+            """ our eigenvalues span a smaller space """
+            assert(len(self._prereduce[0]) == len(self.eigvals))
+            prT = list(zip(*self._prereduce))
+            assert(len(prT[0]) == 96)
+            vec = [ 0 for _ in range(96) ]
+            for w, pr_col in zip(self.eigvects[ndx], prT):
+                for i in range(96):
+                    vec[i] += w*pr_col[i]
+        else:
+            vec = self.eigvects[ndx]
+        assert(len(vec)==96)
+        return vec
 
-            # Sort the (eigenvalue, eigenvector) tuples from high to low
-            eig_pairs = sorted(eig_pairs, key=lambda k: k[0], reverse=True)
+    def show_eigvals(self, num=8, show_full_eig=False):
+        if show_full_eig:
+            for i in range(len(self.eigvals)):
+                if num is not None and i >= num:
+                    break
+                print('Eigenvalue {}: {:.2e}'.format(i, self.eigvals[i]))
+                print('Eigenvector {}: {}'.format(i, self.eigvects[i]), end='\n\n')
 
-            # Visually confirm that the list is correctly sorted by decreasing eigenvalues
-            print('Eigenvalues in decreasing order:\n')
-            for i in eig_pairs:
-                print(i[0])
-
-        print('Variance explained:')
+        print('                        variance explained')
         eigv_cum = 0
         eigv_sum = sum(self.eigvals)
         for i, eigval in enumerate(self.eigvals):
             if num is not None and i >= num:
                 break
             eigv_cum += eigval
-            print('Eigenvalue{0: 3}:{1: 8.2%},{2: 8.2%}'.format(i,
-                (eigval/eigv_sum), (eigv_cum/eigv_sum)))
+            print('Eigenvalue{: 3},{: 9.2e}: {: 8.2%},{: 8.2%}'.format(i,
+                eigval, (eigval/eigv_sum), (eigv_cum/eigv_sum)))
 
     def plot_eigvals(self):
         fig = plt.figure()
@@ -537,7 +561,8 @@ class PrincipalComponentTest(SampleTest):
         ax.set_xlabel("Time (sample num)")
         ax.set_ylabel("Scale Factor")
         ax.set_title("Scale factor for PCA index {}".format(ndx))
-        wt = self.eigvects[ndx]
+        wt = self.get_xyz_weights(ndx)
+
         n = len(wt)//3
         x = wt[:n]
         y = wt[n:2*n]
@@ -554,13 +579,13 @@ class PrincipalComponentTest(SampleTest):
         plt.show()
 
 
-class LinearDiscriminantTest(PrincipalComponentTest):
+class LinearDiscriminantTest( PrincipalComponentTest ):
     """ this analysis should create the scaling matricies
         based on the difference between our groups instead of
         just maximizing variance
     """
     def _find_weights(self, *datasets):
-        ds = [ np.array(d) for d in datasets ]
+        ds = [ np.array(self.reduce_sample(d)) for d in datasets ]
         ns = [ len(d) for d in ds ]
         N_inv = 1.0 / sum(len(d) for d in ds)
         sum_all = np.sum([np.sum(d, axis=0) for d in ds], axis=0)
@@ -594,9 +619,8 @@ class LinearDiscriminantTest(PrincipalComponentTest):
     def _configure_test( self, trainingset, test_axis, **kwargs ):
         if not isinstance(trainingset, Samples):
             raise ValueError("we need the original samples for grouping")
-        goodset = trainingset._getMeasureMatrix(confirmed_only=True)
-        badset = trainingset._getMeasureMatrix(unconfirmed_only=True)
-        self._find_weights( goodset, badset )
+        trainsets = self._getTrainingSets( trainingset, **kwargs )
+        self._find_weights( *trainsets )
         if isinstance(test_axis, int):
             w = self.eigvects[test_axis]
             test_fcn = lambda s : self.apply_weighting(w, s)
@@ -613,6 +637,20 @@ class LinearDiscriminantTest(PrincipalComponentTest):
             name = "Linear Discriminant Components {}".format(tuple(test_axis))
             test_names = ["LDC {}".format(i) for i in test_axis]
         return name, test_names
+
+    def _getTrainingSets( self, trainingset, **kwargs ):
+        trainselect = kwargs.pop('trainselect', None)
+        if trainselect is not None:
+            kwargs={trainselect[0]:trainselect[1]}
+        else:
+            kwargs={'confirmed_only', True}
+        goodset = trainingset.getMeasureMatrix(**kwargs)
+        badset = trainingset.getMeasureMatrix(reverse=True, **kwargs)
+        log.info('goodset is length {} vs badset length {}'.format(
+            len(goodset), len(badset)))
+        for sample in trainingset.filter_samples(**kwargs):
+            sample.trainset = True      # a new attribute
+        return goodset, badset
 
 
 class Samples( object ):
@@ -732,23 +770,68 @@ class Samples( object ):
             self.unconfirmed_time_max = other.unconfirmed_time_max
 
     def filter_samples( self, **kwargs ):
+        reverse = kwargs.pop( "reverse", False )
         reject = kwargs.pop( "reject_only", False )
         accept = kwargs.pop( "accept_only", False )
         fnonly = kwargs.pop( "false_negatives", False )
         confirmed = kwargs.pop( "confirmed_only", False )
         unconfirmed = kwargs.pop( "unconfirmed_only", False )
+        if len(kwargs) == 1:
+            otherattr, attrval = kwargs.popitem()
+            log.debug("Checking that '{}' attr {}= '{}'".format(
+                otherattr, '!' if reverse else '=', attrval))
+        elif len(kwargs):
+            raise ValueError("Cannot handle more than 1 extra kwargs")
+        else:
+            otherattr = None
+        log.debug('Checking {} samples'.format(len(self.samples)))
         for sample in self.samples:
             if reject and sample.accepted:
-                continue
+                if reverse:
+                    yield sample
+                else:
+                    continue
             elif accept and not sample.accepted:
-                continue
+                if reverse:
+                    yield sample
+                else:
+                    continue
             elif fnonly and ( not sample.confirmed or sample.accepted ):
-                continue
+                if reverse:
+                    yield sample
+                else:
+                    continue
             elif confirmed and not sample.confirmed:
-                continue
+                if reverse:
+                    yield sample
+                else:
+                    continue
             elif unconfirmed and sample.confirmed:
+                if reverse:
+                    yield sample
+                else:
+                    continue
+            elif otherattr is not None:
+                if not hasattr(sample, otherattr):
+                    log.debug("sample does not have '{}' attr".format(otherattr))
+                    if reverse:
+                        yield sample
+                    else:
+                        continue
+                elif getattr(sample, otherattr) != attrval:
+                    if reverse:
+                        yield sample
+                    else:
+                        continue
+                else:
+                    if reverse:
+                        continue
+                    else:
+                        yield sample
+            elif reverse:
                 continue
-            yield sample
+            else:
+                yield sample
 
     def show_plots( self, **kwargs ):
         for sample in self.filter_samples( **kwargs ):
@@ -836,10 +919,10 @@ class Samples( object ):
         plt.scatter( xs_confirm, dzs_confirm, color='b' )
         plt.show()
 
-    def _getMeasureMatrix( self, **kwargs ):
+    def getMeasureMatrix( self, **kwargs ):
         return [ self.transform(sample.measures) for sample
                 in self.filter_samples( **kwargs ) ]
-    measurematrix = property( fget=_getMeasureMatrix )
+    measurematrix = property( fget=getMeasureMatrix )
 
     @staticmethod
     def _parse_fifo( fname ):
@@ -1189,6 +1272,36 @@ def make_traditional_tests():
 
     return tests
 
+def make_LD_PCA_tests():
+    y_turn_basic = PrincipalComponentTest([
+         0.064454,  0.062556,  0.056577,  0.045406,
+         0.047751,  0.054402,  0.029830,  0.005691,
+         0.003381, -0.044734, -0.077765, -0.052261,
+        -0.036637, -0.049112, -0.076867, -0.084895,
+        -0.044912, -0.031196, -0.027649, -0.030739,
+        -0.032995, -0.033597, -0.030208, -0.022541,
+        -0.018137, -0.001470,  0.003359,  0.000852,
+         0.007676,  0.023339,  0.031527,  0.038794,
+         0.066690,  0.074346,  0.077713,  0.066826,
+         0.028023,  0.001767,  0.016172,  0.050093,
+         0.047973,  0.041711,  0.096467,  0.108517,
+         0.079326,  0.029713, -0.056582,  0.006117,
+         0.052547,  0.128822,  0.218777,  0.243209,
+         0.234673,  0.184117,  0.143264,  0.069477,
+         0.001886, -0.079225, -0.154165, -0.237220,
+        -0.296567, -0.336959, -0.348767, -0.351243,
+         0.054171,  0.043967,  0.039779,  0.022945,
+         0.007359, -0.020101, -0.061845, -0.077121,
+        -0.075757, -0.084928, -0.049448, -0.062178,
+        -0.083562, -0.090996, -0.079421, -0.022270,
+        -0.025120,  0.003164,  0.038524,  0.065178,
+         0.077224,  0.077801,  0.081761,  0.069724,
+         0.059329,  0.042819,  0.024132,  0.002766,
+        -0.015604, -0.041449, -0.065891, -0.085154,
+        ], name="Basic y-turn test", accept_below=-28 )
+    tests = [ y_turn_basic ]
+    return tests
+
 def run_tests( tests, samples, plot=False ):
     for test in tests:
         test.clear_samples()
@@ -1298,19 +1411,22 @@ if __name__ == "__main__":
         fname = args.dumpfiles[0]
         t, x, y, z = analyze_streamed( fname, plot=args.plot )
 
-    if False:
+    if True:
         pc_test = PrincipalComponentTest(allsamples, [0, 1, 2])
-        pc_test.plot_eigvals()
-        pc_test.plot_weightings(0)
-        pc_test.plot_weightings(1)
+        #pc_test.plot_eigvals()
+        #pc_test.plot_weightings(0)
+        #pc_test.plot_weightings(1)
         pc_test.plot_result()
 
-    #tf = pc_test.getTransformationMatrix(32)
-    #allsamples.setTransformation(tf)
+    final_dims = 16
+    tf = pc_test.getTransformationMatrix(final_dims)
+    pc_test.show_eigvals(final_dims)
 
     if True:
-        ld_test = LinearDiscriminantTest(allsamples, 0,
-                accept_below=3, reject_above=3)
+        ld_test = LinearDiscriminantTest(allsamples, 0, prereduce=tf,
+                accept_below=12, reject_above=12,
+                trainselect=('logfile', 'data_log.image'))
+                #accept_above=12, reject_below=12)
         ld_test.show_result()
         ld_test.show_xyz_filter()
         ld_test.plot_eigvals()
