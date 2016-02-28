@@ -4,6 +4,7 @@
 
 //___ I N C L U D E S ________________________________________________________
 #include "accel.h"
+#include "accel_reg.h"
 #include "main.h"
 #include "leds.h"
 
@@ -77,145 +78,15 @@
 #define DISP_ERR_WAKE_GEST( state )
 #endif /* DEBUG_AX_ISR */
 
-#define AX_SDA_PIN      PIN_PA08
-#define AX_SDA_PAD      PINMUX_PA08C_SERCOM0_PAD0
-#define AX_SCL_PIN      PIN_PA09
-#define AX_SCL_PAD      PINMUX_PA09C_SERCOM0_PAD1
-#define AX_INT1_PIN     PIN_PA10
-#define AX_INT1_EIC     PIN_PA10A_EIC_EXTINT10
-#define AX_INT1_EIC_MUX MUX_PA10A_EIC_EXTINT10
-#define AX_INT1_CHAN    10
-#define AX_ADDRESS0 0x18 //0011000
-#define AX_ADDRESS1 0x19 //0011001
-#define DATA_LENGTH 8
-
-#define AX_REG_OUT_X_L      0x28
-#define AX_REG_CTL1         0x20
-#define AX_REG_CTL2         0x21
-#define AX_REG_CTL3         0x22
-#define AX_REG_CTL4         0x23
-#define AX_REG_CTL5         0x24
-#define AX_REG_CTL6         0x25
-#define AX_STATUS_REG       0x27
-#define AX_REG_FIFO_CTL     0x2E
-#define AX_REG_FIFO_SRC     0x2F
-#define AX_REG_WHO_AM_I     0x0F
-#define WHO_IS_IT           0x33
-#define AX_REG_INT1_CFG     0x30
-#define AX_REG_INT1_SRC     0x31
-#define AX_REG_INT1_THS     0x32
-#define AX_REG_INT1_DUR     0x33
-#define AX_REG_INT2_CFG     0x34
-#define AX_REG_INT2_SRC     0x35
-#define AX_REG_INT2_THS     0x36
-#define AX_REG_INT2_DUR     0x37
-#define AX_REG_CLICK_CFG    0x38
-#define AX_REG_CLICK_SRC    0x39
-#define AX_REG_CLICK_THS    0x3A
-#define AX_REG_TIME_LIM     0x3B
-#define AX_REG_TIME_LAT     0x3C
-#define AX_REG_TIME_WIN     0x3D
-#define AX_REG_ACT_THS      0x3E
-#define AX_REG_ACT_DUR      0x3F
-
-/* CTRL_REG1 */
-#define X_EN        0x01
-#define Y_EN        0x02
-#define Z_EN        0x04
-#define LOW_PWR_EN  0x08
-
-/* Data Rates */
-#define ODR_OFF     0x00
-#define ODR_1HZ     0x10
-#define ODR_10HZ    0x20
-#define ODR_25HZ    0x30
-#define ODR_50HZ    0x40
-#define ODR_100HZ   0x50
-#define ODR_200HZ   0x60
-#define ODR_400HZ   0x70
-#define ODR_1620HZ  0x80
-#define ODR_5376Z   0x90
-
-/* CTRL_REG2 */
-#define HPCLICK     0x04
-#define HPCF        0x00
-#define HPMS_NORM   0x10
-
-/* CTRL_REG3 */
-#define I1_CLICK_EN 0x80
-#define I1_AOI1_EN  0x40
-#define I1_AOI2_EN  0x20
-
-/* CTRL_REG4 */
-#define FS_2G       0x00
-#define FS_4G       0x10
-#define FS_8G       0x20
-#define FS_16G      0x30
-#define STEST_TEST1     0x04
-#define STEST_TEST0     0x02
-#define STEST_NORMAL    0x00
-
-/* CTRL_REG5 */
-#define BOOT        0x80
-#define FIFO_EN     0x40
-#define LIR_INT1    0x08
-#define LIR_INT2    0x02
-
-/* STATUS_REG */
-#define ZYXDA       0x08
-
-/* FIFO_CTRL_REG */
-#define FIFO_BYPASS     0x00
-#define FIFO_STREAM     0x80
-#define STREAM_TO_FIFO  0xC0
-
-/* FIFO_CTRL_SRC */
-#define FIFO_SIZE       0x1F
-
-/* INT1/2 CFG */
-#define AOI_MOV     0x40
-#define AOI_POS     0xC0
-#define AOI_AND     0x80
-#define ZHIE        0x20
-#define ZLIE        0x10
-#define YHIE        0x08
-#define YLIE        0x04
-#define XHIE        0x02
-#define XLIE        0x01
-
-/* CLICK_CFG */
-#define Z_DCLICK   0x20
-#define Z_SCLICK   0x10
-#define Y_DCLICK   0x08
-#define Y_SCLICK   0x04
-#define X_DCLICK   0x02
-#define X_SCLICK   0x01
-
-/* CLICK_SRC */
-#define INT_EN     0x40
-#define DCLICK_EN  0x20
-#define SCLICK_EN  0x10
-#define CLICK_NEG  0x08
-#define CLICK_Z    0x04
-#define CLICK_Y    0x02
-#define CLICK_X    0x01
-
-
-#define SAMPLE_INT_50HZ     20
-#define SAMPLE_INT_100HZ    10
-#define SAMPLE_INT_200HZ    5
-#define SAMPLE_INT_400HZ    (5/2)
-
 #define MS_TO_ODRS(t, sample_int) (t/sample_int)
 
 /* Click configuration constants */
-
 #define ACTIVE_ODR              ODR_400HZ
 #define ACTIVE_SAMPLE_INT       SAMPLE_INT_400HZ
 #define CLICK_THS       55 //assumes 4g scale
 #define CLICK_TIME_WIN      MS_TO_ODRS(200, ACTIVE_SAMPLE_INT)
 #define CLICK_TIME_LIM      MS_TO_ODRS(20, ACTIVE_SAMPLE_INT)
-#define CLICK_TIME_LAT      MS_TO_ODRS(40, ACTIVE_SAMPLE_INT) //ms
+#define CLICK_TIME_LAT      MS_TO_ODRS(40, ACTIVE_SAMPLE_INT) /* ms */
 
 #define SLEEP_ODR          ODR_100HZ
 #define SLEEP_SAMPLE_INT   SAMPLE_INT_100HZ
@@ -224,21 +95,17 @@
 #define DEEP_SLEEP_THS      2
 #define DEEP_SLEEP_DUR       MS_TO_ODRS(1000, SLEEP_SAMPLE_INT)
 
-#define WAKEUP_CLICK_THS     47 //assumes 4g scale
+#define WAKEUP_CLICK_THS            47 /* assumes 4g scale */
 #define WAKEUP_CLICK_TIME_WIN      MS_TO_ODRS(400, SLEEP_SAMPLE_INT)
 #define WAKEUP_CLICK_TIME_LIM      MS_TO_ODRS(30, SLEEP_SAMPLE_INT)
-#define WAKEUP_CLICK_TIME_LAT      MS_TO_ODRS(100, SLEEP_SAMPLE_INT) //ms
+#define WAKEUP_CLICK_TIME_LAT      MS_TO_ODRS(100, SLEEP_SAMPLE_INT) /* ms */
 
 #define FAST_CLICK_WINDOW_MS 400
 #define SLOW_CLICK_WINDOW_MS 1800
 
-#define Z_DOWN_THRESHOLD        2 //assumes 4g scale
-#define Z_DOWN_DUR_MS           50
-#define Z_DOWN_DUR_ODR          MS_TO_ODRS(Z_DOWN_DUR_MS, SLEEP_SAMPLE_INT)
-
 #define Z_SLEEP_DOWN_THRESHOLD          18  /* assumes 4g scale */
-#define Y_SLEEP_DOWNOUT_THRESHOLD       -8  // assumes 4g scale
-#define Y_SLEEP_DOWNIN_THRESHOLD        8   // assumes 4g scale
+#define Y_SLEEP_DOWNOUT_THRESHOLD       -8  /* assumes 4g scale */
+#define Y_SLEEP_DOWNIN_THRESHOLD        8   /* assumes 4g scale */
 #define Z_SLEEP_DOWN_DUR_MS           200
 
 #define XY_DOWN_THRESHOLD       20  /* we want something in the 1/3 g range
@@ -247,18 +114,21 @@
                                        value from trial and error with
                                        make flag accel_debug=true */
 #define XY_DOWN_DUR_MS              50
-//#define Y_DOWN_THRESHOLD        -18 //assumes 4g scale
+//#define Y_DOWN_THRESHOLD        -18 /* assumes 4g scale */
 //#define Y_DOWN_DUR_MS           200
 
 #define XY_DOWN_DUR_ODR          MS_TO_ODRS(XY_DOWN_DUR_MS, SLEEP_SAMPLE_INT)
 
-#define Z_UP_THRESHOLD          20 //assumes 4g scale
+#define Z_UP_THRESHOLD          20 /* assumes 4g scale */
 #define Z_UP_DUR_ODR            MS_TO_ODRS(130, SLEEP_SAMPLE_INT)
 
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 typedef enum { fail=-1, punt=0, pass=1 } fltr_result_t;
 
+
 //___ P R O T O T Y P E S   ( P R I V A T E ) ________________________________
+static void accel_isr(void);
+
 static void configure_i2c(void);
     /* @brief setup the i2c module to communicate with accelerometer
      * accelerometer
@@ -371,33 +241,7 @@ static uint32_t last_click_time_ms;
 
 static struct i2c_master_module i2c_master_instance;
 
-static union {
-    struct {
-        uint8_t x:1;
-        uint8_t y:1;
-        uint8_t z:1;
-        uint8_t sign:1;
-        uint8_t sclick:1;
-        uint8_t dclick:1;
-        uint8_t ia:1;
-        uint8_t unused:1;
-    };
-    uint8_t b8;
-} click_flags;
-
-typedef union {
-    struct {
-        uint8_t xl:1;
-        uint8_t xh:1;
-        uint8_t yl:1;
-        uint8_t yh:1;
-        uint8_t zl:1;
-        uint8_t zh:1;
-        uint8_t ia:1;
-        uint8_t unused:1;
-    };
-    uint8_t b8;
-} int_reg_flags_t;
+static click_flags_t click_flags;
 
 static int_reg_flags_t int1_flags;
 static int_reg_flags_t int2_flags;
@@ -406,7 +250,72 @@ static enum {SLEEP_START = 0, WAIT_FOR_DOWN, WAIT_FOR_UP, WAKE_DCLICK, WAKE_TURN
 
 
 //___ I N T E R R U P T S  ___________________________________________________
-static void accel_isr(void);
+static void accel_isr(void) {
+    if (!accel_register_consecutive_read(AX_REG_CLICK_SRC, 1, &click_flags.b8)) {
+        DISP_ERR_CONSEC_READ_1();
+    }
+
+    if (!accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &int1_flags.b8)) {
+        DISP_ERR_CONSEC_READ_2();
+    }
+
+    if (!accel_register_consecutive_read(AX_REG_INT2_SRC, 1, &int2_flags.b8)) {
+        DISP_ERR_CONSEC_READ_3();
+    }
+
+#if ( DEBUG_AX_ISR )
+    uint8_t led_info;
+    if( click_flags.ia ) {
+        _led_on_full(15); //*click_flags.ia);// + 30*int1_flags.ia + 5*int1_flags.zh);
+        delay_ms(10);
+        _led_off_full(15);//*click_flags.ia);// + 30*int1_flags.ia + 5*int1_flags.zh);
+    } else if (int1_flags.ia) {
+        led_info = ( /* int1_flags.ia + */
+                15*int1_flags.xl + 45*int1_flags.xh +
+                 1*int1_flags.yl + 31*int1_flags.yh +
+                23*int1_flags.zl + 52*int1_flags.zh );
+        _led_on_full( led_info );
+        delay_ms(200);
+        _led_off_full( led_info );
+    } else if (int2_flags.ia) {
+        _led_on_full( 30*int2_flags.ia +
+                int2_flags.yl + 3*int1_flags.yh +
+                5*int2_flags.zl + 10*int1_flags.zh );
+        delay_ms(200);
+        _led_off_full(30*int2_flags.ia +
+                int2_flags.yl + 3*int1_flags.yh +
+                5*int2_flags.zl + 10*int1_flags.zh);
+    }
+#endif  /* DEBUG_AX_ISR */
+
+    extint_chan_clear_detected(AX_INT1_CHAN);
+
+    /* Wait for accelerometer to release interrupt */
+    uint8_t i = 0;
+    while(extint_chan_is_detected(AX_INT1_CHAN)) {
+        uint8_t dummy;
+        extint_chan_clear_detected(AX_INT1_CHAN);
+        accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &dummy);
+        accel_register_consecutive_read(AX_REG_INT2_SRC, 1, &dummy);
+        accel_register_consecutive_read(AX_REG_CLICK_SRC, 1, &dummy);
+        i+=1;
+
+        if (i > 1000) {
+            /* ### HACK to guard against unreleased AX interrupt */
+            accel_register_write (AX_REG_CTL3,  0);
+            accel_register_write (AX_REG_CTL3,  I1_CLICK_EN);
+            accel_register_write (AX_REG_CLICK_CFG, X_DCLICK );
+            accel_register_write (AX_REG_CLICK_THS, WAKEUP_CLICK_THS);
+            accel_register_write (AX_REG_TIME_WIN, WAKEUP_CLICK_TIME_WIN);
+            accel_register_write (AX_REG_TIME_LIM, WAKEUP_CLICK_TIME_LIM);
+            accel_register_write (AX_REG_TIME_LAT, WAKEUP_CLICK_TIME_LAT);
+
+            _led_on_full(45);
+            delay_ms(100);
+            _led_off_full(45);
+        }
+    };
+}
 
 
 //___ F U N C T I O N S ______________________________________________________
@@ -692,73 +601,6 @@ static bool accel_register_write (uint8_t reg, uint8_t val) {
     }
 
     return true;
-}
-
-static void accel_isr(void) {
-    if (!accel_register_consecutive_read(AX_REG_CLICK_SRC, 1, &click_flags.b8)) {
-        DISP_ERR_CONSEC_READ_1();
-    }
-
-    if (!accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &int1_flags.b8)) {
-        DISP_ERR_CONSEC_READ_2();
-    }
-
-    if (!accel_register_consecutive_read(AX_REG_INT2_SRC, 1, &int2_flags.b8)) {
-        DISP_ERR_CONSEC_READ_3();
-    }
-
-#if ( DEBUG_AX_ISR )
-    uint8_t led_info;
-    if( click_flags.ia ) {
-        _led_on_full(15); //*click_flags.ia);// + 30*int1_flags.ia + 5*int1_flags.zh);
-        delay_ms(10);
-        _led_off_full(15);//*click_flags.ia);// + 30*int1_flags.ia + 5*int1_flags.zh);
-    } else if (int1_flags.ia) {
-        led_info = ( /* int1_flags.ia + */
-                15*int1_flags.xl + 45*int1_flags.xh +
-                 1*int1_flags.yl + 31*int1_flags.yh +
-                23*int1_flags.zl + 52*int1_flags.zh );
-        _led_on_full( led_info );
-        delay_ms(200);
-        _led_off_full( led_info );
-    } else if (int2_flags.ia) {
-        _led_on_full( 30*int2_flags.ia +
-                int2_flags.yl + 3*int1_flags.yh +
-                5*int2_flags.zl + 10*int1_flags.zh );
-        delay_ms(200);
-        _led_off_full(30*int2_flags.ia +
-                int2_flags.yl + 3*int1_flags.yh +
-                5*int2_flags.zl + 10*int1_flags.zh);
-    }
-#endif  /* DEBUG_AX_ISR */
-
-    extint_chan_clear_detected(AX_INT1_CHAN);
-
-    /* Wait for accelerometer to release interrupt */
-    uint8_t i = 0;
-    while(extint_chan_is_detected(AX_INT1_CHAN)) {
-        uint8_t dummy;
-        extint_chan_clear_detected(AX_INT1_CHAN);
-        accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &dummy);
-        accel_register_consecutive_read(AX_REG_INT2_SRC, 1, &dummy);
-        accel_register_consecutive_read(AX_REG_CLICK_SRC, 1, &dummy);
-        i+=1;
-
-        if (i > 1000) {
-            /* ### HACK to guard against unreleased AX interrupt */
-            accel_register_write (AX_REG_CTL3,  0);
-            accel_register_write (AX_REG_CTL3,  I1_CLICK_EN);
-            accel_register_write (AX_REG_CLICK_CFG, X_DCLICK );
-            accel_register_write (AX_REG_CLICK_THS, WAKEUP_CLICK_THS);
-            accel_register_write (AX_REG_TIME_WIN, WAKEUP_CLICK_TIME_WIN);
-            accel_register_write (AX_REG_TIME_LIM, WAKEUP_CLICK_TIME_LIM);
-            accel_register_write (AX_REG_TIME_LAT, WAKEUP_CLICK_TIME_LAT);
-
-            _led_on_full(45);
-            delay_ms(100);
-            _led_off_full(45);
-        }
-    };
 }
 
 static void accel_wakeup_state_refresh(void) {
