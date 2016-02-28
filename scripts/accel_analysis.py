@@ -387,10 +387,8 @@ class PrincipalComponentTest( SampleTest ):
         """ if we have a pre-reducer, use it to reduce dimensionality
             of original sample
         """
-        if self._prereduce is None:
+        if self._prereduce is None or not len(sample):
             return sample
-        if not len( sample ):
-            raise ValueError( "No samples!!" )
         if isinstance( sample[0], (list, tuple) ):
             return np.dot(np.array(sample), np.array(self._prereduce))
         # convert to a 'row' of a matrix and back again
@@ -643,13 +641,20 @@ class LinearDiscriminantTest( PrincipalComponentTest ):
     def _getTrainingSets( self, trainingset, **kwargs ):
         trainselect = kwargs.pop('trainselect', None)
         if trainselect is not None:
-            kwargs={trainselect[0]:trainselect[1]}
+            attrname, attrval = trainselect
         else:
-            kwargs={'confirmed_only', True}
+            attrname = 'confirmed_only'
+            attrval = True
+        kwargs={attrname: attrval}
         goodset = trainingset.getMeasureMatrix(**kwargs)
         badset = trainingset.getMeasureMatrix(reverse=True, **kwargs)
-        log.info('goodset is length {} vs badset length {}'.format(
-            len(goodset), len(badset)))
+        if len(goodset) == 0:
+            raise ValueError("No samples for {} == {}".format(attrname, attrval))
+        elif len(badset) == 0:
+            raise ValueError("No samples for {} != {}".format(attrname, attrval))
+        else:
+            log.info('goodset is length {} vs badset length {}'.format(
+                len(goodset), len(badset)))
         for sample in trainingset.filter_samples(**kwargs):
             sample.trainset = True      # a new attribute
         return goodset, badset
@@ -1354,7 +1359,7 @@ def plot_sums(samples, x_cnt = 5, y_cnt = 8):
     plt.plot(ysums_u, linestyle=":",  color="b")
 
 if __name__ == "__main__":
-    log.basicConfig( level = log.INFO )
+    log.basicConfig( level = log.DEBUG )
 
     def parse_args():
         parser = argparse.ArgumentParser(description='Analyze an accel log dump')
@@ -1409,33 +1414,25 @@ if __name__ == "__main__":
             allsamples.export_csv( **kwargs )
         if args.plot_csums:
             allsamples.show_csums( **kwargs )
+
+        if True:
+            pc_test = PrincipalComponentTest(allsamples, [0, 1, 2])
+            pc_test.plot_result()
+
+            final_dims = 16
+            tf = pc_test.getTransformationMatrix(final_dims)
+            pc_test.show_eigvals(final_dims)
+
+            ts = ('logfile', '../armio_logs/walker-test-bare-pcb-yturn.log')
+            ts = None
+            ld_test = LinearDiscriminantTest(allsamples, 0, prereduce=tf,
+                    accept_below=12, reject_above=12, trainselect=ts)
+            ld_test.show_result()
+            ld_test.show_xyz_filter()
+            #ld_test.plot_eigvals()
+            ld_test.plot_weightings(0)
+            ld_test.plot_result()
+
     elif args.streamed:
         fname = args.dumpfiles[0]
         t, x, y, z = analyze_streamed( fname, plot=args.plot )
-
-    if True:
-        pc_test = PrincipalComponentTest(allsamples, [0, 1, 2])
-        #pc_test.plot_eigvals()
-        #pc_test.plot_weightings(0)
-        #pc_test.plot_weightings(1)
-        pc_test.plot_result()
-
-    final_dims = 16
-    tf = pc_test.getTransformationMatrix(final_dims)
-    pc_test.show_eigvals(final_dims)
-
-    if True:
-        ld_test = LinearDiscriminantTest(allsamples, 0, prereduce=tf,
-                accept_below=12, reject_above=12,
-                trainselect=('logfile', '../armio_logs/walker-yturn-test.log'))
-                #accept_above=12, reject_below=12)
-        ld_test.show_result()
-        ld_test.show_xyz_filter()
-        ld_test.plot_eigvals()
-        ld_test.plot_weightings(0)
-        ld_test.plot_result()
-
-    #for i in range(4):
-    if False:
-        test = PrincipalComponentTest(allsamples, i)
-        test.plot_result()
