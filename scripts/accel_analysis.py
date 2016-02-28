@@ -490,32 +490,38 @@ class PrincipalComponentTest( SampleTest ):
             xvals = vec[:n]
             yvals = vec[n:2*n]
             zvals = vec[2*n:]
-            print("static const float xfltr[] = {", end='\n    ')
+            print("static const int32_t xfltr[] = {", end='\n    ')
             for j, f in enumerate(xvals):
-                end = ', ' if (j + 1) % 4 else ',\n    '
-                print( "{:9.6f}".format(f), end=end )
+                end = ', ' if (j + 1) % 8 else ',\n    '
+                print( "{:6}".format(f), end=end )
             print( '};' )
-            print("static const float yfltr[] = {", end='\n    ')
+            print("static const int32_t yfltr[] = {", end='\n    ')
             for j, f in enumerate(yvals):
-                end = ', ' if (j + 1) % 4 else ',\n    '
-                print( "{:9.6f}".format(f), end=end )
+                end = ', ' if (j + 1) % 8 else ',\n    '
+                print( "{:6}".format(f), end=end )
             print( '};' )
-            print("static const float zfltr[] = {", end='\n    ')
+            print("static const int32_t zfltr[] = {", end='\n    ')
             for j, f in enumerate(zvals):
-                end = ', ' if (j + 1) % 4 else ',\n    '
-                print( "{:9.6f}".format(f), end=end )
+                end = ', ' if (j + 1) % 8 else ',\n    '
+                print( "{:6}".format(f), end=end )
             print( '};' )
             print()
-            print('PrincipalComponentTest([', end='\n    ')
+            print('FixedWeightingTest([', end='\n    ')
             for j, f in enumerate(vec):
-                end = ', ' if (j + 1) % 4 else ',\n    '
-                print( "{:9.6f}".format(f), end=end )
+                end = ', ' if (j + 1) % 8 else ',\n    '
+                print( "{:6}".format(f), end=end )
             print( '])' )
 
 
 
 
-    def get_xyz_weights(self, ndx=0):
+    def get_xyz_weights(self, ndx=0, bits=17):
+        """ set bits so that sum product of 96 values that are 8-bit * bit fits
+            96 < 128 (7 bits)
+            accel size is 8 bit
+            accel (int8_t) * maxsum (2**7) * bits (17) = 32
+            2**7 == 128
+        """
         if self._prereduce is not None:
             """ our eigenvalues span a smaller space """
             assert(len(self._prereduce[0]) == len(self.eigvals))
@@ -528,6 +534,8 @@ class PrincipalComponentTest( SampleTest ):
         else:
             vec = self.eigvects[ndx]
         assert(len(vec)==96)
+        vmax = max( abs(vi) for vi in vec )
+        vec = [ int((vi / vmax) * 2**(bits - 1)) for vi in vec ]
         return vec
 
     def show_eigvals(self, num=8, show_full_eig=False):
@@ -1319,30 +1327,18 @@ def make_traditional_tests():
 
 def make_LD_PCA_tests():
     y_turn_basic = FixedWeightingTest([
-         0.064454,  0.062556,  0.056577,  0.045406,
-         0.047751,  0.054402,  0.029830,  0.005691,
-         0.003381, -0.044734, -0.077765, -0.052261,
-        -0.036637, -0.049112, -0.076867, -0.084895,
-        -0.044912, -0.031196, -0.027649, -0.030739,
-        -0.032995, -0.033597, -0.030208, -0.022541,
-        -0.018137, -0.001470,  0.003359,  0.000852,
-         0.007676,  0.023339,  0.031527,  0.038794,
-         0.066690,  0.074346,  0.077713,  0.066826,
-         0.028023,  0.001767,  0.016172,  0.050093,
-         0.047973,  0.041711,  0.096467,  0.108517,
-         0.079326,  0.029713, -0.056582,  0.006117,
-         0.052547,  0.128822,  0.218777,  0.243209,
-         0.234673,  0.184117,  0.143264,  0.069477,
-         0.001886, -0.079225, -0.154165, -0.237220,
-        -0.296567, -0.336959, -0.348767, -0.351243,
-         0.054171,  0.043967,  0.039779,  0.022945,
-         0.007359, -0.020101, -0.061845, -0.077121,
-        -0.075757, -0.084928, -0.049448, -0.062178,
-        -0.083562, -0.090996, -0.079421, -0.022270,
-        -0.025120,  0.003164,  0.038524,  0.065178,
-         0.077224,  0.077801,  0.081761,  0.069724,
-         0.059329,  0.042819,  0.024132,  0.002766,
-        -0.015604, -0.041449, -0.065891, -0.085154,
+        -40818, -39279, -38761, -37612, -35009, -32590, -31453, -28327,
+        -25222, -22015, -18545, -13371,  -7730,  -3216,     69,   4641,
+          7749,  10355,  11959,  13870,  16961,  18592,  20119,  21121,
+         21718,  22923,  23782,  24230,  24623,  24528,  24704,  24769,
+        -45159, -41684, -39780, -36514, -36005, -31385, -22511, -18355,
+        -12478,  -7202,  -2285,   1180,   9471,  14850,  19927,  31244,
+         35899,  34538,  35525,  36231,  37540,  38461,  39855,  39691,
+         39868,  40953,  41877,  42167,  42205,  42529,  42605,  43350,
+        -65536, -64635, -61699, -60714, -59365, -55997, -49054, -39708,
+        -31993, -25013, -18650, -15220, -12007,  -9281,  -3691,   -441,
+          2218,   3906,   4633,   4328,   3845,   3662,   3985,   4080,
+          3890,   3812,   3683,   3873,   3981,   4254,   4271,   3988,
         ], name="Basic y-turn test", accept_below=-28 )
     tests = [ y_turn_basic ]
     return tests
@@ -1407,6 +1403,20 @@ def store_samples(samples, samplefile=SAMPLESFILE):
         fh.write(samplestext)
 
 
+### mini scripts ###
+def show_various_reductions(samples, pca_test, pcadims=None):
+    if pcadims is None:
+        pcadims = range(4, 16)
+    for i in pcadims:
+        ts = ('logfile', '../armio_logs/walker-test-bare-pcb-yturn.log')
+        ts = None
+        ld = LinearDiscriminantTest(samples, 0,
+                prereduce=pca_test.getTransformationMatrix(i),
+                accept_below=0, reject_above=0, trainselect=ts)
+        ld.show_result()
+        ld.plot_weightings()
+
+
 if __name__ == "__main__":
     log.basicConfig(level=log.INFO)
 
@@ -1469,14 +1479,14 @@ if __name__ == "__main__":
             pc_test = PrincipalComponentTest(allsamples, [0, 1, 2])
             pc_test.plot_result()
 
-            final_dims = 16
+            final_dims = 8
             tf = pc_test.getTransformationMatrix(final_dims)
             pc_test.show_eigvals(final_dims)
 
             ts = ('logfile', '../armio_logs/walker-test-bare-pcb-yturn.log')
             ts = None
             ld_test = LinearDiscriminantTest(allsamples, 0, prereduce=tf,
-                    accept_below=12, reject_above=12, trainselect=ts)
+                    accept_below=0, reject_above=0, trainselect=ts)
             ld_test.show_result()
             ld_test.show_xyz_filter()
             #ld_test.plot_eigvals()
