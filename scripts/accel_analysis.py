@@ -344,6 +344,8 @@ class PrincipalComponentTest( SampleTest ):
             test_fcn = lambda s : self.apply_weighting(trainingset, s)
             test_axis = 0       # should be, but force anyway
             self._prereduce = None
+            self.eigvects = [trainingset] + [[0]*96 for _ in range(95)]
+            self.eigvals = [1] + [0 for _ in range(95)]
         else:
             self._prereduce = kwargs.pop("prereduce", None)
             name, test_names = self._configure_name( test_axis )
@@ -1425,7 +1427,7 @@ if __name__ == "__main__":
     if True:
         ld_test = LinearDiscriminantTest(allsamples, 0, prereduce=tf,
                 accept_below=12, reject_above=12,
-                trainselect=('logfile', 'data_log.image'))
+                trainselect=('logfile', '../armio_logs/walker-yturn-test.log'))
                 #accept_above=12, reject_below=12)
         ld_test.show_result()
         ld_test.show_xyz_filter()

@@ -256,7 +256,7 @@
 #define Z_UP_DUR_ODR            MS_TO_ODRS(130, SLEEP_SAMPLE_INT)
 
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
-typedef enum { fail=-1, punt=0, pass=1 } fltr_result;
+typedef enum { fail=-1, punt=0, pass=1 } fltr_result_t;
 
 //___ P R O T O T Y P E S   ( P R I V A T E ) ________________________________
 static void configure_i2c(void);
@@ -272,7 +272,7 @@ static inline bool fltr_run_gesture_filters( void );
      * @retrn true if the watch should wake up
      */
 
-static inline fltr_result fltr_lda_trial( void );
+static inline fltr_result_t fltr_lda_trial( void );
     /* @brief filter using the results of global linear discriminant analysis
      * @retrn true on fail
      */
@@ -523,7 +523,7 @@ static bool accel_register_consecutive_read (uint8_t start_reg, uint8_t count,
 
 static inline bool fltr_run_gesture_filters( void ) {
     uint8_t i;
-    fltr_result rv;
+    fltr_result_t rv;
     accel_xyz_t curr;
     accel_xyz_t csum = { .x = 0, .y = 0, .z = 0 };
     accel_xyz_t csums[32];
@@ -568,9 +568,10 @@ static inline bool fltr_run_gesture_filters( void ) {
     }
 
     if( (rv = fltr_lda_trial()) ) {
+        _DISP_INFO(0);
         return rv == pass ? true : false;
     } else if( fltr_y_turn_arm_accept( csums ) ) {
-        _DISP_INFO(0);
+        _DISP_INFO(20);
         return true;
     } else if( fltr_y_not_deliberate_fail( curr.y, csums ) ) {
         return false;
@@ -603,45 +604,48 @@ static inline bool fltr_z_sum_slope_accept( accel_xyz_t* sums ) {
     return ztest;
 }
 
-static inline fltr_result fltr_lda_trial( void ) {
+static inline fltr_result_t fltr_lda_trial( void ) {
     uint8_t i;
     float result = 0;
+    static const float threshold = -25.0;
+    static const fltr_result_t lte_action = pass;
+    static const fltr_result_t gt_action = fail;
     static const float xfltr[] = {
-         0.141933, -0.079084,  0.053980, -0.041508,
-         0.123805, -0.078324,  0.007129,  0.046085,
-        -0.149527, -0.016936,  0.137592, -0.123492,
-         0.095997, -0.032155, -0.090147,  0.085894,
-         0.069998, -0.152560,  0.032722,  0.211516,
-        -0.234142, -0.126543,  0.065795,  0.139264,
-         0.068951, -0.123922,  0.183790, -0.113392,
-         0.028607,  0.073242, -0.039289, -0.129341,
+         0.064454,  0.062556,  0.056577,  0.045406,
+         0.047751,  0.054402,  0.029830,  0.005691,
+         0.003381, -0.044734, -0.077765, -0.052261,
+        -0.036637, -0.049112, -0.076867, -0.084895,
+        -0.044912, -0.031196, -0.027649, -0.030739,
+        -0.032995, -0.033597, -0.030208, -0.022541,
+        -0.018137, -0.001470,  0.003359,  0.000852,
+         0.007676,  0.023339,  0.031527,  0.038794,
         };
     static const float yfltr[] = {
-         0.058247, -0.029759,  0.021983,  0.031913,
-        -0.056556,  0.084111,  0.016522, -0.066709,
-         0.073694, -0.037538,  0.035218, -0.106093,
-         0.143102, -0.069969, -0.017433,  0.070129,
-        -0.036476, -0.011404, -0.066406,  0.051376,
-         0.010802, -0.101228,  0.171893, -0.115520,
-        -0.061091,  0.041638,  0.015095, -0.083972,
-         0.022753, -0.037038, -0.085245, -0.035515,
+         0.066690,  0.074346,  0.077713,  0.066826,
+         0.028023,  0.001767,  0.016172,  0.050093,
+         0.047973,  0.041711,  0.096467,  0.108517,
+         0.079326,  0.029713, -0.056582,  0.006117,
+         0.052547,  0.128822,  0.218777,  0.243209,
+         0.234673,  0.184117,  0.143264,  0.069477,
+         0.001886, -0.079225, -0.154165, -0.237220,
+        -0.296567, -0.336959, -0.348767, -0.351243,
         };
     static const float zfltr[] = {
-         0.078621, -0.028656,  0.098588,  0.026159,
-         0.065912, -0.159825,  0.046649,  0.058219,
-         0.039456, -0.061853,  0.005054,  0.050738,
-        -0.013076, -0.053478,  0.016502,  0.070044,
-         0.024463, -0.305687,  0.286704, -0.005720,
-        -0.028155, -0.085459,  0.055251,  0.013130,
-         0.025644, -0.000160, -0.051606,  0.215364,
-        -0.198540,  0.084835,  0.191784, -0.240035,
+         0.054171,  0.043967,  0.039779,  0.022945,
+         0.007359, -0.020101, -0.061845, -0.077121,
+        -0.075757, -0.084928, -0.049448, -0.062178,
+        -0.083562, -0.090996, -0.079421, -0.022270,
+        -0.025120,  0.003164,  0.038524,  0.065178,
+         0.077224,  0.077801,  0.081761,  0.069724,
+         0.059329,  0.042819,  0.024132,  0.002766,
+        -0.015604, -0.041449, -0.065891, -0.085154,
         };
     for( i = 0; i < accel_fifo.depth; i++ ) {
         result += ((float) accel_fifo.values[i].x_leftalign) * xfltr[i];
         result += ((float) accel_fifo.values[i].y_leftalign) * yfltr[i];
         result += ((float) accel_fifo.values[i].z_leftalign) * zfltr[i];
     }
-    return result <= 0 ? pass : fail;
+    return result <= threshold ? lte_action : gt_action;
 }
 
 static inline bool fltr_y_turn_arm_accept( accel_xyz_t* sums ) {
