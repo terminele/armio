@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+import os
 import math
 import struct
 import argparse
@@ -7,6 +8,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import logging as log
+import jsonpickle
 import uuid
 import csv
 import random
@@ -18,6 +20,8 @@ rejecttime = 0
 args = None
 
 REJECT, PASS, ACCEPT = range( 3 )
+
+SAMPLESFILE=os.path.join(os.path.dirname(__file__), 'ALLSAMPLES.json')
 
 np.set_printoptions(precision=6, linewidth=120)
 
@@ -338,13 +342,13 @@ class PrincipalComponentTest( SampleTest ):
             kwargs:
                prereduce (None): pre-reduce matrix for reducing dimensions
         """
-        if not isinstance(trainingset, Samples) and len(trainingset) == 96 and isinstance(trainingset[0], float):
+        if trainingset is None:
             """ This is a fixed set from a previous test """
-            name = kwargs.pop( 'name', "Fixed Test" )
-            test_fcn = lambda s : self.apply_weighting(trainingset, s)
-            test_axis = 0       # should be, but force anyway
+            name = kwargs.pop('name')
+            weightings = kwargs.pop('weightings')
+            test_fcn = lambda s : self.apply_weighting(weightings, s)
             self._prereduce = None
-            self.eigvects = [trainingset] + [[0]*96 for _ in range(95)]
+            self.eigvects = [weightings] + [[0]*96 for _ in range(95)]
             self.eigvals = [1] + [0 for _ in range(95)]
         else:
             self._prereduce = kwargs.pop("prereduce", None)
@@ -359,6 +363,8 @@ class PrincipalComponentTest( SampleTest ):
         univariance = kwargs.pop( "univariance", False )
         if isinstance( trainingset, Samples ):
             trainingset = trainingset.measurematrix
+        if len(trainingset) == 0:
+            raise ValueError("No data provided in training set")
         self._find_weights(trainingset)
         if isinstance(test_axis, int):
             w = self.eigvects[test_axis]
@@ -579,6 +585,18 @@ class PrincipalComponentTest( SampleTest ):
         plt.show()
 
 
+class FixedWeightingTest( PrincipalComponentTest ):
+    def __init__(self, weightings, name, **kwargs):
+        """ this should be used to 'capture' the results from a LDA / PCA test
+        """
+        if not len(weightings) == 96:
+            raise ValueError("Must specify weight for all 96 readings")
+        kwargs['weightings'] = weightings
+        kwargs['name'] = name
+        kwargs['test_axis'] = 0
+        super().__init__(trainingset=None, **kwargs)
+
+
 class LinearDiscriminantTest( PrincipalComponentTest ):
     """ this analysis should create the scaling matricies
         based on the difference between our groups instead of
@@ -665,7 +683,17 @@ class Samples( object ):
         self.samples = []
         self.name = name
         self.clear_results()
-        self.transformation = None
+
+    def __setstate__(self, state):
+        self.name = state['name']
+        self.samples = state['samples']
+        self.clear_results()
+
+    def __getstate__(self):
+        state = dict()
+        state['name'] = self.name
+        state['samples'] = self.samples
+        return state
 
     def clear_results( self ):
         self.total = 0
@@ -718,18 +746,6 @@ class Samples( object ):
                     if sample.waketime > self.unconfirmed_time_max:
                         self.unconfirmed_time_max = sample.waketime
 
-    def setTransformation( self, transformation ):
-        """ set a vector / matrix that will transform each reading into a
-            new reading on a new plane --- for example to reduce the number
-            of dimensions.  set to None to remove
-        """
-        self.transformation = transformation
-
-    def transform( self, sample ):
-        if self.transformation is None:
-            return sample
-        return list(np.dot(np.array([sample]), np.array(self.transformation))[0])
-
     def show_analysis( self ):
         print( "Analysis for '{}'".format( self.name ) )
         print( "{:10}|{:12}|{:12}|{:12}".format( "", "Confirmed", "Unconfirmed", "Totals" ) )
@@ -749,7 +765,7 @@ class Samples( object ):
 
     def load( self, fn ):
         if self.name is None:
-            self.name = fn
+            self.name = os.path.basename(fn)
         newsamples = self._parse_fifo( fn )
         self.samples.extend( newsamples )
 
@@ -927,9 +943,8 @@ class Samples( object ):
         plt.show()
 
     def getMeasureMatrix( self, **kwargs ):
-        return [ self.transform(sample.measures) for sample
-                in self.filter_samples( **kwargs ) ]
-    measurematrix = property( fget=getMeasureMatrix )
+        return [sample.measures for sample in self.filter_samples(**kwargs)]
+    measurematrix = property(fget=getMeasureMatrix)
 
     @staticmethod
     def _parse_fifo( fname ):
@@ -1055,7 +1070,7 @@ class WakeSample( object ):
     _sample_counter = 0
     def __init__( self, xs, ys, zs, waketime=0, confirmed=False, logfile="" ):
         self.uid = uuid.uuid4().hex[-8:]
-        self.logfile = logfile
+        self.logfile = os.path.basename(logfile)
         self.xs = xs
         self.ys = ys
         self.zs = zs
@@ -1065,6 +1080,28 @@ class WakeSample( object ):
         self.i = WakeSample._sample_counter
         self._check_result = None
         self._collect_sums()
+
+    def __setstate__(self, state):
+        self.uid = state['uid']
+        self.i = state['i']
+        if self.i > WakeSample._sample_counter:
+            WakeSample._sample_counter = i
+        self.logfile = state['logfile']
+        self.xs, self.ys, self.zs = state['accel']
+        self.waketime = state['waketime']
+        self.confirmed = state['confirmed']
+        self._check_result = None
+        self._collect_sums()
+
+    def __getstate__(self):
+        state = dict()
+        state['uid'] = self.uid
+        state['i'] = self.i
+        state['logfile'] = self.logfile
+        state['accel'] = self.xs, self.ys, self.zs
+        state['waketime'] = self.waketime
+        state['confirmed'] = self.confirmed
+        return state
 
     def _getMeasures( self ): return self.xs + self.ys + self.zs
     measures = property( fget=_getMeasures )
@@ -1203,6 +1240,7 @@ class WakeSample( object ):
             for i, (x, y, z) in enumerate( zip( self.xs, self.ys, self.zs ) ):
                 writer.writerow( [ i, x, y, z ] )
 
+
 ### Analysis function for streaming xyz data ###
 def analyze_streamed( fname, plot=True ):
     try:
@@ -1280,7 +1318,7 @@ def make_traditional_tests():
     return tests
 
 def make_LD_PCA_tests():
-    y_turn_basic = PrincipalComponentTest([
+    y_turn_basic = FixedWeightingTest([
          0.064454,  0.062556,  0.056577,  0.045406,
          0.047751,  0.054402,  0.029830,  0.005691,
          0.003381, -0.044734, -0.077765, -0.052261,
@@ -1358,8 +1396,20 @@ def plot_sums(samples, x_cnt = 5, y_cnt = 8):
     #plt.plot(ssums_u, linestyle=":",  color="g")
     plt.plot(ysums_u, linestyle=":",  color="b")
 
+def load_samples(samplefile=SAMPLESFILE):
+    with open(samplefile, 'r') as fh:
+        samplestext = fh.read()
+    return jsonpickle.decode(samplestext)
+
+def store_samples(samples, samplefile=SAMPLESFILE):
+    samplestext = jsonpickle.encode(samples, keys=True)
+    with open(samplefile, 'w') as fh:
+        fh.write(samplestext)
+
+
 if __name__ == "__main__":
-    log.basicConfig( level = log.DEBUG )
+    log.basicConfig(level=log.INFO)
+
 
     def parse_args():
         parser = argparse.ArgumentParser(description='Analyze an accel log dump')
