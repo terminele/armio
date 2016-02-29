@@ -29,13 +29,43 @@
 #ifndef DEBUG_AX_ISR
 # define DEBUG_AX_ISR false
 #endif
+/* flash led to indicate isr triggering */
 
 #ifndef GESTURE_FILTERS
 # define GESTURE_FILTERS    true
 #endif
+/* filter gestures based on intentional 'views' */
 
-#if ( DEBUG_AX_ISR )
-#define _DISP_INFO( i )  do { \
+#ifndef SHOW_ACCEL_ERRORS_ON_LED
+#define SHOW_ACCEL_ERRORS_ON_LED false
+#endif
+/* show / disable accel related errors showing on LED's */
+
+
+#ifndef SHOW_LED_FOR_FILTER_INFO
+#define SHOW_LED_FOR_FILTER_INFO false
+#endif
+/* show a debug led indicating the gesture filter result */
+
+#ifndef SHOW_LED_ON_DCLICK_FAIL
+#define SHOW_LED_ON_DCLICK_FAIL false
+#endif
+/* Do we flash an LED if double-click was triggerd but filtered out
+ * because of the watch orientation */
+
+#ifndef DOWN_TRIG_ON_YZ_HIGH
+# define DOWN_TRIG_ON_YZ_HIGH false
+#endif
+/* Do we allow a 'down' event to trigger with y or z high? */
+
+#ifndef USE_PCA_LDA_FILTERS
+#define     USE_PCA_LDA_FILTERS false
+#endif
+/* Do we use new filters created from PCA / LDA analysis */
+
+
+#if ( SHOW_LED_FOR_FILTER_INFO )
+#define _DISP_FILTER_INFO( i )  do { \
       _led_on_full( i ); \
       delay_ms(100); \
       _led_off_full( i ); \
@@ -45,10 +75,11 @@
       _led_off_full( i ); \
       delay_ms(50); \
     } while(0);
-#else   /* DEBUG_AX_ISR */
-#define _DISP_INFO( i )
-#endif  /* DEBUG_AX_ISR */
+#else   /* SHOW_LED_FOR_FILTER_INFO */
+#define _DISP_FILTER_INFO( i )
+#endif  /* SHOW_LED_FOR_FILTER_INFO */
 
+#if ( SHOW_ACCEL_ERRORS_ON_LED )
 #define _DISP_ERROR( i )  do { \
       _led_on_full( i ); \
       delay_ms(1000); \
@@ -59,26 +90,21 @@
       _led_off_full( i ); \
       delay_ms(100); \
     } while(0);
+#else   /* SHOW_ACCEL_ERRORS_ON_LED */
+#define _DISP_ERROR( i )
+#endif
 
 #define DISP_ERR_FIFO_READ()            _DISP_ERROR( 30 )
 #define DISP_ERR_CONSEC_READ_1()        _DISP_ERROR( 57 )
 #define DISP_ERR_CONSEC_READ_2()        _DISP_ERROR( 58 )
 #define DISP_ERR_CONSEC_READ_3()        _DISP_ERROR( 59 )
-#if ( DEBUG_AX_ISR )
 #define DISP_ERR_WAKE_1()               _DISP_ERROR( 19 )
 #define DISP_ERR_WAKE_2()               _DISP_ERROR( 56 )
 #define DISP_ERR_WAKE_3()               _DISP_ERROR( 55 )
 #define DISP_ERR_WAKE_4()               _DISP_ERROR( 54 )
 #define DISP_ERR_WAKE_5()               _DISP_ERROR( 53 )
 #define DISP_ERR_WAKE_GEST( state )     _DISP_ERROR( state + 40 )
-#else   /* DEBUG_AX_ISR */
-#define DISP_ERR_WAKE_1()
-#define DISP_ERR_WAKE_2()
-#define DISP_ERR_WAKE_3()
-#define DISP_ERR_WAKE_4()
-#define DISP_ERR_WAKE_5()
-#define DISP_ERR_WAKE_GEST( state )
-#endif /* DEBUG_AX_ISR */
+#define DISP_ERR_ISR_RELEASE()          _DISP_ERROR( 10 )
 
 #define MS_TO_ODRS(t, sample_int) (t/sample_int)
 
@@ -104,16 +130,6 @@
 
 #define FAST_CLICK_WINDOW_MS 400
 #define SLOW_CLICK_WINDOW_MS 1800
-
-#ifndef DOWN_TRIG_ON_YZ_HIGH
-# define DOWN_TRIG_ON_YZ_HIGH false
-#endif
-/* Do we allow a 'down' event to trigger with y or z high? */
-
-#ifndef USE_PCA_LDA_FILTERS
-#define     USE_PCA_LDA_FILTERS false
-#endif
-/* Do we use new filters created from PCA / LDA analysis */
 
 
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
@@ -283,7 +299,7 @@ static void accel_isr(void) {
                 5*int2_flags.zl + 10*int1_flags.zh );
         _led_on_full( led_info );
         delay_ms(200);
-        _led_off_full( led_info ):
+        _led_off_full( led_info );
     }
 #endif  /* DEBUG_AX_ISR */
 
@@ -308,11 +324,7 @@ static void accel_isr(void) {
             accel_register_write (AX_REG_TIME_WIN, WAKEUP_CLICK_TIME_WIN);
             accel_register_write (AX_REG_TIME_LIM, WAKEUP_CLICK_TIME_LIM);
             accel_register_write (AX_REG_TIME_LAT, WAKEUP_CLICK_TIME_LAT);
-#if ( DEBUG_AX_ISR )
-            _led_on_full(10);
-            delay_ms(100);
-            _led_off_full(10);
-#endif  /* DEBUG_AX_ISR */
+            DISP_ERR_ISR_RELEASE()
         }
     };
 }
@@ -483,24 +495,24 @@ static inline bool fltr_run_gesture_filters( void ) {
     }
 
     if( (USE_PCA_LDA_FILTERS) && (rv = fltr_lda_trial()) ) {
-        _DISP_INFO(0);
+        _DISP_FILTER_INFO(0);
         return rv == pass ? true : false;
     } else if( fltr_y_turn_arm_accept( csums ) ) {
-        _DISP_INFO(20);
+        _DISP_FILTER_INFO(20);
         return true;
     } else if( fltr_y_not_deliberate_fail( curr.y, csums ) ) {
         return false;
     } else if( fltr_z_sum_slope_accept( csums ) ) {
-        _DISP_INFO(40);
+        _DISP_FILTER_INFO(40);
         return true;
     } else if( fltr_x_turn_arm_accept( csums ) ) {
-        _DISP_INFO(15);
+        _DISP_FILTER_INFO(15);
         return true;
     } else if( fltr_xy_turn_arm_accept( csums ) ) {
-        _DISP_INFO(20);
+        _DISP_FILTER_INFO(20);
         return true;
     } else if( fltr_y_facing_inwards_accept( curr.y ) ) {
-        _DISP_INFO(30);
+        _DISP_FILTER_INFO(30);
         return true;
     } else if( fltr_y_overshoot_accept( csums ) ) {
         return true;
@@ -688,12 +700,12 @@ static bool accel_wakeup_state_refresh(void) {
             return true;
         } else if (z > 0 && y > 0 && (z*z + y*y) >= 144) {
             return true;
-#if ( DEBUG_AX_ISR )
+#if ( SHOW_LED_ON_DCLICK_FAIL )
         } else {
             _led_on_full(31);
             delay_ms(10);
             _led_off_full(31);
-#endif  /* DEBUG_AX_ISR */
+#endif  /* SHOW_LED_ON_DCLICK_FAIL */
         }
     } else if (wake_check_gesture) {
         /* Read FIFO to determine if a turn-up gesture occurred */
