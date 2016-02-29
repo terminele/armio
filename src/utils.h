@@ -65,6 +65,17 @@ uint8_t adc_vbatt_value_scale ( uint16_t value );
    * @retrn led index to display
    */
 
+#ifndef RTC_CALIBRATE
+#define RTC_CALIBRATE false
+#endif
+
+#if RTC_CALIBRATE 
+void rtc_cal_run( void );
+  /* @brief runs rtc calibration 
+   */
+
+
+#endif /* RTC_CALIBRATE */
 
 #endif /* end of include guard: __UTILS_H__ */
 

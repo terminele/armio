@@ -25,6 +25,7 @@ if __name__ == "__main__":
     fmt = "<BBBBIIIHBBBBBBHB"
     vals = struct.unpack(fmt, binval)
     log.debug("unpack struct: {}".format(vals))
+    rtc_corr = vals[0]
     lifetime_wakes = vals[4]
     lifetime_ticks = vals[5]
     lifetime_resets = vals[6]
@@ -37,14 +38,21 @@ if __name__ == "__main__":
     year = vals[14]
     pm = vals[15] > 0
     lifetime_s = lifetime_ticks/TICKS_PER_MS/1000.0
+    
+    if lifetime_wakes > 0:
+        print("Lifetime Wake Count:\t\t {}".format(lifetime_wakes))
+        print("Lifetime Active Time (s):\t {:.2f}".format(lifetime_s))
+        print("Lifetime Resets:\t\t {}".format(lifetime_resets))
+        print("Average Waketime (s):\t\t {:.2f}".format(lifetime_s/lifetime_wakes))
+        print("Lifetime WDT Resets:\t\t {}".format(lifetime_resets))
+    else:
+        print("No lifetime data")
+    
+    if year > 1980 and year < 2100:
+        print("Stored Date: {}/{}/{}".format(month, day, year))
+        print("Stored Time: {}:{:02}:{}s {}".format(hours, minutes, seconds, "pm" if pm else "am"))
+    else:
+        print("No stored datetime (or we have time traveled)")
 
-    print("Lifetime Wake Count:\t\t {}".format(lifetime_wakes))
-    print("Lifetime Active Time (s):\t {:.2f}".format(lifetime_s))
-    print("Lifetime Resets:\t\t {}".format(lifetime_resets))
-    print("Average Waketime (s):\t\t {:.2f}".format(lifetime_s/lifetime_wakes))
-    
-    
-    print("Lifetime WDT Resets:\t\t {}".format(lifetime_resets))
-    print("Stored Date: {}/{}/{}".format(month, day, year))
-    print("Stored Time: {}:{:02}:{}s {}".format(hours, minutes, seconds, "pm" if pm else "am"))
+    print("RTC Frequency Correction:\t\t {}ppm".format(rtc_corr))
 

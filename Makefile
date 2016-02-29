@@ -511,27 +511,27 @@ dump_log:
 	-c "dump_image data_log.image 0xe000 $(NVM_LOG_SIZE)" \
 	-c "shutdown"
 
-.PHONY: write_conf_data
-ifndef conf_data
-    $(warning defaulting conf_data to 0x00)
-    conf_data = 0x00
-endif
-ifndef conf_data_byte_cnt
-    $(warning defaulting conf_data_byte_cnt to 1)
-    conf_data_byte_cnt = 1
-endif
-sector_len = 0x2000
-write_conf_data:
-	-openocd -f $(DEBUGGER_CFG) \
-	-f $(OCD_PART_CFG) \
-	-c init -c "reset init" \
-	-c "flash erase_address 0xe000 $(sector_len)" \
-	-c "shutdown"
-	openocd -f $(DEBUGGER_CFG) \
-	-f $(OCD_PART_CFG) \
-	-c init -c "reset init" \
-	-c "flash fillb 0xe000 $(conf_data) $(conf_data_byte_cnt)" \
-	-c "shutdown"
+#.PHONY: write_conf_data
+#ifndef conf_data
+#    $(warning defaulting conf_data to 0x00)
+#    conf_data = 0x00
+#endif
+#ifndef conf_data_byte_cnt
+#    $(warning defaulting conf_data_byte_cnt to 1)
+#    conf_data_byte_cnt = 1
+#endif
+#sector_len = 0x2000
+#write_conf_data:
+#	-openocd -f $(DEBUGGER_CFG) \
+#	-f $(OCD_PART_CFG) \
+#	-c init -c "reset init" \
+#	-c "flash erase_address 0xe000 $(sector_len)" \
+#	-c "shutdown"
+#	openocd -f $(DEBUGGER_CFG) \
+#	-f $(OCD_PART_CFG) \
+#	-c init -c "reset init" \
+#	-c "flash fillb 0xe000 $(conf_data) $(conf_data_byte_cnt)" \
+#	-c "shutdown"
 
 # Build Doxygen generated documentation.
 #.PHONY: doc

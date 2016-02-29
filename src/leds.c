@@ -301,6 +301,7 @@ static void configure_tc ( void ) {
   /* Allocate and attach pwm->bank timer inc event */
   events_get_config_defaults(&config_ev);
 
+  /* TODO - make this ASYNCHRONOUS and see if we can increase bright levels*/
   config_ev.path           = EVENTS_PATH_SYNCHRONOUS;
   config_ev.generator      = CONF_EVENT_BANK_INC_GEN_ID;
 
@@ -316,7 +317,7 @@ void led_controller_init ( void ) {
   configure_tc();
 }
 
-void led_controller_enable ( void ) {
+void led_controller_conf_output( void ) {
   struct port_config pin_conf;
 
   /* Configure bank and segment pin groups as outputs */
@@ -325,6 +326,11 @@ void led_controller_enable ( void ) {
 
   port_group_set_config(&PORTA, SEGMENT_PIN_PORT_MASK, &pin_conf );
   port_group_set_config(&PORTA, BANK_PIN_PORT_MASK, &pin_conf );
+}
+
+void led_controller_enable ( void ) {
+  
+  led_controller_conf_output();
 
   led_clear_all();
 
