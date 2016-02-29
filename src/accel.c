@@ -392,7 +392,7 @@ static void configure_interrupt ( void ) {
   struct port_config pin_conf;
   port_get_config_defaults(&pin_conf);
   pin_conf.direction = PORT_PIN_DIR_INPUT;
-  pin_conf.input_pull = PORT_PIN_PULL_DOWN;
+  pin_conf.input_pull = PORT_PIN_PULL_NONE;
   port_pin_set_config(AX_INT1_PIN, &pin_conf);
 
   struct extint_chan_conf eint_chan_conf;
