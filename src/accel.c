@@ -69,12 +69,14 @@
 #define DISP_ERR_WAKE_2()               _DISP_ERROR( 56 )
 #define DISP_ERR_WAKE_3()               _DISP_ERROR( 55 )
 #define DISP_ERR_WAKE_4()               _DISP_ERROR( 54 )
+#define DISP_ERR_WAKE_5()               _DISP_ERROR( 53 )
 #define DISP_ERR_WAKE_GEST( state )     _DISP_ERROR( state + 40 )
 #else   /* DEBUG_AX_ISR */
 #define DISP_ERR_WAKE_1()
 #define DISP_ERR_WAKE_2()
 #define DISP_ERR_WAKE_3()
 #define DISP_ERR_WAKE_4()
+#define DISP_ERR_WAKE_5()
 #define DISP_ERR_WAKE_GEST( state )
 #endif /* DEBUG_AX_ISR */
 
@@ -103,32 +105,25 @@
 #define FAST_CLICK_WINDOW_MS 400
 #define SLOW_CLICK_WINDOW_MS 1800
 
-#define Z_SLEEP_DOWN_THRESHOLD          18  /* assumes 4g scale */
-#define Y_SLEEP_DOWNOUT_THRESHOLD       -8  /* assumes 4g scale */
-#define Y_SLEEP_DOWNIN_THRESHOLD        8   /* assumes 4g scale */
-#define Z_SLEEP_DOWN_DUR_MS           200
+#ifndef DOWN_TRIG_ON_YZ_HIGH
+# define DOWN_TRIG_ON_YZ_HIGH false
+#endif
+/* Do we allow a 'down' event to trigger with y or z high? */
 
-#define XY_DOWN_THRESHOLD       20  /* we want something in the 1/3 g range
-                                       which seems like around 10 would work best
-                                       documentation is 'wrong', we got this
-                                       value from trial and error with
-                                       make flag accel_debug=true */
-#define XY_DOWN_DUR_MS              50
-//#define Y_DOWN_THRESHOLD        -18 /* assumes 4g scale */
-//#define Y_DOWN_DUR_MS           200
+#ifndef USE_PCA_LDA_FILTERS
+#define     USE_PCA_LDA_FILTERS false
+#endif
+/* Do we use new filters created from PCA / LDA analysis */
 
-#define XY_DOWN_DUR_ODR          MS_TO_ODRS(XY_DOWN_DUR_MS, SLEEP_SAMPLE_INT)
-
-#define Z_UP_THRESHOLD          20 /* assumes 4g scale */
-#define Z_UP_DUR_ODR            MS_TO_ODRS(130, SLEEP_SAMPLE_INT)
 
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 typedef enum { fail=-1, punt=0, pass=1 } fltr_result_t;
 
 typedef enum {
-    SLEEP_START = 0,
-    WAIT_FOR_DOWN,
+    WAIT_FOR_DOWN = 0,
+#if ( DOWN_TRIG_ON_YZ_HIGH )
     WAIT_FOR_MOVEMENT,  /* partially down, waiting for up or full down */
+#endif  /* DOWN_TRIG_ON_YZ_HIGH */
     WAIT_FOR_UP,
 } wake_gesture_state_t;
 
@@ -209,9 +204,12 @@ static bool accel_register_consecutive_read (uint8_t start_reg,
 static bool accel_register_write (uint8_t reg, uint8_t val);
 
 /* Configuration functions for wakeup gesture recognition */
-static void wait_for_down_conf( void );
-
-static void wait_for_up_conf( void );
+static void wait_state_conf( wake_gesture_state_t wait_state );
+  /* @brief configure the interrupts to detect movement into orientations of
+   *        interest
+   * @param the state that we want to wait for
+   * @retrn None
+   */
 
 #if ( USE_SELF_TEST )
 static void run_self_test( void );
@@ -238,20 +236,13 @@ uint8_t accel_fast_click_cnt = 0;
 static uint8_t slow_click_counter = 0;
 static uint8_t fast_click_counter = 0;
 
-static uint16_t i2c_addr = AX_ADDRESS0;
-
-/* timestamp (based on main tic count) of most recent
- * y down interrupt for entering sleep on z-low
- */
-static int32_t accel_down_start_ms = 0;
-static bool accel_down = false;
+static uint16_t i2c_addr = AX_ADDRESS0;     // FIXME : looks like a constant
 
 static uint32_t last_click_time_ms;
 
 static struct i2c_master_module i2c_master_instance;
 
 static click_flags_t click_flags;
-
 static int_reg_flags_t int1_flags;
 static int_reg_flags_t int2_flags;
 
@@ -369,34 +360,38 @@ static void configure_i2c(void) {
     i2c_master_enable(&i2c_master_instance);
 }
 
-static void wait_for_up_conf( void ) {
-    /* Configure interrupt to detect movement up (Z HIGH) */
-    wake_gesture_state = WAIT_FOR_UP;
-    accel_register_write ( AX_REG_CTL1,
-            ( SLEEP_ODR | X_EN | Y_EN | Z_EN |
-              ( BITS_PER_ACCEL_VAL == 8 ? LOW_PWR_EN : 0 ) ) );
+static void wait_state_conf( wake_gesture_state_t wait_state ) {
+    uint8_t duration_odr = 0;
+    uint8_t threshold = 0;
+    uint8_t directions = ( XLIE | XHIE | YLIE | YHIE | ZLIE | ZHIE );
+    if (wait_state == WAIT_FOR_DOWN) {
+        directions = (XLIE | XHIE | YLIE | ZLIE);
+#if ( DOWN_TRIG_ON_YZ_HIGH )
+        directions |= ( YHIE | ZHIE );
+#endif
+        duration_odr = MS_TO_ODRS(50, SLEEP_SAMPLE_INT);
+        threshold = 20; /* we want something in the 1/3 g range which seems
+                           like around 10 would work best documentation is
+                           'wrong', we got this value from trial and error
+                           with make flag accel_debug=true */
+    } else if (wait_state == WAIT_FOR_UP) {
+    /* NOTE: changing DURATION_ODR | THRESHOLD changes wake events signature */
+        duration_odr = MS_TO_ODRS(130, SLEEP_SAMPLE_INT);
+        threshold = 20;
+        directions = (ZHIE | YHIE);
+#if ( DOWN_TRIG_ON_YZ_HIGH )
+    } else if (wait_state == WAIT_FOR_MOVEMENT) {
+        duration_odr = MS_TO_ODRS(130, SLEEP_SAMPLE_INT);
+        threshold = 20;
+        directions = (ZHIE | YHIE);
+#endif  /* DOWN_TRIG_ON_YZ_HIGH */
+    }
 
-    /* Clear FIFO by writing bypass */
-    accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS );
-
-    /* Enable stream to FIFO buffer mode */
-    accel_register_write (AX_REG_FIFO_CTL, STREAM_TO_FIFO);
-    accel_register_write (AX_REG_INT1_CFG, AOI_POS | ZHIE | YHIE);
-// FIXME : this is where we set that we are waiting for ZH / YH,
-// if down was triggered based on YL, we can't wait for YH here
-    accel_register_write (AX_REG_INT1_THS, Z_UP_THRESHOLD);
-    accel_register_write (AX_REG_INT1_DUR, Z_UP_DUR_ODR);
-// FIXME : this isn't Z_UP_THRESHOLD because it is also use for Y
-// TODO : consider making threshold dynamic
-
-    accel_register_write (AX_REG_CTL3, I1_CLICK_EN | I1_AOI1_EN);
-}
-
-static void wait_for_down_conf( void ) {
-    /* Configure interrupt to detect orientation down  XY High/LOW*/
-    wake_gesture_state = WAIT_FOR_DOWN;
-    accel_register_write ( AX_REG_CTL1, ( SLEEP_ODR | X_EN | Y_EN | Z_EN |
-                ( BITS_PER_ACCEL_VAL == 8 ? LOW_PWR_EN : 0 ) ) );
+    /* Configure interrupt to detect orientation status */
+    wake_gesture_state = wait_state;
+    accel_register_write (AX_REG_CTL1,
+            (SLEEP_ODR | X_EN | Y_EN | Z_EN |
+             (BITS_PER_ACCEL_VAL == 8 ? LOW_PWR_EN : 0)));
 
     /* Clear FIFO by writing bypass */
     accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS);
@@ -404,12 +399,9 @@ static void wait_for_down_conf( void ) {
     /* Enable stream to FIFO buffer mode */
     accel_register_write (AX_REG_FIFO_CTL, STREAM_TO_FIFO);
 
-    accel_register_write (AX_REG_INT1_THS, XY_DOWN_THRESHOLD);
-    accel_register_write (AX_REG_INT1_DUR, XY_DOWN_DUR_ODR);
-    accel_register_write (AX_REG_INT1_CFG,
-            AOI_POS | YHIE | XLIE | XHIE | YLIE | YHIE | ZLIE);
-// FIXME : this is where we wait for YL to say we have gone 'down'
-// but we may have woken up on YH, in which case we don't need to move here
+    accel_register_write (AX_REG_INT1_THS, threshold);
+    accel_register_write (AX_REG_INT1_DUR, duration_odr);
+    accel_register_write (AX_REG_INT1_CFG, AOI_POS | directions);
     accel_register_write (AX_REG_CTL3, I1_CLICK_EN | I1_AOI1_EN);
 }
 
@@ -490,7 +482,7 @@ static inline bool fltr_run_gesture_filters( void ) {
 #endif
     }
 
-    if( (rv = fltr_lda_trial()) ) {
+    if( (USE_PCA_LDA_FILTERS) && (rv = fltr_lda_trial()) ) {
         _DISP_INFO(0);
         return rv == pass ? true : false;
     } else if( fltr_y_turn_arm_accept( csums ) ) {
@@ -637,7 +629,7 @@ static bool accel_wakeup_state_refresh(void) {
         if (!accel_wakeup_gesture_enabled) {
             wake_check_dclick = true;
         } else if (wake_gesture_state == WAIT_FOR_DOWN) {
-            wait_for_up_conf();
+            wait_state_conf( WAIT_FOR_UP );
         } else {
 #if 0       /* shouldn't we have the same accel config on wake? */
             /* Disable AOI INT1 interrupt (leave CLICK enabled) */
@@ -648,15 +640,32 @@ static bool accel_wakeup_state_refresh(void) {
             return true;
         }
     } else if (wake_gesture_state == WAIT_FOR_DOWN) {
-        if ( int1_flags.yl || int1_flags.xl || int1_flags.yh || int1_flags.xh || int1_flags.zl ) {
-            wait_for_up_conf();
+        if (int1_flags.xh || int1_flags.xl || int1_flags.yl || int1_flags.zl) {
+            wait_state_conf( WAIT_FOR_UP );
+#if ( DOWN_TRIG_ON_YZ_HIGH )
+        } else if (int1_flags.yh || int1_flags.zh) {
+            wait_state_conf( WAIT_FOR_MOVEMENT );
+#endif
         } else {
             DISP_ERR_WAKE_3();
-            wait_for_up_conf();
+            wait_state_conf( WAIT_FOR_UP );
         }
-    } else if (wake_gesture_state == WAIT_FOR_UP) {
-        if (!int1_flags.zh && !int1_flags.yh) {
+#if ( DOWN_TRIG_ON_YZ_HIGH )
+    } else if (wake_gesture_state == WAIT_FOR_MOVEMENT) {
+        if (int1_flags.yh || int1_flags.zh) {
+            wake_check_gesture = true;
+        } else if(int1_flags.xh || int1_flags.xl || int1_flags.yl || int1_flags.zl) {
+            wake_gesture_state = WAIT_FOR_UP;
+        } else {
             DISP_ERR_WAKE_4();
+            wake_gesture_state = WAIT_FOR_UP;
+        }
+#endif  /* DOWN_TRIG_ON_YZ_HIGH */
+    } else if (wake_gesture_state == WAIT_FOR_UP) {
+        if (int1_flags.yh || int1_flags.zh) {
+            wake_check_gesture = true;
+        } else {
+            DISP_ERR_WAKE_5();
 #if 0       /* shouldn't we have the same accel config on wake? */
             /* Disable AOI INT1 interrupt (leave CLICK enabled) */
             accel_register_write (AX_REG_CTL3,  I1_CLICK_EN);
@@ -665,14 +674,13 @@ static bool accel_wakeup_state_refresh(void) {
 #endif
             return true;
         }
-        wake_check_gesture = true;
     } else {
         /* Unexpected wake_gesture_state */
         DISP_ERR_WAKE_GEST( wake_gesture_state );
         return true;
     }
 
-    if ( wake_check_dclick ) {
+    if (wake_check_dclick) {
         /* so do we just sit here in WAKE_DCLICK */
         accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS);
         accel_data_read(&x, &y, &z);
@@ -687,7 +695,7 @@ static bool accel_wakeup_state_refresh(void) {
             _led_off_full(31);
 #endif  /* DEBUG_AX_ISR */
         }
-    } else if ( wake_check_gesture ) {
+    } else if (wake_check_gesture) {
         /* Read FIFO to determine if a turn-up gesture occurred */
         read_accel_fifo();  // needed for LOG_FIFO & gesture_filers
         if ((!(GESTURE_FILTERS)) || fltr_run_gesture_filters()) {
@@ -697,7 +705,7 @@ static bool accel_wakeup_state_refresh(void) {
             return true;
         } else {
             /* No filter has accepted -- do not turn on */
-            wait_for_down_conf();
+            wait_state_conf( WAIT_FOR_DOWN );
         }
     }
     return false;
@@ -902,7 +910,7 @@ void accel_sleep ( void ) {
 
     if (accel_wakeup_gesture_enabled) {
         /* Configure interrupt to detect orientation down */
-        wait_for_down_conf();
+        wait_state_conf( WAIT_FOR_DOWN );
     }
 
     extint_chan_enable_callback(AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
@@ -918,13 +926,13 @@ static void accel_reset ( void ) {
 static event_flags_t click_timeout_event_check( void ) {
     /* Check for click timeouts */
     if (fast_click_counter > 0 &&
-            (main_get_waketime_ms() - last_click_time_ms > FAST_CLICK_WINDOW_MS)) {
+            (main_get_waketime_ms() > last_click_time_ms + FAST_CLICK_WINDOW_MS)) {
         fast_click_counter = 0;
         return EV_FLAG_ACCEL_FAST_CLICK_END;
     }
 
     if (slow_click_counter > 0 &&
-            (main_get_waketime_ms() - last_click_time_ms > SLOW_CLICK_WINDOW_MS)) {
+            (main_get_waketime_ms() > last_click_time_ms + SLOW_CLICK_WINDOW_MS)) {
         slow_click_counter = 0;
         return EV_FLAG_ACCEL_SLOW_CLICK_END;
     }
@@ -943,6 +951,16 @@ event_flags_t accel_event_flags( void ) {
     event_flags_t ev_flags = EV_FLAG_NONE;
     int16_t x = 0, y = 0, z = 0;
     static bool int_state = false;//keep track of prev interrupt state
+    /* these values assume a 4g scale */
+    const int16_t Z_SLEEP_DOWN_THS = 18;
+    const int16_t Y_SLEEP_DOWN_IN_THS = -8;
+    const int16_t Y_SLEEP_DOWN_OUT_THS = 8;
+    const uint32_t SLEEP_DOWN_DUR_MS = 200;
+    /* timestamp (based on main tic count) of most recent
+     * y down interrupt for entering sleep on z-low
+     */
+    static bool accel_down = false;
+    static uint32_t accel_down_to_ms = 0;
 #ifdef NO_ACCEL
     return ev_flags;
 #endif
@@ -955,12 +973,12 @@ event_flags_t accel_event_flags( void ) {
      * */
 
     accel_data_read(&x, &y, &z);
-    if (z <= Z_SLEEP_DOWN_THRESHOLD &&
-            ( y <= Y_SLEEP_DOWNOUT_THRESHOLD || y <= Y_SLEEP_DOWNIN_THRESHOLD )) {
+    if (z <= Z_SLEEP_DOWN_THS &&
+            (y <= Y_SLEEP_DOWN_OUT_THS || y <= Y_SLEEP_DOWN_IN_THS)) {
         if (!accel_down) {
             accel_down = true;
-            accel_down_start_ms = main_get_waketime_ms();
-        } else if (main_get_waketime_ms() - accel_down_start_ms > Z_SLEEP_DOWN_DUR_MS) {
+            accel_down_to_ms = main_get_waketime_ms() + SLEEP_DOWN_DUR_MS;
+        } else if (main_get_waketime_ms() > accel_down_to_ms) {
             /* Check for accel low-z timeout */
             ev_flags |= EV_FLAG_ACCEL_DOWN;
         }
