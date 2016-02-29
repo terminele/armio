@@ -125,6 +125,13 @@
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 typedef enum { fail=-1, punt=0, pass=1 } fltr_result_t;
 
+typedef enum {
+    SLEEP_START = 0,
+    WAIT_FOR_DOWN,
+    WAIT_FOR_MOVEMENT,  /* partially down, waiting for up or full down */
+    WAIT_FOR_UP,
+} wake_gesture_state_t;
+
 
 //___ P R O T O T Y P E S   ( P R I V A T E ) ________________________________
 static void accel_isr(void);
@@ -220,6 +227,8 @@ static void run_self_test( void );
 
 static void read_accel_fifo( void );
 
+static bool accel_wakeup_state_refresh(void);
+
 
 //___ V A R I A B L E S ______________________________________________________
 accel_fifo_t accel_fifo = { .bytes = { 0 }, .depth = 0 };
@@ -246,7 +255,7 @@ static click_flags_t click_flags;
 static int_reg_flags_t int1_flags;
 static int_reg_flags_t int2_flags;
 
-static enum {SLEEP_START = 0, WAIT_FOR_DOWN, WAIT_FOR_UP, WAKE_DCLICK, WAKE_TURN_UP} wake_gesture_state;
+static wake_gesture_state_t wake_gesture_state;
 
 
 //___ I N T E R R U P T S  ___________________________________________________
@@ -262,13 +271,13 @@ static void accel_isr(void) {
     if (!accel_register_consecutive_read(AX_REG_INT2_SRC, 1, &int2_flags.b8)) {
         DISP_ERR_CONSEC_READ_3();
     }
-
 #if ( DEBUG_AX_ISR )
     uint8_t led_info;
     if( click_flags.ia ) {
-        _led_on_full(15); //*click_flags.ia);// + 30*int1_flags.ia + 5*int1_flags.zh);
+        led_info = 5; //*click_flags.ia);// + 30*int1_flags.ia + 5*int1_flags.zh);
+        _led_on_full(led_info);
         delay_ms(10);
-        _led_off_full(15);//*click_flags.ia);// + 30*int1_flags.ia + 5*int1_flags.zh);
+        _led_off_full(led_info);
     } else if (int1_flags.ia) {
         led_info = ( /* int1_flags.ia + */
                 15*int1_flags.xl + 45*int1_flags.xh +
@@ -278,13 +287,12 @@ static void accel_isr(void) {
         delay_ms(200);
         _led_off_full( led_info );
     } else if (int2_flags.ia) {
-        _led_on_full( 30*int2_flags.ia +
+        led_info = ( /* 30*int2_flags.ia + */
                 int2_flags.yl + 3*int1_flags.yh +
                 5*int2_flags.zl + 10*int1_flags.zh );
+        _led_on_full( led_info );
         delay_ms(200);
-        _led_off_full(30*int2_flags.ia +
-                int2_flags.yl + 3*int1_flags.yh +
-                5*int2_flags.zl + 10*int1_flags.zh);
+        _led_off_full( led_info ):
     }
 #endif  /* DEBUG_AX_ISR */
 
@@ -309,10 +317,11 @@ static void accel_isr(void) {
             accel_register_write (AX_REG_TIME_WIN, WAKEUP_CLICK_TIME_WIN);
             accel_register_write (AX_REG_TIME_LIM, WAKEUP_CLICK_TIME_LIM);
             accel_register_write (AX_REG_TIME_LAT, WAKEUP_CLICK_TIME_LAT);
-
-            _led_on_full(45);
+#if ( DEBUG_AX_ISR )
+            _led_on_full(10);
             delay_ms(100);
-            _led_off_full(45);
+            _led_off_full(10);
+#endif  /* DEBUG_AX_ISR */
         }
     };
 }
@@ -362,23 +371,25 @@ static void configure_i2c(void) {
 
 static void wait_for_up_conf( void ) {
     /* Configure interrupt to detect movement up (Z HIGH) */
-
     wake_gesture_state = WAIT_FOR_UP;
     accel_register_write ( AX_REG_CTL1,
             ( SLEEP_ODR | X_EN | Y_EN | Z_EN |
               ( BITS_PER_ACCEL_VAL == 8 ? LOW_PWR_EN : 0 ) ) );
 
-
     /* Clear FIFO by writing bypass */
     accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS );
 
     /* Enable stream to FIFO buffer mode */
-    accel_register_write (AX_REG_FIFO_CTL, STREAM_TO_FIFO );
+    accel_register_write (AX_REG_FIFO_CTL, STREAM_TO_FIFO);
     accel_register_write (AX_REG_INT1_CFG, AOI_POS | ZHIE | YHIE);
+// FIXME : this is where we set that we are waiting for ZH / YH,
+// if down was triggered based on YL, we can't wait for YH here
     accel_register_write (AX_REG_INT1_THS, Z_UP_THRESHOLD);
     accel_register_write (AX_REG_INT1_DUR, Z_UP_DUR_ODR);
+// FIXME : this isn't Z_UP_THRESHOLD because it is also use for Y
+// TODO : consider making threshold dynamic
 
-    accel_register_write (AX_REG_CTL3, I1_CLICK_EN | I1_AOI1_EN );
+    accel_register_write (AX_REG_CTL3, I1_CLICK_EN | I1_AOI1_EN);
 }
 
 static void wait_for_down_conf( void ) {
@@ -388,15 +399,18 @@ static void wait_for_down_conf( void ) {
                 ( BITS_PER_ACCEL_VAL == 8 ? LOW_PWR_EN : 0 ) ) );
 
     /* Clear FIFO by writing bypass */
-    accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS );
+    accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS);
 
     /* Enable stream to FIFO buffer mode */
-    accel_register_write (AX_REG_FIFO_CTL, STREAM_TO_FIFO );
+    accel_register_write (AX_REG_FIFO_CTL, STREAM_TO_FIFO);
 
     accel_register_write (AX_REG_INT1_THS, XY_DOWN_THRESHOLD);
     accel_register_write (AX_REG_INT1_DUR, XY_DOWN_DUR_ODR);
-    accel_register_write (AX_REG_INT1_CFG, AOI_POS | YHIE | XLIE | XHIE | YLIE | YHIE | ZLIE);
-    accel_register_write (AX_REG_CTL3, I1_CLICK_EN | I1_AOI1_EN );
+    accel_register_write (AX_REG_INT1_CFG,
+            AOI_POS | YHIE | XLIE | XHIE | YLIE | YHIE | ZLIE);
+// FIXME : this is where we wait for YL to say we have gone 'down'
+// but we may have woken up on YH, in which case we don't need to move here
+    accel_register_write (AX_REG_CTL3, I1_CLICK_EN | I1_AOI1_EN);
 }
 
 static bool accel_register_consecutive_read (uint8_t start_reg, uint8_t count,
@@ -603,37 +617,37 @@ static bool accel_register_write (uint8_t reg, uint8_t val) {
     return true;
 }
 
-static void accel_wakeup_state_refresh(void) {
-    if (click_flags.ia) {
-        wake_gesture_state = WAKE_DCLICK;
-        return;
-    }
+static bool accel_wakeup_state_refresh(void) {
+    int16_t x, y, z = 0;
+    bool wake_check_dclick = false;
+    bool wake_check_gesture = false;
 
-    if (!accel_wakeup_gesture_enabled) {
+    if (click_flags.ia) {
+        wake_check_dclick = true;
+    } else if (!accel_wakeup_gesture_enabled) {
         DISP_ERR_WAKE_1();
         /* FIXME -- this means the dclick interrupt flag
          * was not set but the interrupt for it occurred */
-        wake_gesture_state = WAKE_DCLICK;
-        return;
-    }
-
-    if ( !int1_flags.ia && !int2_flags.ia ) {
+        wake_check_dclick = true;
+    } else if (!int1_flags.ia && !int2_flags.ia) {
         DISP_ERR_WAKE_2();
-
         /* The accelerometer is in an error state (probably a timing
          * error between interrupt trigger and register read) so just
          * assume the interrupt was for what we expect based on state */
         if (!accel_wakeup_gesture_enabled) {
-            wake_gesture_state = WAKE_DCLICK;
+            wake_check_dclick = true;
         } else if (wake_gesture_state == WAIT_FOR_DOWN) {
             wait_for_up_conf();
         } else {
-            wake_gesture_state = WAKE_TURN_UP;
+#if 0       /* shouldn't we have the same accel config on wake? */
+            /* Disable AOI INT1 interrupt (leave CLICK enabled) */
+            accel_register_write (AX_REG_CTL3,  I1_CLICK_EN);
+            accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS );
+            wake_check_gesture = true;
+#endif
+            return true;
         }
-        return;
-    }
-
-    if (wake_gesture_state == WAIT_FOR_DOWN) {
+    } else if (wake_gesture_state == WAIT_FOR_DOWN) {
         if ( int1_flags.yl || int1_flags.xl || int1_flags.yh || int1_flags.xh || int1_flags.zl ) {
             wait_for_up_conf();
         } else {
@@ -643,37 +657,50 @@ static void accel_wakeup_state_refresh(void) {
     } else if (wake_gesture_state == WAIT_FOR_UP) {
         if (!int1_flags.zh && !int1_flags.yh) {
             DISP_ERR_WAKE_4();
-            wake_gesture_state = WAKE_TURN_UP;
-            return;
-        }
-
-#if ( GESTURE_FILTERS )
-        /* Read FIFO to determine if a turn-up gesture occurred */
-        read_accel_fifo();
-        if( fltr_run_gesture_filters() ) {
-            wake_gesture_state = WAKE_TURN_UP;
-        }
-
-#else   /* GESTURE_FILTERS */
-# ifdef LOG_FIFO
-        read_accel_fifo();
-# endif
-        wake_gesture_state = WAKE_TURN_UP;
-#endif  /* GESTURE_FILTERS */
-
-        if ( wake_gesture_state == WAKE_TURN_UP) {
+#if 0       /* shouldn't we have the same accel config on wake? */
             /* Disable AOI INT1 interrupt (leave CLICK enabled) */
             accel_register_write (AX_REG_CTL3,  I1_CLICK_EN);
             accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS );
+            wake_check_gesture = true;
+#endif
+            return true;
+        }
+        wake_check_gesture = true;
+    } else {
+        /* Unexpected wake_gesture_state */
+        DISP_ERR_WAKE_GEST( wake_gesture_state );
+        return true;
+    }
+
+    if ( wake_check_dclick ) {
+        /* so do we just sit here in WAKE_DCLICK */
+        accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS);
+        accel_data_read(&x, &y, &z);
+        if (z >= 12 || y >= 12) {
+            return true;
+        } else if (z > 0 && y > 0 && (z*z + y*y) >= 144) {
+            return true;
+#if ( DEBUG_AX_ISR )
+        } else {
+            _led_on_full(31);
+            delay_ms(10);
+            _led_off_full(31);
+#endif  /* DEBUG_AX_ISR */
+        }
+    } else if ( wake_check_gesture ) {
+        /* Read FIFO to determine if a turn-up gesture occurred */
+        read_accel_fifo();  // needed for LOG_FIFO & gesture_filers
+        if ((!(GESTURE_FILTERS)) || fltr_run_gesture_filters()) {
+            /* Disable AOI INT1 interrupt (leave CLICK enabled) */
+            accel_register_write (AX_REG_CTL3,  I1_CLICK_EN);
+            accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS);
+            return true;
         } else {
             /* No filter has accepted -- do not turn on */
             wait_for_down_conf();
         }
-    } else {
-        /* Unexpected wake_gesture_state */
-        DISP_ERR_WAKE_GEST( wake_gesture_state );
-        wake_gesture_state = WAKE_TURN_UP;
     }
+    return false;
 }
 
 #if ( USE_SELF_TEST )
@@ -780,29 +807,11 @@ static void read_accel_fifo( void ) {
 
 //___ F U N C T I O N S ______________________________________________________
 bool accel_wakeup_check( void ) {
-    int16_t x,y,z = 0;
-    bool should_wakeup = false;
-
 #ifdef NO_ACCEL
     return true;
+#else
+    return accel_wakeup_state_refresh();
 #endif
-
-    accel_wakeup_state_refresh();
-
-    if (wake_gesture_state == WAKE_TURN_UP) {
-        should_wakeup = true;
-    } else if (wake_gesture_state == WAKE_DCLICK) {
-        accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS );
-        accel_data_read(&x, &y, &z);
-        if (z >= 12) {
-            should_wakeup = true;
-        } else {
-            _led_on_full(31);
-            delay_ms(10);
-            _led_off_full(31);
-        }
-    }
-    return should_wakeup;
 }
 
 bool accel_data_read (int16_t *x_ptr, int16_t *y_ptr, int16_t *z_ptr) {
@@ -892,7 +901,7 @@ void accel_sleep ( void ) {
     accel_register_write (AX_REG_TIME_LAT, WAKEUP_CLICK_TIME_LAT);
 
     if (accel_wakeup_gesture_enabled) {
-        /* Configure interrupt to detect orientation down (Y LOW) */
+        /* Configure interrupt to detect orientation down */
         wait_for_down_conf();
     }
 
