@@ -208,6 +208,7 @@ asflags-gnu-y           := $(ASFLAGS)
 cflags-gnu-y            := $(CFLAGS)
 cxxflags-gnu-y          := $(CXXFLAGS)
 cppflags-gnu-y          := $(CPPFLAGS)
+time-info-flags         := $(TIME_INFO_FLAGS)
 cpuflags-gnu-y          :=
 dbgflags-gnu-y          := $(DBGFLAGS)
 libflags-gnu-y          := $(foreach LIB,$(LIBS),-l$(LIB))
@@ -399,8 +400,15 @@ rebuild: clean all
 .PHONY: objfiles
 objfiles: $(obj-y)
 
+.PHONY: force
+
+.compiler_flags : force
+	@echo '$(c_flags) $(a_flags) $(cxx_flags)' | \
+	    cmp -s - '$@' || echo '$(c_flags) $(a_flags) $(cxx_flags)' > $@
+
+
 # Create object files from C source files.
-$(build-dir)%.o: %.c $(MAKEFILE_PATH) config.mk
+$(build-dir)%.o: %.c $(MAKEFILE_PATH) .compiler_flags
 	$(Q)test -d $(dir $@) || echo $(MSG_MKDIR)
 ifeq ($(os),Windows)
 	$(Q)test -d $(patsubst %/,%,$(dir $@)) || mkdir $(subst /,\,$(dir $@))
@@ -408,10 +416,10 @@ else
 	$(Q)test -d $(dir $@) || mkdir -p $(dir $@)
 endif
 	@echo $(MSG_COMPILING)
-	$(Q)$(CC) $(c_flags) -c $< -o $@
+	$(Q)$(CC) $(c_flags) $(time-info-flags) -c $< -o $@
 
 # Create object files from C++ source files.
-$(build-dir)%.o: %.cpp $(MAKEFILE_PATH) config.mk
+$(build-dir)%.o: %.cpp $(MAKEFILE_PATH) .compiler_flags
 	$(Q)test -d $(dir $@) || echo $(MSG_MKDIR)
 ifeq ($(os),Windows)
 	$(Q)test -d $(patsubst %/,%,$(dir $@)) || mkdir $(subst /,\,$(dir $@))
@@ -419,10 +427,10 @@ else
 	$(Q)test -d $(dir $@) || mkdir -p $(dir $@)
 endif
 	@echo $(MSG_COMPILING_CXX)
-	$(Q)$(CXX) $(cxx_flags) -c $< -o $@
+	$(Q)$(CXX) $(cxx_flags) $(time-info-flags) -c $< -o $@
 
 # Preprocess and assemble: create object files from assembler source files.
-$(build-dir)%.o: %.S $(MAKEFILE_PATH) config.mk
+$(build-dir)%.o: %.S $(MAKEFILE_PATH) .compiler_flags
 	$(Q)test -d $(dir $@) || echo $(MSG_MKDIR)
 ifeq ($(os),Windows)
 	$(Q)test -d $(patsubst %/,%,$(dir $@)) || mkdir $(subst /,\,$(dir $@))
@@ -430,7 +438,7 @@ else
 	$(Q)test -d $(dir $@) || mkdir -p $(dir $@)
 endif
 	@echo $(MSG_ASSEMBLING)
-	$(Q)$(CC) $(a_flags) -c $< -o $@
+	$(Q)$(CC) $(a_flags) $(time-info-flags) -c $< -o $@
 
 # Include all dependency files to add depedency to all header files in use.
 include $(dep-files)
@@ -499,7 +507,7 @@ install: all $(target)
 chiperase:
 	$(CHIPERASE_CMD)
 
-.PHONY: secure 
+.PHONY: secure
 secure:
 	$(SSB_CMD)
 
