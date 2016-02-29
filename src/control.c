@@ -168,14 +168,14 @@ ctrl_mode_t control_modes[] = {
     {
         .tic_cb = time_set_mode_tic,
         .sleep_timeout_ticks = TIME_SET_MODE_EDITING_SLEEP_TIMEOUT_TICKS,
-    }, 
+    },
     {
         .tic_cb = selector_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(20000),
-    }, 
+    },
     {
         /* UTIL MODE #1 */
-#ifdef LOG_ACCEL
+#ifdef LOG_ACCEL_STREAM_IN_MODE_1
         .tic_cb = accel_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(1500000),
 #else
@@ -248,8 +248,8 @@ bool clock_mode_tic ( event_flags_t event_flags ) {
     if (event_flags & EV_FLAG_SLEEP) {
       goto finish;
     }
-    
-    if (MNCLICK(event_flags, 5, 6) || //set time mode 
+
+    if (MNCLICK(event_flags, 5, 6) || //set time mode
         MNCLICK(event_flags, 9, 12)) { //advanced modes
       goto finish;
     }
@@ -267,10 +267,10 @@ bool clock_mode_tic ( event_flags_t event_flags ) {
         hour = 12;
       }
     }
-    
+
     /* Enable seconds on double click */
     if (DCLICK(event_flags)) {
-      
+
       control_modes[CONTROL_MODE_SHOW_TIME].sleep_timeout_ticks = LONG_TIMEOUT_TICKS;
 
 #ifndef DISABLE_SECONDS
@@ -362,9 +362,9 @@ bool clock_mode_tic ( event_flags_t event_flags ) {
             display_comp_update_pos(min_disp_ptr, minute);
             display_comp_update_pos(hour_disp_ptr, HOUR_POS(hour));
             display_comp_update_length(hour_disp_ptr, hour_fifths + 1);
-            
+
             break;
-    
+
     }
 
     return false;
@@ -384,7 +384,7 @@ finish:
     control_modes[CONTROL_MODE_SHOW_TIME].sleep_timeout_ticks = CLOCK_MODE_SLEEP_TIMEOUT_TICKS;
 
     phase = INIT;
-    
+
     if (MNCLICK(event_flags, 5, 6)) {
         control_mode_set(CONTROL_MODE_SET_TIME);
     }
@@ -400,16 +400,16 @@ bool selector_mode_tic( event_flags_t event_flags ) {
     static display_comp_t *all_disp_ptr = NULL;
     static animation_t *mode_trans_blink = NULL;
     static uint8_t selected_mode = CONTROL_MODE_SHOW_TIME;
-    
+
     if (accel_slow_click_cnt == 0 && modeticks > MS_IN_TICKS(3000)) {
       selected_mode = CONTROL_MODE_SHOW_TIME;
       goto finish;
     }
-    
+
     if (event_flags & EV_FLAG_SLEEP) {
-      goto finish; 
+      goto finish;
     }
-    
+
     if (mode_trans_blink && anim_is_finished(mode_trans_blink)) {
         goto finish;
     }
@@ -426,21 +426,21 @@ bool selector_mode_tic( event_flags_t event_flags ) {
         display_comp_release(all_disp_ptr);
         all_disp_ptr = NULL;
       }
-    
+
       if (!selector_disp_ptr) {
         selector_disp_ptr = display_point(accel_slow_click_cnt, BRIGHT_DEFAULT);
       }
 
-      display_comp_update_pos(selector_disp_ptr, 
+      display_comp_update_pos(selector_disp_ptr,
           (accel_slow_click_cnt % (UTIL_MODE_COUNT + 1)) * 5);// * 60/UTIL_MODE_COUNT);
 
     }
-    
+
     if (event_flags & EV_FLAG_ACCEL_SLOW_CLICK_END) {
         if ((accel_slow_click_cnt % (UTIL_MODE_COUNT + 1)) == 0) {
           /* There is not control mode 0, so if they end
            * there just go to control mode 1 */
-          selected_mode = UTIL_CTRL_MODE(1); 
+          selected_mode = UTIL_CTRL_MODE(1);
         } else {
           selected_mode = UTIL_CTRL_MODE(accel_slow_click_cnt);
         }
@@ -449,9 +449,9 @@ bool selector_mode_tic( event_flags_t event_flags ) {
               BLINK_INT_MED, MS_IN_TICKS(1200), false);
         }
     }
-          
+
     return false;
-    
+
 finish:
     display_comp_release(selector_disp_ptr);
     display_comp_release(all_disp_ptr);
@@ -459,9 +459,9 @@ finish:
     selector_disp_ptr = NULL;
     all_disp_ptr = NULL;
     mode_trans_blink = NULL;
-    
+
     control_mode_set(selected_mode);
-    
+
     /* Reset selected mode to default */
     selected_mode = CONTROL_MODE_SHOW_TIME;
 
@@ -481,11 +481,11 @@ bool sparkle_mode_tic( event_flags_t event_flags ) {
         display_ptr = display_point(0, BRIGHT_DEFAULT);
         anim_ptr = anim_random(display_ptr, MS_IN_TICKS(15), ANIMATION_DURATION_INF, false);
     }
-    
+
     if (MNCLICK(event_flags, 4, 20)) {
         ctrl_mode_active->sleep_timeout_ticks = INF_TIMEOUT_TICKS;
     }
-    
+
     if ( event_flags & EV_FLAG_SLEEP ||
         DCLICK(event_flags)) {
 
@@ -512,7 +512,7 @@ bool swirl_mode_tic( event_flags_t event_flags ) {
     if (!anim_ptr) {
         anim_ptr = anim_swirl(0, 5, MS_IN_TICKS(16), 5000000, true);
     }
-    
+
     if (MNCLICK(event_flags, 4, 20)) {
         ctrl_mode_active->sleep_timeout_ticks = INF_TIMEOUT_TICKS;
     }
@@ -544,18 +544,18 @@ bool ee_mode_tic ( event_flags_t event_flags ) {
     if ( event_flags & EV_FLAG_SLEEP ) {
       goto finish;
     }
-        
+
     if (phase == SELECTING) {
         if (!display_comp) {
             display_comp = display_point(selection, BRIGHT_DEFAULT);
-        } 
-        
+        }
+
         display_comp_update_pos(display_comp, accel_slow_click_cnt % 60);
 
         if ((event_flags & EV_FLAG_ACCEL_SLOW_CLICK_END) ||
              (accel_slow_click_cnt == 0 && modeticks > MS_IN_TICKS(3000) )) {
             selection = accel_slow_click_cnt;
-            phase = BLINKING; 
+            phase = BLINKING;
             if (!anim) {
                 anim = anim_blink(display_comp, BLINK_INT_FAST, MS_IN_TICKS(800), false);
             }
@@ -573,7 +573,7 @@ bool ee_mode_tic ( event_flags_t event_flags ) {
         anim = NULL;
         main_inactivity_timeout_reset();
         set_ee_sleep_timeout(EE_MODE_SLEEP_TIMEOUT_TICKS);
-   
+
         /* Setup EE depending on code */
         switch (selection) {
             case 1:
@@ -689,7 +689,7 @@ bool ee_mode_tic ( event_flags_t event_flags ) {
                 disp_vals[6] =  0;
                 disp_vals[7] =  0;
                 disp_vals[8] =  0;
-                
+
                 ee_submode_tic = digit_disp_mode_tic;
                 break;
 //cipher:BBB@EMXHBRL@FLJ@JTBOLRUXXZE
@@ -1300,16 +1300,16 @@ finish:
         display_comp = NULL;
     }
 
-    
+
     /* Give submode tic a chance to cleanup as well */
     if (ee_submode_tic) ee_submode_tic(event_flags);
 
     ee_submode_tic = NULL;
     phase = SELECTING;
-    
+
     set_ee_sleep_timeout(EE_MODE_SLEEP_TIMEOUT_TICKS);
     control_mode_set(CONTROL_MODE_SHOW_TIME);
-    
+
     return true;
 }
 bool accel_mode_tic ( event_flags_t event_flags ) {
@@ -1319,7 +1319,7 @@ bool accel_mode_tic ( event_flags_t event_flags ) {
     static animation_t *anim_ptr;
     int16_t x,y,z;
     static uint32_t last_update_ms = 0;
-#ifdef LOG_ACCEL
+#ifdef LOG_ACCEL_STREAM_IN_MODE_1
     uint8_t delta_time = 0;
     uint32_t log_data;
 #endif
@@ -1344,7 +1344,7 @@ bool accel_mode_tic ( event_flags_t event_flags ) {
     if (main_get_waketime_ms() - last_update_ms < 10) {
         return false;
     }
-#ifdef LOG_ACCEL
+#ifdef LOG_ACCEL_STREAM_IN_MODE_1
     delta_time = main_get_waketime_ms() - last_update_ms;
 #endif
     last_update_ms = main_get_waketime_ms();
@@ -1355,7 +1355,7 @@ bool accel_mode_tic ( event_flags_t event_flags ) {
     }
 
     if (!disp_x) {
-        disp_x = display_point(20, BRIGHT_MED_LOW);//, 1);
+     //   disp_x = display_point(20, BRIGHT_MED_LOW);//, 1);
      //   disp_y = display_point(40, BRIGHT_MED_LOW);//, 1);
      //   disp_z = display_point(0, BRIGHT_MED_LOW);//, 1);
     }
@@ -1369,7 +1369,7 @@ bool accel_mode_tic ( event_flags_t event_flags ) {
         return false;
     }
 
-#ifdef LOG_ACCEL
+#ifdef LOG_ACCEL_STREAM_IN_MODE_1
     /* log x and z values for now with timestamp */
     log_data = ( delta_time & 0xff ) << 24 \
             | (((int8_t) x) << 16 & 0x00ff0000) \
@@ -1392,8 +1392,8 @@ bool accel_mode_tic ( event_flags_t event_flags ) {
 //    display_relative( disp_x, 20, x );
 //    display_relative( disp_y, 40, y );
 //    display_relative( disp_z, 0, z );
-    
-    display_comp_update_pos(disp_x, 20 + x);
+
+    //display_comp_update_pos(disp_x, 20 + x);
     //display_comp_update_pos(disp_y, 40 + y);
     //display_comp_update_pos(disp_z, z);
     return false;
@@ -1466,7 +1466,7 @@ bool vbatt_sense_mode_tic ( event_flags_t event_flags ) {
             adc_pt = NULL;
         }
         control_mode_set(CONTROL_MODE_SHOW_TIME);
-        return true; 
+        return true;
     }
 
     /* don't actually read vbatt sensor
@@ -1496,11 +1496,11 @@ bool time_set_mode_tic ( event_flags_t event_flags ) {
 
 
     if ( event_flags & EV_FLAG_SLEEP ||
-         DCLICK(event_flags) || 
+         DCLICK(event_flags) ||
          (!is_editing && (modeticks > TIME_SET_MODE_NOEDIT_SLEEP_TIMEOUT_TICKS ))) {
       goto finish;
     }
-    
+
     if (modeticks < 500) {
         /* Pause briefly with the display off to indicate
          * entrance into time setting mode */
@@ -1546,9 +1546,9 @@ bool time_set_mode_tic ( event_flags_t event_flags ) {
 
     if (!is_editing) return false;
 
-    /* Ensure main inactivity timeout is not triggered when editing */ 
+    /* Ensure main inactivity timeout is not triggered when editing */
     main_inactivity_timeout_reset();
-   
+
     new_minute_pos = utils_spin_tracker_update();
 
     if (new_minute_pos == minute) {
@@ -1565,7 +1565,7 @@ bool time_set_mode_tic ( event_flags_t event_flags ) {
             return false;
         }
     } else {
-        
+
         timeout = 0;
         /* Check if hour should be incremented or decremented */
         if (new_minute_pos < minute) {
@@ -1607,9 +1607,9 @@ finish:
     }
     is_editing = false;
     utils_spin_tracker_end();
- 
+
     control_mode_set(CONTROL_MODE_SHOW_TIME);
-    return true; 
+    return true;
 }
 
 static bool toggle_pref_mode_tic( event_flags_t event_flags, bool *pref_ptr ) {
@@ -1624,16 +1624,16 @@ static bool toggle_pref_mode_tic( event_flags_t event_flags, bool *pref_ptr ) {
 
         display_comp_release(on_disp_ptr);
         display_comp_release(off_disp_ptr);
-        on_disp_ptr = off_disp_ptr = NULL; 
-         
+        on_disp_ptr = off_disp_ptr = NULL;
+
         control_mode_set(CONTROL_MODE_SHOW_TIME);
-        return true; 
+        return true;
     }
 
     if (main_get_waketime_ms() - last_update_ms < 20) {
         return false;
     }
-    
+
     x = y = z = 0;
     accel_data_read(&x, &y, &z);
     last_update_ms = main_get_waketime_ms();
@@ -1641,8 +1641,8 @@ static bool toggle_pref_mode_tic( event_flags_t event_flags, bool *pref_ptr ) {
 //    if (SCLICK(event_flags)) {
 //        *pref_ptr = !(*pref_ptr);
 //    }
-     
-        
+
+
     /* Update our y orientation counter */
     if (y < -12) { //12 oclock down
         if (y_ctr > 0) {
@@ -1650,14 +1650,14 @@ static bool toggle_pref_mode_tic( event_flags_t event_flags, bool *pref_ptr ) {
         } else {
             y_ctr--;
         }
-    } else if (y > 12) { //6 oclock down 
+    } else if (y > 12) { //6 oclock down
         if (y_ctr < 0) {
             y_ctr=1;
         } else {
             y_ctr++;
         }
     }
-    
+
     if (y_ctr >= 10) {
         *pref_ptr = false;
     } else if (y_ctr <= -10) {
@@ -1666,7 +1666,7 @@ static bool toggle_pref_mode_tic( event_flags_t event_flags, bool *pref_ptr ) {
 
     if (*pref_ptr) {
         if (off_disp_ptr) display_comp_hide(off_disp_ptr);
-        
+
         if (!on_disp_ptr) {
             on_disp_ptr = display_line(59, BRIGHT_MED_LOW, 3);
         }
@@ -1675,7 +1675,7 @@ static bool toggle_pref_mode_tic( event_flags_t event_flags, bool *pref_ptr ) {
 
     } else {
         if (on_disp_ptr) display_comp_hide(on_disp_ptr);
-        
+
         if (!off_disp_ptr) {
             off_disp_ptr = display_point(30, BRIGHT_MED_LOW);
         }
@@ -1696,16 +1696,16 @@ bool seconds_enable_toggle_mode_tic ( event_flags_t event_flags ) {
 
 bool deep_sleep_enable_mode_tic( event_flags_t event_flags ) {
     static display_comp_t *disp_ptr = NULL;
-    
+
     if (!disp_ptr) {
       /* Display a polygon 'warning' sign */
       disp_ptr = display_polygon(10, BRIGHT_DEFAULT, 3);
     }
-    
+
     if (DEFAULT_MODE_TRANS_CHK(event_flags))  {
         goto finish;
     }
-    
+
     if (NCLICK(event_flags, 5) || NCLICK(event_flags, 6)) {
         main_deep_sleep_enable();
         goto finish;
@@ -1750,7 +1750,7 @@ bool tick_counter_mode_tic ( event_flags_t event_flags ) {
         }
 
         control_mode_set(CONTROL_MODE_SHOW_TIME);
-        return true; 
+        return true;
     }
 
     if (!sec_disp_ptr)
@@ -1879,7 +1879,7 @@ void control_mode_set( uint8_t mode_index) {
       mode_index = 0;
   }
   ctrl_mode_active = control_modes + mode_index;
-  
+
   accel_events_clear();
 }
 
@@ -1899,4 +1899,3 @@ void control_tic( event_flags_t ev_flags) {
 void control_init( void ) {
   ctrl_mode_active = control_modes;
 }
-

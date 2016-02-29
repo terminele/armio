@@ -120,8 +120,8 @@
 #define SLEEP_SAMPLE_INT   SAMPLE_INT_100HZ
 
 /* parameters for ST sleep-to-wake/return-to-sleep functionality */
-#define DEEP_SLEEP_THS      2
-#define DEEP_SLEEP_DUR       MS_TO_ODRS(1000, SLEEP_SAMPLE_INT)
+#define DEEP_SLEEP_THS      4
+#define DEEP_SLEEP_DUR      MS_TO_ODRS(1000, SLEEP_SAMPLE_INT)
 
 #define WAKEUP_CLICK_THS            47 /* assumes 4g scale */
 #define WAKEUP_CLICK_TIME_WIN      MS_TO_ODRS(400, SLEEP_SAMPLE_INT)
@@ -219,10 +219,9 @@ static bool accel_register_consecutive_read (uint8_t start_reg,
 
 static bool accel_register_write (uint8_t reg, uint8_t val);
 
-/* Configuration functions for wakeup gesture recognition */
 static void wait_state_conf( wake_gesture_state_t wait_state );
   /* @brief configure the interrupts to detect movement into orientations of
-   *        interest
+   *        interest, used for gesture wake
    * @param the state that we want to wait for
    * @retrn None
    */
@@ -288,7 +287,7 @@ static void accel_isr(void) {
     } else if (int1_flags.ia) {
         led_info = ( /* int1_flags.ia + */
                 15*int1_flags.xl + 45*int1_flags.xh +
-                 1*int1_flags.yl + 31*int1_flags.yh +
+                 0*int1_flags.yl + 31*int1_flags.yh +
                 23*int1_flags.zl + 52*int1_flags.zh );
         _led_on_full( led_info );
         delay_ms(200);
@@ -373,8 +372,8 @@ static void configure_i2c(void) {
 }
 
 static void wait_state_conf( wake_gesture_state_t wait_state ) {
-    uint8_t duration_odr = 0;
-    uint8_t threshold = 0;
+    uint8_t duration_odr = 0;   /* 1 LSb = 1 / ODR = Number of FIFO samples */
+    uint8_t threshold = 0;      /* 1 LSb = 32 mg @ FS = 4g */
     uint8_t directions = ( XLIE | XHIE | YLIE | YHIE | ZLIE | ZHIE );
     if (wait_state == WAIT_FOR_DOWN) {
         directions = (XLIE | XHIE | YLIE | ZLIE);

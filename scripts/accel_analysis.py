@@ -18,6 +18,7 @@ TICKS_PER_MS = 1
 SAMPLE_INT_MS = 10
 rejecttime = 0
 args = None
+SLEEP_SAMPLE_PERIOD = 10        # ms, 100 Hz
 
 REJECT, PASS, ACCEPT = range( 3 )
 
@@ -1227,19 +1228,18 @@ class WakeSample( object ):
             self.uid, self.accepted, self.confirmed,
             self.xsum_n, self.ysum_n, self.dzN ) )
         ax.grid()
-        t = range( len( self.xs ) )
-        x_line = plt.Line2D( t, self.xs, color='r', marker='o' )
-        y_line = plt.Line2D( t, self.ys, color = 'g', marker='o' )
-        z_line = plt.Line2D( t, self.zs, color = 'b', marker='o' )
-        ax.add_line( x_line )
-        ax.add_line( y_line )
-        ax.add_line( z_line )
-        plt.figlegend( ( x_line, y_line, z_line ), ( "x", "y", "z" ),
-                "upper right" )
-        ax.set_xlim( [0, len(xs)] )
-        ax.set_ylim( [-60, 60] )
-        plt.xlabel( "1 / Output Data Rate" )
-        plt.ylabel( "1/32 * g's for +/-4g" )
+        t =  [SLEEP_SAMPLE_PERIOD*i for i in range(len(self.xs))]
+        x_line = plt.Line2D(t, self.xs, color='r', marker='o')
+        y_line = plt.Line2D(t, self.ys, color = 'g', marker='o')
+        z_line = plt.Line2D(t, self.zs, color = 'b', marker='o')
+        ax.add_line(x_line)
+        ax.add_line(y_line)
+        ax.add_line(z_line)
+        plt.figlegend((x_line, y_line, z_line), ("x", "y", "z"), "upper right")
+        ax.set_xlim([SLEEP_SAMPLE_PERIOD*-0.1, SLEEP_SAMPLE_PERIOD*(len(xs-1)+0.1)])
+        ax.set_ylim([-60, 60])
+        plt.xlabel("ms (ODR = {} Hz)".format(1000/SLEEP_SAMPLE_PERIOD))
+        plt.ylabel("1/32 * g's for +/-4g")
         plt.show()
 
     def export_csv( self ):
@@ -1265,6 +1265,7 @@ def analyze_streamed( fname, plot=True ):
             ys = []
             zs = []
             mag = []
+            nvals = 0
             while binval:
                 if struct.unpack ("<I", binval)[0] == 0xffffffff:
                     break
@@ -1278,16 +1279,20 @@ def analyze_streamed( fname, plot=True ):
                 zs.append( z )
                 mag.append( ( x**2 + y**2 + z**2 )**0.5 )
                 log.debug("{}\t{}\t{}\t{}".format(t, x, y, z))
+                nvals += 1
 
                 binval = fh.read(4)
+            log.info("read {} values".format(nvals))
 
             if plot:
                 plt.plot(ts, xs, 'r-', label='x')
                 plt.plot(ts, ys, 'g-', label='y')
                 plt.plot(ts, zs, 'b-', label='z')
-                plt.plot( ts, mag, 'k-', label="mag" )
+                plt.plot(ts, mag, 'k-', label="mag")
                 plt.legend()
                 plt.show()
+            else:
+                log.info("Suppressing plot... use '--plot' option")
             return ts, xs, ys, zs
     except OSError as e:
         log.error( "Unable to open file '{}': {}".format(fname, e) )
