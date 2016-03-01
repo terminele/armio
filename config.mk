@@ -371,8 +371,10 @@ endif
 
 ifdef log_usage 
     CPPFLAGS += -D LOG_USAGE=true
+    PREBUILD_CMD += touch src/main.c;
 else
     CPPFLAGS += -D LOG_USAGE=false
+    PREBUILD_CMD += touch src/main.c;
 endif
 
 ifdef self_test
@@ -391,11 +393,7 @@ ifdef rtc_cal
     PREBUILD_CMD += touch src/utils.c; touch src/main.c; touch src/conf/conf_clocks.h; touch src/asf/asf.h;
     TARGET_FLASH = bin/armio_rtc_cal_flash.elf
     TARGET_SRAM = bin/armio_rtc_cal_sram.elf
-    $(warning !####!!!####!!!!!!!REBUILD ALL before installing regular program )
-    $(warning !####!!!####!!!!!!!REBUILD ALL before installing regular program )
-    $(warning !####!!!####!!!!!!!REBUILD ALL before installing regular program )
-    $(warning !####!!!####!!!!!!!REBUILD ALL before installing regular program )
-    $(warning !####!!!####!!!!!!!REBUILD ALL before installing regular program )
+    POSTBUILD_CMD += touch Makefile; #ensure everything gets rebuilt on next compile
 endif
 # Extra flags to use when linking
 LDFLAGS =

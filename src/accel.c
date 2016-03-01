@@ -687,6 +687,7 @@ static void accel_wakeup_state_refresh(void) {
      * is facing outward and the y-movement was not 
      * deliberate enough */
     if (y < -5 && ABS(csums[Y_SUM_N][1]) < Y_SUM_THS_HIGH) {
+      main_nvm_data.filtered_gestures++;
       wait_for_down_conf();
       return;
     }
@@ -709,8 +710,8 @@ static void accel_wakeup_state_refresh(void) {
       /* "Facing inwards" filter */
       _DISP_INFO(30);
       wake_gesture_state = WAKE_TURN_UP;
-    } else if (csums[31][1] - csums[26][1] > 20 ||
-               csums[31][1] - csums[22][1]){ //overshoot towards body 
+    } else if (csums[31][1] - csums[26][1] > 20 ) {//||
+               //csums[31][1] - csums[22][1]){ //overshoot towards body 
       wake_gesture_state = WAKE_TURN_UP;
     } else if (ABS(csums[Y_SUM_N][1]) + ABS(csums[X_SUM_N][0]) > XY_SUM_THS){
       wake_gesture_state = WAKE_TURN_UP;
@@ -727,6 +728,7 @@ static void accel_wakeup_state_refresh(void) {
       accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS );
 
     } else {
+      main_nvm_data.filtered_gestures++;
       wait_for_down_conf();
     }
   } else {
@@ -861,6 +863,7 @@ bool accel_wakeup_check( void ) {
     if (z >= 12) {
       should_wakeup = true;
     } else {
+      main_nvm_data.filtered_dclicks++;
       _led_on_full(31);
       delay_ms(10);
       _led_off_full(31);

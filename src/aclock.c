@@ -45,7 +45,7 @@ static struct rtc_calendar_alarm_time alarm;
 
 #ifdef USE_WAKEUP_ALARM
 
-void rtc_alarm_short_callback( void ) {
+static void rtc_alarm_short_callback( void ) {
 
     aclock_enable();
 
@@ -58,6 +58,57 @@ void rtc_alarm_short_callback( void ) {
 }
 
 #endif
+
+static int32_t calc_timestamp(uint16_t year, uint8_t month, uint8_t day, 
+    uint8_t hour, uint8_t minute, uint8_t second, bool pm) {
+
+#define SECONDS_PER_DAY 86400
+#define SECONDS_PER_YEAR SECONDS_PER_DAY*365
+  int32_t value = ((uint32_t)year - 1970)*SECONDS_PER_YEAR;
+
+  //account for extra day in leap years
+  value += (((uint32_t)(year - 1970)/4)*SECONDS_PER_DAY);
+
+  switch (month) {
+    /* Each case accounts for the days of
+     * the previous month */
+    case 12:
+      value+=SECONDS_PER_DAY*30;
+    case 11://30
+      value+=SECONDS_PER_DAY*31;
+    case 10://31
+      value+=SECONDS_PER_DAY*30;
+    case 9://30
+      value+=SECONDS_PER_DAY*31;
+    case 8://31
+      value+=SECONDS_PER_DAY*31;
+    case 7://31
+      value+=SECONDS_PER_DAY*30;
+    case 6://30
+      value+=SECONDS_PER_DAY*31;
+    case 5://31
+      value+=SECONDS_PER_DAY*30;
+    case 4://30
+      value+=SECONDS_PER_DAY*31;
+    case 3://31
+      //NOTE: leap year day accounted above for this year too
+      value+=SECONDS_PER_DAY*28;
+    case 2:
+      value+=SECONDS_PER_DAY*31;
+    case 1://31
+      break;
+    default:
+      break;
+  }
+
+  value+=((uint32_t)day*SECONDS_PER_DAY);
+  hour = hour % 12; //12am/pm should be 0 for below calculation
+  value+=((uint32_t)hour + (pm ? 12 : 0))*3600;
+  value+=((uint32_t)minute*60);
+  value+=second;
+
+  return value;
+}
 
 //___ F U N C T I O N S ______________________________________________________
 
@@ -116,8 +167,6 @@ int32_t aclock_get_timestamp ( void ) {
     * RTC datatime.  May be wrong, but hey
     * this isnt a critical application */
 
-#define SECONDS_PER_DAY 86400
-#define SECONDS_PER_YEAR SECONDS_PER_DAY*365
   RTC->MODE2.READREQ.reg = RTC_READREQ_RREQ;
   while (rtc_calendar_is_syncing(&rtc_instance));
   struct rtc_calendar_time curr_time;
@@ -129,50 +178,23 @@ int32_t aclock_get_timestamp ( void ) {
   aclock_state.minute = curr_time.minute;
   aclock_state.second = curr_time.second;
   aclock_state.pm = curr_time.pm;
+  
+  return calc_timestamp(aclock_state.year, aclock_state.month, aclock_state.day,
+      aclock_state.hour, aclock_state.minute, aclock_state.second, aclock_state.pm);
 
-  int32_t value = ((uint32_t)aclock_state.year - 1970)*SECONDS_PER_YEAR;
+}
 
-  //account for extra day in leap years
-  value += ((uint32_t)(aclock_state.year - 1970)/4)*SECONDS_PER_DAY;
+int32_t aclock_get_timestamp_relative( void ) {
+  /* Get the current timestamp as the number of seconds elapsed
+   * since startdate (startdate is stored in flash) */
+  
+  int32_t startdate_ts = calc_timestamp(main_nvm_data.year, main_nvm_data.month,
+      main_nvm_data.day, main_nvm_data.hour, main_nvm_data.minute, main_nvm_data.second, 
+      main_nvm_data.pm);
 
-  switch (aclock_state.month) {
-    /* Each case accounts for the days of
-     * the previous month */
-    case 12:
-      value+=SECONDS_PER_DAY*30;
-    case 11://30
-      value+=SECONDS_PER_DAY*31;
-    case 10://31
-      value+=SECONDS_PER_DAY*30;
-    case 9://30
-      value+=SECONDS_PER_DAY*31;
-    case 8://31
-      value+=SECONDS_PER_DAY*31;
-    case 7://31
-      value+=SECONDS_PER_DAY*30;
-    case 6://30
-      value+=SECONDS_PER_DAY*31;
-    case 5://31
-      value+=SECONDS_PER_DAY*30;
-    case 4://30
-      value+=SECONDS_PER_DAY*31;
-    case 3://31
-      //NOTE: leap year day accounted above for this year too
-      value+=SECONDS_PER_DAY*28;
-    case 2:
-      value+=SECONDS_PER_DAY*31;
-    case 1://31
-      break;
-    default:
-      break;
-  }
-
-  value+=((uint32_t)aclock_state.day)*SECONDS_PER_DAY;
-  value+=((uint32_t)aclock_state.hour + aclock_state.pm ? 12 : 0)*3600;
-  value+=((uint32_t)aclock_state.minute)*60;
-  value+=aclock_state.second;
-
-  return value;
+  int32_t curr_ts = aclock_get_timestamp();
+  
+  return curr_ts - startdate_ts;
 }
 
 void aclock_disable ( void ) {

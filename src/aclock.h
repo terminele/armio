@@ -52,6 +52,12 @@ int32_t aclock_get_timestamp ( void );
    * @retrn unix time
    */
 
+int32_t aclock_get_timestamp_relative( void );
+  /* @brief Get the current timestamp as the number of seconds elapsed
+   * since startdate (startdate is stored in flash) 
+   * @return relative timestamp
+   */
+  
 void aclock_get_time( uint8_t* hour_ptr, uint8_t* minute_ptr, uint8_t* second_ptr);
   /* @brief get current time
    * @param user-provided ptrs to be filled

@@ -36,16 +36,6 @@
       (ev_flags != EV_FLAG_NONE && \
         ev_flags != EV_FLAG_ACCEL_DOWN)
 
-#if LOG_USAGE
-  #define LOG_WAKEUP() \
-    log_vbatt(true)
-  #define LOG_SLEEP() \
-    log_vbatt(false)
-#else
-  #define LOG_WAKEUP()
-  #define LOG_SLEEP()
-#endif
-
 #define IS_LOW_BATT(vbatt_adc_val) \
   ((vbatt_adc_val >> 4) < 2600) //~2.5v
 
@@ -240,15 +230,34 @@ static void config_main_tc( void ) {
 }
 
 #if LOG_USAGE
-static void log_vbatt (bool wakeup) {
+static void log_usage ( void ) {
   /* Log current vbatt with timestamp */
-  int32_t time = aclock_get_timestamp();
-  uint32_t data = (wakeup ? 0xBEEF0000 : 0xDEAD0000);
-  //main_set_current_sensor(sensor_vbatt);
-  //main_start_sensor_read();
-  //data+=main_read_current_sensor(true);
-  data+=main_gs.vbatt_sensor_adc_val;
-  main_log_data((uint8_t *)&time, sizeof(time), true);
+  int32_t reltime = aclock_get_timestamp_relative();
+  /* We'll assume the relative timestamp is less than 2^24 seconds
+   * (about 194 days) to be able to pack data into 4 bytes */
+  
+  uint32_t data = (reltime << 8) & 0xffffff00; 
+  
+  /* log vbatt.  vbatt is a 16-bit averaged value
+   * of 12-bit reads.  First decimate downt to a 12-bit val */
+  uint16_t vbatt_val = main_gs.vbatt_sensor_adc_val >> 4;
+  
+  /* Now, record as an 8-bit value representing the offset 
+   * from 2048 (~2v) */
+  if (vbatt_val <= 2048) {
+    vbatt_val = 0;
+  } else {
+    vbatt_val-=2048;
+   
+    /* Now decimate down to 8-bit value */
+    if (vbatt_val >= 1024) {
+      vbatt_val = 255;
+    } else {
+      vbatt_val>>=2;
+    }
+  }
+
+  data+=(vbatt_val & 0x000000ff);
   main_log_data((uint8_t *)&data, sizeof(data), true);
 }
 #endif
@@ -275,8 +284,6 @@ static void setup_clock_pin_outputs( void ) {
 #endif
 
 static void prepare_sleep( void ) {
-  LOG_SLEEP();
-  
   wdt_disable();
 
   if (light_vbatt_sens_adc.hw) {
@@ -340,8 +347,16 @@ static void wakeup (void) {
   port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, false);
 #endif
 
+#if LOG_USAGE
+#ifndef USAGE_LOG_PERIOD 
+#define USAGE_LOG_PERIOD 20
+#endif
 
-  LOG_WAKEUP();
+  if (main_nvm_data.lifetime_wakes % USAGE_LOG_PERIOD == 0) {
+    log_usage();
+  }
+#endif
+
 }
 
 /* 'wakestamps' are used to keep track of wakeup check times.
@@ -383,7 +398,11 @@ static bool wakeup_check( void ) {
 #endif
 
   if (!main_gs.deep_sleep_mode) {
-    return accel_wakeup_check();
+    if (accel_wakeup_check()) {
+      return true;
+    } else {
+      return false;
+    }
   }
 
   
@@ -492,9 +511,12 @@ static void main_tic( void ) {
         
         /* Update and store lifetime usage data */
 #ifdef LOG_LIFETIME_USAGE
+#ifndef LIFETIME_USAGE_PERIOD
+#define LIFETIME_USAGE_PERIOD 30
+#endif
         main_nvm_data.lifetime_wakes++;
         main_nvm_data.lifetime_ticks+=main_gs.waketicks;
-        if (main_nvm_data.lifetime_wakes % 100 == 1) {
+        if (main_nvm_data.lifetime_wakes % LIFETIME_USAGE_PERIOD == 1) {
           /* Only update buffer once every 100 wakes to extend
            * lifetime of the NVM -- may fail after 100k writes */
           nvm_update_buffer(NVM_DATA_ADDR, (uint8_t *) &main_nvm_data, 0,
@@ -662,6 +684,14 @@ static void main_init( void ) {
 
   if (main_nvm_data.lifetime_wakes == 0xffffffff) {
       main_nvm_data.lifetime_wakes = 0; 
+  }
+  
+  if (main_nvm_data.filtered_gestures == 0xffffffff) {
+      main_nvm_data.filtered_gestures = 0; 
+  }
+ 
+  if (main_nvm_data.filtered_dclicks == 0xffffffff) {
+      main_nvm_data.filtered_dclicks = 0; 
   }
   
   if (main_nvm_data.lifetime_ticks == 0xffffffff) {
@@ -902,8 +932,6 @@ int main (void) {
 #endif
 
   configure_wdt();
-
-  LOG_WAKEUP();
 
   /* Show a startup LED swirl */
 #ifdef SPARKLE_FOREVER_MODE

@@ -65,6 +65,8 @@ typedef struct {
      */
     int8_t rtc_freq_corr; 
     uint32_t lifetime_wakes; 
+    uint32_t filtered_gestures; 
+    uint32_t filtered_dclicks; 
     uint32_t lifetime_ticks;
     uint32_t lifetime_resets;
     uint16_t wdt_resets;
