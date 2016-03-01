@@ -54,7 +54,7 @@
  * because of the watch orientation */
 
 #ifndef DOWN_TRIG_ON_YZ_HIGH
-# define DOWN_TRIG_ON_YZ_HIGH false
+# define DOWN_TRIG_ON_YZ_HIGH true
 #endif
 /* Do we allow a 'down' event to trigger with y or z high? */
 
@@ -418,8 +418,19 @@ static void wait_state_conf( wake_gesture_state_t wait_state ) {
     accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS);
 
     if (wait_state == WAIT_FOR_DOWN) {
-        directions = (XLIE | XHIE | YLIE | ZLIE);
+        duration_odr = MS_TO_ODRS(50, SLEEP_SAMPLE_INT);
+        threshold = 20; /* we want something in the 1/3 g range which seems
+                           like around 10 would work best documentation is
+                           'wrong', we got this value from trial and error
+                           with make flag accel_debug=true */
+    } else if (wait_state == WAIT_FOR_UP) {
+        /* NOTE: changing DURATION_ODR | THRESHOLD changes wake events signature */
+        duration_odr = MS_TO_ODRS(50, SLEEP_SAMPLE_INT);
+        threshold = 20;
+    }
 #if ( DOWN_TRIG_ON_YZ_HIGH )
+    if (wait_state == WAIT_FOR_DOWN) {
+        directions = (XLIE | XHIE | YLIE | ZLIE);
         accel_data_read(&x, &y, &z);
         /* read xyz, if y/z < THS enable y/z */
         if( y < 5 ) {
@@ -428,28 +439,22 @@ static void wait_state_conf( wake_gesture_state_t wait_state ) {
         if( z < 5 ) {
             directions |= ZHIE;
         }
-#endif
-        duration_odr = MS_TO_ODRS(50, SLEEP_SAMPLE_INT);
-        threshold = 20; /* we want something in the 1/3 g range which seems
-                           like around 10 would work best documentation is
-                           'wrong', we got this value from trial and error
-                           with make flag accel_debug=true */
     } else if (wait_state == WAIT_FOR_UP) {
-        /* NOTE: changing DURATION_ODR | THRESHOLD changes wake events signature */
-        duration_odr = MS_TO_ODRS(130, SLEEP_SAMPLE_INT);
-        threshold = 20;
-#if ( DOWN_TRIG_ON_YZ_HIGH )
         if (int1_flags.yh) {
             directions = (ZHIE | (XLIE | XHIE | YLIE | ZLIE));
         } else if (int1_flags.zh) {
             directions = (YHIE | (XLIE | XHIE | YLIE | ZLIE));
-        } else if (int1_flags.xl || int1_flags.xh || int1_flags.yl || int1_flags.zl) {
+        } else {
             directions = (ZHIE | YHIE);
         }
-#else   /* DOWN_TRIG_ON_YZ_HIGH */
-        directions = (ZHIE | YHIE);
-#endif  /* DOWN_TRIG_ON_YZ_HIGH */
     }
+#else   /* DOWN_TRIG_ON_YZ_HIGH */
+    if (wait_state == WAIT_FOR_DOWN) {
+        directions = (XLIE | XHIE | YLIE | ZLIE);
+    } else if (wait_state == WAIT_FOR_UP) {
+        directions = (ZHIE | YHIE);
+    }
+#endif  /* DOWN_TRIG_ON_YZ_HIGH */
 
     /* Enable stream to FIFO buffer mode */
     accel_register_write (AX_REG_FIFO_CTL, STREAM_TO_FIFO);
@@ -724,8 +729,9 @@ static bool accel_wakeup_state_refresh(void) {
             accel_register_write (AX_REG_CTL3,  I1_CLICK_EN);
             accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS);
             return true;
+        } else if ( DOWN_TRIG_ON_YZ_HIGH ) {
+            wait_state_conf( WAIT_FOR_UP );
         } else {
-            /* No filter has accepted -- do not turn on */
             wait_state_conf( WAIT_FOR_DOWN );
         }
     }
