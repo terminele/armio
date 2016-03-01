@@ -1228,7 +1228,7 @@ class WakeSample( object ):
             self.uid, self.accepted, self.confirmed,
             self.xsum_n, self.ysum_n, self.dzN ) )
         ax.grid()
-        t =  [SLEEP_SAMPLE_PERIOD*i for i in range(len(self.xs))]
+        t =  [SLEEP_SAMPLE_PERIOD*(i+0.5) for i in range(len(self.xs))]
         x_line = plt.Line2D(t, self.xs, color='r', marker='o')
         y_line = plt.Line2D(t, self.ys, color = 'g', marker='o')
         z_line = plt.Line2D(t, self.zs, color = 'b', marker='o')
@@ -1236,7 +1236,7 @@ class WakeSample( object ):
         ax.add_line(y_line)
         ax.add_line(z_line)
         plt.figlegend((x_line, y_line, z_line), ("x", "y", "z"), "upper right")
-        ax.set_xlim([SLEEP_SAMPLE_PERIOD*-0.5, SLEEP_SAMPLE_PERIOD*(len(self.xs)-0.5)])
+        ax.set_xlim([0, SLEEP_SAMPLE_PERIOD*(len(self.xs))])
         ax.set_ylim([-60, 60])
         plt.xlabel("ms (ODR = {} Hz)".format(1000/SLEEP_SAMPLE_PERIOD))
         plt.ylabel("1/32 * g's for +/-4g")
