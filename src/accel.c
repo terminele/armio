@@ -59,7 +59,7 @@
 /* Do we allow a 'down' event to trigger with y or z high? */
 
 #ifndef USE_PCA_LDA_FILTERS
-#define USE_PCA_LDA_FILTERS true
+#define USE_PCA_LDA_FILTERS false
 #endif
 /* Do we use new filters created from PCA / LDA analysis */
 
@@ -419,14 +419,14 @@ static void wait_state_conf( wake_gesture_state_t wait_state ) {
 
     if (wait_state == WAIT_FOR_DOWN) {
         duration_odr = MS_TO_ODRS(50, SLEEP_SAMPLE_INT);
-        threshold = 23; /* we want something in the 1/3 g range which seems
+        threshold = 20; /* we want something in the 1/3 g range which seems
                            like around 10 would work best documentation is
                            'wrong', we got this value from trial and error
                            with make flag accel_debug=true */
     } else if (wait_state == WAIT_FOR_UP) {
         /* NOTE: changing DURATION_ODR | THRESHOLD changes wake events signature */
         duration_odr = MS_TO_ODRS(50, SLEEP_SAMPLE_INT);
-        threshold = 23;
+        threshold = 20;
     }
 #if ( DOWN_TRIG_ON_YZ_HIGH )
     if (wait_state == WAIT_FOR_DOWN) {
