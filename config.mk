@@ -109,6 +109,7 @@ TARGET_SRAM = bin/armio_sram.elf
 	    -c "init" \
 	    -c "at91samd chip-erase" \
 	    -c "shutdown"
+
     SSB_CMD = openocd \
 	    -f $(DEBUGGER_CFG) \
 	    -f $(OCD_PART_CFG) \
@@ -116,6 +117,7 @@ TARGET_SRAM = bin/armio_sram.elf
 	    -c "reset halt" \
 	    -c "at91samd set-security enable" \
 	    -c "shutdown"
+
 #else
 #ifeq ($(debugger), jlink)
 #    INSTALL_CMD = JLinkExe utils/$(chip).jlink

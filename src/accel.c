@@ -878,9 +878,9 @@ void accel_enable ( void ) {
     extint_chan_disable_callback(AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
 
     accel_register_write (AX_REG_CTL4, FS_4G);
-    accel_register_write ( AX_REG_CTL1,
-            ( ACTIVE_ODR | X_EN | Y_EN | Z_EN |
-              ( BITS_PER_ACCEL_VAL == 8 ? LOW_PWR_EN : 0 ) ) );
+    accel_register_write (AX_REG_CTL1,
+            (ACTIVE_ODR | X_EN | Y_EN | Z_EN |
+             (BITS_PER_ACCEL_VAL == 8 ? LOW_PWR_EN : 0)));
     accel_register_write (AX_REG_CLICK_CFG, X_SCLICK);
     accel_register_write (AX_REG_CLICK_THS, CLICK_THS);
 
@@ -895,7 +895,7 @@ void accel_enable ( void ) {
     accel_register_write (AX_REG_CTL2, HPCLICK | HPCF | HPMS_NORM);
 
     /* Disable FIFO mode */
-    accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS );
+    accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS);
 
     /* Latch interrupts and enable FIFO */
     accel_register_write (AX_REG_CTL5, LIR_INT1 | FIFO_EN);
@@ -911,7 +911,7 @@ void accel_enable ( void ) {
 }
 
 void accel_sleep ( void ) {
-    int16_t x = 0, y = 0, z = 0;
+    int16_t x=0, y=0, z=0;
 
 #ifdef NO_ACCEL
     return;
@@ -929,8 +929,8 @@ void accel_sleep ( void ) {
 
     /* Configure click parameters */
     /* Only x-axis double clicks should wake us up */
-    accel_register_write (AX_REG_CTL3,  I1_CLICK_EN );
-    accel_register_write (AX_REG_CLICK_CFG, X_DCLICK );
+    accel_register_write (AX_REG_CTL3,  I1_CLICK_EN);
+    accel_register_write (AX_REG_CLICK_CFG, X_DCLICK);
     accel_register_write (AX_REG_CLICK_THS, WAKEUP_CLICK_THS);
     accel_register_write (AX_REG_TIME_WIN, WAKEUP_CLICK_TIME_WIN);
     accel_register_write (AX_REG_TIME_LIM, WAKEUP_CLICK_TIME_LIM);

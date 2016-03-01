@@ -951,6 +951,42 @@ class Samples( object ):
         plt.scatter( xs_confirm, dzs_confirm, color='b' )
         plt.show()
 
+    def plot_z_for_groups( self, zmin=True ):
+        keys = sorted(list(set(s.logfile for s in self.samples)))
+        groups = dict((k,[]) for k in keys)
+        ncolors = len(keys)
+        def span(low, high, num):
+            space = int((high - low) / (num - 1))
+            for i in range(num):
+                yield i * space + low
+        colors = ["#{:02X}{:02X}{:02X}".format(0xff-c, 0, c) for c in span(0, 0xff, ncolors)]
+        cdict = dict((k, c) for k, c in zip(keys, colors))
+
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        if zmin:
+            lines = dict((k, [59]*32) for k in keys)
+            for sample in self.samples:
+                l = lines[sample.logfile]
+                for i in range(32):
+                    if sample.zs[i] < lines[sample.logfile][i]:
+                        lines[sample.logfile][i] = sample.zs[i]
+            t = [SLEEP_SAMPLE_PERIOD*(i+0.5) for i in range(32)]
+            for k in keys:
+                ax.plot(t, lines[k], color=cdict[k], marker='.', linewidth=1, label=k)
+            ax.legend()
+        else:
+            for sample in self.samples:
+                sample.show_plot(z_only=True, z_color=cdict[sample.logfile],
+                        show=False, hide_legend=True, hide_title=True, axis=ax)
+        ax.set_title("Various z-thresholds")
+        ax.grid()
+        ax.set_xlim([0, SLEEP_SAMPLE_PERIOD*32])
+        ax.set_ylim([-60, 60])
+        ax.set_xlabel("ms (ODR = {} Hz)".format(1000/SLEEP_SAMPLE_PERIOD))
+        ax.set_ylabel("1/32 * g's for +/-4g")
+        plt.show()
+
     def getMeasureMatrix( self, **kwargs ):
         return [sample.measures for sample in self.filter_samples(**kwargs)]
     measurematrix = property(fget=getMeasureMatrix)
@@ -1221,26 +1257,38 @@ class WakeSample( object ):
         else:
             return abs(yN) + abs(dyN) + dzN
 
-    def show_plot( self ):
-        fig = plt.figure()
-        ax = fig.add_subplot( 111 )
-        plt.title( "sample {} pass={} confirm={} xN={} yN={} dzN={}".format(
-            self.uid, self.accepted, self.confirmed,
-            self.xsum_n, self.ysum_n, self.dzN ) )
-        ax.grid()
-        t =  [SLEEP_SAMPLE_PERIOD*(i+0.5) for i in range(len(self.xs))]
-        x_line = plt.Line2D(t, self.xs, color='r', marker='o')
-        y_line = plt.Line2D(t, self.ys, color = 'g', marker='o')
-        z_line = plt.Line2D(t, self.zs, color = 'b', marker='o')
-        ax.add_line(x_line)
-        ax.add_line(y_line)
-        ax.add_line(z_line)
-        plt.figlegend((x_line, y_line, z_line), ("x", "y", "z"), "upper right")
-        ax.set_xlim([0, SLEEP_SAMPLE_PERIOD*(len(self.xs))])
-        ax.set_ylim([-60, 60])
-        plt.xlabel("ms (ODR = {} Hz)".format(1000/SLEEP_SAMPLE_PERIOD))
-        plt.ylabel("1/32 * g's for +/-4g")
-        plt.show()
+    def show_plot( self, **kwargs ):
+        """ kwargs include:
+            z_only ( False ) : only plot z
+            z_color ( None ) : line color
+            show ( True ) : if not to show, also suppresses labels
+            hide_legend ( False ): hide the legend
+            hide_title ( False ): hide the title
+            ax (None) : optionally provide the axis to plot on
+        """
+        ax = kwargs.pop('axis', None)
+        if ax is None:
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+        t = [SLEEP_SAMPLE_PERIOD*(i+0.5) for i in range(len(self.xs))]
+        if not kwargs.pop( "z_only", False ):
+            ax.plot(t, self.xs, color='r', marker='.', label='x', linewidth=1)
+            ax.plot(t, self.ys, color='g', marker='.', label='y', linewidth=1)
+        ax.plot(t, self.zs,
+                color=kwargs.pop('z_color', 'b'), marker='.', label='z',
+                linewidth=1)
+        if kwargs.pop( "show", True ):
+            if not kwargs.pop( 'hide_title', False ):
+                ax.set_title("sample {} pass={} confirm={}".format(
+                    self.uid, self.accepted, self.confirmed))
+            ax.grid()
+            ax.set_xlim([0, SLEEP_SAMPLE_PERIOD*(len(self.xs))])
+            ax.set_ylim([-60, 60])
+            if not kwargs.pop( 'hide_legend', False ):
+                ax.legend(loc="upper right")
+            ax.set_xlabel("ms (ODR = {} Hz)".format(1000/SLEEP_SAMPLE_PERIOD))
+            ax.set_ylabel("1/32 * g's for +/-4g")
+            ax.figure.show()
 
     def export_csv( self ):
         with open('{}.csv'.format( self.uid ), 'wt') as csvfile:
@@ -1348,7 +1396,7 @@ def make_LD_PCA_tests():
     tests = [ y_turn_basic ]
     return tests
 
-def run_tests( tests, samples, plot=False ):
+def run_tests(tests, samples, plot=False):
     for test in tests:
         test.clear_samples()
 
