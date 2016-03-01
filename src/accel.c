@@ -708,7 +708,7 @@ static bool accel_wakeup_state_refresh(void) {
         }
     } else if (wake_check_gesture) {
         /* Read FIFO to determine if a turn-up gesture occurred */
-        read_accel_fifo();  // needed for LOG_FIFO & gesture_filers
+        read_accel_fifo();  // needed for ACCEL_GESTURE_LOG_FIFO & gesture_filers
         if ((!(GESTURE_FILTERS)) || fltr_run_gesture_filters()) {
             /* Disable AOI INT1 interrupt (leave CLICK enabled) */
             accel_register_write (AX_REG_CTL3,  I1_CLICK_EN);
