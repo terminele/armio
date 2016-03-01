@@ -140,33 +140,6 @@
 
 
 //___ T Y P E D E F S ________________________________________________________
-typedef union {
-    struct {
-        uint8_t x:1;
-        uint8_t y:1;
-        uint8_t z:1;
-        uint8_t sign:1;
-        uint8_t sclick:1;
-        uint8_t dclick:1;
-        uint8_t ia:1;
-        uint8_t unused:1;
-    };
-    uint8_t b8;
-} click_flags_t;
-
-typedef union {
-    struct {
-        uint8_t xl:1;
-        uint8_t xh:1;
-        uint8_t yl:1;
-        uint8_t yh:1;
-        uint8_t zl:1;
-        uint8_t zh:1;
-        uint8_t ia:1;
-        uint8_t unused:1;
-    };
-    uint8_t b8;
-} int_reg_flags_t;
 
 //___ V A R I A B L E S ______________________________________________________
 
