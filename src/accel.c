@@ -923,8 +923,8 @@ void accel_sleep ( void ) {
     accel_data_read(&x, &y, &z);
 
     accel_register_write ( AX_REG_CTL1,
-            ( SLEEP_ODR | X_EN | Y_EN | Z_EN |
-              ( BITS_PER_ACCEL_VAL == 8 ? LOW_PWR_EN : 0 ) ) );
+            (SLEEP_ODR | X_EN | Y_EN | Z_EN |
+             (BITS_PER_ACCEL_VAL == 8 ? LOW_PWR_EN : 0)) );
 
     /* Configure click parameters */
     /* Only x-axis double clicks should wake us up */

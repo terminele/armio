@@ -58,7 +58,7 @@
 #endif
 
 #ifndef ACCEL_GESTURE_LOG_UNCONFIRMED
-#define ACCEL_GESTURE_LOG_UNCONFIRMED false
+#define ACCEL_GESTURE_LOG_UNCONFIRMED true
 #endif
 
 

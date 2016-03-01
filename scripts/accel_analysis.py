@@ -1236,7 +1236,7 @@ class WakeSample( object ):
         ax.add_line(y_line)
         ax.add_line(z_line)
         plt.figlegend((x_line, y_line, z_line), ("x", "y", "z"), "upper right")
-        ax.set_xlim([SLEEP_SAMPLE_PERIOD*-0.1, SLEEP_SAMPLE_PERIOD*(len(xs-1)+0.1)])
+        ax.set_xlim([SLEEP_SAMPLE_PERIOD*-0.5, SLEEP_SAMPLE_PERIOD*(len(self.xs)-0.5)])
         ax.set_ylim([-60, 60])
         plt.xlabel("ms (ODR = {} Hz)".format(1000/SLEEP_SAMPLE_PERIOD))
         plt.ylabel("1/32 * g's for +/-4g")
@@ -1424,14 +1424,12 @@ def show_various_reductions(samples, pca_test, pcadims=None):
 
 if __name__ == "__main__":
     log.basicConfig(level=log.INFO)
-
-
     def parse_args():
         parser = argparse.ArgumentParser(description='Analyze an accel log dump')
         parser.add_argument('dumpfiles', nargs='+')
-        parser.add_argument('-f', '--fifo', action='store_true', default=True)
-        parser.add_argument('-t', '--run-tests', action='store_true', default=True)
+        parser.add_argument('-f', '--fifo', action='store_false', default=True)
         parser.add_argument('-s', '--streamed', action='store_true', default=False)
+        parser.add_argument('-t', '--run-tests', action='store_true', default=False)
         parser.add_argument('-w', '--export', action='store_true', default=False)
         parser.add_argument('-a', '--plot', action='store_true', default=False)
         parser.add_argument('-c', '--plot_csums', action='store_true', default=False)
@@ -1480,7 +1478,7 @@ if __name__ == "__main__":
         if args.plot_csums:
             allsamples.show_csums( **kwargs )
 
-        if True:
+        if args.run_tests:
             pc_test = PrincipalComponentTest(allsamples, [0, 1, 2])
             pc_test.plot_result()
 
