@@ -956,7 +956,10 @@ class Samples( object ):
         groups = dict((k,[]) for k in keys)
         ncolors = len(keys)
         def span(low, high, num):
-            space = int((high - low) / (num - 1))
+            if num == 1:
+                space = int(high - low)
+            else:
+                space = int((high - low) / (num - 1))
             for i in range(num):
                 yield i * space + low
         colors = ["#{:02X}{:02X}{:02X}".format(0xff-c, 0, c) for c in span(0, 0xff, ncolors)]
@@ -1259,8 +1262,8 @@ class WakeSample( object ):
 
     def show_plot( self, **kwargs ):
         """ kwargs include:
-            z_only ( False ) : only plot z
-            z_color ( None ) : line color
+            only ( None ): 'x|y|z|xymag|zxmag|zymag|xyzmag'
+            color ( None ) : line color -- used only when 'only' is specified
             show ( True ) : if not to show, also suppresses labels
             hide_legend ( False ): hide the legend
             hide_title ( False ): hide the title
@@ -1271,24 +1274,44 @@ class WakeSample( object ):
             fig = plt.figure()
             ax = fig.add_subplot(111)
         t = [SLEEP_SAMPLE_PERIOD*(i+0.5) for i in range(len(self.xs))]
-        if not kwargs.pop( "z_only", False ):
+        only = kwargs.pop('only', None)
+        if only is None:
+            mag = [ (x**2 + y**2 + z**2)**0.5 for x, y, z in zip(self.xs, self.ys, self.zs) ]
             ax.plot(t, self.xs, color='r', marker='.', label='x', linewidth=1)
             ax.plot(t, self.ys, color='g', marker='.', label='y', linewidth=1)
-        ax.plot(t, self.zs,
-                color=kwargs.pop('z_color', 'b'), marker='.', label='z',
-                linewidth=1)
+            ax.plot(t, self.zs, color='b', marker='.', label='z', linewidth=1)
+            ax.plot(t, mag, color='k', marker='.', label='mag', linewidth=1)
+        else:
+            if only == 'x':
+                only = self.xs
+            elif only == 'y':
+                only = self.ys
+            elif only == 'z':
+                only = self.zs
+            elif only == 'xymag':
+                only = [ (x**2 + y**2)**0.5 for x, y in zip(self.xs, self.ys) ]
+            elif only == 'xzmag':
+                only = [ (x**2 + z**2)**0.5 for x, z in zip(self.xs, self.zs) ]
+            elif only == 'yzmag':
+                only = [ (y**2 + z**2)**0.5 for y, z in zip(self.ys, self.zs) ]
+            elif only == 'xyzmag':
+                only = [ (x**2 + y**2 + z**2)**0.5 for x, y, z in zip(self.xs, self.ys, self.zs) ]
+            else:
+                raise ValueError("invalid 'only' param '{}'".format(only))
+            ax.plot(t, only, color=kwargs.pop('z_color', 'b'), marker='.', label='z',
+                    linewidth=1)
         if kwargs.pop( "show", True ):
             if not kwargs.pop( 'hide_title', False ):
                 ax.set_title("sample {} pass={} confirm={}".format(
                     self.uid, self.accepted, self.confirmed))
             ax.grid()
             ax.set_xlim([0, SLEEP_SAMPLE_PERIOD*(len(self.xs))])
-            ax.set_ylim([-60, 60])
+            ax.set_ylim([-40, 40])
             if not kwargs.pop( 'hide_legend', False ):
                 ax.legend(loc="upper right")
             ax.set_xlabel("ms (ODR = {} Hz)".format(1000/SLEEP_SAMPLE_PERIOD))
             ax.set_ylabel("1/32 * g's for +/-4g")
-            ax.figure.show()
+            plt.show()      # ax.figure.show() would show all at once
 
     def export_csv( self ):
         with open('{}.csv'.format( self.uid ), 'wt') as csvfile:

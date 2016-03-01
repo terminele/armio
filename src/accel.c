@@ -403,7 +403,13 @@ static void configure_i2c(void) {
 
 static void wait_state_conf( wake_gesture_state_t wait_state ) {
     uint8_t duration_odr = 0;   /* 1 LSb = 1 / ODR = Number of FIFO samples */
-    uint8_t threshold = 0;      /* 1 LSb = 32 mg @ FS = 4g */
+    uint8_t threshold = 0;
+        /* 1 LSb = 32 mg @ FS = 4g
+         * NOTE: if we are checking for 'z' high, then this filter will pass
+         * when z is positive and the magnitude of 'x' and 'y' is below the
+         * threshold value.. In other words, this threshold doesn't check that
+         * 'z' is greater than some value, it checks that 'x' & 'y' are below
+         * some value (or for 'y' it would check that 'z' & 'x' are below value) */
     uint8_t directions = ( XLIE | XHIE | YLIE | YHIE | ZLIE | ZHIE );
 #if ( DOWN_TRIG_ON_YZ_HIGH )
     int16_t x, y, z;
@@ -419,10 +425,7 @@ static void wait_state_conf( wake_gesture_state_t wait_state ) {
 
     if (wait_state == WAIT_FOR_DOWN) {
         duration_odr = MS_TO_ODRS(50, SLEEP_SAMPLE_INT);
-        threshold = 20; /* we want something in the 1/3 g range which seems
-                           like around 10 would work best documentation is
-                           'wrong', we got this value from trial and error
-                           with make flag accel_debug=true */
+        threshold = 20;
     } else if (wait_state == WAIT_FOR_UP) {
         /* NOTE: changing DURATION_ODR | THRESHOLD changes wake events signature */
         duration_odr = MS_TO_ODRS(50, SLEEP_SAMPLE_INT);
@@ -672,7 +675,7 @@ static bool accel_register_write (uint8_t reg, uint8_t val) {
 
 static bool accel_wakeup_state_refresh(void) {
     int16_t x, y, z;
-    bool force_wake = false;
+    bool force_wake_from_error = false;
     bool wake_check_dclick = false;
     bool wake_check_gesture = false;
 
@@ -692,15 +695,15 @@ static bool accel_wakeup_state_refresh(void) {
         } else if (wake_gesture_state == WAIT_FOR_DOWN) {
             wait_state_conf( WAIT_FOR_UP );
         } else {
-            force_wake = true;
+            force_wake_from_error = true;
         }
     } else if (wake_gesture_state == WAIT_FOR_UP && (int1_flags.yh || int1_flags.zh)) {
         wake_check_gesture = true;
-    } else {
+    } else {  /* we are in wait for down or we god a down flag in wait for up */
         wait_state_conf( WAIT_FOR_UP );
     }
 
-    if (force_wake) {
+    if (force_wake_from_error) {
         /* Disable AOI INT1 interrupt (leave CLICK enabled) */
         accel_register_write (AX_REG_CTL3,  I1_CLICK_EN);
         accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS );
