@@ -54,7 +54,7 @@
  * because of the watch orientation */
 
 #ifndef DOWN_TRIG_ON_YZ_HIGH
-# define DOWN_TRIG_ON_YZ_HIGH true
+# define DOWN_TRIG_ON_YZ_HIGH false
 #endif
 /* Do we allow a 'down' event to trigger with y or z high? */
 
@@ -433,7 +433,7 @@ static void wait_state_conf( wake_gesture_state_t wait_state ) {
         threshold = 20;
     } else if (wait_state == WAIT_FOR_UP) {
         /* NOTE: changing DURATION_ODR | THRESHOLD changes wake events signature */
-        duration_odr = MS_TO_ODRS(50, SLEEP_SAMPLE_INT);
+        duration_odr = MS_TO_ODRS(130, SLEEP_SAMPLE_INT);
         threshold = 20;
     }
 #if ( DOWN_TRIG_ON_YZ_HIGH )
