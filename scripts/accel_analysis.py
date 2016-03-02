@@ -980,7 +980,7 @@ class Samples( object ):
             ax.legend()
         else:
             for sample in self.samples:
-                sample.show_plot(z_only=True, z_color=cdict[sample.logfile],
+                sample.show_plot(only='xymag', z_color=cdict[sample.logfile],
                         show=False, hide_legend=True, hide_title=True, axis=ax)
         ax.set_title("Various z-thresholds")
         ax.grid()
@@ -1477,7 +1477,6 @@ def store_samples(samples, samplefile=SAMPLESFILE):
     samplestext = jsonpickle.encode(samples, keys=True)
     with open(samplefile, 'w') as fh:
         fh.write(samplestext)
-
 
 ### mini scripts ###
 def show_various_reductions(samples, pca_test, pcadims=None):

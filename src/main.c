@@ -515,12 +515,11 @@ static void main_tic( void ) {
 #endif  /* LOG_LIFETIME_USAGE */
 
 #if (ACCEL_GESTURE_LOG_FIFO)
-        if (accel_fifo.depth == 32
-            && (ACCEL_GESTURE_LOG_UNCONFIRMED || _accel_confirmed)){
+        if (ACCEL_GESTURE_LOG_UNCONFIRMED || _accel_confirmed) {
           uint32_t code = 0xAAAAAAAA; /* FIFO data begin code */
           main_log_data((uint8_t *) &code, sizeof(uint32_t), false);
-          main_log_data( accel_fifo.bytes,
-              sizeof(accel_xyz_t) * accel_fifo.depth, true );
+          main_log_data(accel_fifo.bytes,
+              sizeof(accel_xyz_t) * accel_fifo.depth, true);
           code = _accel_confirmed ? 0xCCCCCCCC : 0xEEEEEEEE; /* FIFO data end code */
           main_log_data((uint8_t *) &code, sizeof(uint32_t), true);
           uint16_t log_code = 0xEEDD;
