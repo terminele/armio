@@ -170,13 +170,13 @@ typedef union {
 
 
 //___ P R O T O T Y P E S   ( P R I V A T E ) ________________________________
-static void accel_isr(void);
+static bool wake_check( void );
 
-static void configure_i2c(void);
-    /* @brief setup the i2c module to communicate with accelerometer
-     * accelerometer
-     * @param
-     * @retrn none
+static void wait_state_conf( wake_gesture_state_t wait_state );
+    /* @brief configure the interrupts to detect movement into orientations of
+     *        interest, used for gesture wake
+     * @param the state that we want to wait for
+     * @retrn None
      */
 
 static inline bool gesture_filter_check( void );
@@ -189,6 +189,15 @@ static inline bool dclick_filter_check( void );
     /* @brief read the accel current position and filter double click
      * @param None
      * @retrn true if the watch should wake up
+     */
+
+static void accel_isr(void);
+
+static void configure_i2c(void);
+    /* @brief setup the i2c module to communicate with accelerometer
+     * accelerometer
+     * @param
+     * @retrn none
      */
 
 static inline fltr_result_t fltr_lda_trial( void );
@@ -250,13 +259,6 @@ static bool accel_register_consecutive_read (uint8_t start_reg,
 
 static bool accel_register_write (uint8_t reg, uint8_t val);
 
-static void wait_state_conf( wake_gesture_state_t wait_state );
-  /* @brief configure the interrupts to detect movement into orientations of
-   *        interest, used for gesture wake
-   * @param the state that we want to wait for
-   * @retrn None
-   */
-
 #if ( USE_SELF_TEST )
 static void run_self_test( void );
     /* @brief run the self test on the acceleration module
@@ -271,7 +273,6 @@ static void run_self_test( void );
 
 static void read_accel_fifo( void );
 
-static bool wake_check( void );
 
 //___ V A R I A B L E S ______________________________________________________
 accel_fifo_t accel_fifo = { .bytes = { 0 }, .depth = 0 };
@@ -433,8 +434,8 @@ static void wait_state_conf( wake_gesture_state_t wait_state ) {
         threshold = 20;
     } else if (wait_state == WAIT_FOR_UP) {
         /* NOTE: changing DURATION_ODR | THRESHOLD changes wake events signature */
-        duration_odr = MS_TO_ODRS(130, SLEEP_SAMPLE_INT);
-        threshold = 20;
+        duration_odr = MS_TO_ODRS(50, SLEEP_SAMPLE_INT);
+        threshold = 10;
     }
 #if ( DOWN_TRIG_ON_YZ_HIGH )
     if (wait_state == WAIT_FOR_DOWN) {
@@ -601,7 +602,6 @@ static inline bool dclick_filter_check( void ) {
 
     return false;
 }
-
 
 static inline bool fltr_y_not_deliberate_fail( int16_t y_last,
         accel_xyz_t* sums ) {
