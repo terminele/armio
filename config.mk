@@ -1,40 +1,67 @@
-#
-# Copyright (c) 2011 Atmel Corporation. All rights reserved.
-#
-# \asf_license_start
-#
-# \page License
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-#
-# 1. Redistributions of source code must retain the above copyright notice,
-#    this list of conditions and the following disclaimer.
-#
-# 2. Redistributions in binary form must reproduce the above copyright notice,
-#    this list of conditions and the following disclaimer in the documentation
-#    and/or other materials provided with the distribution.
-#
-# 3. The name of Atmel may not be used to endorse or promote products derived
-#    from this software without specific prior written permission.
-#
-# 4. This software may only be redistributed and used in connection with an
-#    Atmel microcontroller product.
-#
-# THIS SOFTWARE IS PROVIDED BY ATMEL "AS IS" AND ANY EXPRESS OR IMPLIED
-# WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT ARE
-# EXPRESSLY AND SPECIFICALLY DISCLAIMED. IN NO EVENT SHALL ATMEL BE LIABLE FOR
-# ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
-# OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-# STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
-#
-# \asf_license_stop
-#
+# Copyright (c) 2016 Terminus Electronics International
+
+CSRCS =
+CPPFLAGS =
+INC_PATH =
+PREBUILD_CMD = touch src/aclock.c;
+POSTBUILD_CMD =
+LDFLAGS =
+
+# Application target name
+TARGET_FLASH = bin/armio_flash.elf
+TARGET_SRAM = bin/armio_sram.elf
+
+##############################
+### SET DEBUGGING DEFAULTS ###
+##############################
+# Note: override these in make command
+
+#store_lifetime_usage=true
+#log_vbatt=true
+#debug_ax_isr=true
+gestures_filters=false
+#reject_all_gestures=true
+#use_wakeup_alarm=true
+#log_accel_stream=true
+log_accel_gesture_fifo=true
+#log_unconfirmed_gestures=false
+#always_active=true
+#disable_seconds=true
+#sparkle=true
+#show_sec_always=true
+#self_test_accel=true
+
+ifdef debug_accel
+    debug_ax_isr=true
+    gestures_filters=true
+    reject_all_gestures=true
+endif
+
+ifdef wakeup_alarm_1m
+    use_wakeup_alarm=true
+    alarm_interval_min=1
+endif
+
+ifdef wakeup_alarm_5m
+    use_wakeup_alarm=true
+    alarm_interval_min=5
+endif
+
+ifdef picture_mode
+    always_active=true
+    disable_seconds=true
+endif
+
+ifdef rtc_cal
+    CPPFLAGS+=-D RTC_CALIBRATE=true -D TCC_ASYNC=false
+    PREBUILD_CMD += touch src/utils.c; touch src/main.c; touch src/conf/conf_clocks.h; touch src/asf/asf.h;
+    CSRCS+=src/asf/sam0/drivers/tcc/tcc.c
+    INC_PATH+=src/asf/sam0/drivers/tcc
+    TARGET_FLASH = bin/armio_rtc_cal_flash.elf
+    TARGET_SRAM = bin/armio_rtc_cal_sram.elf
+    POSTBUILD_CMD += touch .compiler_flags; 	# ensure remake all
+endif
+
 
 # Path to top level ASF directory relative to this project directory.
 PRJ_PATH = .
@@ -87,11 +114,6 @@ endif
 endif
 endif
 
-# Application target name. Given with suffix .a for library and .elf for a
-# standalone application.
-TARGET_FLASH = bin/armio_flash.elf
-TARGET_SRAM = bin/armio_sram.elf
-
 #ifeq ($(debugger), atmel-ice)
     INSTALL_CMD = openocd \
 	    -f $(DEBUGGER_CFG) \
@@ -139,15 +161,9 @@ BUILD_DIR=bin
 $(shell mkdir $(BUILD_DIR) 2>/dev/null)
 
 
-ifndef test
-    CSRCS=src/main.c
-else
-    CSRCS=src/test/$(test).c
-    $(info running with main from $(CSRCS))
-endif
-
 # List of additional C source files.
 CSRCS += \
+    src/main.c      	       					\
     src/aclock.c					       	\
     src/accel.c						       	\
     src/anim.c						       	\
@@ -185,7 +201,7 @@ CSRCS += \
 ASSRCS =
 
 # List of include paths.
-INC_PATH = \
+INC_PATH += \
     src/						       \
     src/conf						       \
     src/asf						       \
@@ -290,7 +306,6 @@ TIME_INFO_FLAGS += -D __SEC__=$(_SEC_)
 TIME_INFO_FLAGS += -D __PM__=$(_PM_)
 # TIME_INFO_FLAGS are used for c/cpp/asm building
 
-CPPFLAGS =
 CPPFLAGS += -D I2C_MASTER_CALLBACK_MODE=false
 CPPFLAGS += -D ARM_MATH_CM0=true
 CPPFLAGS += -D ADC_CALLBACK_MODE=false
@@ -305,117 +320,49 @@ CPPFLAGS += -D NVM_MAX_ADDR=$(NVM_MAX_ADDR)
 CPPFLAGS += -D ENABLE_LIGHT_SENSE=true
 CPPFLAGS += -D ENABLE_VBATT=true
 
-### DEBUG RELATED FLAGS ###
-#CPPFLAGS += -D DEBUG_AX_ISR=true
-CPPFLAGS += -D GESTURE_FILTERS=false
-#CPPFLAGS += -D SHOW_ACCEL_ERRORS_ON_LED=true
-#CPPFLAGS += -D LOG_LIFETIME_USAGE
-#CPPFLAGS += -D LOG_ACCEL_STREAM_IN_MODE_1
-CPPFLAGS += -D ACCEL_GESTURE_LOG_FIFO=true
-#CPPFLAGS += -D ACCEL_GESTURE_LOG_UNCONFIRMED=false
-#CPPFLAGS += -D FLICKER_MIN_MOD
-#CPPFLAGS += -D USE_WAKEUP_ALARM
-#CPPFLAGS += -D NO_TIME_ANIMATION
-#CPPFLAGS += -D NO_ACCEL
-#CPPFLAGS += -D ALWAYS_ACTIVE=true
-#CPPFLAGS += -D SIMPLE_TIME_MOD
-#CPPFLAGS += -D ENABLE_BUTTON
-
-PREBUILD_CMD =
-
-ifdef simple_time
-    CPPFLAGS += -D SIMPLE_TIME_MODE=true
-    PREBUILD_CMD += touch src/control.c;
+## apply non-default options if they have been set previously or by make abc=1
+ifdef debug_ax_isr
+CPPFLAGS += -D DEBUG_AX_ISR=$(debug_ax_isr)
 endif
-
-ifdef flicker_time
-    CPPFLAGS+= -D FLICKER_MIN_MODE=$(flicker_time)
-    PREBUILD_CMD += touch src/control.c;
-else
-    #CPPFLAGS+= -D SHOW_SEC
+ifdef reject_all_gestures
+CPPFLAGS += -D REJECT_ALL_GESTURES=$(reject_all_gestures)
 endif
-
-ifdef debug_accel
-    CPPFLAGS+= -D DEBUG_AX_ISR=true
-    PREBUILD_CMD += touch src/accel.c;
+ifdef gestures_filters
+CPPFLAGS += -D GESTURE_FILTERS=$(gestures_filters)
 endif
-
-ifdef sparkle
-    CPPFLAGS+= -D SPARKLE_FOREVER_MODE=true
-    PREBUILD_CMD += touch src/main.c;
+ifdef store_lifetime_usage
+CPPFLAGS += -D STORE_LIFETIME_USAGE=$(store_lifetime_usage)
 endif
-
-ifdef no_timeout
-    CPPFLAGS+= -D NO_TIMEOUT=true
-    PREBUILD_CMD += touch src/control.c;
+ifdef log_accel_stream
+CPPFLAGS += -D LOG_ACCEL_STREAM_IN_MODE_1=$(log_accel_stream)
 endif
-
-ifdef show_sec
-    CPPFLAGS+= -D SHOW_SEC_ALWAYS
+ifdef log_accel_gesture_fifo
+CPPFLAGS += -D ACCEL_GESTURE_LOG_FIFO=$(log_accel_gesture_fifo)
 endif
-
-ifdef wakeup_alarm
-    CPPFLAGS+= -D USE_WAKEUP_ALARM
-    CPPFLAGS+= -D ALARM_INTERVAL_MIN=1
-    PREBUILD_CMD += touch src/aclock.c; touch src/main.c;
+ifdef log_unconfirmed_gestures
+CPPFLAGS += -D ACCEL_GESTURE_LOG_UNCONFIRMED=$(log_unconfirmed_gestures)
 endif
-
-ifdef wakeup_alarm_5m
-    CPPFLAGS+= -D USE_WAKEUP_ALARM
-    CPPFLAGS+= -D ALARM_INTERVAL_MIN=5
-    PREBUILD_CMD += touch src/aclock.c; touch src/main.c;
+ifdef use_wakeup_alarm
+CPPFLAGS += -D USE_WAKEUP_ALARM=$(use_wakeup_alarm)
 endif
-
+ifdef alarm_interval_min
+CPPFLAGS += -D ALARM_INTERVAL_MIN=$(alarm_interval_min)
+endif
 ifdef always_active
-    CPPFLAGS+= -D ALWAYS_ACTIVE=true
-    PREBUILD_CMD += touch src/main.c;
+CPPFLAGS += -D ALWAYS_ACTIVE=$(always_active)
 endif
-
-ifdef picture_mode
-    CPPFLAGS+= -D ALWAYS_ACTIVE=true
-    CPPFLAGS+= -D DISABLE_SECONDS=true
-    PREBUILD_CMD += touch src/main.c; touch src/control.c;
+ifdef disable_seconds
+CPPFLAGS+= -D DISABLE_SECONDS=$(disable_seconds)
 endif
-
-ifdef log_usage
-    CPPFLAGS += -D LOG_USAGE=true
-    PREBUILD_CMD += touch src/main.c;
-else
-    CPPFLAGS += -D LOG_USAGE=false
-    PREBUILD_CMD += touch src/main.c;
+ifdef sparkle
+CPPFLAGS+= -D SPARKLE_FOREVER_MODE=$(sparkle)
 endif
-
-ifdef self_test
-    CPPFLAGS+= -D USE_SELF_TEST=$(self_test)
+ifdef show_sec_always
+CPPFLAGS+= -D SHOW_SEC_ALWAYS=$(show_sec_always)
 endif
-
-ifdef release
-    CPPFLAGS+= -D DEEP_SLEEP_AT_BIRTH=true
-    PREBUILD_CMD += touch src/aclock.c; touch src/main.c;
+ifdef self_test_accel
+CPPFLAGS+= -D USE_SELF_TEST=$(self_test_accel)
 endif
-
-ifdef rtc_cal
-    CPPFLAGS+=-D RTC_CALIBRATE=true -D TCC_ASYNC=false
-    CSRCS+=src/asf/sam0/drivers/tcc/tcc.c
-    INC_PATH+=src/asf/sam0/drivers/tcc
-    PREBUILD_CMD += touch src/utils.c; touch src/main.c; touch src/conf/conf_clocks.h; touch src/asf/asf.h;
-    TARGET_FLASH = bin/armio_rtc_cal_flash.elf
-    TARGET_SRAM = bin/armio_rtc_cal_sram.elf
-    POSTBUILD_CMD += touch Makefile; #ensure everything gets rebuilt on next compile
+ifdef log_vbatt
+CPPFLAGS+= -D LOG_VBATT=$(log_vbatt)
 endif
-# Extra flags to use when linking
-LDFLAGS =
-
-ifdef test
-    if [-a bin/src/main.o]; \
-	then \
-	    PREBUILD_CMD += rm bin/src/main.o; \
-	fi;
-else
-    if [-a bin/src/test/*.o]; \
-	then \
-	    PREBUILD_CMD += rm bin/src/test/*.o; \
-	fi;
-endif
-
-PREBUILD_CMD += touch src/aclock.c;

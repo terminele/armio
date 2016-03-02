@@ -47,6 +47,45 @@
 #define ACCEL_GESTURE_LOG_UNCONFIRMED true
 #endif
 
+#ifndef LOG_VBATT
+#define LOG_VBATT false
+#endif
+
+#ifndef VBATT_LOG_INTERVAL
+#define VBATT_LOG_INTERVAL 20
+#endif
+
+#ifndef STORE_LIFETIME_USAGE
+#define STORE_LIFETIME_USAGE false
+#endif
+
+#ifndef LIFETIME_USAGE_PERIOD
+#define LIFETIME_USAGE_PERIOD 30
+#endif
+
+#ifndef ENABLE_VBATT
+#define ENABLE_VBATT true
+#endif
+
+#ifndef ENABLE_LIGHT_SENSE
+#define ENABLE_LIGHT_SENSE true
+#endif
+
+#ifndef CLOCK_OUTPUT
+#define CLOCK_OUTPUT false
+#endif
+
+#ifndef ALWAYS_ACTIVE
+#define ALWAYS_ACTIVE false
+#endif
+
+#ifndef SPARKLE_FOREVER_MODE
+#define SPARKLE_FOREVER_MODE false
+#endif
+
+#ifndef SHOW_SEC_ALWAYS
+#define SHOW_SEC_ALWAYS false
+#endif
 
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 typedef enum main_state_t {
@@ -58,13 +97,13 @@ typedef enum main_state_t {
 
 //___ P R O T O T Y P E S   ( P R I V A T E ) ________________________________
 
-#ifdef CLOCK_OUTPUT
+#if (CLOCK_OUTPUT)
 static void setup_clock_pin_outputs( void );
   /* @brief multiplex clocks onto output pins
    * @param None
    * @retrn None
    */
-#endif
+#endif  /* CLOCK_OUTPUT */
 
 static void watchdog_early_warning_callback(void);
   /* @brief gives us a chance to write time to flash before wdt timeout
@@ -238,7 +277,7 @@ static void config_main_tc( void ) {
   tc_enable(&main_tc);
 }
 
-#if LOG_USAGE
+#if (LOG_VBATT)
 static void log_usage ( void ) {
   /* Log current vbatt with timestamp */
   int32_t reltime = aclock_get_timestamp_relative();
@@ -272,7 +311,7 @@ static void log_usage ( void ) {
 #endif
 
 
-#ifdef CLOCK_OUTPUT
+#if (CLOCK_OUTPUT)
 static void setup_clock_pin_outputs( void ) {
   /* For debugging purposes, multiplex our
    * clocks onto output pins.. GCLK gens 4 and 7
@@ -290,7 +329,7 @@ static void setup_clock_pin_outputs( void ) {
   pin_mux.mux_position = MUX_PA23H_GCLK_IO7;
   system_pinmux_pin_set_config(PIN_PA23H_GCLK_IO7, &pin_mux);
 }
-#endif
+#endif  /* CLOCK_OUTPUT */
 
 static void prepare_sleep( void ) {
   wdt_disable();
@@ -332,13 +371,13 @@ static void wakeup (void) {
   }
 
   /* Update vbatt estimate on wakeup only */
-#if ENABLE_VBATT
+#if (ENABLE_VBATT)
   main_set_current_sensor(sensor_vbatt);
   main_start_sensor_read();
   main_read_current_sensor(true);
-#endif
+#endif  /* ENABLE_VBATT */
 
-#if ENABLE_LIGHT_SENSE
+#if (ENABLE_LIGHT_SENSE)
   port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, true);
   main_set_current_sensor(sensor_light);
   main_start_sensor_read();
@@ -354,14 +393,10 @@ static void wakeup (void) {
 
   led_set_max_brightness( main_gs.brightness );
   port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, false);
-#endif
+#endif  /* ENABLE_LIGHT_SENSE */
 
-#if LOG_USAGE
-#ifndef USAGE_LOG_PERIOD
-#define USAGE_LOG_PERIOD 20
-#endif
-
-  if (main_nvm_data.lifetime_wakes % USAGE_LOG_PERIOD == 0) {
+#if (LOG_VBATT)
+  if (main_nvm_data.lifetime_wakes % VBATT_LOG_INTERVAL == 0) {
     log_usage();
   }
 #endif
@@ -401,7 +436,7 @@ static bool wakeup_check( void ) {
   int32_t curr_wakestamp;
   bool wake = false;
 
-#ifdef USE_WAKEUP_ALARM
+#if (USE_WAKEUP_ALARM)
     accel_wakeup_check();
     return true;
 #endif
@@ -519,10 +554,7 @@ static void main_tic( void ) {
         sleep_wake_anim = NULL;
 
         /* Update and store lifetime usage data */
-#ifdef LOG_LIFETIME_USAGE
-#ifndef LIFETIME_USAGE_PERIOD
-#define LIFETIME_USAGE_PERIOD 30
-#endif
+#if (STORE_LIFETIME_USAGE)
         main_nvm_data.lifetime_wakes++;
         main_nvm_data.lifetime_ticks+=main_gs.waketicks;
         if (main_nvm_data.lifetime_wakes % LIFETIME_USAGE_PERIOD == 1) {
@@ -531,7 +563,7 @@ static void main_tic( void ) {
           nvm_update_buffer(NVM_DATA_ADDR, (uint8_t *) &main_nvm_data, 0,
               sizeof(nvm_data_t));
         }
-#endif  /* LOG_LIFETIME_USAGE */
+#endif  /* STORE_LIFETIME_USAGE */
 
 #if (ACCEL_GESTURE_LOG_FIFO)
         if (ACCEL_GESTURE_LOG_UNCONFIRMED || _accel_confirmed) {
@@ -590,17 +622,10 @@ static void main_tic( void ) {
       return;
     case RUNNING:
       /* Check for inactivity timeout */
-      if (
-#ifdef ALWAYS_ACTIVE
-          false
-#else
-          main_gs.inactivity_ticks > \
-          ctrl_mode_active->sleep_timeout_ticks ||
-          (IS_CONTROL_MODE_SHOW_TIME() && (
-           (event_flags & EV_FLAG_ACCEL_DOWN) || TCLICK(event_flags)))
-
-#endif
-          ) {
+      if((!(ALWAYS_ACTIVE)) &&
+          ((main_gs.inactivity_ticks > ctrl_mode_active->sleep_timeout_ticks)
+            || (IS_CONTROL_MODE_SHOW_TIME()
+              && ((event_flags & EV_FLAG_ACCEL_DOWN) || TCLICK(event_flags))))) {
 
           /* A sleep event has occurred */
           if (IS_CONTROL_MODE_SHOW_TIME() && TCLICK(event_flags)) {
@@ -652,11 +677,7 @@ static void main_init( void ) {
   main_gs.deep_sleep_mode = false;
   main_user_data.wake_gestures = true;
 
-#ifdef SHOW_SEC_ALWAYS
-  main_user_data.seconds_always_on = true;
-#else
-  main_user_data.seconds_always_on = false;
-#endif
+  main_user_data.seconds_always_on = SHOW_SEC_ALWAYS;
 
   /* Configure main timer counter */
   config_main_tc();
@@ -666,9 +687,9 @@ static void main_init( void ) {
   nvm_get_config_defaults(&config_nvm);
   nvm_set_config(&config_nvm);
 
+#if (LOG_VBATT)
   uint32_t data = 0xffffffff;
 
-#ifdef LOG_USAGE
   /* Set row address to first open space by
    * iterating through log data until an
    * empty (4 bytes of 1s) row is found */
@@ -929,7 +950,7 @@ int main (void) {
 #endif
 
   /* Read vbatt sensor on startup */
-#if ENABLE_VBATT
+#if (ENABLE_VBATT)
   main_set_current_sensor(sensor_vbatt);
   main_start_sensor_read();
   main_read_current_sensor(true);
@@ -938,7 +959,7 @@ int main (void) {
   configure_wdt();
 
   /* Show a startup LED swirl */
-#ifdef SPARKLE_FOREVER_MODE
+#if (SPARKLE_FOREVER_MODE)
   sleep_wake_anim = anim_random(display_point(0, BRIGHT_DEFAULT), MS_IN_TICKS(15), ANIMATION_DURATION_INF, false);
 #endif
 

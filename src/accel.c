@@ -2,6 +2,8 @@
   * modified:   2014-11-03 11:50:33
   */
 
+// TODO : log the isr direction that got us into the wake gesture test
+
 //___ I N C L U D E S ________________________________________________________
 #include "accel.h"
 #include "accel_reg.h"
@@ -35,6 +37,10 @@
 # define GESTURE_FILTERS    true
 #endif
 /* filter gestures based on intentional 'views' */
+
+#ifndef REJECT_ALL_GESTURES
+#define REJECT_ALL_GESTURES false
+#endif
 
 #ifndef SHOW_ACCEL_ERRORS_ON_LED
 #define SHOW_ACCEL_ERRORS_ON_LED false
@@ -508,6 +514,9 @@ static bool accel_register_consecutive_read (uint8_t start_reg, uint8_t count,
 static inline bool gesture_filter_check( void ) {
     /* Read FIFO to determine if a turn-up gesture occurred */
     read_accel_fifo();  // needed for ACCEL_GESTURE_LOG_FIFO & gesture_filers
+#if (REJECT_ALL_GESTURES)
+    return false;
+#endif
 #if (!(GESTURE_FILTERS))
     return true;
 #endif

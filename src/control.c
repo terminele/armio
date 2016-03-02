@@ -12,11 +12,7 @@
 #include "utils.h"
 
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
-#ifdef NO_TIMEOUT
-#define CLOCK_MODE_SLEEP_TIMEOUT_TICKS                  MS_IN_TICKS(1000*60*5)
-#else
-#define CLOCK_MODE_SLEEP_TIMEOUT_TICKS                  MS_IN_TICKS(7000)
-#endif
+#define CLOCK_MODE_SLEEP_TIMEOUT_TICKS                  MS_IN_TICKS(4500)
 #define LONG_TIMEOUT_TICKS                              MS_IN_TICKS(1000*(60*3 + 43)) ;
 #define INF_TIMEOUT_TICKS                               MS_IN_TICKS(1000*60*60*8)
 #define TIME_SET_MODE_EDITING_SLEEP_TIMEOUT_TICKS       MS_IN_TICKS(80000)
@@ -61,6 +57,15 @@
 #ifndef FLICKER_MIN_MODE
   #define FLICKER_MIN_MODE false
 #endif
+
+#ifndef LOG_ACCEL_STREAM_IN_MODE_1
+#define LOG_ACCEL_STREAM_IN_MODE_1 false
+#endif
+
+#ifndef DISABLE_SECONDS
+#define DISABLE_SECONDS false
+#endif
+
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 
 //___ P R O T O T Y P E S   ( P R I V A T E ) ________________________________
@@ -175,13 +180,13 @@ ctrl_mode_t control_modes[] = {
     },
     {
         /* UTIL MODE #1 */
-#ifdef LOG_ACCEL_STREAM_IN_MODE_1
+#if (LOG_ACCEL_STREAM_IN_MODE_1)
         .tic_cb = accel_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(1500000),
-#else
+#else   /* LOG_ACCEL_STREAM_IN_MODE_1 */
         .tic_cb = sparkle_mode_tic,
         .sleep_timeout_ticks = MS_IN_TICKS(15000),
-#endif
+#endif  /* LOG_ACCEL_STREAM_IN_MODE_1 */
     },
     {
         /* UTIL MODE #2 */
@@ -273,11 +278,11 @@ bool clock_mode_tic ( event_flags_t event_flags ) {
 
       control_modes[CONTROL_MODE_SHOW_TIME].sleep_timeout_ticks = LONG_TIMEOUT_TICKS;
 
-#ifndef DISABLE_SECONDS
+#if (DISABLE_SECONDS)
       if (!sec_disp_ptr) {
         sec_disp_ptr = display_point(second, BRIGHT_LOW);
       }
-#endif
+#endif  /* DISABLE_SECONDS */
     }
 
     hour_anim_tick_int = MS_IN_TICKS(HOUR_ANIM_DUR_MS/(hour * 5));
@@ -1319,10 +1324,10 @@ bool accel_mode_tic ( event_flags_t event_flags ) {
     static animation_t *anim_ptr;
     int16_t x,y,z;
     static uint32_t last_update_ms = 0;
-#ifdef LOG_ACCEL_STREAM_IN_MODE_1
+#if (LOG_ACCEL_STREAM_IN_MODE_1)
     uint8_t delta_time = 0;
     uint32_t log_data;
-#endif
+#endif  /* LOG_ACCEL_STREAM_IN_MODE_1 */
 
 
     if ((event_flags & EV_FLAG_ACCEL_FAST_CLICK_END &&
@@ -1344,9 +1349,9 @@ bool accel_mode_tic ( event_flags_t event_flags ) {
     if (main_get_waketime_ms() - last_update_ms < 10) {
         return false;
     }
-#ifdef LOG_ACCEL_STREAM_IN_MODE_1
+#if (LOG_ACCEL_STREAM_IN_MODE_1)
     delta_time = main_get_waketime_ms() - last_update_ms;
-#endif
+#endif  /* LOG_ACCEL_STREAM_IN_MODE_1 */
     last_update_ms = main_get_waketime_ms();
 
     if (anim_ptr && !anim_is_finished(anim_ptr)) {
@@ -1369,7 +1374,7 @@ bool accel_mode_tic ( event_flags_t event_flags ) {
         return false;
     }
 
-#ifdef LOG_ACCEL_STREAM_IN_MODE_1
+#if (LOG_ACCEL_STREAM_IN_MODE_1)
     /* log x and z values for now with timestamp */
     log_data = ( delta_time & 0xff ) << 24 \
             | (((int8_t) x) << 16 & 0x00ff0000) \
@@ -1381,7 +1386,7 @@ bool accel_mode_tic ( event_flags_t event_flags ) {
         log_data = 0x00ffffff;
     }
     main_log_data((uint8_t *)&log_data, sizeof(log_data), false);
-#endif
+#endif  /* LOG_ACCEL_STREAM_IN_MODE_1 */
 
 
     /* Scale values  */

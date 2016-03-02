@@ -12,7 +12,7 @@
 
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
 #ifndef ALARM_INTERVAL_MIN
-#define ALARM_INTERVAL_MIN 1 
+#define ALARM_INTERVAL_MIN 1
 #endif
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 
@@ -43,8 +43,7 @@ static struct rtc_calendar_alarm_time alarm;
 
 //___ F U N C T I O N S   ( P R I V A T E ) __________________________________
 
-#ifdef USE_WAKEUP_ALARM
-
+#if (USE_WAKEUP_ALARM)
 static void rtc_alarm_short_callback( void ) {
 
     aclock_enable();
@@ -56,10 +55,9 @@ static void rtc_alarm_short_callback( void ) {
     rtc_calendar_set_alarm(&rtc_instance, &alarm, RTC_CALENDAR_ALARM_0);
 
 }
+#endif  /* USE_WAKEUP_ALARM */
 
-#endif
-
-static int32_t calc_timestamp(uint16_t year, uint8_t month, uint8_t day, 
+static int32_t calc_timestamp(uint16_t year, uint8_t month, uint8_t day,
     uint8_t hour, uint8_t minute, uint8_t second, bool pm) {
 
 #define SECONDS_PER_DAY 86400
@@ -155,7 +153,7 @@ void aclock_enable ( void ) {
   /* ###continuous update doesn't seeem to be working so... */
   /* Make another calendar read request */
   RTC->MODE2.READREQ.reg = RTC_READREQ_RREQ;
-  
+
   while (rtc_calendar_is_syncing(&rtc_instance)) {
           /* Wait for synchronization */
   }
@@ -178,7 +176,7 @@ int32_t aclock_get_timestamp ( void ) {
   aclock_state.minute = curr_time.minute;
   aclock_state.second = curr_time.second;
   aclock_state.pm = curr_time.pm;
-  
+
   return calc_timestamp(aclock_state.year, aclock_state.month, aclock_state.day,
       aclock_state.hour, aclock_state.minute, aclock_state.second, aclock_state.pm);
 
@@ -187,13 +185,13 @@ int32_t aclock_get_timestamp ( void ) {
 int32_t aclock_get_timestamp_relative( void ) {
   /* Get the current timestamp as the number of seconds elapsed
    * since startdate (startdate is stored in flash) */
-  
+
   int32_t startdate_ts = calc_timestamp(main_nvm_data.year, main_nvm_data.month,
-      main_nvm_data.day, main_nvm_data.hour, main_nvm_data.minute, main_nvm_data.second, 
+      main_nvm_data.day, main_nvm_data.hour, main_nvm_data.minute, main_nvm_data.second,
       main_nvm_data.pm);
 
   int32_t curr_ts = aclock_get_timestamp();
-  
+
   return curr_ts - startdate_ts;
 }
 
@@ -214,15 +212,15 @@ void aclock_init( void ) {
 
     /* Set current time */
     rtc_calendar_get_time_defaults(&initial_time);
-    
+
     if (main_nvm_data.second >= 0 && main_nvm_data.second < 60 &&
         main_nvm_data.minute >= 0 && main_nvm_data.minute < 60 &&
         main_nvm_data.hour > 0 && main_nvm_data.hour <= 12) {
       /* Datetime has been saved in nvm */
       initial_time.year   = aclock_state.year   = main_nvm_data.year;
-      initial_time.month  = aclock_state.month  = main_nvm_data.month; 
-      initial_time.day    = aclock_state.day    = main_nvm_data.day; 
-                                                 
+      initial_time.month  = aclock_state.month  = main_nvm_data.month;
+      initial_time.day    = aclock_state.day    = main_nvm_data.day;
+
       initial_time.hour   = aclock_state.hour   = main_nvm_data.hour;
       initial_time.minute = aclock_state.minute = main_nvm_data.minute;
       initial_time.second = aclock_state.second = main_nvm_data.second;
@@ -232,7 +230,7 @@ void aclock_init( void ) {
       main_nvm_data.year   =  initial_time.year   = aclock_state.year   = __YEAR__;
       main_nvm_data.month  =  initial_time.month  = aclock_state.month  = __MONTH__;
       main_nvm_data.day    =  initial_time.day    = aclock_state.day    = __DAY__;
-                           
+
       main_nvm_data.hour   =  initial_time.hour   = aclock_state.hour   =  __HOUR__;
       main_nvm_data.minute =  initial_time.minute = aclock_state.minute = __MIN__;
       main_nvm_data.second =  initial_time.second = aclock_state.second = __SEC__;
@@ -251,11 +249,11 @@ void aclock_init( void ) {
       main_nvm_data.rtc_freq_corr = 0;
     }
     if (STATUS_OK != rtc_calendar_frequency_correction(&rtc_instance, main_nvm_data.rtc_freq_corr)) {
-      main_terminate_in_error(error_group_assertion, 0); 
+      main_terminate_in_error(error_group_assertion, 0);
     }
-    
+
     rtc_calendar_enable(&rtc_instance);
-    
+
     rtc_calendar_set_time(&rtc_instance, &initial_time);
 
     /* Register sync ready callback */
@@ -263,11 +261,11 @@ void aclock_init( void ) {
         aclock_sync_ready_cb, RTC_CALENDAR_CALLBACK_SYNCRDY);
 
     rtc_calendar_enable_callback(&rtc_instance, RTC_CALENDAR_CALLBACK_SYNCRDY);
-    
 
-#ifdef USE_WAKEUP_ALARM
+
+#if (USE_WAKEUP_ALARM)
     /* Configure alarm  */
-    alarm.time.second = initial_time.second; 
+    alarm.time.second = initial_time.second;
     alarm.time.minute = initial_time.minute + ALARM_INTERVAL_MIN;
 
     alarm.time.minute %= 60;
@@ -281,7 +279,7 @@ void aclock_init( void ) {
         rtc_alarm_short_callback, RTC_CALENDAR_ALARM_0);
 
     rtc_calendar_enable_callback(&rtc_instance, RTC_CALENDAR_ALARM_0);
-#endif
+#endif  /* USE_WAKEUP_ALARM */
 }
 
 // vim:shiftwidth=2
