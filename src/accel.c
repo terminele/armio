@@ -1021,9 +1021,9 @@ event_flags_t accel_event_flags( void ) {
     int16_t x = 0, y = 0, z = 0;
     static bool int_state = false;//keep track of prev interrupt state
     /* these values assume a 4g scale */
-    const int16_t Z_SLEEP_DOWN_THS = 18;
-    const int16_t Y_SLEEP_DOWN_IN_THS = -8;
-    const int16_t Y_SLEEP_DOWN_OUT_THS = 8;
+    const int16_t Z_SLEEP_DOWN_THS = 28;
+    const int16_t Y_SLEEP_DOWN_OUT_THS = -2;
+    const int16_t Y_SLEEP_DOWN_IN_THS = 25;
     const uint32_t SLEEP_DOWN_DUR_MS = 200;
     /* timestamp (based on main tic count) of most recent
      * y down interrupt for entering sleep on z-low
@@ -1043,8 +1043,9 @@ event_flags_t accel_event_flags( void ) {
 
     accel_data_read(&x, &y, &z);
     if (z <= Z_SLEEP_DOWN_THS &&
-            (y <= Y_SLEEP_DOWN_OUT_THS || y <= Y_SLEEP_DOWN_IN_THS)) {
-        if (!accel_down) {
+            (y <= Y_SLEEP_DOWN_OUT_THS ||  //turned out slightly
+             y >= Y_SLEEP_DOWN_IN_THS)) { //turned in sharply
+      if (!accel_down) {
             accel_down = true;
             accel_down_to_ms = main_get_waketime_ms() + SLEEP_DOWN_DUR_MS;
         } else if (main_get_waketime_ms() > accel_down_to_ms) {
