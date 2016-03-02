@@ -78,8 +78,9 @@ if __name__ == "__main__":
         vs.append(v_normal)
         ts.append(t)
 
-
-    plt.plot(ts, vs, 'b-', label='on', drawstyle='steps-post')
+    
+    t_hrs = [t/3600.0 for t in ts]
+    plt.plot(t_hrs, vs, 'b.-', label='on', drawstyle='steps-post')
     plt.show()
 #        fillstyle='bottom', alpha = 0.3)
 #
