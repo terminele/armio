@@ -179,8 +179,14 @@ static void configure_i2c(void);
      * @retrn none
      */
 
-static inline bool fltr_run_gesture_filters( void );
+static inline bool gesture_filter_check( void );
     /* @brief read the accel fifo and filter turn to wake gestures
+     * @param None
+     * @retrn true if the watch should wake up
+     */
+
+static inline bool dclick_filter_check( void );
+    /* @brief read the accel current position and filter double click
      * @param None
      * @retrn true if the watch should wake up
      */
@@ -265,8 +271,7 @@ static void run_self_test( void );
 
 static void read_accel_fifo( void );
 
-static bool accel_wakeup_state_refresh(void);
-
+static bool wake_check( void );
 
 //___ V A R I A B L E S ______________________________________________________
 accel_fifo_t accel_fifo = { .bytes = { 0 }, .depth = 0 };
@@ -499,7 +504,12 @@ static bool accel_register_consecutive_read (uint8_t start_reg, uint8_t count,
     return true;
 }
 
-static inline bool fltr_run_gesture_filters( void ) {
+static inline bool gesture_filter_check( void ) {
+    /* Read FIFO to determine if a turn-up gesture occurred */
+    read_accel_fifo();  // needed for ACCEL_GESTURE_LOG_FIFO & gesture_filers
+#if (!(GESTURE_FILTERS))
+    return true;
+#endif
     uint8_t i;
     fltr_result_t rv;
     accel_xyz_t curr;
@@ -570,6 +580,27 @@ static inline bool fltr_run_gesture_filters( void ) {
     }
     return false;
 }
+
+static inline bool dclick_filter_check( void ) {
+    int16_t x, y, z;
+
+    accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS);
+    accel_data_read(&x, &y, &z);
+    if (z >= 12 || y >= 12) {
+        return true;
+    } else if (z > 0 && y > 0 && (z*z + y*y) >= 144) {
+        return true;
+#if ( SHOW_LED_ON_DCLICK_FAIL )
+    } else {
+        _led_on_full(31);
+        delay_ms(10);
+        _led_off_full(31);
+#endif  /* SHOW_LED_ON_DCLICK_FAIL */
+    }
+
+    return false;
+}
+
 
 static inline bool fltr_y_not_deliberate_fail( int16_t y_last,
         accel_xyz_t* sums ) {
@@ -673,72 +704,59 @@ static bool accel_register_write (uint8_t reg, uint8_t val) {
     return true;
 }
 
-static bool accel_wakeup_state_refresh(void) {
-    int16_t x, y, z;
-    bool force_wake_from_error = false;
-    bool wake_check_dclick = false;
-    bool wake_check_gesture = false;
-
+static bool wake_check( void ) {
     if (click_flags.ia) {
-        wake_check_dclick = true;
-    } else if (!accel_wakeup_gesture_enabled) {
+        return dclick_filter_check();
+    }
+
+    /* dclick interrupt flag was not set but only a dclick
+     * interrupt could have occurred */
+    if (!accel_wakeup_gesture_enabled) {
         DISP_ERR_WAKE_1();
-        /* dclick interrupt flag was not set but the dclick interrupt occurred */
-        wake_check_dclick = true;
-    } else if (!int1_flags.ia && !int2_flags.ia) {
+        return dclick_filter_check();
+    }
+
+    /* we got here bc of an interrupt, check that at least one flag exists */
+    if (!(int1_flags.ia || !int2_flags.ia)) {
         DISP_ERR_WAKE_2();
         /* The accelerometer is in an error state (probably a timing
          * error between interrupt trigger and register read) so just
          * assume the interrupt was for what we expect based on state */
-        if (!accel_wakeup_gesture_enabled) {
-            wake_check_dclick = true;
-        } else if (wake_gesture_state == WAIT_FOR_DOWN) {
+        if (wake_gesture_state == WAIT_FOR_DOWN) {
             wait_state_conf( WAIT_FOR_UP );
+            return false;
         } else {
-            force_wake_from_error = true;
+            return true;
         }
-    } else if (wake_gesture_state == WAIT_FOR_UP && (int1_flags.yh || int1_flags.zh)) {
-        wake_check_gesture = true;
-    } else {  /* we are in wait for down or we god a down flag in wait for up */
-        wait_state_conf( WAIT_FOR_UP );
     }
 
-    if (force_wake_from_error) {
-        /* Disable AOI INT1 interrupt (leave CLICK enabled) */
-        accel_register_write (AX_REG_CTL3,  I1_CLICK_EN);
-        accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS );
-        return true;
-    } else if (wake_check_dclick) {
-        /* so do we just sit here in WAKE_DCLICK */
-        accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS);
-// FIXME : why is this configuration written here, not only if we wake?
-// maybe, you have to rewite bypass in order to read xyz directly
-        accel_data_read(&x, &y, &z);
-        if (z >= 12 || y >= 12) {
-            return true;
-        } else if (z > 0 && y > 0 && (z*z + y*y) >= 144) {
-            return true;
-#if ( SHOW_LED_ON_DCLICK_FAIL )
-        } else {
-            _led_on_full(31);
-            delay_ms(10);
-            _led_off_full(31);
-#endif  /* SHOW_LED_ON_DCLICK_FAIL */
-        }
-    } else if (wake_check_gesture) {
-        /* Read FIFO to determine if a turn-up gesture occurred */
-        read_accel_fifo();  // needed for ACCEL_GESTURE_LOG_FIFO & gesture_filers
-        if ((!(GESTURE_FILTERS)) || fltr_run_gesture_filters()) {
-            /* Disable AOI INT1 interrupt (leave CLICK enabled) */
-            accel_register_write (AX_REG_CTL3,  I1_CLICK_EN);
-            accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS);
-            return true;
-        } else if ( DOWN_TRIG_ON_YZ_HIGH ) {
-            wait_state_conf( WAIT_FOR_UP );
-        } else {
-            wait_state_conf( WAIT_FOR_DOWN );
-        }
+    /* if our state was 'down', go forward to 'up' */
+    if (wake_gesture_state == WAIT_FOR_DOWN) {
+        wait_state_conf(WAIT_FOR_UP);
+        return false;
     }
+
+    /* we are in WAIT_FOR_UP, check if y|z 'up' was the trigger */
+    if (int1_flags.yh || int1_flags.zh) {
+        if (gesture_filter_check()) {
+            return true;
+        }
+
+        /* The gesture filter checks failed so configure ourselves
+         * to wait for another up / down event */
+        if ( DOWN_TRIG_ON_YZ_HIGH ) {
+            wait_state_conf(WAIT_FOR_UP);
+            return false;
+        }
+
+        wait_state_conf(WAIT_FOR_DOWN);
+        return false;
+    }
+
+    /* we are in WAIT_FOR_UP, but possibly with only one 'up' flag enabled and
+     * multiple 'down' flags, if one of the 'down' ISR triggerd, re-configure
+     * WAIT_FOR_UP so that all 'up' flags can trigger and no 'down' flags */
+    wait_state_conf(WAIT_FOR_DOWN);
     return false;
 }
 
@@ -844,13 +862,20 @@ static void read_accel_fifo( void ) {
     }
 }
 
+
 //___ F U N C T I O N S ______________________________________________________
 bool accel_wakeup_check( void ) {
+    bool wakeup = false;
 #ifdef NO_ACCEL
     return true;
-#else
-    return accel_wakeup_state_refresh();
 #endif
+
+    /* Callback enable is only active when sleeping */
+    extint_chan_disable_callback(AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
+    wakeup = wake_check();
+    extint_chan_enable_callback(AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
+
+    return wakeup;
 }
 
 bool accel_data_read (int16_t *x_ptr, int16_t *y_ptr, int16_t *z_ptr) {
