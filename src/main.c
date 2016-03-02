@@ -39,6 +39,15 @@
 #define IS_LOW_BATT(vbatt_adc_val) \
   ((vbatt_adc_val >> 4) < 2600) //~2.5v
 
+#ifndef ACCEL_GESTURE_LOG_FIFO
+#define  ACCEL_GESTURE_LOG_FIFO false
+#endif
+
+#ifndef ACCEL_GESTURE_LOG_UNCONFIRMED
+#define ACCEL_GESTURE_LOG_UNCONFIRMED true
+#endif
+
+
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
 typedef enum main_state_t {
   STARTUP = 0,
@@ -141,24 +150,24 @@ static struct wdt_conf config_wdt;
 nvm_data_t main_nvm_data;
 user_data_t main_user_data;
 
-#ifdef LOG_FIFO
-bool _accel_confirmed = false; 
+#if (ACCEL_GESTURE_LOG_FIFO)
+bool _accel_confirmed = false;
 #endif
 
 //___ F U N C T I O N S   ( P R I V A T E ) __________________________________
 
 static void watchdog_early_warning_callback(void) {
-      main_nvm_data.year   = aclock_state.year;   
-      main_nvm_data.month  = aclock_state.month;  
-      main_nvm_data.day    = aclock_state.day;    
-                                               
-      main_nvm_data.hour   = aclock_state.hour;   
+      main_nvm_data.year   = aclock_state.year;
+      main_nvm_data.month  = aclock_state.month;
+      main_nvm_data.day    = aclock_state.day;
+
+      main_nvm_data.hour   = aclock_state.hour;
       main_nvm_data.minute = aclock_state.minute;
       main_nvm_data.second = aclock_state.second;
-      main_nvm_data.pm     = aclock_state.pm;     
-      
+
+      main_nvm_data.pm     = aclock_state.pm;
       nvm_update_buffer(NVM_DATA_ADDR, (uint8_t *) &main_nvm_data, 0,
-             sizeof(nvm_data_t));
+          sizeof(nvm_data_t));
 }
 
 static void configure_wdt( void ) {
@@ -174,20 +183,20 @@ static void configure_wdt( void ) {
 
 	/* Initialize and enable the Watchdog with the user settings */
 	wdt_set_config(&config_wdt);
-	
+
         wdt_register_callback(watchdog_early_warning_callback,
 		WDT_CALLBACK_EARLY_WARNING);
 }
 
 static void wdt_enable( void ) {
-      
+
         config_wdt.enable = true;
 	wdt_set_config(&config_wdt);
 	wdt_enable_callback(WDT_CALLBACK_EARLY_WARNING);
 }
 
 static void wdt_disable( void ) {
-      
+
         config_wdt.enable = false;
 	wdt_set_config(&config_wdt);
 	wdt_disable_callback(WDT_CALLBACK_EARLY_WARNING);
@@ -235,20 +244,20 @@ static void log_usage ( void ) {
   int32_t reltime = aclock_get_timestamp_relative();
   /* We'll assume the relative timestamp is less than 2^24 seconds
    * (about 194 days) to be able to pack data into 4 bytes */
-  
-  uint32_t data = (reltime << 8) & 0xffffff00; 
-  
+
+  uint32_t data = (reltime << 8) & 0xffffff00;
+
   /* log vbatt.  vbatt is a 16-bit averaged value
    * of 12-bit reads.  First decimate downt to a 12-bit val */
   uint16_t vbatt_val = main_gs.vbatt_sensor_adc_val >> 4;
-  
-  /* Now, record as an 8-bit value representing the offset 
+
+  /* Now, record as an 8-bit value representing the offset
    * from 2048 (~2v) */
   if (vbatt_val <= 2048) {
     vbatt_val = 0;
   } else {
     vbatt_val-=2048;
-   
+
     /* Now decimate down to 8-bit value */
     if (vbatt_val >= 1024) {
       vbatt_val = 255;
@@ -299,14 +308,14 @@ static void prepare_sleep( void ) {
   /* The vbatt adc may have enabled the voltage reference, so disable
    * it in standby to save power */
   system_voltage_reference_disable(SYSTEM_VOLTAGE_REFERENCE_BANDGAP);
-  
+
 }
 
 static void wakeup (void) {
-  
-  
+
+
   wdt_enable();
-  
+
   led_controller_enable();
   aclock_enable();
   accel_enable();
@@ -348,7 +357,7 @@ static void wakeup (void) {
 #endif
 
 #if LOG_USAGE
-#ifndef USAGE_LOG_PERIOD 
+#ifndef USAGE_LOG_PERIOD
 #define USAGE_LOG_PERIOD 20
 #endif
 
@@ -405,7 +414,7 @@ static bool wakeup_check( void ) {
     }
   }
 
-  
+
   /* We are in deep sleep/shipping mode, update dclick counter */
   aclock_enable();
   curr_wakestamp = get_wakestamp();
@@ -417,18 +426,18 @@ static bool wakeup_check( void ) {
     if (z < -5) {
       main_gs.deep_sleep_down_ctr++;
 #ifdef DEEP_SLEEP_DEBUG
-      _led_on_full( 30 + main_gs.deep_sleep_down_ctr ); 
+      _led_on_full( 30 + main_gs.deep_sleep_down_ctr );
       delay_ms(100);
-      _led_off_full( 30 + main_gs.deep_sleep_down_ctr ); 
+      _led_off_full( 30 + main_gs.deep_sleep_down_ctr );
       delay_ms(50);
 #endif
     } else if (z > 5 && main_gs.deep_sleep_down_ctr >= DEEP_SLEEP_SEQ_DOWN_COUNT) {
       main_gs.deep_sleep_up_ctr++;
 #ifdef DEEP_SLEEP_DEBUG
-      _led_on_full( main_gs.deep_sleep_up_ctr ); 
-      delay_ms(100); 
-      _led_off_full( main_gs.deep_sleep_up_ctr ); 
-      delay_ms(50); 
+      _led_on_full( main_gs.deep_sleep_up_ctr );
+      delay_ms(100);
+      _led_off_full( main_gs.deep_sleep_up_ctr );
+      delay_ms(50);
 #endif
     }
 
@@ -446,21 +455,21 @@ static bool wakeup_check( void ) {
   } else {
     /* we will assume the first dclick is face down so we
      * don't bother wasting power reading accelerometer */
-    main_gs.deep_sleep_down_ctr = 1; 
+    main_gs.deep_sleep_down_ctr = 1;
     main_gs.deep_sleep_up_ctr = 0;
     accel_wakeup_gesture_enabled = false;
     wake = false;
-    
+
 #ifdef DEEP_SLEEP_DEBUG
     _led_on_full( 30 );
-    delay_ms(100); 
+    delay_ms(100);
     _led_off_full( 30 );
-    delay_ms(50); 
+    delay_ms(50);
 #endif
   }
 
   main_gs.last_wakestamp = curr_wakestamp;
-  
+
   aclock_disable();
 
   return wake;
@@ -482,10 +491,10 @@ static void main_tic( void ) {
     main_gs.brightness = MAX_BRIGHT_VAL;
     led_set_max_brightness( main_gs.brightness );
   }
-  
+
   /* ### DEBUG led controller */
   if (MNCLICK(event_flags, 12, 20)) {
-      _led_on_full( 15 ); 
+      _led_on_full( 15 );
       delay_ms(100);
       _led_off_full( 15 );
   }
@@ -508,7 +517,7 @@ static void main_tic( void ) {
       if (anim_is_finished(sleep_wake_anim)) {
         anim_release(sleep_wake_anim);
         sleep_wake_anim = NULL;
-        
+
         /* Update and store lifetime usage data */
 #ifdef LOG_LIFETIME_USAGE
 #ifndef LIFETIME_USAGE_PERIOD
@@ -522,26 +531,22 @@ static void main_tic( void ) {
           nvm_update_buffer(NVM_DATA_ADDR, (uint8_t *) &main_nvm_data, 0,
               sizeof(nvm_data_t));
         }
-#endif
+#endif  /* LOG_LIFETIME_USAGE */
 
-#ifdef LOG_FIFO
-        if (ax_fifo_depth == 32  
-            && (_accel_confirmed || main_nvm_data.lifetime_wakes < 200)
-#ifdef LOG_CONFIRMED_ONLY 
-            && _accel_confirmed
-#endif
-           ) {
+#if (ACCEL_GESTURE_LOG_FIFO)
+        if (ACCEL_GESTURE_LOG_UNCONFIRMED || _accel_confirmed) {
           uint32_t code = 0xAAAAAAAA; /* FIFO data begin code */
           main_log_data((uint8_t *) &code, sizeof(uint32_t), false);
-          main_log_data((uint8_t *)ax_fifo, 6*ax_fifo_depth, true);
+          main_log_data(accel_fifo.bytes,
+              sizeof(accel_xyz_t) * accel_fifo.depth, true);
           code = _accel_confirmed ? 0xCCCCCCCC : 0xEEEEEEEE; /* FIFO data end code */
           main_log_data((uint8_t *) &code, sizeof(uint32_t), true);
-          uint16_t log_code = 0xEEDD; 
+          uint16_t log_code = 0xEEDD;
           main_log_data ((uint8_t *)&log_code, sizeof(uint16_t), true);
           main_log_data ((uint8_t *)&main_gs.waketicks, sizeof(uint32_t), true);
         }
-#endif
-  
+#endif  /* ACCEL_GESTURE_LOG_FIFO */
+
         prepare_sleep();
         accel_sleep();
 
@@ -550,15 +555,15 @@ static void main_tic( void ) {
         do {
           system_sleep();
         } while(!wakeup_check());
-    
+
         wakeup();
-        
+
         if (main_gs.deep_sleep_mode) {
           /* We have now woken up from deep sleep mode so
            * display a sparkle animation
            */
           main_gs.deep_sleep_mode = false;
-          sleep_wake_anim = anim_random(display_point(0, BRIGHT_DEFAULT), 
+          sleep_wake_anim = anim_random(display_point(0, BRIGHT_DEFAULT),
               MS_IN_TICKS(15), MS_IN_TICKS(4000), true);
         }
 
@@ -599,14 +604,14 @@ static void main_tic( void ) {
 
           /* A sleep event has occurred */
           if (IS_CONTROL_MODE_SHOW_TIME() && TCLICK(event_flags)) {
-#ifdef LOG_FIFO
+#if (ACCEL_GESTURE_LOG_FIFO)
               _accel_confirmed = true;
 #else
               accel_wakeup_gesture_enabled = false;
 #endif
 
           } else {
-#ifdef LOG_FIFO
+#if (ACCEL_GESTURE_LOG_FIFO)
               _accel_confirmed = false;
 #else
               accel_wakeup_gesture_enabled = main_user_data.wake_gestures;
@@ -631,8 +636,7 @@ static void main_tic( void ) {
       }
 
       /* Call mode's main tic loop/event handler */
-      control_tic(event_flags); 
-      
+      control_tic(event_flags);
       return; /* END OF RUNNING STATE SWITCH CASE */
   }
 }
@@ -683,35 +687,35 @@ static void main_init( void ) {
       sizeof(nvm_data_t));
 
   if (main_nvm_data.lifetime_wakes == 0xffffffff) {
-      main_nvm_data.lifetime_wakes = 0; 
-  }
-  
-  if (main_nvm_data.filtered_gestures == 0xffffffff) {
-      main_nvm_data.filtered_gestures = 0; 
-  }
- 
-  if (main_nvm_data.filtered_dclicks == 0xffffffff) {
-      main_nvm_data.filtered_dclicks = 0; 
-  }
-  
-  if (main_nvm_data.lifetime_ticks == 0xffffffff) {
-      main_nvm_data.lifetime_ticks = 0; 
+      main_nvm_data.lifetime_wakes = 0;
   }
 
-  
+  if (main_nvm_data.filtered_gestures == 0xffffffff) {
+      main_nvm_data.filtered_gestures = 0;
+  }
+
+  if (main_nvm_data.filtered_dclicks == 0xffffffff) {
+      main_nvm_data.filtered_dclicks = 0;
+  }
+
+  if (main_nvm_data.lifetime_ticks == 0xffffffff) {
+      main_nvm_data.lifetime_ticks = 0;
+  }
+
+
   if (main_nvm_data.lifetime_resets == 0xffffffff) {
-      main_nvm_data.lifetime_resets = 0; 
+      main_nvm_data.lifetime_resets = 0;
   } else {
       main_nvm_data.lifetime_resets++;
   }
-  
+
   if (main_nvm_data.wdt_resets == 0xffff) {
       main_nvm_data.wdt_resets = 0;
   }
-  
+
   enum system_reset_cause reset_cause = system_get_reset_cause();
   if (reset_cause == SYSTEM_RESET_CAUSE_WDT) {
-      main_nvm_data.wdt_resets++;   
+      main_nvm_data.wdt_resets++;
   }
 
   nvm_update_buffer(NVM_DATA_ADDR, (uint8_t *) &main_nvm_data, 0,
@@ -777,7 +781,7 @@ void main_log_data( uint8_t *data, uint16_t length, bool flush) {
   enum status_code error_code;
   uint16_t  i, p;
 
-  if (nvm_row_addr >= NVM_LOG_ADDR_MAX)  return; //out of buffer space 
+  if (nvm_row_addr >= NVM_LOG_ADDR_MAX)  return; //out of buffer space
 
   for (i = 0; i < length; i++) {
     nvm_row_buffer[nvm_row_ind] = data[i];
@@ -906,7 +910,7 @@ int main (void) {
 
   system_init();
   system_set_sleepmode(SYSTEM_SLEEPMODE_STANDBY);
-  
+
   delay_init();
   main_init();
   led_controller_init();
@@ -942,7 +946,7 @@ int main (void) {
     if (main_nvm_data.lifetime_resets == 0) {
       /* This watch has just been born.  Display a slow swirl so we
        * can ensure all the LEDs are working */
-        //sleep_wake_anim = anim_random(display_point(0, BRIGHT_DEFAULT), 
+        //sleep_wake_anim = anim_random(display_point(0, BRIGHT_DEFAULT),
         //    MS_IN_TICKS(15), MS_IN_TICKS(2000), true);
         sleep_wake_anim = anim_swirl(0, 5, MS_IN_TICKS(50), 120, true);
 #ifdef NOT_NOW //DEEP_SLEEP_AT_BIRTH
@@ -956,7 +960,7 @@ int main (void) {
 
   configure_input();
   system_interrupt_enable_global();
-  
+
   wdt_enable();
 
   while (1) {
@@ -965,7 +969,7 @@ int main (void) {
       main_tic();
       anim_tic();
       display_tic();
-     
+
       if (main_gs.waketicks % 500 == 0) {
         wdt_reset_count();
       }
@@ -979,16 +983,16 @@ int main (void) {
 int main (void) {
   system_init();
   system_set_sleepmode(SYSTEM_SLEEPMODE_STANDBY);
-  
+
   delay_init();
   main_init();
   led_controller_conf_output();
   led_clear_all();
-  
+
   _led_on_full(0);
   delay_ms(1000);
   _led_off_full(0);
-  
+
   rtc_cal_run();
 }
 #endif /* RTC_CALIBRATE */

@@ -3,4 +3,5 @@ bin
 *.image
 *.png
 graphics/images
+.compiler_flags
 logs

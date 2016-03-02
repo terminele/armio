@@ -92,7 +92,7 @@ endif
 TARGET_FLASH = bin/armio_flash.elf
 TARGET_SRAM = bin/armio_sram.elf
 
-ifeq ($(debugger), atmel-ice)
+#ifeq ($(debugger), atmel-ice)
     INSTALL_CMD = openocd \
 	    -f $(DEBUGGER_CFG) \
 	    -f $(OCD_PART_CFG) \
@@ -102,13 +102,14 @@ ifeq ($(debugger), atmel-ice)
 	    -c "verify_image $(target) 0x00000000 elf" \
 	    -c "reset run" \
 	    -c "shutdown"
-    
+
     CHIPERASE_CMD = openocd \
 	    -f $(DEBUGGER_CFG) \
 	    -f $(OCD_PART_CFG) \
 	    -c "init" \
 	    -c "at91samd chip-erase" \
 	    -c "shutdown"
+
     SSB_CMD = openocd \
 	    -f $(DEBUGGER_CFG) \
 	    -f $(OCD_PART_CFG) \
@@ -116,21 +117,22 @@ ifeq ($(debugger), atmel-ice)
 	    -c "reset halt" \
 	    -c "at91samd set-security enable" \
 	    -c "shutdown"
-else
-ifeq ($(debugger), jlink)
-    INSTALL_CMD = JLinkExe utils/$(chip).jlink
-    CHIPERASE_CMD = JLinkExe utils/$(chip)-erase.jlink
-    SSB_CMD = openocd \
-	    -f $(DEBUGGER_CFG) \
-	    -f $(OCD_PART_CFG) \
-	    -c "init" \
-	    -c "reset halt" \
-	    -c "at91samd set-security enable" \
-	    -c "shutdown"
-else
-$(error unuspported debugger)
-endif
-endif
+
+#else
+#ifeq ($(debugger), jlink)
+#    INSTALL_CMD = JLinkExe utils/$(chip).jlink
+#    CHIPERASE_CMD = JLinkExe utils/$(chip)-erase.jlink
+#    SSB_CMD = openocd \
+#	    -f $(DEBUGGER_CFG) \
+#	    -f $(OCD_PART_CFG) \
+#	    -c "init" \
+#	    -c "reset halt" \
+#	    -c "at91samd set-security enable" \
+#	    -c "shutdown"
+#else
+#$(error unuspported debugger)
+#endif
+#endif
 
 #make bin output directory if it doesnt exist
 BUILD_DIR=bin
@@ -278,40 +280,46 @@ $(info $(_YEAR_)-$(_MONTH_)-$(_DAY_)  $(_HOUR_):$(_MIN_):$(_SEC_)s $(_AMPM_))
 #   To cancel a definition use the format "-U name".
 #
 # The most relevant symbols to define for the preprocessor are:
+TIME_INFO_FLAGS =
+TIME_INFO_FLAGS += -D __YEAR__=$(_YEAR_)
+TIME_INFO_FLAGS += -D __MONTH__=$(_MONTH_)
+TIME_INFO_FLAGS += -D __DAY__=$(_DAY_)
+TIME_INFO_FLAGS += -D __HOUR__=$(_HOUR_)
+TIME_INFO_FLAGS += -D __MIN__=$(_MIN_)
+TIME_INFO_FLAGS += -D __SEC__=$(_SEC_)
+TIME_INFO_FLAGS += -D __PM__=$(_PM_)
+# TIME_INFO_FLAGS are used for c/cpp/asm building
 
-CPPFLAGS = \
-       -D I2C_MASTER_CALLBACK_MODE=false		  \
-       -D ARM_MATH_CM0=true                               \
-       -D ADC_CALLBACK_MODE=false		     	  \
-       -D RTC_CALENDAR_ASYNC=true 		          \
-       -D EXTINT_CALLBACK_MODE=true		          \
-       -D EVENTS_INTERRUPT_HOOKS_MODE=false               \
-       -D WDT_CALLBACK_MODE=true                          \
-       -D TC_ASYNC=true		 		          \
-       -D SYSTICK_MODE                                    \
-       -D $(PARTD)					  \
-       -D NVM_MAX_ADDR=$(NVM_MAX_ADDR)			  \
-       -D ENABLE_LIGHT_SENSE=true			  \
-       -D ENABLE_VBATT=true				  \
-       -D __YEAR__=$(_YEAR_)				  \
-       -D __MONTH__=$(_MONTH_)				  \
-       -D __DAY__=$(_DAY_)				  \
-       -D __HOUR__=$(_HOUR_)				  \
-       -D __MIN__=$(_MIN_)				  \
-       -D __SEC__=$(_SEC_)				  \
-       -D __PM__=$(_PM_)				  \
-       -D LOG_LIFETIME_USAGE				  \
-       -D GESTURE_FILTERS=true 			  	  
-       #-D NO_ACCEL					  \
-       #-D ALWAYS_ACTIVE=true				  \
-       #-D LOG_ACCEL					  \
-       #-D LOG_FIFO					  \
-       #-D LOG_CONFIRMED_ONLY				  \
-       #-D FLICKER_MIN_MODE
-       #-D USE_WAKEUP_ALARM				  \
-       #-D NO_TIME_ANIMATION				  \
-       #-D SIMPLE_TIME_MODE
-       #-D ENABLE_BUTTON				  	  \
+CPPFLAGS =
+CPPFLAGS += -D I2C_MASTER_CALLBACK_MODE=false
+CPPFLAGS += -D ARM_MATH_CM0=true
+CPPFLAGS += -D ADC_CALLBACK_MODE=false
+CPPFLAGS += -D RTC_CALENDAR_ASYNC=true
+CPPFLAGS += -D EXTINT_CALLBACK_MODE=true
+CPPFLAGS += -D EVENTS_INTERRUPT_HOOKS_MODE=false
+CPPFLAGS += -D WDT_CALLBACK_MODE=true
+CPPFLAGS += -D TC_ASYNC=true
+CPPFLAGS += -D SYSTICK_MODE
+CPPFLAGS += -D $(PARTD)
+CPPFLAGS += -D NVM_MAX_ADDR=$(NVM_MAX_ADDR)
+CPPFLAGS += -D ENABLE_LIGHT_SENSE=true
+CPPFLAGS += -D ENABLE_VBATT=true
+
+### DEBUG RELATED FLAGS ###
+#CPPFLAGS += -D DEBUG_AX_ISR=true
+CPPFLAGS += -D GESTURE_FILTERS=false
+#CPPFLAGS += -D SHOW_ACCEL_ERRORS_ON_LED=true
+#CPPFLAGS += -D LOG_LIFETIME_USAGE
+#CPPFLAGS += -D LOG_ACCEL_STREAM_IN_MODE_1
+CPPFLAGS += -D ACCEL_GESTURE_LOG_FIFO=true
+#CPPFLAGS += -D ACCEL_GESTURE_LOG_UNCONFIRMED=false
+#CPPFLAGS += -D FLICKER_MIN_MOD
+#CPPFLAGS += -D USE_WAKEUP_ALARM
+#CPPFLAGS += -D NO_TIME_ANIMATION
+#CPPFLAGS += -D NO_ACCEL
+#CPPFLAGS += -D ALWAYS_ACTIVE=true
+#CPPFLAGS += -D SIMPLE_TIME_MOD
+#CPPFLAGS += -D ENABLE_BUTTON
 
 PREBUILD_CMD =
 
@@ -369,7 +377,7 @@ ifdef picture_mode
     PREBUILD_CMD += touch src/main.c; touch src/control.c;
 endif
 
-ifdef log_usage 
+ifdef log_usage
     CPPFLAGS += -D LOG_USAGE=true
     PREBUILD_CMD += touch src/main.c;
 else
@@ -388,7 +396,7 @@ endif
 
 ifdef rtc_cal
     CPPFLAGS+=-D RTC_CALIBRATE=true -D TCC_ASYNC=false
-    CSRCS+=src/asf/sam0/drivers/tcc/tcc.c			       
+    CSRCS+=src/asf/sam0/drivers/tcc/tcc.c
     INC_PATH+=src/asf/sam0/drivers/tcc
     PREBUILD_CMD += touch src/utils.c; touch src/main.c; touch src/conf/conf_clocks.h; touch src/asf/asf.h;
     TARGET_FLASH = bin/armio_rtc_cal_flash.elf
@@ -410,4 +418,4 @@ else
 	fi;
 endif
 
-POSTBUILD_CMD += touch src/aclock.c;
+PREBUILD_CMD += touch src/aclock.c;
