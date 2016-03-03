@@ -74,6 +74,7 @@
 #endif
 /* Do we use new filters created from PCA / LDA analysis */
 
+#define ENABLE_INTERRUPT_2 true
 #ifndef ENABLE_INTERRUPT_2
 #define ENABLE_INTERRUPT_2 false
 #endif
@@ -458,11 +459,11 @@ static void wait_state_conf( wake_gesture_state_t wait_state ) {
 
     if (wait_state == WAIT_FOR_DOWN) {
         duration_odr = MS_TO_ODRS(50, SLEEP_SAMPLE_INT);
-        threshold = 20;
+        threshold = 10;
     } else if (wait_state == WAIT_FOR_UP) {
         /* NOTE: changing DURATION_ODR | THRESHOLD changes wake events signature */
         duration_odr = MS_TO_ODRS(50, SLEEP_SAMPLE_INT);
-        threshold = 10;
+        threshold = 12;
     }
 #if ( DOWN_TRIG_ON_YZ_HIGH )
     if (wait_state == WAIT_FOR_DOWN) {
@@ -487,8 +488,12 @@ static void wait_state_conf( wake_gesture_state_t wait_state ) {
 #else   /* DOWN_TRIG_ON_YZ_HIGH */
     if (wait_state == WAIT_FOR_DOWN) {
         directions = (XLIE | XHIE | YLIE | ZLIE);
+        accel_register_write (AX_REG_INT2_THS, 0);
+        accel_register_write (AX_REG_INT2_DUR, 0);
+        accel_register_write (AX_REG_INT2_CFG, 0);
     } else if (wait_state == WAIT_FOR_UP) {
-        directions = (ZHIE | YHIE);
+        directions = ZHIE | YHIE;
+
     }
 #endif  /* DOWN_TRIG_ON_YZ_HIGH */
 
@@ -498,7 +503,17 @@ static void wait_state_conf( wake_gesture_state_t wait_state ) {
     accel_register_write (AX_REG_INT1_THS, threshold);
     accel_register_write (AX_REG_INT1_DUR, duration_odr);
     accel_register_write (AX_REG_INT1_CFG, AOI_POS | directions);
+
     accel_register_write (AX_REG_CTL3, I1_CLICK_EN | I1_AOI1_EN);
+#if ENABLE_INTERRUPT_2
+    if (wait_state == WAIT_FOR_UP) {
+        accel_register_write (AX_REG_CTL3, I1_CLICK_EN | I1_AOI1_EN | I1_AOI2_EN);
+        accel_register_write (AX_REG_INT2_THS, 20);
+        accel_register_write (AX_REG_INT2_DUR, duration_odr);
+        accel_register_write (AX_REG_INT2_CFG, AOI_POS | YHIE);
+    }
+#endif
+
 }
 
 static bool accel_register_consecutive_read (uint8_t start_reg, uint8_t count,
@@ -925,6 +940,12 @@ bool accel_wakeup_check( void ) {
     /* Callback enable is only active when sleeping */
     extint_chan_disable_callback(AX_INT_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
     wakeup = wake_check();
+    int1_flags.b8 = 0;
+#if (ENABLE_INTERRUPT_2)
+    int2_flags.b8 = 0;
+#endif
+    click_flags.b8 = 0;
+
     extint_chan_enable_callback(AX_INT_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
 
     return wakeup;
