@@ -951,7 +951,7 @@ class Samples( object ):
         plt.scatter( xs_confirm, dzs_confirm, color='b' )
         plt.show()
 
-    def plot_z_for_groups( self, zmin=True ):
+    def plot_z_for_groups( self, zmin=False, only='xymag' ):
         keys = sorted(list(set(s.logfile for s in self.samples)))
         groups = dict((k,[]) for k in keys)
         ncolors = len(keys)
@@ -980,12 +980,16 @@ class Samples( object ):
             ax.legend()
         else:
             for sample in self.samples:
-                sample.show_plot(only='xymag', z_color=cdict[sample.logfile],
-                        show=False, hide_legend=True, hide_title=True, axis=ax)
-        ax.set_title("Various z-thresholds")
+                if len(colors) > 1:
+                    color=cdict[sample.logfile]
+                else:
+                    color=None
+                sample.show_plot(only=only, color=color, show=False,
+                        hide_legend=True, hide_title=True, axis=ax)
+        ax.set_title("FIFO Plots showing {}".format(only))
         ax.grid()
         ax.set_xlim([0, SLEEP_SAMPLE_PERIOD*32])
-        ax.set_ylim([-60, 60])
+        ax.set_ylim([-35, 35])
         ax.set_xlabel("ms (ODR = {} Hz)".format(1000/SLEEP_SAMPLE_PERIOD))
         ax.set_ylabel("1/32 * g's for +/-4g")
         plt.show()
@@ -1282,24 +1286,37 @@ class WakeSample( object ):
             ax.plot(t, self.zs, color='b', marker='.', label='z', linewidth=1)
             ax.plot(t, mag, color='k', marker='.', label='mag', linewidth=1)
         else:
-            if only == 'x':
-                only = self.xs
-            elif only == 'y':
-                only = self.ys
-            elif only == 'z':
-                only = self.zs
-            elif only == 'xymag':
-                only = [ (x**2 + y**2)**0.5 for x, y in zip(self.xs, self.ys) ]
-            elif only == 'xzmag':
-                only = [ (x**2 + z**2)**0.5 for x, z in zip(self.xs, self.zs) ]
-            elif only == 'yzmag':
-                only = [ (y**2 + z**2)**0.5 for y, z in zip(self.ys, self.zs) ]
-            elif only == 'xyzmag':
-                only = [ (x**2 + y**2 + z**2)**0.5 for x, y, z in zip(self.xs, self.ys, self.zs) ]
+            color = kwargs.pop('color', None)
+            only = only.split(',')
+            if color is None:
+                color = ['r', 'g', 'b', 'c', 'm', 'y', 'k']
             else:
-                raise ValueError("invalid 'only' param '{}'".format(only))
-            ax.plot(t, only, color=kwargs.pop('z_color', 'b'), marker='.', label='z',
-                    linewidth=1)
+                color = [color]*7
+            if 'x' in only: # red
+                ax.plot(t, self.xs, color=color[0],
+                        marker='.', label='z', linewidth=1)
+            if 'y' in only: # green
+                ax.plot(t, self.ys, color=color[1],
+                        marker='.', label='z', linewidth=1)
+            if 'z' in only: # blue
+                ax.plot(t, self.zs, color=color[2],
+                        marker='.', label='z', linewidth=1)
+            if 'xymag' in only or 'yxmag' in only:  # cyan
+                m = [ (x**2 + y**2)**0.5 for x, y in zip(self.xs, self.ys) ]
+                ax.plot(t, m, color=color[3],
+                        marker='.', label='z', linewidth=1)
+            if 'xzmag' in only or 'zxmag' in only:  # magenta
+                m = [ (x**2 + z**2)**0.5 for x, z in zip(self.xs, self.zs) ]
+                ax.plot(t, m, color=color[4],
+                        marker='.', label='z', linewidth=1)
+            if 'yzmag' in only or 'zymag' in only:  # yellow
+                m = [ (y**2 + z**2)**0.5 for y, z in zip(self.ys, self.zs) ]
+                ax.plot(t, m, color=color[5],
+                        marker='.', label='z', linewidth=1)
+            if 'xyzmag' in only or 'mag' in only:   # black
+                m = [ (x**2 + y**2 + z**2)**0.5 for x, y, z in zip(self.xs, self.ys, self.zs) ]
+                ax.plot(t, m, color=color[6],
+                        marker='.', label='z', linewidth=1)
         if kwargs.pop( "show", True ):
             if not kwargs.pop( 'hide_title', False ):
                 ax.set_title("sample {} pass={} confirm={}".format(
@@ -1505,6 +1522,7 @@ if __name__ == "__main__":
         parser.add_argument('-c', '--plot_csums', action='store_true', default=False)
         parser.add_argument('-r', '--rejects_only', action='store_true', default=False)
         parser.add_argument('-p', '--accepts_only', action='store_true', default=False)
+        parser.add_argument('-l', '--show-levels', action='store_true', default=False)
         parser.add_argument('-fn', '--false_negatives', action='store_true', default=False)
         return parser.parse_args()
 
@@ -1565,6 +1583,9 @@ if __name__ == "__main__":
             #ld_test.plot_eigvals()
             ld_test.plot_weightings(0)
             ld_test.plot_result()
+
+        if args.show_levels:
+            allsamples.plot_z_for_groups( only='x,y,z,xymag,yzmag,xzmag,mag' )
 
     elif args.streamed:
         fname = args.dumpfiles[0]
