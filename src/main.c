@@ -32,6 +32,10 @@
 #define NVM_LOG_ADDR_START  (NVM_ADDR_START + NVM_DATA_STORE_SIZE)
 #define NVM_LOG_ADDR_MAX    NVM_MAX_ADDR
 
+/* Ignore any click events occuring just after wakeup
+ * since they are most likely spurious */
+#define WAKE_CLICK_IGNORE_DUR_TICKS     MS_IN_TICKS(800)
+
 #define IS_ACTIVITY_EVENT(ev_flags) \
       (ev_flags != EV_FLAG_NONE && \
         ev_flags != EV_FLAG_ACCEL_DOWN)
@@ -516,8 +520,12 @@ static void main_tic( void ) {
 
   main_gs.inactivity_ticks++;
   main_gs.waketicks++;
-
-  event_flags |= accel_event_flags();
+  
+  /* Get accel events flags only if enough time has passed
+   * since waking */
+  if (main_gs.waketicks > WAKE_CLICK_IGNORE_DUR_TICKS) {
+    event_flags |= accel_event_flags();
+  }
 
   /* Reset inactivity if any button/click event occurs */
   if (IS_ACTIVITY_EVENT(event_flags)) {
