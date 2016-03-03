@@ -31,7 +31,7 @@ log_accel_gesture_fifo=true
 #show_sec_always=true
 #self_test_accel=true
 
-ifdef debug_accel
+ifdef debug_accel_isr
     debug_ax_isr=true
     gestures_filters=true
     reject_all_gestures=true

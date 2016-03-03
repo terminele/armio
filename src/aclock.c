@@ -138,12 +138,9 @@ void aclock_set_time( uint8_t hour, uint8_t minute, uint8_t second) {
 
 
 void aclock_get_time( uint8_t* hour_ptr, uint8_t* minute_ptr, uint8_t* second_ptr) {
-
     *hour_ptr = aclock_state.hour;
     *minute_ptr = aclock_state.minute;
     *second_ptr = aclock_state.second;
-
-
 }
 
 void aclock_enable ( void ) {

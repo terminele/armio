@@ -72,9 +72,9 @@ event_flags_t accel_event_flags( void );
    */
 
 void accel_events_clear( void );
-  /* @brief Reset click event counters 
+  /* @brief Reset click event counters
    * @param None
-   * @retrn 
+   * @retrn
    */
 
 bool accel_wakeup_check( void );

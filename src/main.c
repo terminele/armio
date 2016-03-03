@@ -200,6 +200,11 @@ bool _accel_confirmed = false;
 //___ F U N C T I O N S   ( P R I V A T E ) __________________________________
 
 static void watchdog_early_warning_callback(void) {
+  /* we are about to do a watchdog reset, when it wakes back up again the
+   * current time will be read from the program time (which will be way off),
+   * unless we re-set it here... which should be much closer to actual time
+   * we will know that a watchdog reset has occured on startup
+   * */
       main_nvm_data.year   = aclock_state.year;
       main_nvm_data.month  = aclock_state.month;
       main_nvm_data.day    = aclock_state.day;
@@ -575,7 +580,6 @@ static void main_tic( void ) {
 
 #if (LOG_ACCEL_GESTURE_FIFO)
         if (LOG_UNCONFIRMED_GESTURES || _accel_confirmed) {
-          0x2f7c5994
           uint32_t code = 0xAAAAAAAA; /* FIFO data begin code */
           main_log_data((uint8_t *) &code, sizeof(uint32_t), false);
           main_log_data(accel_fifo.bytes,
@@ -949,6 +953,8 @@ int main (void) {
   control_init();
   display_init();
   anim_init();
+
+  delay_ms(5);      /* accel takes 5ms to power up */
   accel_init();
 
   /* Errata 39.3.2 -- device may not wake up from

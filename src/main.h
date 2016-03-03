@@ -59,14 +59,14 @@ typedef enum sensor_type_t {
 } sensor_type_t;
 
 typedef struct {
-    /* configuration data and usage stats stored in flash 
-     * If updating this struct, ensure size does not 
-     * exceed NVM_DATA_STORE_SIZE 
+    /* configuration data and usage stats stored in flash
+     * If updating this struct, ensure size does not
+     * exceed NVM_DATA_STORE_SIZE
      */
-    int8_t rtc_freq_corr; 
-    uint32_t lifetime_wakes; 
-    uint32_t filtered_gestures; 
-    uint32_t filtered_dclicks; 
+    int8_t rtc_freq_corr;
+    uint32_t lifetime_wakes;
+    uint32_t filtered_gestures;
+    uint32_t filtered_dclicks;
     uint32_t lifetime_ticks;
     uint32_t lifetime_resets;
     uint16_t wdt_resets;
@@ -131,7 +131,7 @@ uint16_t main_get_light_sensor_value ( void );
 uint16_t main_get_vbatt_value ( void );
   /* @brief get running-averaged vbatt value
    * @param None
-   * @retrn 
+   * @retrn
    */
 
 

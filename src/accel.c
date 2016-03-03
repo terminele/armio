@@ -17,10 +17,13 @@
 #define ACCEL_ERROR_TIMEOUT             ((uint32_t) 1)
 #define ACCEL_ERROR_SELF_TEST(test)    (((uint32_t) 2) \
     | (((uint32_t) test)<<8))
-#define ACCEL_ERROR_WRITE_EN            ((uint32_t) 3)
-#define ACCEL_ERROR_READ_ID             ((uint32_t) 4)
-#define ACCEL_ERROR_WRONG_ID(id)       (((uint32_t) 5) \
+#define ACCEL_ERROR_READ_ID             ((uint32_t) 3)
+#define ACCEL_ERROR_WRONG_ID(id)       (((uint32_t) 4) \
     | (((uint32_t) id)<<8) )
+#define ACCEL_ERROR_CONFIG(reg)        \
+    main_terminate_in_error( error_group_accel, \
+            ((uint32_t) 5) | (((uint32_t) reg)<<8) )
+
 
 #ifndef ABS
 #define ABS(a)       ( a < 0 ? -1 * a : a )
@@ -71,6 +74,10 @@
 #endif
 /* Do we use new filters created from PCA / LDA analysis */
 
+#ifndef ENABLE_INTERRUPT_2
+#define ENABLE_INTERRUPT_2 false
+#endif
+
 
 #if ( SHOW_LED_FOR_FILTER_INFO )
 #define _DISP_FILTER_INFO( i )  do { \
@@ -108,10 +115,9 @@
 #define DISP_ERR_CONSEC_READ_3()        _DISP_ERROR( 59 )
 #define DISP_ERR_WAKE_1()               _DISP_ERROR( 19 )
 #define DISP_ERR_WAKE_2()               _DISP_ERROR( 56 )
-#define DISP_ERR_WAKE_3()               _DISP_ERROR( 55 )
-#define DISP_ERR_WAKE_4()               _DISP_ERROR( 54 )
-#define DISP_ERR_WAKE_5()               _DISP_ERROR( 53 )
-#define DISP_ERR_WAKE_GEST( state )     _DISP_ERROR( state + 40 )
+//#define DISP_ERR_WAKE_3()               _DISP_ERROR( 54 )
+//#define DISP_ERR_WAKE_4()               _DISP_ERROR( 53 )
+//#define DISP_ERR_WAKE_GEST( state )     _DISP_ERROR( state + 40 )
 #define DISP_ERR_ISR_RELEASE()          _DISP_ERROR( 10 )
 
 #define MS_TO_ODRS(t, sample_int) (t/sample_int)
@@ -119,25 +125,33 @@
 /* Click configuration constants */
 #define ACTIVE_ODR              ODR_400HZ
 #define ACTIVE_SAMPLE_INT       SAMPLE_INT_400HZ
-#define CLICK_THS       55 //assumes 4g scale
-#define CLICK_TIME_WIN      MS_TO_ODRS(200, ACTIVE_SAMPLE_INT)
-#define CLICK_TIME_LIM      MS_TO_ODRS(20, ACTIVE_SAMPLE_INT)
-#define CLICK_TIME_LAT      MS_TO_ODRS(40, ACTIVE_SAMPLE_INT) /* ms */
 
-#define SLEEP_ODR          ODR_100HZ
-#define SLEEP_SAMPLE_INT   SAMPLE_INT_100HZ
+#define SLEEP_ODR               ODR_100HZ
+#define SLEEP_SAMPLE_INT        SAMPLE_INT_100HZ
 
 /* parameters for ST sleep-to-wake/return-to-sleep functionality */
 #define DEEP_SLEEP_THS      4
 #define DEEP_SLEEP_DUR      MS_TO_ODRS(1000, SLEEP_SAMPLE_INT)
 
-#define WAKEUP_CLICK_THS            47 /* assumes 4g scale */
-#define WAKEUP_CLICK_TIME_WIN      MS_TO_ODRS(400, SLEEP_SAMPLE_INT)
-#define WAKEUP_CLICK_TIME_LIM      MS_TO_ODRS(30, SLEEP_SAMPLE_INT)
-#define WAKEUP_CLICK_TIME_LAT      MS_TO_ODRS(100, SLEEP_SAMPLE_INT) /* ms */
+#define ACTIVE_CLICK_THS        55      /* assumes 4g scale */
+#define ACTIVE_CLICK_TIME_LIM   MS_TO_ODRS(20, ACTIVE_SAMPLE_INT)
+#define ACTIVE_CLICK_TIME_LAT   MS_TO_ODRS(40, ACTIVE_SAMPLE_INT) /* ms */
+
+#define SLEEP_CLICK_THS         47      /* assumes 4g scale */
+#define SLEEP_CLICK_TIME_LIM    MS_TO_ODRS(30,  SLEEP_SAMPLE_INT)
+#define SLEEP_CLICK_TIME_LAT    MS_TO_ODRS(100, SLEEP_SAMPLE_INT) /* ms */
 
 #define FAST_CLICK_WINDOW_MS 400
 #define SLOW_CLICK_WINDOW_MS 1800
+    /* manual multi-click settings for ACTIVE mode */
+
+#define DCLICK_TIME_WIN         MS_TO_ODRS(400, SLEEP_SAMPLE_INT)
+    /* automated double click settings for SLEEP mode
+     * threshold : click checking starts when threshold is exceeded
+     * limit : value must be back below threshold by 'limit'
+     * latency : ignore from start of click through latency for a second click
+     * window : starts at end of latency, 2nd click must start before end of win
+     * details in AN3308 */
 
 
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
@@ -298,7 +312,9 @@ static struct i2c_master_module i2c_master_instance;
 
 static click_flags_t click_flags;
 static int_reg_flags_t int1_flags;
+#if ( ENABLE_INTERRUPT_2 )
 static int_reg_flags_t int2_flags;
+#endif
 
 static wake_gesture_state_t wake_gesture_state;
 
@@ -308,67 +324,73 @@ static void accel_isr(void) {
     if (!accel_register_consecutive_read(AX_REG_CLICK_SRC, 1, &click_flags.b8)) {
         DISP_ERR_CONSEC_READ_1();
     }
-
     if (!accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &int1_flags.b8)) {
         DISP_ERR_CONSEC_READ_2();
     }
-
+#if ( ENABLE_INTERRUPT_2 )
     if (!accel_register_consecutive_read(AX_REG_INT2_SRC, 1, &int2_flags.b8)) {
         DISP_ERR_CONSEC_READ_3();
     }
+#endif  /* ENABLE_INTERRUPT_2 */
+
 #if ( DEBUG_AX_ISR )
-    if ( click_flags.ia ) _led_on_full(  4 );
-    if ( int1_flags.xl )  _led_on_full( 14 );
-    if ( int1_flags.xh )  _led_on_full( 44 );
-    if ( int1_flags.yl )  _led_on_full( 59 );
-    if ( int1_flags.yh )  _led_on_full( 29 );
-    if ( int1_flags.zl )  _led_on_full( 22 );
-    if ( int1_flags.zh )  _led_on_full( 51 );
-    if ( int2_flags.xl )  _led_on_full( 16 );
-    if ( int2_flags.xh )  _led_on_full( 46 );
+    if ( click_flags.ia ) _led_on_full( 56 );
+    if ( int1_flags.xl )  _led_on_full( 14 );   //      y
+    if ( int1_flags.xh )  _led_on_full( 44 );   //      ^
+    if ( int1_flags.yl )  _led_on_full( 59 );   //      |
+    if ( int1_flags.yh )  _led_on_full( 29 );   //      |
+    if ( int1_flags.zl )  _led_on_full(  7 );   //      .---> x
+    if ( int1_flags.zh )  _led_on_full( 36 );   //     /
+#if ( ENABLE_INTERRUPT_2 )
+    if ( int2_flags.xl )  _led_on_full( 16 );   //    /
+    if ( int2_flags.xh )  _led_on_full( 46 );   //  z'
     if ( int2_flags.yl )  _led_on_full(  1 );
     if ( int2_flags.yh )  _led_on_full( 31 );
-    if ( int2_flags.zl )  _led_on_full( 24 );
-    if ( int2_flags.zh )  _led_on_full( 53 );
+    if ( int2_flags.zl )  _led_on_full(  9 );
+    if ( int2_flags.zh )  _led_on_full( 38 );
+#endif  /* ENABLE_INTERRUPT_2 */
     delay_ms(100);
-    if ( click_flags.ia ) _led_off_full(  4 );
+    if ( click_flags.ia ) _led_off_full( 56 );
     if ( int1_flags.xl )  _led_off_full( 14 );
     if ( int1_flags.xh )  _led_off_full( 44 );
     if ( int1_flags.yl )  _led_off_full( 59 );
     if ( int1_flags.yh )  _led_off_full( 29 );
-    if ( int1_flags.zl )  _led_off_full( 22 );
-    if ( int1_flags.zh )  _led_off_full( 51 );
+    if ( int1_flags.zl )  _led_off_full(  7 );
+    if ( int1_flags.zh )  _led_off_full( 36 );
+#if ( ENABLE_INTERRUPT_2 )
     if ( int2_flags.xl )  _led_off_full( 16 );
     if ( int2_flags.xh )  _led_off_full( 46 );
     if ( int2_flags.yl )  _led_off_full(  1 );
     if ( int2_flags.yh )  _led_off_full( 31 );
-    if ( int2_flags.zl )  _led_off_full( 24 );
-    if ( int2_flags.zh )  _led_off_full( 53 );
+    if ( int2_flags.zl )  _led_off_full(  9 );
+    if ( int2_flags.zh )  _led_off_full( 38 );
+#endif  /* ENABLE_INTERRUPT_2 */
 #endif  /* DEBUG_AX_ISR */
 
-    extint_chan_clear_detected(AX_INT1_CHAN);
+    extint_chan_clear_detected(AX_INT_CHAN);
 
     /* Wait for accelerometer to release interrupt */
     uint8_t i = 0;
-    while(extint_chan_is_detected(AX_INT1_CHAN)) {
+    while( extint_chan_is_detected(AX_INT_CHAN) ) {
         uint8_t dummy;
-        extint_chan_clear_detected(AX_INT1_CHAN);
-        accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &dummy);
-        accel_register_consecutive_read(AX_REG_INT2_SRC, 1, &dummy);
+        extint_chan_clear_detected(AX_INT_CHAN);
         accel_register_consecutive_read(AX_REG_CLICK_SRC, 1, &dummy);
-        i+=1;
+        accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &dummy);
+#if ( ENABLE_INTERRUPT_2 )
+        accel_register_consecutive_read(AX_REG_INT2_SRC, 1, &dummy);
+#endif  /* ENABLE_INTERRUPT_2 */
 
-        if (i > 1000) {
+        if (i > 250) {      /* 'i' is expected to roll over */
             /* ### HACK to guard against unreleased AX interrupt */
             accel_register_write (AX_REG_CTL3,  0);
             accel_register_write (AX_REG_CTL3,  I1_CLICK_EN);
             accel_register_write (AX_REG_CLICK_CFG, X_DCLICK );
-            accel_register_write (AX_REG_CLICK_THS, WAKEUP_CLICK_THS);
-            accel_register_write (AX_REG_TIME_WIN, WAKEUP_CLICK_TIME_WIN);
-            accel_register_write (AX_REG_TIME_LIM, WAKEUP_CLICK_TIME_LIM);
-            accel_register_write (AX_REG_TIME_LAT, WAKEUP_CLICK_TIME_LAT);
+            accel_register_write (AX_REG_CLICK_THS, SLEEP_CLICK_THS);
+            accel_register_write (AX_REG_TIME_LIM, SLEEP_CLICK_TIME_LIM);
+            accel_register_write (AX_REG_TIME_LAT, SLEEP_CLICK_TIME_LAT);
             DISP_ERR_ISR_RELEASE()
         }
+        i++;
     };
 }
 
@@ -380,20 +402,20 @@ static void configure_interrupt ( void ) {
     port_get_config_defaults(&pin_conf);
     pin_conf.direction = PORT_PIN_DIR_INPUT;
     pin_conf.input_pull = PORT_PIN_PULL_NONE;
-    port_pin_set_config(AX_INT1_PIN, &pin_conf);
+    port_pin_set_config(AX_INT_PIN, &pin_conf);
 
     struct extint_chan_conf eint_chan_conf;
     extint_chan_get_config_defaults(&eint_chan_conf);
 
-    eint_chan_conf.gpio_pin             = AX_INT1_EIC;
-    eint_chan_conf.gpio_pin_mux         = AX_INT1_EIC_MUX;
+    eint_chan_conf.gpio_pin             = AX_INT_EIC;
+    eint_chan_conf.gpio_pin_mux         = AX_INT_EIC_MUX;
     eint_chan_conf.gpio_pin_pull        = EXTINT_PULL_NONE;
     /* NOTE: cannot wake from standby with filter or edge detection ... */
     eint_chan_conf.detection_criteria   = EXTINT_DETECT_HIGH;
     eint_chan_conf.filter_input_signal  = false;
     eint_chan_conf.wake_if_sleeping     = true;
 
-    extint_chan_set_config(AX_INT1_CHAN, &eint_chan_conf);
+    extint_chan_set_config(AX_INT_CHAN, &eint_chan_conf);
 }
 
 static void configure_i2c(void) {
@@ -430,9 +452,6 @@ static void wait_state_conf( wake_gesture_state_t wait_state ) {
 #endif
     /* Configure interrupt to detect orientation status */
     wake_gesture_state = wait_state;
-    accel_register_write (AX_REG_CTL1,
-            (SLEEP_ODR | X_EN | Y_EN | Z_EN |
-             (BITS_PER_ACCEL_VAL == 8 ? LOW_PWR_EN : 0)));
 
     /* Clear FIFO by writing bypass */
     accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS);
@@ -718,7 +737,17 @@ static bool accel_register_write (uint8_t reg, uint8_t val) {
 
 static bool wake_check( void ) {
     if (click_flags.ia) {
-        return dclick_filter_check();
+        if (dclick_filter_check()) {
+            return true;
+        } else {
+            /* This DCLICK has been filtered out.  Ensure
+             * we our configured correctly for sleep based on
+             * current wake gesture state */
+            if (accel_wakeup_gesture_enabled) {
+                wait_state_conf(wake_gesture_state);
+            }
+            return false;
+        }
     }
 
     /* dclick interrupt flag was not set but only a dclick
@@ -729,7 +758,11 @@ static bool wake_check( void ) {
     }
 
     /* we got here bc of an interrupt, check that at least one flag exists */
-    if (!(int1_flags.ia || !int2_flags.ia)) {
+#if ( ENABLE_INTERRUPT_2 )
+    if (!(int1_flags.ia || int2_flags.ia)) {
+#else
+    if (!int1_flags.ia) {
+#endif
         DISP_ERR_WAKE_2();
         /* The accelerometer is in an error state (probably a timing
          * error between interrupt trigger and register read) so just
@@ -749,7 +782,11 @@ static bool wake_check( void ) {
     }
 
     /* we are in WAIT_FOR_UP, check if y|z 'up' was the trigger */
+#if ( ENABLE_INTERRUPT_2 )
+    if (int1_flags.yh || int1_flags.zh || int2_flags.yh || int2_flags.zh) {
+#else
     if (int1_flags.yh || int1_flags.zh) {
+#endif
         if (gesture_filter_check()) {
             return true;
         } else {
@@ -886,9 +923,9 @@ bool accel_wakeup_check( void ) {
 #endif
 
     /* Callback enable is only active when sleeping */
-    extint_chan_disable_callback(AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
+    extint_chan_disable_callback(AX_INT_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
     wakeup = wake_check();
-    extint_chan_enable_callback(AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
+    extint_chan_enable_callback(AX_INT_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
 
     return wakeup;
 }
@@ -917,40 +954,21 @@ void accel_enable ( void ) {
     return;
 #endif
 
-    /* Callback enable is only active when sleeping */
-    extint_chan_disable_callback(AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
+    /* Callback enabled only when sleeping */
+    extint_chan_disable_callback(AX_INT_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
 
-    accel_register_write (AX_REG_CTL4, FS_4G);
-    accel_register_write (AX_REG_CTL1,
-            (ACTIVE_ODR | X_EN | Y_EN | Z_EN |
+    accel_register_write (AX_REG_CTL1, (ACTIVE_ODR | X_EN | Y_EN | Z_EN |
              (BITS_PER_ACCEL_VAL == 8 ? LOW_PWR_EN : 0)));
     accel_register_write (AX_REG_CLICK_CFG, X_SCLICK);
-    accel_register_write (AX_REG_CLICK_THS, CLICK_THS);
-
-    accel_register_write (AX_REG_TIME_WIN, CLICK_TIME_WIN);
-    accel_register_write (AX_REG_TIME_LIM, CLICK_TIME_LIM);
-    accel_register_write (AX_REG_TIME_LAT, CLICK_TIME_LAT);
+    accel_register_write (AX_REG_CLICK_THS, ACTIVE_CLICK_THS);
+    accel_register_write (AX_REG_TIME_LIM, ACTIVE_CLICK_TIME_LIM);
+    accel_register_write (AX_REG_TIME_LAT, ACTIVE_CLICK_TIME_LAT);
 
     /* Enable single and double click detection */
     accel_register_write (AX_REG_CTL3, I1_CLICK_EN);
 
-    /* Enable High Pass filter for Clicks */
-    accel_register_write (AX_REG_CTL2, HPCLICK | HPCF | HPMS_NORM);
-
     /* Disable FIFO mode */
     accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS);
-
-    /* Latch interrupts and enable FIFO */
-    accel_register_write (AX_REG_CTL5, LIR_INT1 | FIFO_EN);
-
-    /* Enable sleep-to-wake by setting activity threshold and duration */
-    if (!accel_register_write (AX_REG_ACT_THS, DEEP_SLEEP_THS)) {
-        main_terminate_in_error( error_group_accel, ACCEL_ERROR_WRITE_EN );
-    }
-
-    if (!accel_register_write (AX_REG_ACT_DUR, DEEP_SLEEP_DUR)) {
-        main_terminate_in_error( error_group_accel, ACCEL_ERROR_WRITE_EN );
-    }
 }
 
 void accel_sleep ( void ) {
@@ -974,25 +992,17 @@ void accel_sleep ( void ) {
     /* Only x-axis double clicks should wake us up */
     accel_register_write (AX_REG_CTL3,  I1_CLICK_EN);
     accel_register_write (AX_REG_CLICK_CFG, X_DCLICK);
-    accel_register_write (AX_REG_CLICK_THS, WAKEUP_CLICK_THS);
-    accel_register_write (AX_REG_TIME_WIN, WAKEUP_CLICK_TIME_WIN);
-    accel_register_write (AX_REG_TIME_LIM, WAKEUP_CLICK_TIME_LIM);
-    accel_register_write (AX_REG_TIME_LAT, WAKEUP_CLICK_TIME_LAT);
+    accel_register_write (AX_REG_CLICK_THS, SLEEP_CLICK_THS);
+    accel_register_write (AX_REG_TIME_LIM, SLEEP_CLICK_TIME_LIM);
+    accel_register_write (AX_REG_TIME_LAT, SLEEP_CLICK_TIME_LAT);
 
     if (accel_wakeup_gesture_enabled) {
         /* Configure interrupt to detect orientation down */
         wait_state_conf( WAIT_FOR_DOWN );
     }
 
-    extint_chan_enable_callback(AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
+    extint_chan_enable_callback(AX_INT_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
 }
-
-#if 0
-static void accel_reset ( void ) {
-    accel_register_write (AX_REG_CTL5, BOOT);
-    accel_enable();
-}
-#endif
 
 static event_flags_t click_timeout_event_check( void ) {
     /* Check for click timeouts */
@@ -1058,7 +1068,7 @@ event_flags_t accel_event_flags( void ) {
         accel_down = false;
     }
 
-    if (port_pin_get_input_level(AX_INT1_PIN)) {
+    if (port_pin_get_input_level(AX_INT_PIN)) {
         accel_register_consecutive_read(AX_REG_CLICK_SRC, 1, &click_flags.b8);
 
         if (int_state) return ev_flags; //we've already handled this interrupt
@@ -1090,13 +1100,14 @@ event_flags_t accel_event_flags( void ) {
 
 void accel_init ( void ) {
     uint8_t who_it_be;
+    uint8_t write_byte, reg_read;
 #ifdef NO_ACCEL
     return;
 #endif
 
     configure_i2c();
 
-
+    delay_ms(5);        /* accel takes 5ms to power up */
     if (!accel_register_consecutive_read (AX_REG_WHO_AM_I, 1, &who_it_be)) {
         /* ID read at first address failed. try other i2c address */
         i2c_addr = AX_ADDRESS1;
@@ -1109,6 +1120,45 @@ void accel_init ( void ) {
                 ACCEL_ERROR_WRONG_ID( who_it_be ) );
     }
 
+    accel_register_write( AX_REG_CTL5, BOOT );
+    delay_ms( 1 );      /* this is a guess.. 5ms is required from full power
+                           off to configure, if it wasn't ready then these
+                           registers probably shouldn't validate */
+
+    /* Using 4g mode */
+    write_byte = FS_4G;
+    accel_register_write (AX_REG_CTL4, write_byte);
+    accel_register_consecutive_read(AX_REG_CTL4, 1, &reg_read);
+    if( reg_read != write_byte ) { ACCEL_ERROR_CONFIG(AX_REG_CTL4); }
+
+    accel_register_write (AX_REG_TIME_WIN, DCLICK_TIME_WIN);
+    accel_register_consecutive_read(AX_REG_TIME_WIN, 1, &reg_read);
+    if( reg_read != DCLICK_TIME_WIN ) { ACCEL_ERROR_CONFIG(AX_REG_TIME_WIN); }
+
+    /* Enable High Pass filter for Clicks */
+    write_byte = HPCLICK | HPCF | HPMS_NORM;
+    accel_register_write (AX_REG_CTL2, write_byte);
+    accel_register_consecutive_read(AX_REG_CTL2, 1, &reg_read);
+    if( reg_read != write_byte) { ACCEL_ERROR_CONFIG(AX_REG_CTL2); }
+
+    /* Latch interrupts and enable FIFO */
+    write_byte = FIFO_EN | LIR_INT1;
+#if ( ENABLE_INTERRUPT_2 )
+    write_byte |= LIR_INT2;
+#endif  /* ENABLE_INTERRUPT_2 */
+    accel_register_write (AX_REG_CTL5, write_byte);
+    accel_register_consecutive_read(AX_REG_CTL5, 1, &reg_read);
+    if( reg_read != write_byte) { ACCEL_ERROR_CONFIG(AX_REG_CTL5); }
+
+    /* Enable sleep-to-wake by setting activity threshold and duration */
+    accel_register_write (AX_REG_ACT_THS, DEEP_SLEEP_THS);
+    accel_register_consecutive_read(AX_REG_ACT_THS, 1, &reg_read);
+    if( reg_read != DEEP_SLEEP_THS) { ACCEL_ERROR_CONFIG(AX_REG_ACT_THS); }
+
+    accel_register_write (AX_REG_ACT_DUR, DEEP_SLEEP_DUR);
+    accel_register_consecutive_read(AX_REG_ACT_DUR, 1, &reg_read);
+    if( reg_read != DEEP_SLEEP_DUR) { ACCEL_ERROR_CONFIG(AX_REG_ACT_DUR); }
+
     accel_enable();
 
 #if ( USE_SELF_TEST )
@@ -1117,5 +1167,5 @@ void accel_init ( void ) {
 
     configure_interrupt();
 
-    extint_register_callback(accel_isr, AX_INT1_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
+    extint_register_callback(accel_isr, AX_INT_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
 }
