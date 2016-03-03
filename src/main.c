@@ -188,7 +188,7 @@ static struct adc_module light_vbatt_sens_adc;
 static uint32_t nvm_row_addr = NVM_LOG_ADDR_START;
 static uint8_t nvm_row_buffer[NVMCTRL_ROW_SIZE];
 static uint16_t nvm_row_ind;
-static struct wdt_conf config_wdt;
+static struct wdt_conf config_wdt = {.enable=false};
 
 nvm_data_t main_nvm_data;
 user_data_t main_user_data;
@@ -227,7 +227,7 @@ static void configure_wdt( void ) {
 	config_wdt.always_on            = false;
 	config_wdt.clock_source         = GCLK_GENERATOR_4;
 	config_wdt.early_warning_period = WDT_PERIOD_2048CLK; //~2s
-	config_wdt.timeout_period = WDT_PERIOD_4096CLK; //~4s
+	config_wdt.timeout_period       = WDT_PERIOD_4096CLK; //~4s
 
 	/* Initialize and enable the Watchdog with the user settings */
 	wdt_set_config(&config_wdt);
@@ -525,7 +525,7 @@ static void main_tic( void ) {
 
   main_gs.inactivity_ticks++;
   main_gs.waketicks++;
-  
+
   /* Get accel events flags only if enough time has passed
    * since waking */
   if (main_gs.waketicks > WAKE_CLICK_IGNORE_DUR_TICKS) {
@@ -800,7 +800,11 @@ void main_terminate_in_error ( error_group_code_t error_group, uint32_t subcode 
     }
   }
 
-  /* blink error code indefinitely */
+  if( !config_wdt.enable ) {
+    configure_wdt();
+    wdt_enable();
+  }
+
   while( 1 ) {
     //_led_on_full( ((uint8_t) error_group));
     led_on( (uint8_t) error_group, BRIGHT_DEFAULT);
@@ -941,7 +945,6 @@ uint8_t main_get_multipress_count( void ) {
 
 #if !(RTC_CALIBRATE)
 int main (void) {
-
   system_init();
   system_set_sleepmode(SYSTEM_SLEEPMODE_STANDBY);
 
@@ -1012,7 +1015,6 @@ int main (void) {
 
     }
   }
-
 }
 
 #else /* RTC_CALIBRATE enabled */

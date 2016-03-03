@@ -20,9 +20,9 @@
 #define ACCEL_ERROR_READ_ID             ((uint32_t) 3)
 #define ACCEL_ERROR_WRONG_ID(id)       (((uint32_t) 4) \
     | (((uint32_t) id)<<8) )
-#define ACCEL_ERROR_CONFIG(reg)        \
+#define ACCEL_ERROR_CONFIG(reg, val)        \
     main_terminate_in_error( error_group_accel, \
-            ((uint32_t) 5) | (((uint32_t) reg)<<8) )
+            ((uint32_t) 5) | (((uint32_t) reg)<<8) | (((uint32_t) val)<<16) )
 
 
 #ifndef ABS
@@ -463,7 +463,15 @@ static void wait_state_conf( wake_gesture_state_t wait_state ) {
     } else if (wait_state == WAIT_FOR_UP) {
         /* NOTE: changing DURATION_ODR | THRESHOLD changes wake events signature */
         duration_odr = MS_TO_ODRS(50, SLEEP_SAMPLE_INT);
+        /* NOTE: for duration -- tested 20-70, #samples is ms/10 + 2
+         * .. seems like there are n+1 samples checked, the very last sample
+         * doesn't matter (could be above/ could be below)*/
         threshold = 30;
+        /* NOTE for 6D (ctrlreg5 AOI_POS): 0 and 1 do not work
+         * 5 -- uses 'xymag' <= value
+         * 2, 3, 4, 10, 15, 20, 21, 23 -- uses 'xymag' < value
+         * 24, 25, 26, 30 -- uses 'z' >= value (50, 6 samples, last is not counted)
+         * */
     }
 #if ( DOWN_TRIG_ON_YZ_HIGH )
     if (wait_state == WAIT_FOR_DOWN) {
@@ -492,7 +500,7 @@ static void wait_state_conf( wake_gesture_state_t wait_state ) {
         accel_register_write (AX_REG_INT2_DUR, 0);
         accel_register_write (AX_REG_INT2_CFG, 0);
     } else if (wait_state == WAIT_FOR_UP) {
-        directions = ZHIE;// | YHIE;
+        directions = ZHIE;
     }
 #endif  /* DOWN_TRIG_ON_YZ_HIGH */
 
@@ -504,14 +512,14 @@ static void wait_state_conf( wake_gesture_state_t wait_state ) {
     accel_register_write (AX_REG_INT1_CFG, AOI_POS | directions);
 
     accel_register_write (AX_REG_CTL3, I1_CLICK_EN | I1_AOI1_EN);
-#if ENABLE_INTERRUPT_2
+#if (ENABLE_INTERRUPT_2)
     if (wait_state == WAIT_FOR_UP) {
         accel_register_write (AX_REG_CTL3, I1_CLICK_EN | I1_AOI1_EN | I1_AOI2_EN);
         accel_register_write (AX_REG_INT2_THS, 10);
         accel_register_write (AX_REG_INT2_DUR, duration_odr);
         accel_register_write (AX_REG_INT2_CFG, AOI_POS | YHIE );
     }
-#endif
+#endif  /* ENABLE_INTERRUPT_2 */
 
 }
 
@@ -992,8 +1000,6 @@ void accel_enable ( void ) {
 }
 
 void accel_sleep ( void ) {
-    int16_t x=0, y=0, z=0;
-
 #ifdef NO_ACCEL
     return;
 #endif
@@ -1001,8 +1007,6 @@ void accel_sleep ( void ) {
     accel_slow_click_cnt = slow_click_counter = 0;
     accel_fast_click_cnt = fast_click_counter = 0;
     accel_fifo.depth = 0;
-
-    accel_data_read(&x, &y, &z);
 
     accel_register_write ( AX_REG_CTL1,
             (SLEEP_ODR | X_EN | Y_EN | Z_EN |
@@ -1057,6 +1061,7 @@ event_flags_t accel_event_flags( void ) {
     const int16_t Y_SLEEP_DOWN_OUT_THS = -2;
     const int16_t Y_SLEEP_DOWN_IN_THS = 25;
     const uint32_t SLEEP_DOWN_DUR_MS = 200;
+    const int16_t X_SLEEP_TILT_THS = 20;
     /* timestamp (based on main tic count) of most recent
      * y down interrupt for entering sleep on z-low
      */
@@ -1071,12 +1076,13 @@ event_flags_t accel_event_flags( void ) {
      * * A turn down event occurs when the device is not flat (z-high) for a
      * * certain period of time and either turned away slightly (y < -1/4g) or
      * turned down almost flat (y < 1/8g )
-     * */
+     */
 
     accel_data_read(&x, &y, &z);
-    if (z <= Z_SLEEP_DOWN_THS &&
-            (y <= Y_SLEEP_DOWN_OUT_THS ||  //turned out slightly
-             y >= Y_SLEEP_DOWN_IN_THS)) { //turned in sharply
+    if ( z <= Z_SLEEP_DOWN_THS &&
+            (y <= Y_SLEEP_DOWN_OUT_THS ||   // turned out slightly
+             y >= Y_SLEEP_DOWN_IN_THS ||    // turned in sharply
+             ABS(x) > X_SLEEP_TILT_THS )) { // tilted sideways
       if (!accel_down) {
             accel_down = true;
             accel_down_to_ms = main_get_waketime_ms() + SLEEP_DOWN_DUR_MS;
@@ -1149,17 +1155,17 @@ void accel_init ( void ) {
     write_byte = FS_4G;
     accel_register_write (AX_REG_CTL4, write_byte);
     accel_register_consecutive_read(AX_REG_CTL4, 1, &reg_read);
-    if( reg_read != write_byte ) { ACCEL_ERROR_CONFIG(AX_REG_CTL4); }
+    if( reg_read != write_byte ) { ACCEL_ERROR_CONFIG(AX_REG_CTL4, reg_read); }
 
     accel_register_write (AX_REG_TIME_WIN, DCLICK_TIME_WIN);
     accel_register_consecutive_read(AX_REG_TIME_WIN, 1, &reg_read);
-    if( reg_read != DCLICK_TIME_WIN ) { ACCEL_ERROR_CONFIG(AX_REG_TIME_WIN); }
+    if( reg_read != DCLICK_TIME_WIN ) { ACCEL_ERROR_CONFIG(AX_REG_TIME_WIN, reg_read); }
 
     /* Enable High Pass filter for Clicks */
     write_byte = HPCLICK | HPCF | HPMS_NORM;
     accel_register_write (AX_REG_CTL2, write_byte);
     accel_register_consecutive_read(AX_REG_CTL2, 1, &reg_read);
-    if( reg_read != write_byte) { ACCEL_ERROR_CONFIG(AX_REG_CTL2); }
+    if( reg_read != write_byte) { ACCEL_ERROR_CONFIG(AX_REG_CTL2, reg_read); }
 
     /* Latch interrupts and enable FIFO */
     write_byte = FIFO_EN | LIR_INT1;
@@ -1169,16 +1175,16 @@ void accel_init ( void ) {
 #endif  /* ENABLE_INTERRUPT_2 */
     accel_register_write (AX_REG_CTL5, write_byte);
     accel_register_consecutive_read(AX_REG_CTL5, 1, &reg_read);
-    if( reg_read != write_byte) { ACCEL_ERROR_CONFIG(AX_REG_CTL5); }
+    if( reg_read != write_byte) { ACCEL_ERROR_CONFIG(AX_REG_CTL5, reg_read); }
 
     /* Enable sleep-to-wake by setting activity threshold and duration */
     accel_register_write (AX_REG_ACT_THS, DEEP_SLEEP_THS);
     accel_register_consecutive_read(AX_REG_ACT_THS, 1, &reg_read);
-    if( reg_read != DEEP_SLEEP_THS) { ACCEL_ERROR_CONFIG(AX_REG_ACT_THS); }
+    if( reg_read != DEEP_SLEEP_THS) { ACCEL_ERROR_CONFIG(AX_REG_ACT_THS, reg_read); }
 
     accel_register_write (AX_REG_ACT_DUR, DEEP_SLEEP_DUR);
     accel_register_consecutive_read(AX_REG_ACT_DUR, 1, &reg_read);
-    if( reg_read != DEEP_SLEEP_DUR) { ACCEL_ERROR_CONFIG(AX_REG_ACT_DUR); }
+    if( reg_read != DEEP_SLEEP_DUR) { ACCEL_ERROR_CONFIG(AX_REG_ACT_DUR, reg_read); }
 
     accel_enable();
 
