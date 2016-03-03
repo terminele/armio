@@ -337,10 +337,10 @@ ifdef log_accel_stream
 CPPFLAGS += -D LOG_ACCEL_STREAM_IN_MODE_1=$(log_accel_stream)
 endif
 ifdef log_accel_gesture_fifo
-CPPFLAGS += -D ACCEL_GESTURE_LOG_FIFO=$(log_accel_gesture_fifo)
+CPPFLAGS += -D LOG_ACCEL_GESTURE_FIFO=$(log_accel_gesture_fifo)
 endif
 ifdef log_unconfirmed_gestures
-CPPFLAGS += -D ACCEL_GESTURE_LOG_UNCONFIRMED=$(log_unconfirmed_gestures)
+CPPFLAGS += -D LOG_UNCONFIRMED_GESTURES=$(log_unconfirmed_gestures)
 endif
 ifdef use_wakeup_alarm
 CPPFLAGS += -D USE_WAKEUP_ALARM=$(use_wakeup_alarm)
