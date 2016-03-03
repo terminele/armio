@@ -459,7 +459,7 @@ static void wait_state_conf( wake_gesture_state_t wait_state ) {
 
     if (wait_state == WAIT_FOR_DOWN) {
         duration_odr = MS_TO_ODRS(50, SLEEP_SAMPLE_INT);
-        threshold = 12;
+        threshold = 20;
     } else if (wait_state == WAIT_FOR_UP) {
         /* NOTE: changing DURATION_ODR | THRESHOLD changes wake events signature */
         duration_odr = MS_TO_ODRS(50, SLEEP_SAMPLE_INT);
@@ -520,7 +520,6 @@ static void wait_state_conf( wake_gesture_state_t wait_state ) {
         accel_register_write (AX_REG_INT2_CFG, AOI_POS | YHIE );
     }
 #endif  /* ENABLE_INTERRUPT_2 */
-
 }
 
 static bool accel_register_consecutive_read (uint8_t start_reg, uint8_t count,
@@ -804,32 +803,20 @@ static bool wake_check( void ) {
     }
 
     /* we are in WAIT_FOR_UP, check if y|z 'up' was the trigger */
-#if ( ENABLE_INTERRUPT_2 )
-    if (int1_flags.yh || int1_flags.zh || int2_flags.yh || int2_flags.zh) {
-#else
-    if (int1_flags.yh || int1_flags.zh) {
-#endif
-        if (gesture_filter_check()) {
-            return true;
-        } else {
-            main_nvm_data.filtered_gestures++;
-        }
+    if (gesture_filter_check()) {
+        return true;
+    } else {
+        main_nvm_data.filtered_gestures++;
+    }
 
 
-        /* The gesture filter checks failed so configure ourselves
-         * to wait for another up / down event */
-        if ( DOWN_TRIG_ON_YZ_HIGH ) {
-            wait_state_conf(WAIT_FOR_UP);
-            return false;
-        }
-
-        wait_state_conf(WAIT_FOR_DOWN);
+    /* The gesture filter checks failed so configure ourselves
+     * to wait for another up / down event */
+    if ( DOWN_TRIG_ON_YZ_HIGH ) {
+        wait_state_conf(WAIT_FOR_UP);
         return false;
     }
 
-    /* we are in WAIT_FOR_UP, but possibly with only one 'up' flag enabled and
-     * multiple 'down' flags, if one of the 'down' ISR triggerd, re-configure
-     * WAIT_FOR_UP so that all 'up' flags can trigger and no 'down' flags */
     wait_state_conf(WAIT_FOR_DOWN);
     return false;
 }
