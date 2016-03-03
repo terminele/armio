@@ -34,7 +34,7 @@
 
 /* Ignore any click events occuring just after wakeup
  * since they are most likely spurious */
-#define WAKE_CLICK_IGNORE_DUR_TICKS     MS_IN_TICKS(800)
+#define WAKE_CLICK_IGNORE_DUR_TICKS     MS_IN_TICKS(400)
 
 #define IS_ACTIVITY_EVENT(ev_flags) \
       (ev_flags != EV_FLAG_NONE && \
