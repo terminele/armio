@@ -1328,6 +1328,7 @@ class WakeSample( object ):
                 ax.legend(loc="upper right")
             ax.set_xlabel("ms (ODR = {} Hz)".format(1000/SLEEP_SAMPLE_PERIOD))
             ax.set_ylabel("1/32 * g's for +/-4g")
+            plt.legend(loc="lower center").draggable()
             plt.show()      # ax.figure.show() would show all at once
 
     def export_csv( self ):
@@ -1377,7 +1378,7 @@ def analyze_streamed( fname, plot=True ):
                 plt.plot(ts, ys, 'g-', label='y')
                 plt.plot(ts, zs, 'b-', label='z')
                 plt.plot(ts, mag, 'k-', label="mag")
-                plt.legend()
+                plt.legend().draggable()
                 plt.show()
             else:
                 log.info("Suppressing plot... use '--plot' option")
