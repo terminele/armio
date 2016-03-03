@@ -91,7 +91,9 @@
 #define BOOT        0x80
 #define FIFO_EN     0x40
 #define LIR_INT1    0x08
+#define D4D_INT1    0x04
 #define LIR_INT2    0x02
+#define D4D_INT2    0x01
 
 /* STATUS_REG */
 #define ZYXDA       0x08
@@ -108,6 +110,7 @@
 #define AOI_MOV     0x40
 #define AOI_POS     0xC0
 #define AOI_AND     0x80
+#define AOI_OR      0x00
 #define ZHIE        0x20
 #define ZLIE        0x10
 #define YHIE        0x08

@@ -459,11 +459,11 @@ static void wait_state_conf( wake_gesture_state_t wait_state ) {
 
     if (wait_state == WAIT_FOR_DOWN) {
         duration_odr = MS_TO_ODRS(50, SLEEP_SAMPLE_INT);
-        threshold = 10;
+        threshold = 12;
     } else if (wait_state == WAIT_FOR_UP) {
         /* NOTE: changing DURATION_ODR | THRESHOLD changes wake events signature */
         duration_odr = MS_TO_ODRS(50, SLEEP_SAMPLE_INT);
-        threshold = 12;
+        threshold = 30;
     }
 #if ( DOWN_TRIG_ON_YZ_HIGH )
     if (wait_state == WAIT_FOR_DOWN) {
@@ -492,8 +492,7 @@ static void wait_state_conf( wake_gesture_state_t wait_state ) {
         accel_register_write (AX_REG_INT2_DUR, 0);
         accel_register_write (AX_REG_INT2_CFG, 0);
     } else if (wait_state == WAIT_FOR_UP) {
-        directions = ZHIE | YHIE;
-
+        directions = ZHIE;// | YHIE;
     }
 #endif  /* DOWN_TRIG_ON_YZ_HIGH */
 
@@ -508,9 +507,9 @@ static void wait_state_conf( wake_gesture_state_t wait_state ) {
 #if ENABLE_INTERRUPT_2
     if (wait_state == WAIT_FOR_UP) {
         accel_register_write (AX_REG_CTL3, I1_CLICK_EN | I1_AOI1_EN | I1_AOI2_EN);
-        accel_register_write (AX_REG_INT2_THS, 20);
+        accel_register_write (AX_REG_INT2_THS, 10);
         accel_register_write (AX_REG_INT2_DUR, duration_odr);
-        accel_register_write (AX_REG_INT2_CFG, AOI_POS | YHIE);
+        accel_register_write (AX_REG_INT2_CFG, AOI_POS | YHIE );
     }
 #endif
 
@@ -1166,6 +1165,7 @@ void accel_init ( void ) {
     write_byte = FIFO_EN | LIR_INT1;
 #if ( ENABLE_INTERRUPT_2 )
     write_byte |= LIR_INT2;
+    write_byte |= D4D_INT2;
 #endif  /* ENABLE_INTERRUPT_2 */
     accel_register_write (AX_REG_CTL5, write_byte);
     accel_register_consecutive_read(AX_REG_CTL5, 1, &reg_read);
