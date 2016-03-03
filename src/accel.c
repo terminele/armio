@@ -1165,6 +1165,14 @@ void accel_init ( void ) {
     write_byte = FIFO_EN | LIR_INT1;
 #if ( ENABLE_INTERRUPT_2 )
     write_byte |= LIR_INT2;
+
+    /* Use 4D for interrupt 2 so that Y-HIGH events can be detected at low 
+     * thresholds (i.e. slightly turned in).  4D allows since the AOI_POS 
+     * interrupts are only triggered if the axis of interest exceeds the 
+     * configured threshold AND all other axes are below that threshold.  If
+     * 6D is enabled, then the z-axis is included in that check; with 4D the
+     * z-axis is not included -- so we have more freedom with the y-high
+     * interrupt */
     write_byte |= D4D_INT2;
 #endif  /* ENABLE_INTERRUPT_2 */
     accel_register_write (AX_REG_CTL5, write_byte);
