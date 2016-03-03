@@ -3,6 +3,8 @@
   */
 
 // TODO : log the isr direction that got us into the wake gesture test
+// TODO : check if we can require more time between taps for doubletap
+// FIXME : log samples that are not legth 32
 
 //___ I N C L U D E S ________________________________________________________
 #include "accel.h"

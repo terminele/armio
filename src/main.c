@@ -39,12 +39,12 @@
 #define IS_LOW_BATT(vbatt_adc_val) \
   ((vbatt_adc_val >> 4) < 2600) //~2.5v
 
-#ifndef ACCEL_GESTURE_LOG_FIFO
-#define  ACCEL_GESTURE_LOG_FIFO false
+#ifndef LOG_ACCEL_GESTURE_FIFO
+#define  LOG_ACCEL_GESTURE_FIFO false
 #endif
 
-#ifndef ACCEL_GESTURE_LOG_UNCONFIRMED
-#define ACCEL_GESTURE_LOG_UNCONFIRMED true
+#ifndef LOG_UNCONFIRMED_GESTURES
+#define LOG_UNCONFIRMED_GESTURES true
 #endif
 
 #ifndef LOG_VBATT
@@ -189,7 +189,7 @@ static struct wdt_conf config_wdt;
 nvm_data_t main_nvm_data;
 user_data_t main_user_data;
 
-#if (ACCEL_GESTURE_LOG_FIFO)
+#if (LOG_ACCEL_GESTURE_FIFO)
 bool _accel_confirmed = false;
 #endif
 
@@ -565,8 +565,9 @@ static void main_tic( void ) {
         }
 #endif  /* STORE_LIFETIME_USAGE */
 
-#if (ACCEL_GESTURE_LOG_FIFO)
-        if (ACCEL_GESTURE_LOG_UNCONFIRMED || _accel_confirmed) {
+#if (LOG_ACCEL_GESTURE_FIFO)
+        if (LOG_UNCONFIRMED_GESTURES || _accel_confirmed) {
+          0x2f7c5994
           uint32_t code = 0xAAAAAAAA; /* FIFO data begin code */
           main_log_data((uint8_t *) &code, sizeof(uint32_t), false);
           main_log_data(accel_fifo.bytes,
@@ -577,7 +578,7 @@ static void main_tic( void ) {
           main_log_data ((uint8_t *)&log_code, sizeof(uint16_t), true);
           main_log_data ((uint8_t *)&main_gs.waketicks, sizeof(uint32_t), true);
         }
-#endif  /* ACCEL_GESTURE_LOG_FIFO */
+#endif  /* LOG_ACCEL_GESTURE_FIFO */
 
         prepare_sleep();
         accel_sleep();
@@ -629,14 +630,14 @@ static void main_tic( void ) {
 
           /* A sleep event has occurred */
           if (IS_CONTROL_MODE_SHOW_TIME() && TCLICK(event_flags)) {
-#if (ACCEL_GESTURE_LOG_FIFO)
+#if (LOG_ACCEL_GESTURE_FIFO)
               _accel_confirmed = true;
 #else
               accel_wakeup_gesture_enabled = false;
 #endif
 
           } else {
-#if (ACCEL_GESTURE_LOG_FIFO)
+#if (LOG_ACCEL_GESTURE_FIFO)
               _accel_confirmed = false;
 #else
               accel_wakeup_gesture_enabled = main_user_data.wake_gestures;
