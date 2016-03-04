@@ -1239,7 +1239,12 @@ void accel_init ( void ) {
 
 void accel_set_gesture_enabled( bool enabled ) {
 #if (LOG_ACCEL_GESTURE_FIFO)
-    accel_confirmed = !(enabled);
+    if (main_user_data.wake_gestures) {
+        accel_confirmed = !(enabled);
+        accel_wakeup_gesture_enabled = true;
+    } else {
+        accel_wakeup_gesture_enabled = enabled;
+    }
 #else
     accel_wakeup_gesture_enabled = enabled;
 #endif

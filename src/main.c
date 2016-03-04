@@ -467,7 +467,7 @@ static bool wakeup_check( void ) {
 
     if (main_gs.deep_sleep_down_ctr >= DEEP_SLEEP_SEQ_DOWN_COUNT &&
         main_gs.deep_sleep_up_ctr >= DEEP_SLEEP_SEQ_UP_COUNT) {
-      accel_set_gesture_enabled( main_user_data.wake_gestures );
+      accel_set_gesture_enabled( true ); 
       wake = true;
     } else {
       accel_set_gesture_enabled( false );
