@@ -519,6 +519,14 @@ dump_log:
 	-c "dump_image data_log.image 0xe000 $(NVM_LOG_SIZE)" \
 	-c "shutdown"
 
+.PHONY: dump_serial
+dump_serial:
+	openocd -f $(DEBUGGER_CFG) \
+	-f $(OCD_PART_CFG) \
+	-c init -c "reset init" \
+	-c "dump_image serial 0x0080A00C 16" \
+	-c "shutdown"
+
 #.PHONY: write_conf_data
 #ifndef conf_data
 #    $(warning defaulting conf_data to 0x00)
