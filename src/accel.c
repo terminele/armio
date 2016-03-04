@@ -420,11 +420,11 @@ static void wait_state_conf( wake_gesture_state_t wait_state ) {
         threshold = 20;
     } else if (wait_state == WAIT_FOR_UP) {
         /* NOTE: changing DURATION_ODR | THRESHOLD changes wake events signature */
-        duration_odr = MS_TO_ODRS(80, SLEEP_SAMPLE_INT);
+        duration_odr = MS_TO_ODRS(120, SLEEP_SAMPLE_INT);
         /* NOTE: for duration -- tested 20-70, #samples is ms/10 + 2
          * .. seems like there are n+1 samples checked, the very last sample
          * doesn't matter (could be above/ could be below)*/
-        threshold = 31;
+        threshold = 28;
         /* NOTE for 6D (ctrlreg5 AOI_POS): 0 and 1 do not work
          * 5 -- uses 'xymag' <= value
          * 2, 3, 4, 10, 15, 20, 21, 23 -- uses 'xymag' < value
