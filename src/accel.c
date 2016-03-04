@@ -3,7 +3,6 @@
   */
 
 // TODO : log the isr direction that got us into the wake gesture test
-// TODO : check if we can require more time between taps for doubletap
 // FIXME : log samples that are not legth 32
 
 //___ I N C L U D E S ________________________________________________________
@@ -136,7 +135,7 @@
 
 #define ACTIVE_CLICK_THS        55      /* assumes 4g scale */
 #define ACTIVE_CLICK_TIME_LIM   MS_TO_ODRS(20, ACTIVE_SAMPLE_INT)
-#define ACTIVE_CLICK_TIME_LAT   MS_TO_ODRS(40, ACTIVE_SAMPLE_INT) /* ms */
+#define ACTIVE_CLICK_TIME_LAT   MS_TO_ODRS(70, ACTIVE_SAMPLE_INT) /* ms */
 
 #define SLEEP_CLICK_THS         47      /* assumes 4g scale */
 #define SLEEP_CLICK_TIME_LIM    MS_TO_ODRS(30,  SLEEP_SAMPLE_INT)
