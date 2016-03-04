@@ -16,6 +16,10 @@
 #include "utils.h"
 
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
+#ifndef ABS
+#define ABS(a)       ( a < 0 ? -1 * a : a )
+#endif
+
 #define VBATT_ADC_PIN               ADC_POSITIVE_INPUT_SCALEDIOVCC
 #define LIGHT_ADC_PIN               ADC_POSITIVE_INPUT_PIN1
 
@@ -42,14 +46,6 @@
 
 #define IS_LOW_BATT(vbatt_adc_val) \
   ((vbatt_adc_val >> 4) < 2600) //~2.5v
-
-#ifndef LOG_ACCEL_GESTURE_FIFO
-#define  LOG_ACCEL_GESTURE_FIFO false
-#endif
-
-#ifndef LOG_UNCONFIRMED_GESTURES
-#define LOG_UNCONFIRMED_GESTURES true
-#endif
 
 #ifndef LOG_VBATT
 #define LOG_VBATT false
@@ -89,6 +85,10 @@
 
 #ifndef SHOW_SEC_ALWAYS
 #define SHOW_SEC_ALWAYS false
+#endif
+
+#ifndef USER_DEFAULT_WAKE_GESTURES
+#define USER_DEFAULT_WAKE_GESTURES true
 #endif
 
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
@@ -152,9 +152,7 @@ static struct {
   /* Ticks since last wake */
   uint32_t waketicks;
 
-  /* Inactivity counter for sleeping.  Resets on any
-   * user activity (e.g. click)
-   */
+  /* Inactivity counter for sleeping.  Resets on user activity (e.g. click) */
   uint32_t inactivity_ticks;
 
   /* Count of multiple quick presses in a row */
@@ -175,10 +173,10 @@ static struct {
 
   /* deep sleep (aka 'shipping mode') */
   bool deep_sleep_mode;
+
   /* count for deep sleep (i.e shipping mode) wakeup recognition */
   uint8_t deep_sleep_down_ctr;
   uint8_t deep_sleep_up_ctr;
-
 } main_gs;
 
 static animation_t *sleep_wake_anim = NULL;
@@ -193,12 +191,7 @@ static struct wdt_conf config_wdt = {.enable=false};
 nvm_data_t main_nvm_data;
 user_data_t main_user_data;
 
-#if (LOG_ACCEL_GESTURE_FIFO)
-bool _accel_confirmed = false;
-#endif
-
 //___ F U N C T I O N S   ( P R I V A T E ) __________________________________
-
 static void watchdog_early_warning_callback(void) {
   /* we are about to do a watchdog reset, when it wakes back up again the
    * current time will be read from the program time (which will be way off),
@@ -237,20 +230,16 @@ static void configure_wdt( void ) {
 }
 
 static void wdt_enable( void ) {
-
         config_wdt.enable = true;
 	wdt_set_config(&config_wdt);
 	wdt_enable_callback(WDT_CALLBACK_EARLY_WARNING);
 }
 
 static void wdt_disable( void ) {
-
         config_wdt.enable = false;
 	wdt_set_config(&config_wdt);
 	wdt_disable_callback(WDT_CALLBACK_EARLY_WARNING);
 }
-
-
 
 static void configure_input(void) {
     /* Configure our button as an input */
@@ -319,7 +308,6 @@ static void log_usage ( void ) {
 }
 #endif
 
-
 #if (CLOCK_OUTPUT)
 static void setup_clock_pin_outputs( void ) {
   /* For debugging purposes, multiplex our
@@ -356,12 +344,9 @@ static void prepare_sleep( void ) {
   /* The vbatt adc may have enabled the voltage reference, so disable
    * it in standby to save power */
   system_voltage_reference_disable(SYSTEM_VOLTAGE_REFERENCE_BANDGAP);
-
 }
 
 static void wakeup (void) {
-
-
   wdt_enable();
 
   led_controller_enable();
@@ -409,16 +394,13 @@ static void wakeup (void) {
     log_usage();
   }
 #endif
-
 }
 
-/* 'wakestamps' are used to keep track of wakeup check times.
- * They are used to determine if a double-click sequence has
- * occurred that should wake us up from deep-sleep (i.e. shipping mode)
- */
 static int32_t get_wakestamp( void ) {
-  /* a 'wakestamp' is simply the # of seconds
-   * elapsed since midnight/noon */
+  /* a 'wakestamp' is simply the # of seconds elapsed since midnight/noon
+   * 'wakestamps' are used to keep track of wakeup check times.
+   * They are used to determine if a double-click sequence has
+   * occurred that should wake us up from deep-sleep (i.e. shipping mode) */
     uint8_t hour, min, sec;
 
     aclock_get_time(&hour, &min, &sec);
@@ -439,9 +421,7 @@ static int32_t wakestamp_elapsed( int32_t stamp_recent, int32_t stamp_earlier ) 
 }
 
 static bool wakeup_check( void ) {
-  /* If we've been awaken by an interrupt, determine
-   * if we should fully wakeup
-   */
+  /* If we've been awaken by an interrupt, determine if we should fully wakeup */
   int32_t curr_wakestamp;
   bool wake = false;
 
@@ -458,12 +438,11 @@ static bool wakeup_check( void ) {
     }
   }
 
-
   /* We are in deep sleep/shipping mode, update dclick counter */
   aclock_enable();
   curr_wakestamp = get_wakestamp();
   if (wakestamp_elapsed(curr_wakestamp, main_gs.last_wakestamp) < DEEP_SLEEP_EV_DELTA_S) {
-    int16_t x,y,z;
+    int16_t x, y, z;
     accel_enable();
     accel_data_read(&x, &y, &z);
 
@@ -488,26 +467,25 @@ static bool wakeup_check( void ) {
 
     if (main_gs.deep_sleep_down_ctr >= DEEP_SLEEP_SEQ_DOWN_COUNT &&
         main_gs.deep_sleep_up_ctr >= DEEP_SLEEP_SEQ_UP_COUNT) {
-      accel_wakeup_gesture_enabled = true;
+      accel_set_gesture_enabled( main_user_data.wake_gestures );
       wake = true;
     } else {
-      accel_wakeup_gesture_enabled = false;
+      accel_set_gesture_enabled( false );
       wake = false;
       accel_sleep();
     }
-
   } else {
     /* we will assume the first dclick is face down so we
      * don't bother wasting power reading accelerometer */
     main_gs.deep_sleep_down_ctr = 1;
     main_gs.deep_sleep_up_ctr = 0;
-    accel_wakeup_gesture_enabled = false;
+    accel_set_gesture_enabled( false );
     wake = false;
 
 #ifdef DEEP_SLEEP_DEBUG
-    _led_on_full( 30 );
+    _led_on_full(30);
     delay_ms(100);
-    _led_off_full( 30 );
+    _led_off_full(30);
     delay_ms(50);
 #endif
   }
@@ -526,8 +504,7 @@ static void main_tic( void ) {
   main_gs.inactivity_ticks++;
   main_gs.waketicks++;
 
-  /* Get accel events flags only if enough time has passed
-   * since waking */
+  /* Get accel events flags only if enough time has passed since waking */
   if (main_gs.waketicks > WAKE_CLICK_IGNORE_DUR_TICKS) {
     event_flags |= accel_event_flags();
   }
@@ -547,9 +524,11 @@ static void main_tic( void ) {
       _led_off_full( 15 );
   }
 
-//  if (MNCLICK(event_flags, 20, 30)) {
-//    while(1);
-//  }
+#if 0
+  if (MNCLICK(event_flags, 20, 30)) {
+    while(1);
+  }
+#endif
 
   switch (main_gs.state) {
     case STARTUP:
@@ -578,20 +557,6 @@ static void main_tic( void ) {
         }
 #endif  /* STORE_LIFETIME_USAGE */
 
-#if (LOG_ACCEL_GESTURE_FIFO)
-        if (LOG_UNCONFIRMED_GESTURES || _accel_confirmed) {
-          uint32_t code = 0xAAAAAAAA; /* FIFO data begin code */
-          main_log_data((uint8_t *) &code, sizeof(uint32_t), false);
-          main_log_data(accel_fifo.bytes,
-              sizeof(accel_xyz_t) * accel_fifo.depth, true);
-          code = _accel_confirmed ? 0xCCCCCCCC : 0xEEEEEEEE; /* FIFO data end code */
-          main_log_data((uint8_t *) &code, sizeof(uint32_t), true);
-          uint16_t log_code = 0xEEDD;
-          main_log_data ((uint8_t *)&log_code, sizeof(uint16_t), true);
-          main_log_data ((uint8_t *)&main_gs.waketicks, sizeof(uint32_t), true);
-        }
-#endif  /* LOG_ACCEL_GESTURE_FIFO */
-
         prepare_sleep();
         accel_sleep();
 
@@ -614,11 +579,13 @@ static void main_tic( void ) {
 
         led_clear_all();
 
-//        if (IS_LOW_BATT(main_gs.vbatt_sensor_adc_val)) {
-//          /* If low battery, display warning animation for a short period */
-//          sleep_wake_anim = anim_blink(display_polygon(30, BRIGHT_MED_LOW, 3),
-//               MS_IN_TICKS(300), MS_IN_TICKS(2100), true);
-//        }
+#if 0
+        if (IS_LOW_BATT(main_gs.vbatt_sensor_adc_val)) {
+          /* If low battery, display warning animation for a short period */
+          sleep_wake_anim = anim_blink(display_polygon(30, BRIGHT_MED_LOW, 3),
+               MS_IN_TICKS(300), MS_IN_TICKS(2100), true);
+        }
+#endif
 
         main_gs.state = WAKEUP;
       }
@@ -642,18 +609,9 @@ static void main_tic( void ) {
 
           /* A sleep event has occurred */
           if (IS_CONTROL_MODE_SHOW_TIME() && TCLICK(event_flags)) {
-#if (LOG_ACCEL_GESTURE_FIFO)
-              _accel_confirmed = true;
-#else
-              accel_wakeup_gesture_enabled = false;
-#endif
-
+            accel_set_gesture_enabled( false );
           } else {
-#if (LOG_ACCEL_GESTURE_FIFO)
-              _accel_confirmed = false;
-#else
-              accel_wakeup_gesture_enabled = main_user_data.wake_gestures;
-#endif
+            accel_set_gesture_enabled( main_user_data.wake_gestures );
           }
 
           /* Notify control mode of sleep event and reset control mode */
@@ -688,8 +646,7 @@ static void main_init( void ) {
   main_gs.brightness = MAX_BRIGHT_VAL;
   main_gs.state = STARTUP;
   main_gs.deep_sleep_mode = false;
-  main_user_data.wake_gestures = true;
-
+  main_user_data.wake_gestures = WAKE_GESTURES_USER_DEFAULT;
   main_user_data.seconds_always_on = SHOW_SEC_ALWAYS;
 
   /* Configure main timer counter */
@@ -707,7 +664,6 @@ static void main_init( void ) {
    * iterating through log data until an
    * empty (4 bytes of 1s) row is found */
   while (nvm_row_addr < NVM_LOG_ADDR_MAX) {
-
     nvm_read_buffer(nvm_row_addr, (uint8_t *) &data, sizeof(data));
     if (data == 0xffffffff)
       break;
@@ -756,6 +712,10 @@ static void main_init( void ) {
           sizeof(nvm_data_t));
 }
 
+uint32_t main_get_waketicks( void ) {
+  return main_gs.waketicks;
+}
+
 uint32_t main_get_waketime_ms( void ) {
   return TICKS_IN_MS(main_gs.waketicks);
 }
@@ -768,7 +728,7 @@ void main_deep_sleep_enable( void ) {
   main_gs.deep_sleep_mode = true;
   main_gs.deep_sleep_down_ctr = 0;
   main_gs.deep_sleep_up_ctr = 0;
-  accel_wakeup_gesture_enabled = false;
+  accel_set_gesture_enabled( false );
   main_gs.state = ENTERING_SLEEP;
 }
 
@@ -856,7 +816,6 @@ void main_log_data( uint8_t *data, uint16_t length, bool flush) {
   }
 }
 
-
 void main_start_sensor_read ( void ) {
   if (!(adc_get_status(&light_vbatt_sens_adc) & ADC_STATUS_RESULT_READY))
     adc_start_conversion(&light_vbatt_sens_adc);
@@ -897,7 +856,6 @@ void main_set_current_sensor ( sensor_type_t sensor ) {
   adc_init(&light_vbatt_sens_adc, ADC, &config_adc);
   adc_enable(&light_vbatt_sens_adc);
 }
-
 
 uint16_t main_read_current_sensor( bool blocking ) {
   uint16_t result;

@@ -20,6 +20,7 @@ TARGET_SRAM = bin/armio_sram.elf
 #log_vbatt=true
 #debug_ax_isr=true
 gestures_filters=false
+#wake_gestures_user_default=false
 #reject_all_gestures=true
 #use_wakeup_alarm=true
 #log_accel_stream=true
@@ -365,4 +366,7 @@ CPPFLAGS+= -D USE_SELF_TEST=$(self_test_accel)
 endif
 ifdef log_vbatt
 CPPFLAGS+= -D LOG_VBATT=$(log_vbatt)
+endif
+ifdef wake_gestures_user_default
+CPPFLAGS+= -D WAKE_GESTURES_USER_DEFAULT=$(wake_gestures_user_default)
 endif

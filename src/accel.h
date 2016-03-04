@@ -10,49 +10,13 @@
 #include "main.h"
 
 //___ M A C R O S ____________________________________________________________
-
 #define ACCEL_VALUE_1G  32
-#define BITS_PER_ACCEL_VAL 8
-#define FIFO_MAX_SIZE   32
 
 
 //___ T Y P E D E F S ________________________________________________________
-typedef struct {
-  union {
-    struct {
-      short int             : 16 - BITS_PER_ACCEL_VAL;
-      short int x_leftalign : BITS_PER_ACCEL_VAL;
-    };
-    short int x             : 16;
-  };
-  union {
-    struct {
-      short int             : 16 - BITS_PER_ACCEL_VAL;
-      short int y_leftalign : BITS_PER_ACCEL_VAL;
-    };
-    short int y             : 16;
-  };
-  union {
-    struct {
-      short int             : 16 - BITS_PER_ACCEL_VAL;
-      short int z_leftalign : BITS_PER_ACCEL_VAL;
-    };
-    short int z             : 16;
-  };
-} accel_xyz_t;
-
-typedef struct {
-  union {
-    accel_xyz_t     values[ FIFO_MAX_SIZE ];
-    uint8_t         bytes[ FIFO_MAX_SIZE * sizeof( accel_xyz_t ) ];
-  };
-  uint8_t depth;
-} accel_fifo_t;
 
 
 //___ V A R I A B L E S ______________________________________________________
-extern accel_fifo_t accel_fifo;
-extern bool accel_wakeup_gesture_enabled;
 extern uint8_t accel_slow_click_cnt;
 extern uint8_t accel_fast_click_cnt;
 
@@ -84,13 +48,17 @@ bool accel_wakeup_check( void );
    * @retrn true if system should fully wakeup
    */
 
+void accel_set_gesture_enabled( bool enabled );
+    /* @brief set gestures for on or off
+     * @param None
+     * @retrn None
+     */
 
 void accel_enable ( void );
   /* @brief enable this module (i.e. wakeup accelerometer)
    * @param None
    * @retrn None
    */
-
 
 void accel_sleep ( void );
   /* @brief disable this module (i.e. sleep accelerometer)

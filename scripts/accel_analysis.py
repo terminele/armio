@@ -253,6 +253,7 @@ class SampleTest( object ):
                 len(self.test_results), len(self.values), len(self.samples)))
         log.debug( "Plotting {} samples".format( len( self.values ) ) )
 
+        tmin = self.samples.mintime
         for tv, val, sample in zip(self.test_results, self.values, self.samples):
             if getattr( sample, 'trainset', False ):
                 cv = TRAINSET
@@ -267,7 +268,11 @@ class SampleTest( object ):
             else:
                 cv = LONG
             if dim == 1:        # add an axis
-                val = ( sample.i, val )
+                try:
+                    t = sample.timestamp - tmin
+                except TypeError:
+                    t = sample.i
+                val = ( t, val )
             elif dim > 2:       # truncate axes
                 val = val[:3]
                 val = ( val[2], val[0], val[1] )
@@ -693,6 +698,13 @@ class Samples( object ):
         self.name = name
         self.clear_results()
 
+    def _getMinTime(self):
+        try:
+            return min( s.timestamp for s in self.samples if s.timestamp is not None )
+        except TypeError:
+            return None
+    mintime = property(fget=_getMinTime)
+
     def __setstate__(self, state):
         self.name = state['name']
         self.samples = state['samples']
@@ -1047,15 +1059,32 @@ class Samples( object ):
                     binval = fh.read(4)
                     waketime_ticks = struct.unpack("<I", binval)[0]
                     waketime_ms = waketime_ticks/TICKS_PER_MS
+                    timestamp = None
+                    binval = fh.read(6) # update binval with next 6 bytes
+                elif data[1:] == (0xee, 0xdd):
+                    binval = fh.read(4)
+                    waketime_ticks = struct.unpack("<I", binval)[0]
+                    waketime_ms = waketime_ticks/TICKS_PER_MS
+                    binval = fh.read(4)
+                    timestamp = struct.unpack("<I", binval)[0]
                     binval = fh.read(6) # update binval with next 6 bytes
                 else:
                     """ waketime not include in this log dump"""
                     waketime_ms = 0
+                    timestamp = None
                     binval = binval[-2:] #retain last 2 bytes
                     binval += fh.read(4)
 
-                if len(xs) == 32 and len(ys)==32 and len(zs)==32:
-                    ws = WakeSample(xs, ys, zs, waketime_ms, end_confirm, fname)
+                if len(xs) and len(xs) == len(ys) and len(ys) == len(zs):
+                    xtra = 32 - len(xs)
+                    if xtra > 0:
+                        log.info("adding {} xtra values to sample".format(xtra))
+                    for _ in range( xtra ):
+                        xs.insert(0, None)
+                        ys.insert(0, None)
+                        zs.insert(0, None)
+                    ws = WakeSample(xs, ys, zs,
+                            waketime_ms, end_confirm, fname, timestamp)
                     samples.append( ws )
                     log.debug( "new sample: waketime={}ms confirmed={}".format(
                         waketime_ms, end_confirm ) )
@@ -1113,14 +1142,16 @@ class Samples( object ):
                 break
         log.debug("Parsed {} samples from {}".format(len(samples), fname))
         return samples
-     except:
-         log.error ("Unable to open file \'{}\'".format(fname))
+     except Exception as e:
+         log.error ("Unable to process file \'{}\': {}".format(fname, e))
+         raise
          return []
 
 
 class WakeSample( object ):
     _sample_counter = 0
-    def __init__( self, xs, ys, zs, waketime=0, confirmed=False, logfile="" ):
+    def __init__( self, xs, ys, zs,
+            waketime=0, confirmed=False, logfile="", timestamp=None ):
         self.uid = uuid.uuid4().hex[-8:]
         self.logfile = os.path.basename(logfile)
         self.xs = xs
@@ -1128,6 +1159,7 @@ class WakeSample( object ):
         self.zs = zs
         self.waketime = waketime
         self.confirmed = confirmed
+        self.timestamp = timestamp
         WakeSample._sample_counter += 1
         self.i = WakeSample._sample_counter
         self._check_result = None
@@ -1136,6 +1168,7 @@ class WakeSample( object ):
     def __setstate__(self, state):
         self.uid = state['uid']
         self.i = state['i']
+        self.timestamp = state['timestamp']
         if self.i > WakeSample._sample_counter:
             WakeSample._sample_counter = i
         self.logfile = state['logfile']
@@ -1148,6 +1181,7 @@ class WakeSample( object ):
     def __getstate__(self):
         state = dict()
         state['uid'] = self.uid
+        state['timestamp'] = self.timestamp
         state['i'] = self.i
         state['logfile'] = self.logfile
         state['accel'] = self.xs, self.ys, self.zs
@@ -1159,12 +1193,12 @@ class WakeSample( object ):
     measures = property( fget=_getMeasures )
 
     def _collect_sums( self ):
-        self.xsums = [ sum( self.xs[:i+1] ) for i in range( len( self.xs ) ) ]
-        self.ysums = [ sum( self.ys[:i+1] ) for i in range( len( self.ys ) ) ]
-        self.zsums = [ sum( self.zs[:i+1] ) for i in range( len( self.zs ) ) ]
-        self.xsumrev = [ sum( self.xs[-i-1:] ) for i in range( len( self.xs ) ) ]
-        self.ysumrev = [ sum( self.ys[-i-1:] ) for i in range( len( self.ys ) ) ]
-        self.zsumrev = [ sum( self.zs[-i-1:] ) for i in range( len( self.zs ) ) ]
+        self.xsums = [ sum( v for v in self.xs[:i+1] if v is not None ) for i in range( len( self.xs ) ) ]
+        self.ysums = [ sum( v for v in self.ys[:i+1] if v is not None ) for i in range( len( self.ys ) ) ]
+        self.zsums = [ sum( v for v in self.zs[:i+1] if v is not None ) for i in range( len( self.zs ) ) ]
+        self.xsumrev = [ sum( v for v in self.xs[-i-1:] if v is not None ) for i in range( len( self.xs ) ) ]
+        self.ysumrev = [ sum( v for v in self.ys[-i-1:] if v is not None ) for i in range( len( self.ys ) ) ]
+        self.zsumrev = [ sum( v for v in self.zs[-i-1:] if v is not None ) for i in range( len( self.zs ) ) ]
 
     def _fltr_y_not_deliberate_fail( self ):
         return self.ys[-1] < -5
@@ -1214,6 +1248,13 @@ class WakeSample( object ):
         if self._check_result is not None:
             return self._check_result
         elif len( self.xs ) < 1:
+            self._check_result = False
+            return self._check_result
+
+        if True:    # hack -- temporarily removing to implement variable length
+            self.dzN = 0
+            self.ysum_n = self.ysums[8]
+            self.xsum_n = self.xsums[4]
             self._check_result = False
             return self._check_result
 
@@ -1511,7 +1552,8 @@ def show_various_reductions(samples, pca_test, pcadims=None):
 
 
 if __name__ == "__main__":
-    log.basicConfig(level=log.INFO)
+    log.basicConfig(level=log.INFO,
+            format=' '.join(["%(levelname)-7s", "%(lineno)4d", "%(message)s"]))
     def parse_args():
         parser = argparse.ArgumentParser(description='Analyze an accel log dump')
         parser.add_argument('dumpfiles', nargs='+')

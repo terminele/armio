@@ -3,13 +3,13 @@
   */
 
 // TODO : log the isr direction that got us into the wake gesture test
-// FIXME : log samples that are not legth 32
 
 //___ I N C L U D E S ________________________________________________________
 #include "accel.h"
 #include "accel_reg.h"
 #include "main.h"
 #include "leds.h"
+#include "aclock.h"
 
 
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
@@ -78,6 +78,14 @@
 #define ENABLE_INTERRUPT_2 false
 #endif
 
+#ifndef LOG_ACCEL_GESTURE_FIFO
+#define LOG_ACCEL_GESTURE_FIFO false
+#endif
+
+#ifndef LOG_UNCONFIRMED_GESTURES
+#define LOG_UNCONFIRMED_GESTURES true
+#endif
+
 
 #if ( SHOW_LED_FOR_FILTER_INFO )
 #define _DISP_FILTER_INFO( i )  do { \
@@ -121,6 +129,9 @@
 #define DISP_ERR_ISR_RELEASE()          _DISP_ERROR( 10 )
 
 #define MS_TO_ODRS(t, sample_int) (t/sample_int)
+
+#define BITS_PER_ACCEL_VAL 8
+#define FIFO_MAX_SIZE   32
 
 /* Click configuration constants */
 #define ACTIVE_ODR              ODR_400HZ
@@ -189,6 +200,38 @@ typedef union {
     };
     uint8_t b8;
 } click_flags_t;
+
+typedef struct {
+    union {
+        struct {
+            short int               : 16 - BITS_PER_ACCEL_VAL;
+            short int x_leftalign   : BITS_PER_ACCEL_VAL;
+        };
+        short int x                 : 16;
+    };
+    union {
+        struct {
+            short int               : 16 - BITS_PER_ACCEL_VAL;
+            short int y_leftalign   : BITS_PER_ACCEL_VAL;
+        };
+        short int y                 : 16;
+    };
+    union {
+        struct {
+            short int               : 16 - BITS_PER_ACCEL_VAL;
+            short int z_leftalign   : BITS_PER_ACCEL_VAL;
+        };
+        short int z                 : 16;
+    };
+} accel_xyz_t;
+
+typedef struct {
+    union {
+        accel_xyz_t     values[ FIFO_MAX_SIZE ];
+        uint8_t         bytes[ FIFO_MAX_SIZE * sizeof( accel_xyz_t ) ];
+    };
+    uint8_t depth;
+} accel_fifo_t;
 
 
 //___ P R O T O T Y P E S   ( P R I V A T E ) ________________________________
@@ -306,10 +349,16 @@ static bool check_tilt_down( int16_t x, int16_t y, int16_t z );
 
 
 //___ V A R I A B L E S ______________________________________________________
-accel_fifo_t accel_fifo = { .bytes = { 0 }, .depth = 0 };
-bool accel_wakeup_gesture_enabled = true;
 uint8_t accel_slow_click_cnt = 0;
 uint8_t accel_fast_click_cnt = 0;
+
+static accel_fifo_t accel_fifo = { .bytes = { 0 }, .depth = 0 };
+
+static bool accel_wakeup_gesture_enabled = true;
+#if (LOG_ACCEL_GESTURE_FIFO)
+bool accel_confirmed = false;
+#endif
+
 static uint8_t slow_click_counter = 0;
 static uint8_t fast_click_counter = 0;
 
@@ -564,7 +613,9 @@ static bool check_tilt_down( int16_t x, int16_t y, int16_t z ) {
 
 static inline bool gesture_filter_check( void ) {
     /* Read FIFO to determine if a turn-up gesture occurred */
-    read_accel_fifo();  // needed for ACCEL_GESTURE_LOG_FIFO & gesture_filers
+#if (LOG_ACCEL_GESTURE_FIFO || GESTURE_FILTERS)
+    read_accel_fifo();
+#endif  /* LOG_ACCEL_GESTURE_FIFO || GESTURE_FILTERS */
 #if (REJECT_ALL_GESTURES)
     return false;
 #endif
@@ -956,12 +1007,6 @@ bool accel_wakeup_check( void ) {
     /* Callback enable is only active when sleeping */
     extint_chan_disable_callback(AX_INT_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
     wakeup = wake_check();
-    int1_flags.b8 = 0;
-#if (ENABLE_INTERRUPT_2)
-    int2_flags.b8 = 0;
-#endif
-    click_flags.b8 = 0;
-
     extint_chan_enable_callback(AX_INT_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
 
     return wakeup;
@@ -1013,13 +1058,9 @@ void accel_sleep ( void ) {
     return;
 #endif
     /* Reset click counters */
-    accel_slow_click_cnt = slow_click_counter = 0;
-    accel_fast_click_cnt = fast_click_counter = 0;
-    accel_fifo.depth = 0;
-
-    accel_register_write ( AX_REG_CTL1,
+    accel_register_write (AX_REG_CTL1,
             (SLEEP_ODR | X_EN | Y_EN | Z_EN |
-             (BITS_PER_ACCEL_VAL == 8 ? LOW_PWR_EN : 0)) );
+             (BITS_PER_ACCEL_VAL == 8 ? LOW_PWR_EN : 0)));
 
     /* Configure click parameters */
     /* Only x-axis double clicks should wake us up */
@@ -1032,7 +1073,33 @@ void accel_sleep ( void ) {
     if (accel_wakeup_gesture_enabled) {
         /* Configure interrupt to detect orientation down */
         wait_state_conf( WAIT_FOR_DOWN );
+
+#if (LOG_ACCEL_GESTURE_FIFO)
+        if ((LOG_UNCONFIRMED_GESTURES || accel_confirmed) && accel_fifo.depth) {
+            uint32_t code = 0xAAAAAAAA; /* FIFO data begin code */
+            main_log_data((uint8_t *) &code, sizeof(uint32_t), false);
+            main_log_data(accel_fifo.bytes,
+                    sizeof(accel_xyz_t) * accel_fifo.depth, true);
+            code = accel_confirmed ? 0xCCCCCCCC : 0xEEEEEEEE; /* FIFO data end code */
+            main_log_data((uint8_t *) &code, sizeof(uint32_t), true);
+            uint16_t log_code = 0xDDEE;
+            main_log_data ((uint8_t *)&log_code, sizeof(uint16_t), true);
+            code = main_get_waketicks();
+            main_log_data ((uint8_t *) &code, sizeof(uint32_t), true);
+            code = (uint32_t) aclock_get_timestamp();
+            main_log_data ((uint8_t *) &code, sizeof(uint32_t), true);
+        }
+#endif  /* LOG_ACCEL_GESTURE_FIFO */
     }
+
+    int1_flags.b8 = 0;
+#if (ENABLE_INTERRUPT_2)
+    int2_flags.b8 = 0;
+#endif
+    click_flags.b8 = 0;
+    accel_slow_click_cnt = slow_click_counter = 0;
+    accel_fast_click_cnt = fast_click_counter = 0;
+    accel_fifo.depth = 0;
 
     extint_chan_enable_callback(AX_INT_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
 }
@@ -1200,4 +1267,12 @@ void accel_init ( void ) {
     configure_interrupt();
 
     extint_register_callback(accel_isr, AX_INT_CHAN, EXTINT_CALLBACK_TYPE_DETECT);
+}
+
+void accel_set_gesture_enabled( bool enabled ) {
+#if (LOG_ACCEL_GESTURE_FIFO)
+    accel_confirmed = !(enabled);
+#else
+    accel_wakeup_gesture_enabled = enabled;
+#endif
 }

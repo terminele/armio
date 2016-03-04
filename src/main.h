@@ -161,6 +161,12 @@ uint32_t main_get_button_hold_ticks( void );
    * @retrn # of button ticks since long press started
    */
 
+uint32_t main_get_waketicks( void );
+    /* @brief get then current value for waketicks
+     * @param None
+     * @retrn None
+     */
+
 uint32_t main_get_waketime_ms( void );
   /* @brief get time since last wake in ms
    * @param None
