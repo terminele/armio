@@ -16,7 +16,7 @@ TARGET_SRAM = bin/armio_sram.elf
 ##############################
 # Note: override these in make command
 
-#store_lifetime_usage=true
+store_lifetime_usage=true
 #log_vbatt=true
 #debug_ax_isr=true
 gestures_filters=false

@@ -1018,14 +1018,19 @@ class Samples( object ):
 
         """ find first start delimiter"""
         started = False
+        skips = 0
         while binval:
-            startcode, int1_flags, int2_flags = struct.unpack("<HBB", binval)
-            if startcode == 0xaaaa:
+            if 0xaaaa in struct.unpack("<HH", binval):
+                startcode, int1_flags, int2_flags = struct.unpack("<HBB", binval)
                 started = True
                 log.debug("Found start pattern 0x{:4X}".format(startcode))
                 log.info("int_flags 0b{:08b} 0b{:08b}".format(int1_flags, int2_flags))
                 break
-
+            else:
+                log.debug("ignoring 0x{:8X}".format(struct.unpack("<I", binval)[0]))
+                skips+=1
+                if skips > 100:
+                    raise Exception("No Data")
             binval = fh.read(4)
 
         if not started:
@@ -1127,8 +1132,8 @@ class Samples( object ):
                     log.info("end of file encountered")
                     break
 
-                startcode, int1_flags, int2_flags, _ = struct.unpack("<HBBH", binval)
-                if startcode == 0xaaaa:
+                if 0xaaaa in struct.unpack("<HHH", binval):
+                    startcode, int1_flags, int2_flags, _ = struct.unpack("<HBBH", binval)
                     started = True
                     log.info("Found start pattern 0x{:4X}".format(startcode))
                     log.info("int_flags 0b{:08b} 0b{:08b}".format(int1_flags, int2_flags))
