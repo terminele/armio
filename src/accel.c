@@ -193,14 +193,14 @@ typedef union {
 
 
 //___ P R O T O T Y P E S   ( P R I V A T E ) ________________________________
-static bool wake_check( void );
-
 static void wait_state_conf( wake_gesture_state_t wait_state );
     /* @brief configure the interrupts to detect movement into orientations of
      *        interest, used for gesture wake
      * @param the state that we want to wait for
      * @retrn None
      */
+
+static bool wake_check( void );
 
 static inline bool gesture_filter_check( void );
     /* @brief read the accel fifo and filter turn to wake gestures
@@ -397,47 +397,6 @@ static void accel_isr(void) {
 
 
 //___ F U N C T I O N S ______________________________________________________
-static void configure_interrupt ( void ) {
-    /* Configure our accel interrupt 1 to wake us up */
-    struct port_config pin_conf;
-    port_get_config_defaults(&pin_conf);
-    pin_conf.direction = PORT_PIN_DIR_INPUT;
-    pin_conf.input_pull = PORT_PIN_PULL_NONE;
-    port_pin_set_config(AX_INT_PIN, &pin_conf);
-
-    struct extint_chan_conf eint_chan_conf;
-    extint_chan_get_config_defaults(&eint_chan_conf);
-
-    eint_chan_conf.gpio_pin             = AX_INT_EIC;
-    eint_chan_conf.gpio_pin_mux         = AX_INT_EIC_MUX;
-    eint_chan_conf.gpio_pin_pull        = EXTINT_PULL_NONE;
-    /* NOTE: cannot wake from standby with filter or edge detection ... */
-    eint_chan_conf.detection_criteria   = EXTINT_DETECT_HIGH;
-    eint_chan_conf.filter_input_signal  = false;
-    eint_chan_conf.wake_if_sleeping     = true;
-
-    extint_chan_set_config(AX_INT_CHAN, &eint_chan_conf);
-}
-
-static void configure_i2c(void) {
-    /* Initialize config structure and software module */
-    struct i2c_master_config config_i2c_master;
-    i2c_master_get_config_defaults(&config_i2c_master);
-
-    /* Change buffer timeout to something longer */
-    config_i2c_master.baud_rate = I2C_MASTER_BAUD_RATE_400KHZ;
-    config_i2c_master.buffer_timeout = 65535;
-    config_i2c_master.pinmux_pad0 = AX_SDA_PAD;
-    config_i2c_master.pinmux_pad1 = AX_SCL_PAD;
-    config_i2c_master.start_hold_time = I2C_MASTER_START_HOLD_TIME_400NS_800NS;
-    config_i2c_master.run_in_standby = false;
-
-    /* Initialize and enable device with config */
-    while(i2c_master_init(&i2c_master_instance, SERCOM0, &config_i2c_master) != STATUS_OK);
-
-    i2c_master_enable(&i2c_master_instance);
-}
-
 static void wait_state_conf( wake_gesture_state_t wait_state ) {
     uint8_t duration_odr = 0;   /* 1 LSb = 1 / ODR = Number of FIFO samples */
     uint8_t threshold = 0;
@@ -522,35 +481,68 @@ static void wait_state_conf( wake_gesture_state_t wait_state ) {
 #endif  /* ENABLE_INTERRUPT_2 */
 }
 
-static bool accel_register_consecutive_read (uint8_t start_reg, uint8_t count,
-    uint8_t *data_ptr) {
+static bool wake_check( void ) {
+    if (click_flags.ia) {
+        if (dclick_filter_check()) {
+            return true;
+        } else {
+            /* This DCLICK has been filtered out.  Ensure
+             * we our configured correctly for sleep based on
+             * current wake gesture state */
+            if (accel_wakeup_gesture_enabled) {
+                wait_state_conf(wake_gesture_state);
+            }
+            return false;
+        }
+    }
 
-    /* register address is 7 LSBs, MSB indicates consecutive or single read */
-    uint8_t write = start_reg | (count > 1 ? 1 << 7 : 0);
+    /* dclick interrupt flag was not set but only a dclick
+     * interrupt could have occurred */
+    if (!accel_wakeup_gesture_enabled) {
+        DISP_ERR_WAKE_1();
+        return dclick_filter_check();
+    }
 
-    /* Write the register address (SUB) to the accelerometer */
-    struct i2c_master_packet packet = {
-        .address     = i2c_addr,
-        .data_length = 1,
-        .data = &write,
-        .ten_bit_address = false,
-        .high_speed      = false,
-        .hs_master_code  = 0x0,
-    };
+    /* we got here bc of an interrupt, check that at least one flag exists */
+#if ( ENABLE_INTERRUPT_2 )
+    if (!(int1_flags.ia || int2_flags.ia)) {
+#else
+    if (!int1_flags.ia) {
+#endif
+        DISP_ERR_WAKE_2();
+        /* The accelerometer is in an error state (probably a timing
+         * error between interrupt trigger and register read) so just
+         * assume the interrupt was for what we expect based on state */
+        if (wake_gesture_state == WAIT_FOR_DOWN) {
+            wait_state_conf( WAIT_FOR_UP );
+            return false;
+        } else {
+            return true;
+        }
+    }
 
-    if ( STATUS_OK != i2c_master_write_packet_wait_no_stop (
-                &i2c_master_instance, &packet ) ) {
+    /* if our state was 'down', go forward to 'up' */
+    if (wake_gesture_state == WAIT_FOR_DOWN) {
+        wait_state_conf(WAIT_FOR_UP);
         return false;
     }
 
-    packet.data = data_ptr;
-    packet.data_length = count;
+    /* we are in WAIT_FOR_UP, check if y|z 'up' was the trigger */
+    if (gesture_filter_check()) {
+        return true;
+    } else {
+        main_nvm_data.filtered_gestures++;
+    }
 
-    if (STATUS_OK != i2c_master_read_packet_wait ( &i2c_master_instance, &packet )) {
+    /* The gesture filter checks failed so configure ourselves
+     * to wait for another up / down event */
+    if ( DOWN_TRIG_ON_YZ_HIGH ) {
+        wait_state_conf(WAIT_FOR_UP);
         return false;
     }
 
-    return true;
+    wait_state_conf(WAIT_FOR_DOWN);
+    return false;
 }
 
 static inline bool gesture_filter_check( void ) {
@@ -654,6 +646,78 @@ static inline bool dclick_filter_check( void ) {
     return false;
 }
 
+static void configure_interrupt ( void ) {
+    /* Configure our accel interrupt 1 to wake us up */
+    struct port_config pin_conf;
+    port_get_config_defaults(&pin_conf);
+    pin_conf.direction = PORT_PIN_DIR_INPUT;
+    pin_conf.input_pull = PORT_PIN_PULL_NONE;
+    port_pin_set_config(AX_INT_PIN, &pin_conf);
+
+    struct extint_chan_conf eint_chan_conf;
+    extint_chan_get_config_defaults(&eint_chan_conf);
+
+    eint_chan_conf.gpio_pin             = AX_INT_EIC;
+    eint_chan_conf.gpio_pin_mux         = AX_INT_EIC_MUX;
+    eint_chan_conf.gpio_pin_pull        = EXTINT_PULL_NONE;
+    /* NOTE: cannot wake from standby with filter or edge detection ... */
+    eint_chan_conf.detection_criteria   = EXTINT_DETECT_HIGH;
+    eint_chan_conf.filter_input_signal  = false;
+    eint_chan_conf.wake_if_sleeping     = true;
+
+    extint_chan_set_config(AX_INT_CHAN, &eint_chan_conf);
+}
+
+static void configure_i2c(void) {
+    /* Initialize config structure and software module */
+    struct i2c_master_config config_i2c_master;
+    i2c_master_get_config_defaults(&config_i2c_master);
+
+    /* Change buffer timeout to something longer */
+    config_i2c_master.baud_rate = I2C_MASTER_BAUD_RATE_400KHZ;
+    config_i2c_master.buffer_timeout = 65535;
+    config_i2c_master.pinmux_pad0 = AX_SDA_PAD;
+    config_i2c_master.pinmux_pad1 = AX_SCL_PAD;
+    config_i2c_master.start_hold_time = I2C_MASTER_START_HOLD_TIME_400NS_800NS;
+    config_i2c_master.run_in_standby = false;
+
+    /* Initialize and enable device with config */
+    while(i2c_master_init(&i2c_master_instance, SERCOM0, &config_i2c_master) != STATUS_OK);
+
+    i2c_master_enable(&i2c_master_instance);
+}
+
+static bool accel_register_consecutive_read (uint8_t start_reg, uint8_t count,
+    uint8_t *data_ptr) {
+
+    /* register address is 7 LSBs, MSB indicates consecutive or single read */
+    uint8_t write = start_reg | (count > 1 ? 1 << 7 : 0);
+
+    /* Write the register address (SUB) to the accelerometer */
+    struct i2c_master_packet packet = {
+        .address     = i2c_addr,
+        .data_length = 1,
+        .data = &write,
+        .ten_bit_address = false,
+        .high_speed      = false,
+        .hs_master_code  = 0x0,
+    };
+
+    if ( STATUS_OK != i2c_master_write_packet_wait_no_stop (
+                &i2c_master_instance, &packet ) ) {
+        return false;
+    }
+
+    packet.data = data_ptr;
+    packet.data_length = count;
+
+    if (STATUS_OK != i2c_master_read_packet_wait ( &i2c_master_instance, &packet )) {
+        return false;
+    }
+
+    return true;
+}
+
 static inline bool fltr_y_not_deliberate_fail( int16_t y_last,
         accel_xyz_t* sums ) {
     bool y_test = y_last < -5;
@@ -754,71 +818,6 @@ static bool accel_register_write (uint8_t reg, uint8_t val) {
     }
 
     return true;
-}
-
-static bool wake_check( void ) {
-    if (click_flags.ia) {
-        if (dclick_filter_check()) {
-            return true;
-        } else {
-            /* This DCLICK has been filtered out.  Ensure
-             * we our configured correctly for sleep based on
-             * current wake gesture state */
-            if (accel_wakeup_gesture_enabled) {
-                wait_state_conf(wake_gesture_state);
-            }
-            return false;
-        }
-    }
-
-    /* dclick interrupt flag was not set but only a dclick
-     * interrupt could have occurred */
-    if (!accel_wakeup_gesture_enabled) {
-        DISP_ERR_WAKE_1();
-        return dclick_filter_check();
-    }
-
-    /* we got here bc of an interrupt, check that at least one flag exists */
-#if ( ENABLE_INTERRUPT_2 )
-    if (!(int1_flags.ia || int2_flags.ia)) {
-#else
-    if (!int1_flags.ia) {
-#endif
-        DISP_ERR_WAKE_2();
-        /* The accelerometer is in an error state (probably a timing
-         * error between interrupt trigger and register read) so just
-         * assume the interrupt was for what we expect based on state */
-        if (wake_gesture_state == WAIT_FOR_DOWN) {
-            wait_state_conf( WAIT_FOR_UP );
-            return false;
-        } else {
-            return true;
-        }
-    }
-
-    /* if our state was 'down', go forward to 'up' */
-    if (wake_gesture_state == WAIT_FOR_DOWN) {
-        wait_state_conf(WAIT_FOR_UP);
-        return false;
-    }
-
-    /* we are in WAIT_FOR_UP, check if y|z 'up' was the trigger */
-    if (gesture_filter_check()) {
-        return true;
-    } else {
-        main_nvm_data.filtered_gestures++;
-    }
-
-
-    /* The gesture filter checks failed so configure ourselves
-     * to wait for another up / down event */
-    if ( DOWN_TRIG_ON_YZ_HIGH ) {
-        wait_state_conf(WAIT_FOR_UP);
-        return false;
-    }
-
-    wait_state_conf(WAIT_FOR_DOWN);
-    return false;
 }
 
 #if ( USE_SELF_TEST )
@@ -1159,9 +1158,9 @@ void accel_init ( void ) {
 #if ( ENABLE_INTERRUPT_2 )
     write_byte |= LIR_INT2;
 
-    /* Use 4D for interrupt 2 so that Y-HIGH events can be detected at low 
-     * thresholds (i.e. slightly turned in).  4D allows since the AOI_POS 
-     * interrupts are only triggered if the axis of interest exceeds the 
+    /* Use 4D for interrupt 2 so that Y-HIGH events can be detected at low
+     * thresholds (i.e. slightly turned in).  4D allows since the AOI_POS
+     * interrupts are only triggered if the axis of interest exceeds the
      * configured threshold AND all other axes are below that threshold.  If
      * 6D is enabled, then the z-axis is included in that check; with 4D the
      * z-axis is not included -- so we have more freedom with the y-high
