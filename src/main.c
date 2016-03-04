@@ -87,8 +87,8 @@
 #define SHOW_SEC_ALWAYS false
 #endif
 
-#ifndef USER_DEFAULT_WAKE_GESTURES
-#define USER_DEFAULT_WAKE_GESTURES true
+#ifndef WAKE_GESTURES_USER_DEFAULT
+#define WAKE_GESTURES_USER_DEFAULT true
 #endif
 
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________

@@ -1019,9 +1019,11 @@ class Samples( object ):
         """ find first start delimiter"""
         started = False
         while binval:
-            if struct.unpack("<I", binval)[0] == 0xaaaaaaaa:
+            startcode, int1_flags, int2_flags = struct.unpack("<HBB", binval)
+            if startcode == 0xaaaa:
                 started = True
-                log.debug("Found start pattern 0xaaaaaaaa")
+                log.debug("Found start pattern 0x{:4X}".format(startcode))
+                log.info("int_flags 0b{:08b} 0b{:08b}".format(int1_flags, int2_flags))
                 break
 
             binval = fh.read(4)
@@ -1084,7 +1086,8 @@ class Samples( object ):
                         ys.insert(0, None)
                         zs.insert(0, None)
                     ws = WakeSample(xs, ys, zs,
-                            waketime_ms, end_confirm, fname, timestamp)
+                            waketime_ms, end_confirm, fname, timestamp,
+                            int1_flags, int2_flags)
                     samples.append( ws )
                     log.debug( "new sample: waketime={}ms confirmed={}".format(
                         waketime_ms, end_confirm ) )
@@ -1124,8 +1127,11 @@ class Samples( object ):
                     log.info("end of file encountered")
                     break
 
-                if struct.unpack( "<Ibb", binval )[0] == 0xaaaaaaaa:
-                    log.debug("Found start code 0x{:08x}".format(fh.tell()))
+                startcode, int1_flags, int2_flags, _ = struct.unpack("<HBBH", binval)
+                if startcode == 0xaaaa:
+                    started = True
+                    log.info("Found start pattern 0x{:4X}".format(startcode))
+                    log.info("int_flags 0b{:08b} 0b{:08b}".format(int1_flags, int2_flags))
                     """ retain last 2 bytes """
                     binval = binval[-2:]
                     binval += fh.read(4)
@@ -1151,7 +1157,8 @@ class Samples( object ):
 class WakeSample( object ):
     _sample_counter = 0
     def __init__( self, xs, ys, zs,
-            waketime=0, confirmed=False, logfile="", timestamp=None ):
+            waketime=0, confirmed=False, logfile="", timestamp=None,
+            int1_flags=0xaa, int2_flags=0xaa):
         self.uid = uuid.uuid4().hex[-8:]
         self.logfile = os.path.basename(logfile)
         self.xs = xs
@@ -1552,7 +1559,7 @@ def show_various_reductions(samples, pca_test, pcadims=None):
 
 
 if __name__ == "__main__":
-    log.basicConfig(level=log.INFO,
+    log.basicConfig(level=log.DEBUG,
             format=' '.join(["%(levelname)-7s", "%(lineno)4d", "%(message)s"]))
     def parse_args():
         parser = argparse.ArgumentParser(description='Analyze an accel log dump')

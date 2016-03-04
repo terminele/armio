@@ -23,13 +23,12 @@
     main_terminate_in_error( error_group_accel, \
             ((uint32_t) 5) | (((uint32_t) reg)<<8) | (((uint32_t) val)<<16) )
 
-
 #ifndef ABS
 #define ABS(a)       ( a < 0 ? -1 * a : a )
 #endif
 
 #ifndef USE_SELF_TEST
-# define USE_SELF_TEST       false
+# define USE_SELF_TEST false
 #endif
 
 #ifndef DEBUG_AX_ISR
@@ -63,20 +62,15 @@
 /* Do we flash an LED if double-click was triggerd but filtered out
  * because of the watch orientation */
 
-#ifndef DOWN_TRIG_ON_YZ_HIGH
-# define DOWN_TRIG_ON_YZ_HIGH false
-#endif
-/* Do we allow a 'down' event to trigger with y or z high? */
-
 #ifndef USE_PCA_LDA_FILTERS
 #define USE_PCA_LDA_FILTERS false
 #endif
 /* Do we use new filters created from PCA / LDA analysis */
 
-#define ENABLE_INTERRUPT_2 true
-#ifndef ENABLE_INTERRUPT_2
-#define ENABLE_INTERRUPT_2 false
+#ifndef WAKE_ON_SUPER_Y
+#define WAKE_ON_SUPER_Y true
 #endif
+/* Do we allow a 'down' event to trigger with y or z high? */
 
 #ifndef LOG_ACCEL_GESTURE_FIFO
 #define LOG_ACCEL_GESTURE_FIFO false
@@ -370,9 +364,7 @@ static struct i2c_master_module i2c_master_instance;
 
 static click_flags_t click_flags;
 static int_reg_flags_t int1_flags;
-#if ( ENABLE_INTERRUPT_2 )
 static int_reg_flags_t int2_flags;
-#endif
 
 static wake_gesture_state_t wake_gesture_state;
 
@@ -385,11 +377,9 @@ static void accel_isr(void) {
     if (!accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &int1_flags.b8)) {
         DISP_ERR_CONSEC_READ_2();
     }
-#if ( ENABLE_INTERRUPT_2 )
     if (!accel_register_consecutive_read(AX_REG_INT2_SRC, 1, &int2_flags.b8)) {
         DISP_ERR_CONSEC_READ_3();
     }
-#endif  /* ENABLE_INTERRUPT_2 */
 
 #if ( DEBUG_AX_ISR )
     if ( click_flags.ia ) _led_on_full( 56 );
@@ -399,14 +389,12 @@ static void accel_isr(void) {
     if ( int1_flags.yh )  _led_on_full( 29 );   //      |
     if ( int1_flags.zl )  _led_on_full(  7 );   //      .---> x
     if ( int1_flags.zh )  _led_on_full( 36 );   //     /
-#if ( ENABLE_INTERRUPT_2 )
     if ( int2_flags.xl )  _led_on_full( 16 );   //    /
     if ( int2_flags.xh )  _led_on_full( 46 );   //  z'
     if ( int2_flags.yl )  _led_on_full(  1 );
     if ( int2_flags.yh )  _led_on_full( 31 );
     if ( int2_flags.zl )  _led_on_full(  9 );
     if ( int2_flags.zh )  _led_on_full( 38 );
-#endif  /* ENABLE_INTERRUPT_2 */
     delay_ms(100);
     if ( click_flags.ia ) _led_off_full( 56 );
     if ( int1_flags.xl )  _led_off_full( 14 );
@@ -415,14 +403,12 @@ static void accel_isr(void) {
     if ( int1_flags.yh )  _led_off_full( 29 );
     if ( int1_flags.zl )  _led_off_full(  7 );
     if ( int1_flags.zh )  _led_off_full( 36 );
-#if ( ENABLE_INTERRUPT_2 )
     if ( int2_flags.xl )  _led_off_full( 16 );
     if ( int2_flags.xh )  _led_off_full( 46 );
     if ( int2_flags.yl )  _led_off_full(  1 );
     if ( int2_flags.yh )  _led_off_full( 31 );
     if ( int2_flags.zl )  _led_off_full(  9 );
     if ( int2_flags.zh )  _led_off_full( 38 );
-#endif  /* ENABLE_INTERRUPT_2 */
 #endif  /* DEBUG_AX_ISR */
 
     extint_chan_clear_detected(AX_INT_CHAN);
@@ -434,9 +420,7 @@ static void accel_isr(void) {
         extint_chan_clear_detected(AX_INT_CHAN);
         accel_register_consecutive_read(AX_REG_CLICK_SRC, 1, &dummy);
         accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &dummy);
-#if ( ENABLE_INTERRUPT_2 )
         accel_register_consecutive_read(AX_REG_INT2_SRC, 1, &dummy);
-#endif  /* ENABLE_INTERRUPT_2 */
 
         if (i > 250) {      /* 'i' is expected to roll over */
             /* ### HACK to guard against unreleased AX interrupt */
@@ -455,87 +439,65 @@ static void accel_isr(void) {
 
 //___ F U N C T I O N S ______________________________________________________
 static void wait_state_conf( wake_gesture_state_t wait_state ) {
-    uint8_t duration_odr = 0;   /* 1 LSb = 1 / ODR = Number of FIFO samples */
-    uint8_t threshold = 0;
-        /* 1 LSb = 32 mg @ FS = 4g
-         * NOTE: if we are checking for 'z' high, then this filter will pass
-         * when z is positive and the magnitude of 'x' and 'y' is below the
-         * threshold value.. In other words, this threshold doesn't check that
-         * 'z' is greater than some value, it checks that 'x' & 'y' are below
-         * some value (or for 'y' it would check that 'z' & 'x' are below value) */
-    uint8_t directions = ( XLIE | XHIE | YLIE | YHIE | ZLIE | ZHIE );
-#if ( DOWN_TRIG_ON_YZ_HIGH )
-    int16_t x, y, z;
-#endif
+    /* 1 LSb = 32 mg @ FS = 4g
+     * NOTE: if we are checking for 'z' high, then this filter will pass
+     * when z is positive and the magnitude of 'x' and 'y' is below the
+     * threshold value.. In other words, this threshold doesn't check that
+     * 'z' is greater than some value, it checks that 'x' & 'y' are below
+     * some value (or for 'y' it would check that 'z' & 'x' are below value) */
+
+    /* NOTE: changing DURATION_ODR | THRESHOLD changes wake events signature */
+    /* NOTE: for duration -- tested 20-70, #samples is ms/10 + 2
+     * .. seems like there are n+1 samples checked, the very last sample
+     * doesn't matter (could be above/ could be below)*/
+
+    /* NOTE for 6D (ctrlreg5 AOI_POS): 0 and 1 do not work
+     * 5 -- uses 'xymag' <= value
+     * 2, 3, 4, 10, 15, 20, 21, 23 -- uses 'xymag' < value
+     * 24, 25, 26, 30 -- uses 'z' >= value (50, 6 samples, last is not counted)
+     * */
+
     /* Configure interrupt to detect orientation status */
     wake_gesture_state = wait_state;
 
     /* Clear FIFO by writing bypass */
     accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS);
 
-    if (wait_state == WAIT_FOR_DOWN) {
-        duration_odr = MS_TO_ODRS(100, SLEEP_SAMPLE_INT);
-        threshold = 20;
-    } else if (wait_state == WAIT_FOR_UP) {
-        /* NOTE: changing DURATION_ODR | THRESHOLD changes wake events signature */
-        duration_odr = MS_TO_ODRS(120, SLEEP_SAMPLE_INT);
-        /* NOTE: for duration -- tested 20-70, #samples is ms/10 + 2
-         * .. seems like there are n+1 samples checked, the very last sample
-         * doesn't matter (could be above/ could be below)*/
-        threshold = 28;
-        /* NOTE for 6D (ctrlreg5 AOI_POS): 0 and 1 do not work
-         * 5 -- uses 'xymag' <= value
-         * 2, 3, 4, 10, 15, 20, 21, 23 -- uses 'xymag' < value
-         * 24, 25, 26, 30 -- uses 'z' >= value (50, 6 samples, last is not counted)
-         * */
-    }
-#if ( DOWN_TRIG_ON_YZ_HIGH )
-    if (wait_state == WAIT_FOR_DOWN) {
-        directions = (XLIE | XHIE | YLIE | ZLIE);
+    if( wait_state == WAIT_FOR_DOWN ) {
+        accel_register_write (AX_REG_INT1_THS, 20);
+        accel_register_write (AX_REG_INT1_DUR, MS_TO_ODRS(70, SLEEP_SAMPLE_INT));
+        accel_register_write (AX_REG_INT1_CFG, AOI_POS | XLIE | XHIE | YLIE | ZLIE);
+
+#if (WAKE_ON_SUPER_Y )
+        int16_t x,y,z;
         accel_data_read(&x, &y, &z);
-        /* read xyz, if y/z < THS enable y/z */
-        if( y < 5 ) {
-            directions |= YHIE;
-        }
-        if( z < 5 ) {
-            directions |= ZHIE;
-        }
-    } else if (wait_state == WAIT_FOR_UP) {
-        if (int1_flags.yh) {
-            directions = (ZHIE | (XLIE | XHIE | YLIE | ZLIE));
-        } else if (int1_flags.zh) {
-            directions = (YHIE | (XLIE | XHIE | YLIE | ZLIE));
+        if (y < 10) {
+            accel_register_write (AX_REG_INT2_THS, 28);
+            accel_register_write (AX_REG_INT2_DUR, MS_TO_ODRS(100, SLEEP_SAMPLE_INT));
+            accel_register_write (AX_REG_INT2_CFG, AOI_POS | YHIE );
+            accel_register_write (AX_REG_CTL3, I1_CLICK_EN | I1_AOI1_EN | I1_AOI2_EN);
         } else {
-            directions = (ZHIE | YHIE);
+            accel_register_write (AX_REG_INT2_THS, 0);
+            accel_register_write (AX_REG_INT2_DUR, 0);
+            accel_register_write (AX_REG_INT2_CFG, 0);
+            accel_register_write (AX_REG_CTL3, I1_CLICK_EN | I1_AOI1_EN);
         }
+#else
+        accel_register_write (AX_REG_CTL3, I1_CLICK_EN | I1_AOI1_EN);
+#endif
+    } else { /* WAIT_FOR_UP */
+        accel_register_write (AX_REG_INT1_THS, 28);
+        accel_register_write (AX_REG_INT1_DUR, MS_TO_ODRS(120, SLEEP_SAMPLE_INT));
+        accel_register_write (AX_REG_INT1_CFG, AOI_POS | ZHIE);
+
+        accel_register_write (AX_REG_INT2_THS, 10);
+        accel_register_write (AX_REG_INT2_DUR, MS_TO_ODRS(80, SLEEP_SAMPLE_INT));
+        accel_register_write (AX_REG_INT2_CFG, AOI_POS | YHIE );
+        accel_register_write (AX_REG_CTL3, I1_CLICK_EN | I1_AOI1_EN | I1_AOI2_EN);
     }
-#else   /* DOWN_TRIG_ON_YZ_HIGH */
-    if (wait_state == WAIT_FOR_DOWN) {
-        directions = (XLIE | XHIE | YLIE | ZLIE);
-        accel_register_write (AX_REG_INT2_THS, 0);
-        accel_register_write (AX_REG_INT2_DUR, 0);
-        accel_register_write (AX_REG_INT2_CFG, 0);
-    } else if (wait_state == WAIT_FOR_UP) {
-        directions = ZHIE;
-    }
-#endif  /* DOWN_TRIG_ON_YZ_HIGH */
 
     /* Enable stream to FIFO buffer mode */
     accel_register_write (AX_REG_FIFO_CTL, STREAM_TO_FIFO);
-
-    accel_register_write (AX_REG_INT1_THS, threshold);
-    accel_register_write (AX_REG_INT1_DUR, duration_odr);
-    accel_register_write (AX_REG_INT1_CFG, AOI_POS | directions);
-
-    accel_register_write (AX_REG_CTL3, I1_CLICK_EN | I1_AOI1_EN);
-#if (ENABLE_INTERRUPT_2)
-    if (wait_state == WAIT_FOR_UP) {
-        accel_register_write (AX_REG_CTL3, I1_CLICK_EN | I1_AOI1_EN | I1_AOI2_EN);
-        accel_register_write (AX_REG_INT2_THS, 8);
-        accel_register_write (AX_REG_INT2_DUR, MS_TO_ODRS(80, SLEEP_SAMPLE_INT));
-        accel_register_write (AX_REG_INT2_CFG, AOI_POS | YHIE );
-    }
-#endif  /* ENABLE_INTERRUPT_2 */
 }
 
 static bool wake_check( void ) {
@@ -561,11 +523,7 @@ static bool wake_check( void ) {
     }
 
     /* we got here bc of an interrupt, check that at least one flag exists */
-#if ( ENABLE_INTERRUPT_2 )
     if (!(int1_flags.ia || int2_flags.ia)) {
-#else
-    if (!int1_flags.ia) {
-#endif
         DISP_ERR_WAKE_2();
         /* The accelerometer is in an error state (probably a timing
          * error between interrupt trigger and register read) so just
@@ -580,6 +538,21 @@ static bool wake_check( void ) {
 
     /* if our state was 'down', go forward to 'up' */
     if (wake_gesture_state == WAIT_FOR_DOWN) {
+#if (WAKE_ON_SUPER_Y)
+// FIXME : which interrupt is better to watch for? yh or xl/xh/yl/zl
+        if ( int2_flags.ia ) {
+            /* we just got a super y-high isr flag, skip to check gesture */
+            if (gesture_filter_check()) {
+                return true;
+            }
+
+            main_nvm_data.filtered_gestures++;
+
+            wait_state_conf(WAIT_FOR_DOWN);
+            return false;
+        }
+#endif  /* WAKE_ON_SUPER_Y */
+
         wait_state_conf(WAIT_FOR_UP);
         return false;
     }
@@ -587,16 +560,9 @@ static bool wake_check( void ) {
     /* we are in WAIT_FOR_UP, check if y|z 'up' was the trigger */
     if (gesture_filter_check()) {
         return true;
-    } else {
-        main_nvm_data.filtered_gestures++;
     }
 
-    /* The gesture filter checks failed so configure ourselves
-     * to wait for another up / down event */
-    if ( DOWN_TRIG_ON_YZ_HIGH ) {
-        wait_state_conf(WAIT_FOR_UP);
-        return false;
-    }
+    main_nvm_data.filtered_gestures++;
 
     wait_state_conf(WAIT_FOR_DOWN);
     return false;
@@ -1076,7 +1042,8 @@ void accel_sleep ( void ) {
 
 #if (LOG_ACCEL_GESTURE_FIFO)
         if ((LOG_UNCONFIRMED_GESTURES || accel_confirmed) && accel_fifo.depth) {
-            uint32_t code = 0xAAAAAAAA; /* FIFO data begin code */
+            uint32_t code = 0xAAAA0000 || (int1_flags.b8<<8) || (int2_flags.b8);
+            /* FIFO data begin code */
             main_log_data((uint8_t *) &code, sizeof(uint32_t), false);
             main_log_data(accel_fifo.bytes,
                     sizeof(accel_xyz_t) * accel_fifo.depth, true);
@@ -1093,9 +1060,7 @@ void accel_sleep ( void ) {
     }
 
     int1_flags.b8 = 0;
-#if (ENABLE_INTERRUPT_2)
     int2_flags.b8 = 0;
-#endif
     click_flags.b8 = 0;
     accel_slow_click_cnt = slow_click_counter = 0;
     accel_fast_click_cnt = fast_click_counter = 0;
@@ -1232,10 +1197,7 @@ void accel_init ( void ) {
     if( reg_read != write_byte) { ACCEL_ERROR_CONFIG(AX_REG_CTL2, reg_read); }
 
     /* Latch interrupts and enable FIFO */
-    write_byte = FIFO_EN | LIR_INT1;
-#if ( ENABLE_INTERRUPT_2 )
-    write_byte |= LIR_INT2;
-
+    write_byte = FIFO_EN | LIR_INT1 | LIR_INT2 | D4D_INT2;
     /* Use 4D for interrupt 2 so that Y-HIGH events can be detected at low
      * thresholds (i.e. slightly turned in).  4D allows since the AOI_POS
      * interrupts are only triggered if the axis of interest exceeds the
@@ -1243,8 +1205,7 @@ void accel_init ( void ) {
      * 6D is enabled, then the z-axis is included in that check; with 4D the
      * z-axis is not included -- so we have more freedom with the y-high
      * interrupt */
-    write_byte |= D4D_INT2;
-#endif  /* ENABLE_INTERRUPT_2 */
+
     accel_register_write (AX_REG_CTL5, write_byte);
     accel_register_consecutive_read(AX_REG_CTL5, 1, &reg_read);
     if( reg_read != write_byte) { ACCEL_ERROR_CONFIG(AX_REG_CTL5, reg_read); }
