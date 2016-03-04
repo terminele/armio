@@ -416,15 +416,15 @@ static void wait_state_conf( wake_gesture_state_t wait_state ) {
     accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS);
 
     if (wait_state == WAIT_FOR_DOWN) {
-        duration_odr = MS_TO_ODRS(50, SLEEP_SAMPLE_INT);
+        duration_odr = MS_TO_ODRS(100, SLEEP_SAMPLE_INT);
         threshold = 20;
     } else if (wait_state == WAIT_FOR_UP) {
         /* NOTE: changing DURATION_ODR | THRESHOLD changes wake events signature */
-        duration_odr = MS_TO_ODRS(50, SLEEP_SAMPLE_INT);
+        duration_odr = MS_TO_ODRS(80, SLEEP_SAMPLE_INT);
         /* NOTE: for duration -- tested 20-70, #samples is ms/10 + 2
          * .. seems like there are n+1 samples checked, the very last sample
          * doesn't matter (could be above/ could be below)*/
-        threshold = 30;
+        threshold = 31;
         /* NOTE for 6D (ctrlreg5 AOI_POS): 0 and 1 do not work
          * 5 -- uses 'xymag' <= value
          * 2, 3, 4, 10, 15, 20, 21, 23 -- uses 'xymag' < value
@@ -473,8 +473,8 @@ static void wait_state_conf( wake_gesture_state_t wait_state ) {
 #if (ENABLE_INTERRUPT_2)
     if (wait_state == WAIT_FOR_UP) {
         accel_register_write (AX_REG_CTL3, I1_CLICK_EN | I1_AOI1_EN | I1_AOI2_EN);
-        accel_register_write (AX_REG_INT2_THS, 10);
-        accel_register_write (AX_REG_INT2_DUR, duration_odr);
+        accel_register_write (AX_REG_INT2_THS, 8);
+        accel_register_write (AX_REG_INT2_DUR, MS_TO_ODRS(80, SLEEP_SAMPLE_INT));
         accel_register_write (AX_REG_INT2_CFG, AOI_POS | YHIE );
     }
 #endif  /* ENABLE_INTERRUPT_2 */
