@@ -293,7 +293,16 @@ static void run_self_test( void );
      */
 #endif
 
+#if ( GESTURE_FILTERS || LOG_ACCEL_GESTURE_FIFO )
 static void read_accel_fifo( void );
+#endif
+
+static bool check_tilt_down( int16_t x, int16_t y, int16_t z );
+    /* @brief check if the watch it tilted away from the user and should be sent
+     *        to sleep. this can be used while awake and before waking
+     * @param current accel values
+     * @retrn true when tilted down
+     */
 
 
 //___ V A R I A B L E S ______________________________________________________
@@ -544,6 +553,15 @@ static bool wake_check( void ) {
     return false;
 }
 
+static bool check_tilt_down( int16_t x, int16_t y, int16_t z ) {
+    const int16_t MAX_TILT = 20;
+    const int16_t ALMOST_VERT = 28;
+    const int16_t DOWN_FACING = -4;
+    return (ABS(x) > MAX_TILT ||                            // x-tilted
+            (z <= ALMOST_VERT && y <= DOWN_FACING) ||   // turned out
+            (z <= DOWN_FACING && y <= ALMOST_VERT));
+}
+
 static inline bool gesture_filter_check( void ) {
     /* Read FIFO to determine if a turn-up gesture occurred */
     read_accel_fifo();  // needed for ACCEL_GESTURE_LOG_FIFO & gesture_filers
@@ -596,6 +614,10 @@ static inline bool gesture_filter_check( void ) {
             return true;
         }
 #endif
+    }
+
+    if (check_tilt_down(curr.x, curr.y, curr.z)) {
+        return false;
     }
 
     if( (USE_PCA_LDA_FILTERS) && (rv = fltr_lda_trial()) ) {
@@ -906,6 +928,7 @@ static void run_self_test( void ) {
 }
 #endif      /* USE_SELF_TEST */
 
+#if ( GESTURE_FILTERS || LOG_ACCEL_GESTURE_FIFO )
 static void read_accel_fifo( void ) {
     /* Read fifo depth first (should be 0x1f usually ) */
     accel_register_consecutive_read( AX_REG_FIFO_SRC, 1, &accel_fifo.depth );
@@ -920,6 +943,7 @@ static void read_accel_fifo( void ) {
         DISP_ERR_FIFO_READ();
     }
 }
+#endif  /* GESTURE_FILTERS || LOG_ACCEL_GESTURE_FIFO */
 
 
 //___ F U N C T I O N S ______________________________________________________
@@ -1042,11 +1066,7 @@ event_flags_t accel_event_flags( void ) {
     int16_t x = 0, y = 0, z = 0;
     static bool int_state = false;//keep track of prev interrupt state
     /* these values assume a 4g scale */
-    const int16_t Z_SLEEP_DOWN_THS = 28;
-    const int16_t Y_SLEEP_DOWN_OUT_THS = -2;
-    const int16_t Y_SLEEP_DOWN_IN_THS = 25;
     const uint32_t SLEEP_DOWN_DUR_MS = 200;
-    const int16_t X_SLEEP_TILT_THS = 20;
     /* timestamp (based on main tic count) of most recent
      * y down interrupt for entering sleep on z-low
      */
@@ -1057,18 +1077,10 @@ event_flags_t accel_event_flags( void ) {
 #endif
     ev_flags |= click_timeout_event_check();
 
-    /* Check for turn down event
-     * * A turn down event occurs when the device is not flat (z-high) for a
-     * * certain period of time and either turned away slightly (y < -1/4g) or
-     * turned down almost flat (y < 1/8g )
-     */
-
+    /* Check for turn down event */
     accel_data_read(&x, &y, &z);
-    if ( z <= Z_SLEEP_DOWN_THS &&
-            (y <= Y_SLEEP_DOWN_OUT_THS ||   // turned out slightly
-             y >= Y_SLEEP_DOWN_IN_THS ||    // turned in sharply
-             ABS(x) > X_SLEEP_TILT_THS )) { // tilted sideways
-      if (!accel_down) {
+    if (check_tilt_down(x, y, z)) {
+        if (!accel_down) {
             accel_down = true;
             accel_down_to_ms = main_get_waketime_ms() + SLEEP_DOWN_DUR_MS;
         } else if (main_get_waketime_ms() > accel_down_to_ms) {
