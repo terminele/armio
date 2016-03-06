@@ -176,7 +176,7 @@ typedef union {
         bool zl     : 1;
         bool zh     : 1;
         bool ia     : 1;
-        bool        : 1;
+        bool super  : 1;
     };
     uint8_t b8;
 } int_reg_flags_t;
@@ -363,12 +363,10 @@ static uint32_t last_click_time_ms;
 static struct i2c_master_module i2c_master_instance;
 
 static click_flags_t click_flags;
-static int_reg_flags_t int1_flags;
-static int_reg_flags_t int2_flags;
+static int_reg_flags_t int1_flags = { .super = false };
+static int_reg_flags_t int2_flags = { .super = false };
 
 static wake_gesture_state_t wake_gesture_state;
-
-static bool super_y_wake = false;
 
 
 //___ I N T E R R U P T S  ___________________________________________________
@@ -544,7 +542,7 @@ static bool wake_check( void ) {
 // FIXME : which interrupt is better to watch for? yh or xl/xh/yl/zl
         if ( int2_flags.ia ) {
             /* we just got a super y-high isr flag, skip to check gesture */
-            super_y_wake = true;
+            int2_flags.super = true;
             if (gesture_filter_check()) {
                 return true;
             }
@@ -554,7 +552,7 @@ static bool wake_check( void ) {
             wait_state_conf(WAIT_FOR_DOWN);
             return false;
         }
-        super_y_wake = false;
+        int2_flags.super = false;
 #endif  /* WAKE_ON_SUPER_Y */
 
         wait_state_conf(WAIT_FOR_UP);
@@ -1046,22 +1044,32 @@ void accel_sleep ( void ) {
 
 #if (LOG_ACCEL_GESTURE_FIFO)
         if ((LOG_UNCONFIRMED_GESTURES || accel_confirmed) && accel_fifo.depth) {
-            uint32_t code = 0xAAAA0000 | (int1_flags.b8<<8) | (int2_flags.b8);
-            if (super_y_wake == true) {
-                code |= 0xFF;
+            uint8_t START_CODE[3] = { 0x77, 0x78, 0x79 };
+            uint8_t END_CODE[3] = { 0x7F, 0x7E, 0x7D };
+            uint8_t flags[3];
+            uint32_t waketicks;
+            int32_t timestamp;
+            uint8_t values[3*FIFO_MAX_SIZE];
+            uint8_t i;
+
+            flags[0] = accel_confirmed ? 0xCC : 0xEE;
+            flags[1] = int1_flags.b8;
+            flags[2] = int2_flags.b8;
+            waketicks = main_get_waketicks();
+            timestamp = aclock_get_timestamp();
+
+            for(i=0; i<accel_fifo.depth; i++) {
+                values[3*i+0] = (uint8_t) (accel_fifo.values[i].x_leftalign & 0xFF);
+                values[3*i+1] = (uint8_t) (accel_fifo.values[i].y_leftalign & 0xFF);
+                values[3*i+2] = (uint8_t) (accel_fifo.values[i].z_leftalign & 0xFF);
             }
-            /* FIFO data begin code */
-            main_log_data((uint8_t *) &code, sizeof(uint32_t), false);
-            main_log_data(accel_fifo.bytes,
-                    sizeof(accel_xyz_t) * accel_fifo.depth, true);
-            code = accel_confirmed ? 0xCCCCCCCC : 0xEEEEEEEE; /* FIFO data end code */
-            main_log_data((uint8_t *) &code, sizeof(uint32_t), true);
-            uint16_t log_code = 0xDDEE;
-            main_log_data ((uint8_t *)&log_code, sizeof(uint16_t), true);
-            code = main_get_waketicks();
-            main_log_data ((uint8_t *) &code, sizeof(uint32_t), true);
-            code = (uint32_t) aclock_get_timestamp();
-            main_log_data ((uint8_t *) &code, sizeof(uint32_t), true);
+
+            main_log_data (START_CODE, 3, false);
+            main_log_data (flags, 3, false);
+            main_log_data ((uint8_t *) &timestamp, 4, false);
+            main_log_data ((uint8_t *) &waketicks, 4, false);
+            main_log_data (values, 3*accel_fifo.depth, false);
+            main_log_data (END_CODE, 3, true);
         }
 #endif  /* LOG_ACCEL_GESTURE_FIFO */
     }

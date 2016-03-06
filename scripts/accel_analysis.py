@@ -2,6 +2,7 @@
 
 import os
 import math
+import time
 import struct
 import argparse
 import matplotlib.pyplot as plt
@@ -1011,7 +1012,143 @@ class Samples( object ):
     measurematrix = property(fget=getMeasureMatrix)
 
     @staticmethod
+    def find_fifo_log_start( filehandle ):
+        """ find first start delimiter """
+        START_CODE = (0x77, 0x78, 0x79) # closest to max value, very unlikley
+        SC_STR = "0x" + ' '.join("{:02X}".format(s) for s in START_CODE)
+        matched_bytes = 0
+        BLANK_BYTES = 0xFF
+        MAX_BLANK_BYTES = 256
+        MAX_SKIPPED_BYTES = 512
+        skipped_bytes = 0
+        blank_bytes = 0
+        processed = 0
+        while True:
+            binval = filehandle.read(1)
+            processed += 1
+            if len(binval) < 1:
+                log.error("End of file {}: could not find start code {}".format(
+                    filehandle.name, SC_STR))
+                return False
+            startcode, = struct.unpack('<B', binval)
+            if startcode == START_CODE[matched_bytes]:
+                matched_bytes += 1
+                if matched_bytes == len(START_CODE):
+                    if processed > len(START_CODE):
+                        log.info("Discarded {} values before start".format(
+                            processed - len(START_CODE)))
+                    log.debug("Found start code {}".format(SC_STR))
+                    return True
+            else:
+                if matched_bytes != 0:
+                    log.warning("Discarding {} matched start code bytes".format(
+                        matched_bytes))
+                    matched_bytes = 0
+                if startcode != BLANK_BYTES:
+                    blank_bytes = 0
+                    log.debug("Skipping unknown byte: 0x{:02X}".format(startcode))
+                elif blank_bytes >= MAX_BLANK_BYTES:
+                    log.error("No start code {} after {} empty bytes".format(
+                        SC_STR, MAX_BLANK_BYTES))
+                    return False
+                else:
+                    blank_bytes += 1
+                skipped_bytes += 1
+                if skipped_bytes >= MAX_SKIPPED_BYTES:
+                    log.error("No start code {} in {} after {} bytes".format(
+                        SC_STR, filehandle.name, MAX_SKIPPED_BYTES))
+                    return False
+
+    @staticmethod
+    def read_fifo_info( filehandle ):
+        CONFIRM = 0xCC
+        UNCONFIRM = 0xEE
+        binval = filehandle.read(11)
+        (confirmed, int1, int2, timestamp, waketicks) = struct.unpack(
+                        '<BBBlL', binval)
+        if confirmed not in { 0xEE, 0xCC }:
+            raise ValueError("Confirmed bit should be 0xEE|0xCC, not 0x{:02X}".format(
+                confirmed))
+        confirm = ( confirmed == 0xCC )
+        waketime_ms = waketicks / TICKS_PER_MS
+        return confirm, int1, int2, timestamp, waketime_ms
+
+    @staticmethod
+    def parse_fifo_log( filehandle, last_timestamp=0 ):
+        END_CODE = (0x7F, 0x7E, 0x7D)
+        confirm, int1, int2, timestamp, waketime = Samples.read_fifo_info(filehandle)
+        if timestamp < last_timestamp:
+            log.error('Timestamp out of order!!!')
+            return None
+        elif timestamp == last_timestamp:
+            log.warning("Duplicate timestamp at {}".format(time.ctime(timestamp)))
+        xs, ys, zs = [], [], []
+        flags = ["sy", "ia", "zh", "zl", "yh", "yl", "xh", "xl"]
+        while True:
+            binval = filehandle.read(3)
+            if len( binval ) != 3:
+                log.error("End of file encountered")
+                return None
+            data = struct.unpack("<" + "b"*3, binval)
+            rawdata = struct.unpack('<' + 'B'*3, binval)
+            if data == END_CODE:
+                """ end of fifo data """
+                log.debug("End code {} found".format('0x' + ' '.join(
+                    '{:02X}'.format(d) for d in END_CODE)))
+                if len(xs) and len(xs) == len(ys) and len(ys) == len(zs):
+                    xtra = 32 - len(xs)
+                    if xtra > 0:
+                        log.debug("adding {} xtra values to sample".format(xtra))
+                    log.info('{}: {:4.1f} sec, {:2} vals, {}confirmed'.format(
+                        time.ctime(timestamp), waketime/1e3,
+                        len(xs), '  ' if confirm else 'un'))
+                    i1f = (c == '1' for c in "{:08b}".format(int1))
+                    i2f = (c == '1' for c in "{:08b}".format(int2))
+                    log.info('int1:  '+ ' | '.join("{:>2}".format(
+                        f if on else '') for f, on in zip(flags, i1f)))
+                    log.info('int2:  '+ ' | '.join("{:>2}".format(
+                        f if on else '') for f, on in zip(flags, i2f)))
+
+                    for _ in range( xtra ):
+                        xs.insert(0, None)
+                        ys.insert(0, None)
+                        zs.insert(0, None)
+                    ws = WakeSample(xs, ys, zs,
+                            waketime, confirm, filehandle.name,
+                            timestamp, int1, int2)
+                    return ws
+                else:
+                    log.info("Skipping invalid sample {}:{}:{}".format(
+                        len(xs), len(ys), len(zs)))
+                    return None
+
+            log.debug("Adding sample {:2}: {:5} {:5} {:5} (0x{:02X} {:02X} {:02X})".format(
+                len(xs), data[0], data[1], data[2], rawdata[0], rawdata[1], rawdata[2]))
+            x, y, z = struct.unpack("<" + 'b'*3, binval)
+            xs.append(x)
+            ys.append(y)
+            zs.append(z)
+            if len(xs) > 32:
+                log.warning("FIFO can't be longer than 32 samples, discarding")
+                return None
+
+    @staticmethod
     def _parse_fifo( fname ):
+        """ parse the logfile (only look for fifo info),  little endian """
+        samples = []
+        last_tstamp = 0
+        with open(fname, 'rb') as fh:
+            while(Samples.find_fifo_log_start(fh)):
+                ws = Samples.parse_fifo_log(fh, last_tstamp)
+                if ws is not None:
+                    last_tstamp = ws.timestamp
+                    samples.append(ws)
+        log.info('Parsed {} samples, {} confirmed'.format(len(samples),
+            sum(1 for s in samples if s.confirmed)))
+        return samples
+
+    @staticmethod
+    def _parse_fifo_deprecated( fname ):
      try:
        with open( fname, 'rb' ) as fh:
         binval = fh.read(4)
@@ -1111,7 +1248,9 @@ class Samples( object ):
                 binval = binval[-2:]
                 binval += fh.read(4)
 
+# FIXME : this will never evaluate True bc length 1 will not equal length 2
             if struct.unpack("<bbbbbb", binval)[2:3] == (0xdd, 0xba):
+
                 log.debug("Found BAD FIFO at 0x{:08x}".format(fh.tell()))
                 """ retain last 2 bytes """
                 binval = binval[-2:]
@@ -1564,8 +1703,6 @@ def show_various_reductions(samples, pca_test, pcadims=None):
 
 
 if __name__ == "__main__":
-    log.basicConfig(level=log.DEBUG,
-            format=' '.join(["%(levelname)-7s", "%(lineno)4d", "%(message)s"]))
     def parse_args():
         parser = argparse.ArgumentParser(description='Analyze an accel log dump')
         parser.add_argument('dumpfiles', nargs='+')
@@ -1579,9 +1716,12 @@ if __name__ == "__main__":
         parser.add_argument('-p', '--accepts_only', action='store_true', default=False)
         parser.add_argument('-l', '--show-levels', action='store_true', default=False)
         parser.add_argument('-fn', '--false_negatives', action='store_true', default=False)
+        parser.add_argument('-d', '--debug', action='store_true', default=False)
         return parser.parse_args()
 
     args = parse_args()
+    log.basicConfig(level=log.DEBUG if args.debug else log.INFO,
+            format=' '.join(["%(levelname)-7s", "%(lineno)4d", "%(message)s"]))
 
     if not args.streamed and args.fifo:
         allsamples = Samples()
@@ -1589,13 +1729,9 @@ if __name__ == "__main__":
         for fname in args.dumpfiles:
             newsamples = Samples()
             newsamples.load( fname )
-            newsamples.analyze()
             if newsamples.total:
                 sampleslist.append( newsamples )
-                newsamples.show_analysis()
                 allsamples.combine( newsamples )
-
-        allsamples.show_analysis()
 
         if args.rejects_only:
             log.info( "showing rejects only" )
@@ -1644,4 +1780,4 @@ if __name__ == "__main__":
 
     elif args.streamed:
         fname = args.dumpfiles[0]
-        t, x, y, z = analyze_streamed( fname, plot=args.plot )
+        t, x, y, z = analyze_streamed(fname, plot=args.plot)
