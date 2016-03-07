@@ -699,13 +699,6 @@ class Samples( object ):
         self.name = name
         self.clear_results()
 
-    def _getMinTime(self):
-        try:
-            return min( s.timestamp for s in self.samples if s.timestamp is not None )
-        except TypeError:
-            return None
-    mintime = property(fget=_getMinTime)
-
     def __setstate__(self, state):
         self.name = state['name']
         self.samples = state['samples']
@@ -716,6 +709,13 @@ class Samples( object ):
         state['name'] = self.name
         state['samples'] = self.samples
         return state
+
+    def _getMinTime(self):
+        try:
+            return min( s.timestamp for s in self.samples if s.timestamp is not None )
+        except TypeError:
+            return None
+    mintime = property(fget=_getMinTime)
 
     def clear_results( self ):
         self.total = 0
@@ -1298,6 +1298,32 @@ class Samples( object ):
          raise
          return []
 
+    def show_wake_time_hist( self, samples=200 ):
+        times = [ s.waketime for s in self.samples ]
+        n, bins, patches = plt.hist(times, samples, normed=0.8, facecolor='green', alpha=0.5)
+
+        plt.xlabel('Waketime (ms)')
+        plt.ylabel('Probability')
+        #plt.title(r'$\mathrm{Histogram\ of\ IQ:}\ \mu=100,\ \sigma=15$')
+        #plt.axis([0, 30, 0, 0.5])
+        plt.grid(True)
+
+        plt.show()
+
+    def show_wake_freq_hist( self, samples=200 ):
+        timestamps = [ s.timestamp for s in self.samples ]
+        lasttimes = [timestamps[0]] + timestamps[:-1]
+        intervals = [t - tl for t, tl in zip(timestamps, lasttimes)]
+        n, bins, patches = plt.hist(intervals, samples, normed=0.8, facecolor='green', alpha=0.5)
+
+        plt.xlabel('Time between samples (s)')
+        plt.ylabel('Probability')
+        #plt.title(r'$\mathrm{Histogram\ of\ IQ:}\ \mu=100,\ \sigma=15$')
+        #plt.axis([0, 500, 0, 0.03])
+        plt.grid(True)
+
+        plt.show()
+
 
 class WakeSample( object ):
     _sample_counter = 0
@@ -1319,26 +1345,26 @@ class WakeSample( object ):
 
     def __setstate__(self, state):
         self.uid = state['uid']
-        self.i = state['i']
-        self.timestamp = state['timestamp']
-        if self.i > WakeSample._sample_counter:
-            WakeSample._sample_counter = i
         self.logfile = state['logfile']
+        self.i = state['i']
         self.xs, self.ys, self.zs = state['accel']
         self.waketime = state['waketime']
         self.confirmed = state['confirmed']
+        self.timestamp = state['timestamp']
+        if self.i > WakeSample._sample_counter:
+            WakeSample._sample_counter = i
         self._check_result = None
         self._collect_sums()
 
     def __getstate__(self):
         state = dict()
         state['uid'] = self.uid
-        state['timestamp'] = self.timestamp
-        state['i'] = self.i
         state['logfile'] = self.logfile
         state['accel'] = self.xs, self.ys, self.zs
         state['waketime'] = self.waketime
         state['confirmed'] = self.confirmed
+        state['timestamp'] = self.timestamp
+        state['i'] = self.i
         return state
 
     def _getMeasures( self ): return self.xs + self.ys + self.zs
