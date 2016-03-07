@@ -655,6 +655,8 @@ static void main_init( void ) {
   /* Initialize NVM controller for data storage */
   struct nvm_config config_nvm;
   nvm_get_config_defaults(&config_nvm);
+  /* Errata 13134 - set manual page writes to true */
+  config_nvm.manual_page_write = true;
   nvm_set_config(&config_nvm);
 
 #if (LOG_VBATT)
