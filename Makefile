@@ -518,6 +518,10 @@ dump_log:
 	-c init -c "reset init" \
 	-c "dump_image data_log.image 0xe000 $(NVM_LOG_SIZE)" \
 	-c "shutdown"
+	@if [ 0 -eq $$(hexdump -s 256 -v -e '/1 "%02X\n"' data_log.image \
+	    | grep -v FF | wc -l) ]; then \
+	    echo "Log is EMPTY (starting at byte 256)"; \
+	    fi
 
 .PHONY: dump_serial
 dump_serial:

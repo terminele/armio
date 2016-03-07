@@ -777,7 +777,7 @@ void main_terminate_in_error ( error_group_code_t error_group, uint32_t subcode 
 void main_log_data( uint8_t *data, uint16_t length, bool flush) {
   /* Store data in NVM flash */
   enum status_code error_code;
-  uint16_t  i, p;
+  uint16_t i, p;
 
   if (nvm_row_addr >= NVM_LOG_ADDR_MAX)  return; //out of buffer space
 
@@ -812,7 +812,6 @@ void main_log_data( uint8_t *data, uint16_t length, bool flush) {
         //nvm_row_addr = NVM_LOG_ADDR_START; //rollover
       }
     }
-
   }
 }
 
