@@ -1,10 +1,10 @@
-/** file:       accel_reg.h
+/** file:       lis2dh12.h
   * modified:   2016-02-28 14:58:28
   * register and pin information for the accel chip
   */
 
-#ifndef __ACCEL_REG_H__
-#define __ACCEL_REG_H__
+#ifndef __LIS2DH12_H__
+#define __LIS2DH12_H__
 
 //___ I N C L U D E S ________________________________________________________
 
@@ -149,4 +149,4 @@
 //___ P R O T O T Y P E S ____________________________________________________
 
 
-#endif /* end of include guard: __ACCEL_REG_H__ */
+#endif /* end of include guard: __LIS2DH12_H__ */

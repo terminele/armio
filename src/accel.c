@@ -6,7 +6,7 @@
 
 //___ I N C L U D E S ________________________________________________________
 #include "accel.h"
-#include "accel_reg.h"
+#include "lis2dh12.h"
 #include "main.h"
 #include "leds.h"
 #include "aclock.h"
