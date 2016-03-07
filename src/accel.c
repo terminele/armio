@@ -526,7 +526,7 @@ static void wait_state_conf( wake_gesture_state_t wait_state ) {
         accel_register_write (AX_REG_CTL3, I1_CLICK_EN | I1_AOI1_EN);
 #endif
     } else { /* WAIT_FOR_UP */
-        accel_register_write (AX_REG_INT1_THS, 28);
+        accel_register_write (AX_REG_INT1_THS, 26);
         accel_register_write (AX_REG_INT1_DUR, MS_TO_ODRS(120, SLEEP_SAMPLE_INT));
         accel_register_write (AX_REG_INT1_CFG, AOI_POS | ZHIE);
 
