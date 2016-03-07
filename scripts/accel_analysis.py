@@ -789,6 +789,7 @@ class Samples( object ):
         if self.name is None:
             self.name = os.path.basename(fn)
         newsamples = self._parse_fifo( fn )
+        self.total += len(newsamples)
         self.samples.extend( newsamples )
 
     def combine( self, other ):
@@ -1472,11 +1473,17 @@ class WakeSample( object ):
         t = [SLEEP_SAMPLE_PERIOD*(i+0.5) for i in range(len(self.xs))]
         only = kwargs.pop('only', None)
         if only is None:
-            mag = [ (x**2 + y**2 + z**2)**0.5 for x, y, z in zip(self.xs, self.ys, self.zs) ]
+            xym = [ (x**2 + y**2)**0.5 if (x is not None and y is not None) else None for x, y in zip(self.xs, self.ys) ]
+            xzm = [ (x**2 + z**2)**0.5 if (x is not None and z is not None) else None for x, z in zip(self.xs, self.zs) ]
+            yzm = [ (y**2 + z**2)**0.5 if (y is not None and z is not None) else None for y, z in zip(self.ys, self.zs) ]
+            mag = [ (x**2 + y**2 + z**2)**0.5 if (x is not None and y is not None and z is not None) else None for x, y, z in zip(self.xs, self.ys, self.zs) ]
             ax.plot(t, self.xs, color='r', marker='.', label='x', linewidth=1)
             ax.plot(t, self.ys, color='g', marker='.', label='y', linewidth=1)
             ax.plot(t, self.zs, color='b', marker='.', label='z', linewidth=1)
-            ax.plot(t, mag, color='k', marker='.', label='mag', linewidth=1)
+            ax.plot(t, mag, color='k', marker='.', label='mag', linewidth=1, linestyle='-')
+            ax.plot(t, xym, color='c', marker='.', label='xy', linewidth=1, linestyle=':')
+            ax.plot(t, xzm, color='m', marker='.', label='xz', linewidth=1, linestyle=':')
+            ax.plot(t, yzm, color='y', marker='.', label='yz', linewidth=1, linestyle=':')
         else:
             color = kwargs.pop('color', None)
             only = only.split(',')
@@ -1493,22 +1500,22 @@ class WakeSample( object ):
             if 'z' in only: # blue
                 ax.plot(t, self.zs, color=color[2],
                         marker='.', label='z', linewidth=1)
-            if 'xymag' in only or 'yxmag' in only:  # cyan
-                m = [ (x**2 + y**2)**0.5 for x, y in zip(self.xs, self.ys) ]
-                ax.plot(t, m, color=color[3],
-                        marker='.', label='z', linewidth=1)
-            if 'xzmag' in only or 'zxmag' in only:  # magenta
-                m = [ (x**2 + z**2)**0.5 for x, z in zip(self.xs, self.zs) ]
-                ax.plot(t, m, color=color[4],
-                        marker='.', label='z', linewidth=1)
-            if 'yzmag' in only or 'zymag' in only:  # yellow
-                m = [ (y**2 + z**2)**0.5 for y, z in zip(self.ys, self.zs) ]
-                ax.plot(t, m, color=color[5],
-                        marker='.', label='z', linewidth=1)
             if 'xyzmag' in only or 'mag' in only:   # black
-                m = [ (x**2 + y**2 + z**2)**0.5 for x, y, z in zip(self.xs, self.ys, self.zs) ]
+                m = [ (x**2 + y**2 + z**2)**0.5 if (x is not None and y is not None and z is not None) else None for x, y, z in zip(self.xs, self.ys, self.zs) ]
                 ax.plot(t, m, color=color[6],
-                        marker='.', label='z', linewidth=1)
+                        marker='.', label='z', linewidth=1, linestyle='-')
+            if 'xymag' in only or 'yxmag' in only:  # cyan
+                m = [ (x**2 + y**2)**0.5 if (x is not None and y is not None) else None for x, y in zip(self.xs, self.ys) ]
+                ax.plot(t, m, color=color[3],
+                        marker='.', label='z', linewidth=1, linestyle=':')
+            if 'xzmag' in only or 'zxmag' in only:  # magenta
+                m = [ (x**2 + z**2)**0.5 if (x is not None and z is not None) else None for x, z in zip(self.xs, self.zs) ]
+                ax.plot(t, m, color=color[4],
+                        marker='.', label='z', linewidth=1, linestyle=':')
+            if 'yzmag' in only or 'zymag' in only:  # yellow
+                m = [ (y**2 + z**2)**0.5 if (y is not None and z is not None) else None for y, z in zip(self.ys, self.zs) ]
+                ax.plot(t, m, color=color[5],
+                        marker='.', label='z', linewidth=1, linestyle=':')
         if kwargs.pop( "show", True ):
             if not kwargs.pop( 'hide_title', False ):
                 ax.set_title("sample {} pass={} confirm={}".format(
@@ -1776,7 +1783,8 @@ if __name__ == "__main__":
             ld_test.plot_result()
 
         if args.show_levels:
-            allsamples.plot_z_for_groups( only='x,y,z,xymag,yzmag,xzmag,mag' )
+            allsamples.plot_z_for_groups(
+                    only='z,xymag' )
 
     elif args.streamed:
         fname = args.dumpfiles[0]

@@ -21,7 +21,6 @@ store_lifetime_usage=true
 #debug_ax_isr=true
 gestures_filters=false
 #wake_gestures_user_default=false
-#reject_all_gestures=true
 #use_wakeup_alarm=true
 #log_accel_stream=true
 log_accel_gesture_fifo=true
@@ -34,8 +33,11 @@ log_accel_gesture_fifo=true
 
 ifdef debug_accel_isr
     debug_ax_isr=true
-    gestures_filters=true
     reject_all_gestures=true
+    skip_wait_for_down=true
+    log_accel_gesture_fifo=true
+    gestures_filters=true
+    use_interrupt_2=false
 endif
 
 ifdef wakeup_alarm_1m
@@ -369,4 +371,10 @@ CPPFLAGS+= -D LOG_VBATT=$(log_vbatt)
 endif
 ifdef wake_gestures_user_default
 CPPFLAGS+= -D WAKE_GESTURES_USER_DEFAULT=$(wake_gestures_user_default)
+endif
+ifdef skip_wait_for_down
+CPPFLAGS+= -D SKIP_WAIT_FOR_DOWN=$(skip_wait_for_down)
+endif
+ifdef use_interrupt_2
+CPPFLAGS+= -D USE_INTERRUPT_2=$(use_interrupt_2)
 endif
