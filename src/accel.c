@@ -436,6 +436,11 @@ static void accel_isr(void) {
 
     extint_chan_clear_detected(AX_INT_CHAN);
 
+    /* FIXME : as soon as the interrupt is cleared, the fifo is free to 'stream' again,
+     * so we should read the fifo before the interrupt gets cleared!!! (or
+     * right afterwareds before another sample is taken)
+     * */
+
     /* Wait for accelerometer to release interrupt */
     uint8_t i = 0;
     while( extint_chan_is_detected(AX_INT_CHAN) ) {
@@ -470,6 +475,11 @@ static void wait_state_conf( wake_gesture_state_t wait_state ) {
      * threshold value.. In other words, this threshold doesn't check that
      * 'z' is greater than some value, it checks that 'x' & 'y' are below
      * some value (or for 'y' it would check that 'z' & 'x' are below value) */
+    /* with threshold at 12 and ZH enabled
+     * POS: triggers when z > 12 and mag(xy) < 12
+     * AND: triggers when abs(z) > 12
+     * OR : triggers when abs(z) > ? (something below 12)
+     * */
 
     /* NOTE: changing DURATION_ODR | THRESHOLD changes wake events signature */
     /* NOTE: for duration -- tested 20-70, #samples is ms/10 + 2
@@ -481,6 +491,8 @@ static void wait_state_conf( wake_gesture_state_t wait_state ) {
      * 2, 3, 4, 10, 15, 20, 21, 23 -- uses 'xymag' < value
      * 24, 25, 26, 30 -- uses 'z' >= value (50, 6 samples, last is not counted)
      * */
+    int16_t x, y, z;
+    accel_data_read(&x, &y, &z);
 #if (SKIP_WAIT_FOR_DOWN)
     wait_state = WAIT_FOR_UP;
 #endif  /* SKIP_WAIT_FOR_DOWN */
@@ -488,17 +500,19 @@ static void wait_state_conf( wake_gesture_state_t wait_state ) {
     /* Configure interrupt to detect orientation status */
     wake_gesture_state = wait_state;
 
-    /* Clear FIFO by writing bypass */
+    /* Write bypass to clear FIFO, must be called before changing settings (p.21) */
     accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS);
 
     if( wait_state == WAIT_FOR_DOWN ) {
         accel_register_write (AX_REG_INT1_THS, 20);
         accel_register_write (AX_REG_INT1_DUR, MS_TO_ODRS(70, SLEEP_SAMPLE_INT));
-        accel_register_write (AX_REG_INT1_CFG, AOI_POS | XLIE | XHIE | YLIE | ZLIE);
+        if ( z < 0 && y > 0 ) {     /* don't allow 'down' event on z-low */
+            accel_register_write (AX_REG_INT1_CFG, AOI_POS | XLIE | XHIE | YLIE);
+        } else {
+            accel_register_write (AX_REG_INT1_CFG, AOI_POS | XLIE | XHIE | YLIE | ZLIE);
+        }
 
 #if (WAKE_ON_SUPER_Y && USE_INTERRUPT_2)
-        int16_t x,y,z;
-        accel_data_read(&x, &y, &z);
         if (y < 10) {
             accel_register_write (AX_REG_INT2_THS, 28);
             accel_register_write (AX_REG_INT2_DUR, MS_TO_ODRS(100, SLEEP_SAMPLE_INT));
@@ -514,16 +528,9 @@ static void wait_state_conf( wake_gesture_state_t wait_state ) {
         accel_register_write (AX_REG_CTL3, I1_CLICK_EN | I1_AOI1_EN);
 #endif
     } else { /* WAIT_FOR_UP */
-        accel_register_write (AX_REG_INT1_THS, 12);
-        accel_register_write (AX_REG_INT1_DUR, MS_TO_ODRS(50, SLEEP_SAMPLE_INT));
-        accel_register_write (AX_REG_INT1_CFG, AOI_OR | ZHIE);
-        //accel_register_write (AX_REG_INT1_CFG, AOI_AND | ZHIE);
-        //accel_register_write (AX_REG_INT1_CFG, AOI_POS | ZHIE);
-        /* with threshold at 12 and ZH enabled
-         * POS: triggers when z > 12 and mag(xy) < 12
-         * AND: triggers when abs(z) > 12
-         * OR : triggers when abs(z) > ? (something below 12)
-         * */
+        accel_register_write (AX_REG_INT1_THS, 28);
+        accel_register_write (AX_REG_INT1_DUR, MS_TO_ODRS(120, SLEEP_SAMPLE_INT));
+        accel_register_write (AX_REG_INT1_CFG, AOI_POS | ZHIE);
 
 #if (USE_INTERRUPT_2)
         accel_register_write (AX_REG_INT2_THS, 10);
@@ -1280,7 +1287,7 @@ void accel_init ( void ) {
     accel_register_consecutive_read(AX_REG_TIME_WIN, 1, &reg_read);
     if(reg_read != DCLICK_TIME_WIN) {ACCEL_ERROR_CONFIG(AX_REG_TIME_WIN, reg_read);}
 
-    /* Enable High Pass filter for Clicks */
+    /* Enable High Pass filter for Clicks, not for AOI function */
     write_byte = HPCLICK | HPCF | HPMS_NORM;
     accel_register_write (AX_REG_CTL2, write_byte);
     accel_register_consecutive_read(AX_REG_CTL2, 1, &reg_read);

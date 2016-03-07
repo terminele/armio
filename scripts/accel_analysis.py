@@ -1709,6 +1709,23 @@ def show_various_reductions(samples, pca_test, pcadims=None):
         ld.plot_weightings()
 
 
+def show_polar( yth=None, zth=None ):
+    ax = plt.subplot(111, projection='polar')
+    if yth is not None:
+        theta_start = math.asin(yth/32)
+        theta_end = math.pi - theta_start
+        theta = np.arange(theta_start, theta_end, 0.01)
+        r = [ 0.8 for _ in theta ]
+        ax.plot(theta, r, color='r', linewidth=3, label='y level')
+    if zth is not None:
+        theta_start = math.pi - math.acos(zth/32)
+        theta_end = math.pi + math.acos(zth/32)
+        theta = np.arange(theta_start, theta_end, 0.01)
+        r = [ 1.2 for _ in theta ]
+        ax.plot(theta, r, color='g', linewidth=3, label="Z level")
+    ax.set_rmax(1.5)
+    plt.show()
+
 if __name__ == "__main__":
     def parse_args():
         parser = argparse.ArgumentParser(description='Analyze an accel log dump')
