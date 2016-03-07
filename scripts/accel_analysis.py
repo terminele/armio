@@ -1752,6 +1752,13 @@ def show_polar( yth=None, zth=None ):
     ax.set_rmax(1.5)
     plt.show()
 
+def show_threshold_values():
+    print("mag:  {:>5}  {:>5}".format("ang", "ths"))
+    for th in range(33):
+        angle = math.asin(th/32.0)*180/math.pi
+        opposite = (32**2-th**2)**0.5
+        print("{: 3}:  {:5.1f}  {:5.1f}".format(th, angle, opposite))
+
 if __name__ == "__main__":
     def parse_args():
         parser = argparse.ArgumentParser(description='Analyze an accel log dump')

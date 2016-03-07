@@ -2,8 +2,6 @@
   * modified:   2014-11-03 11:50:33
   */
 
-// TODO : log the isr direction that got us into the wake gesture test
-
 //___ I N C L U D E S ________________________________________________________
 #include "accel.h"
 #include "lis2dh12.h"
