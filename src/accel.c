@@ -1255,7 +1255,7 @@ void accel_init ( void ) {
     }
 
     accel_register_write(AX_REG_CTL5, BOOT);
-    delay_ms(2);    /* this is a guess.. 5ms is required from full power
+    delay_ms(5);    /* this is a guess.. 5ms is required from full power
                        off to configure, if it wasn't ready then these
                        registers probably shouldn't validate */
 
