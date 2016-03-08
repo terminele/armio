@@ -696,18 +696,21 @@ class LinearDiscriminantTest( PrincipalComponentTest ):
 class Samples( object ):
     def __init__( self, name=None ):
         self.samples = []
+        self.battery_reads = []
         self.name = name
         self.clear_results()
 
     def __setstate__(self, state):
         self.name = state['name']
         self.samples = state['samples']
+        self.battery_reads = state.pop('batt', [])
         self.clear_results()
 
     def __getstate__(self):
         state = dict()
         state['name'] = self.name
         state['samples'] = self.samples
+        state['batt'] = self.battery_reads
         return state
 
     def _getMinTime(self):
@@ -788,14 +791,16 @@ class Samples( object ):
     def load( self, fn ):
         if self.name is None:
             self.name = os.path.basename(fn)
-        newsamples = self._parse_fifo( fn )
+        newsamples, batt = self.parse_fifo( fn )
         self.total += len(newsamples)
         self.samples.extend( newsamples )
+        self.battery_reads.extend( batt )
 
     def combine( self, other ):
         if self.name is None:
             self.name = "Combined"
         self.samples.extend( other.samples )
+        self.battery_reads.extend( other.battery_reads )
         self.total += other.total
         self.rejected += other.rejected
         self.accepted += other.accepted
@@ -1012,12 +1017,17 @@ class Samples( object ):
         return [sample.measures for sample in self.filter_samples(**kwargs)]
     measurematrix = property(fget=getMeasureMatrix)
 
-    @staticmethod
-    def find_fifo_log_start( filehandle ):
+    def find_fifo_log_start( self, filehandle ):
         """ find first start delimiter """
-        START_CODE = (0x77, 0x78, 0x79) # closest to max value, very unlikley
+        START_CODE = (0x77, 0x77, 0x77) # close to max value, very unlikley
+        BATT_START = (0x66, 0x66, 0x66)
+        self.FIFO_START = START_CODE
+        self.BATT_START = BATT_START
+        self.start_found = None
         SC_STR = "0x" + ' '.join("{:02X}".format(s) for s in START_CODE)
+        BSC_STR = "0x" + ' '.join("{:02X}".format(s) for s in BATT_START)
         matched_bytes = 0
+        batt_startbytes = 0
         BLANK_BYTES = 0xFF
         MAX_BLANK_BYTES = 256
         MAX_SKIPPED_BYTES = 512
@@ -1033,18 +1043,40 @@ class Samples( object ):
                 return False
             startcode, = struct.unpack('<B', binval)
             if startcode == START_CODE[matched_bytes]:
+                if batt_startbytes != 0:
+                    log.warning("Discarding {} matched start code bytes".format(
+                        batt_startbytes))
+                    batt_startbytes = 0
                 matched_bytes += 1
                 if matched_bytes == len(START_CODE):
                     if processed > len(START_CODE):
                         log.info("Discarded {} values before start".format(
                             processed - len(START_CODE)))
                     log.debug("Found start code {}".format(SC_STR))
+                    self.start_found = self.FIFO_START
+                    return True
+            elif startcode == BATT_START[batt_startbytes]:
+                if matched_bytes != 0:
+                    log.warning("Discarding {} matched start code bytes".format(
+                        matched_bytes))
+                    matched_bytes = 0
+                batt_startbytes += 1
+                if batt_startbytes == len(BATT_START):
+                    if processed > len(BATT_START):
+                        log.info("Discarded {} values before start".format(
+                            processed - len(BATT_START)))
+                    log.debug("Found battery start code {}".format(BSC_STR))
+                    self.start_found = self.BATT_START
                     return True
             else:
                 if matched_bytes != 0:
                     log.warning("Discarding {} matched start code bytes".format(
                         matched_bytes))
                     matched_bytes = 0
+                if batt_startbytes != 0:
+                    log.warning("Discarding {} matched start code bytes".format(
+                        batt_startbytes))
+                    batt_startbytes = 0
                 if startcode != BLANK_BYTES:
                     blank_bytes = 0
                     log.debug("Skipping unknown byte: 0x{:02X}".format(startcode))
@@ -1076,7 +1108,7 @@ class Samples( object ):
 
     @staticmethod
     def parse_fifo_log( filehandle, last_timestamp=0 ):
-        END_CODE = (0x7F, 0x7E, 0x7D)
+        END_CODE = (0x7F, 0x7F, 0x7F)
         confirm, int1, int2, timestamp, waketime = Samples.read_fifo_info(filehandle)
         if timestamp < last_timestamp:
             log.error('Timestamp out of order!!!')
@@ -1134,19 +1166,41 @@ class Samples( object ):
                 return None
 
     @staticmethod
-    def _parse_fifo( fname ):
+    def parse_batt_sample(filehandle, last_timestamp=0):
+        bv = filehandle.read(5)
+        if len(bv) != 5:
+            log.error("Error getting battery info. end of file?")
+            return None
+        timestamp, volt8 = struct.unpack('<LB', bv)
+        volt = (2048 + 4*volt8)/1024
+        if timestamp < last_timestamp:
+            log.error("Backwards battery timestamp, skipping")
+            return None
+        elif timestamp == last_timestamp:
+            log.warning("Duplicated battery timestamp")
+        log.info('{}: BATTERY {:.3} V'.format(time.ctime(timestamp), volt))
+        return timestamp, volt
+
+    def parse_fifo( self, fname ):
         """ parse the logfile (only look for fifo info),  little endian """
         samples = []
+        battery_reads = []
         last_tstamp = 0
         with open(fname, 'rb') as fh:
-            while(Samples.find_fifo_log_start(fh)):
-                ws = Samples.parse_fifo_log(fh, last_tstamp)
-                if ws is not None:
-                    last_tstamp = ws.timestamp
-                    samples.append(ws)
-        log.info('Parsed {} samples, {} confirmed'.format(len(samples),
-            sum(1 for s in samples if s.confirmed)))
-        return samples
+            while(self.find_fifo_log_start(fh)):
+                if self.start_found == self.FIFO_START:
+                    ws = Samples.parse_fifo_log(fh, last_tstamp)
+                    if ws is not None:
+                        last_tstamp = ws.timestamp
+                        samples.append(ws)
+                elif self.start_found == self.BATT_START:
+                    batt = self.parse_batt_sample(fh, last_tstamp)
+                    if batt is not None:
+                        last_timestamp = batt[0]
+                        battery_reads.append(batt)
+        log.info('Parsed {} samples, {} confirmed, {} battery reads'.format(
+            len(samples), sum(1 for s in samples if s.confirmed), len(battery_reads)))
+        return samples, battery_reads
 
     @staticmethod
     def _parse_fifo_deprecated( fname ):

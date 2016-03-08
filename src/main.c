@@ -278,15 +278,12 @@ static void config_main_tc( void ) {
 #if (LOG_VBATT)
 static void log_usage ( void ) {
   /* Log current vbatt with timestamp */
-  int32_t reltime = aclock_get_timestamp_relative();
-  /* We'll assume the relative timestamp is less than 2^24 seconds
-   * (about 194 days) to be able to pack data into 4 bytes */
-
-  uint32_t data = (reltime << 8) & 0xffffff00;
-
+  uint8_t START_CODE[3] = { 0x66, 0x66, 0x66 };
+  int32_t timestamp = aclock_get_timestamp();
   /* log vbatt.  vbatt is a 16-bit averaged value
    * of 12-bit reads.  First decimate downt to a 12-bit val */
   uint16_t vbatt_val = main_gs.vbatt_sensor_adc_val >> 4;
+  uint8_t bat8;
 
   /* Now, record as an 8-bit value representing the offset
    * from 2048 (~2v) */
@@ -303,8 +300,11 @@ static void log_usage ( void ) {
     }
   }
 
-  data+=(vbatt_val & 0x000000ff);
-  main_log_data((uint8_t *)&data, sizeof(data), true);
+  bat8 = (uint8_t) vbatt_val;
+
+  main_log_data (START_CODE, 3, false);
+  main_log_data ((uint8_t *) &timestamp, 4, false);
+  main_log_data (&bat8, 1, true);
 }
 #endif
 
@@ -659,7 +659,6 @@ static void main_init( void ) {
   config_nvm.manual_page_write = true;
   nvm_set_config(&config_nvm);
 
-#if (LOG_VBATT)
   uint32_t data = 0xffffffff;
 
   /* Set row address to first open space by
@@ -672,7 +671,6 @@ static void main_init( void ) {
 
     nvm_row_addr+=NVMCTRL_ROW_SIZE;
   }
-#endif
 
   /* Read configuration data stored in nvm */
   nvm_read_buffer(NVM_DATA_ADDR, (uint8_t *) &main_nvm_data,

@@ -1076,8 +1076,8 @@ void accel_enable ( void ) {
 #if ( LOG_ACCEL_GESTURE_FIFO )
 static inline void log_accel_gesture_fifo( void ) {
     if ((LOG_UNCONFIRMED_GESTURES || accel_confirmed) && accel_fifo.depth) {
-        uint8_t START_CODE[3] = { 0x77, 0x78, 0x79 };
-        uint8_t END_CODE[3] = { 0x7F, 0x7E, 0x7D };
+        uint8_t START_CODE[3] = { 0x77, 0x77, 0x77 };
+        uint8_t END_CODE[3] = { 0x7F, 0x7F, 0x7F };
         uint8_t flags[3];
         uint32_t waketicks;
         int32_t timestamp;
