@@ -1114,7 +1114,7 @@ class Samples( object ):
             log.error('Timestamp out of order!!!')
             return None
         elif timestamp == last_timestamp:
-            log.warning("Duplicate timestamp at {}".format(time.ctime(timestamp)))
+            log.warning("Duplicate timestamp at {}".format(timestring(timestamp)))
         xs, ys, zs = [], [], []
         flags = ["sy", "ia", "zh", "zl", "yh", "yl", "xh", "xl"]
         while True:
@@ -1133,7 +1133,7 @@ class Samples( object ):
                     if xtra > 0:
                         log.debug("adding {} xtra values to sample".format(xtra))
                     log.info('{}: {:4.1f} sec, {:2} vals, {}confirmed'.format(
-                        time.ctime(timestamp), waketime/1e3,
+                        timestring(timestamp), waketime/1e3,
                         len(xs), '  ' if confirm else 'un'))
                     i1f = (c == '1' for c in "{:08b}".format(int1))
                     i2f = (c == '1' for c in "{:08b}".format(int2))
@@ -1178,7 +1178,7 @@ class Samples( object ):
             return None
         elif timestamp == last_timestamp:
             log.warning("Duplicated battery timestamp")
-        log.info('{}: BATTERY {:.3} V'.format(time.ctime(timestamp), volt))
+        log.info('{}: BATTERY {:.3} V'.format(timestring(timestamp), volt))
         return timestamp, volt
 
     def parse_fifo( self, fname ):
@@ -1616,6 +1616,13 @@ class WakeSample( object ):
             for i, (x, y, z) in enumerate( zip( self.xs, self.ys, self.zs ) ):
                 writer.writerow( [ i, x, y, z ] )
 
+
+def timestring( t=None ):
+    if t is None:
+        t = time.time()
+    local = time.gmtime(t)
+    fmt = "%Y-%m-%d %H:%M:%S"
+    return time.strftime(fmt, local)
 
 ### Analysis function for streaming xyz data ###
 def analyze_streamed( fname, plot=True ):
