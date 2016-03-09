@@ -369,7 +369,7 @@ bool accel_confirmed = false;
 static uint8_t slow_click_counter = 0;
 static uint8_t fast_click_counter = 0;
 
-static uint16_t i2c_addr = AX_ADDRESS0;    
+static uint16_t i2c_addr = AX_ADDRESS0;
 
 static uint32_t last_click_time_ms;
 
@@ -1320,7 +1320,8 @@ void accel_set_gesture_enabled( bool enabled ) {
         accel_confirmed = !(enabled);
         accel_wakeup_gesture_enabled = true;
     } else {
-        accel_wakeup_gesture_enabled = enabled;
+        /* respect main_user_data.wake_gestures setting */
+        accel_wakeup_gesture_enabled = false;
     }
 #else
     accel_wakeup_gesture_enabled = enabled;
