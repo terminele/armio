@@ -18,12 +18,14 @@
 
 //___ P R O T O T Y P E S   ( P R I V A T E ) ________________________________
 
+#if (USE_WAKEUP_ALARM)
 static void rtc_alarm_short_callback( void );
   /* @brief alarm callback
    * then schedules next alarm
    * @param None
    * @retrn None
    */
+#endif  /* USE_WAKEUP_ALARM */
 
 static void aclock_sync_ready_cb ( void );
   /* @brief callback after an RTC read sync
