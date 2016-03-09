@@ -1384,6 +1384,23 @@ class Samples( object ):
 
         plt.show()
 
+    def plot_battery( self ):
+        bvals = list(self.battery_reads)    # make a copy
+        for s in self.samples:
+            if s.batt is not None:
+                bvals.append( (s.timestamp, s.batt) )
+        sort_bv = sorted(bvals)
+        times, batt_vals = list(zip(*bvals))
+        t0 = times[0]
+        gmt = time.gmtime(t0)
+        starthour = gmt.tm_hour + gmt.tm_min/60.0 + gmt.tm_sec/3600.0
+        scale = 1.0/3600
+        t_h = [(ti-t0)*scale + starthour for ti in times]
+        plt.plot(t_h, batt_vals, '.')
+        plt.xlabel("Time of day (mod 24 hours)")
+        plt.ylabel("Voltage (V)")
+        plt.show()
+
 
 class WakeSample( object ):
     _sample_counter = 0
@@ -1837,6 +1854,7 @@ if __name__ == "__main__":
         parser.add_argument('-s', '--streamed', action='store_true', default=False)
         parser.add_argument('-t', '--run-tests', action='store_true', default=False)
         parser.add_argument('-w', '--export', action='store_true', default=False)
+        parser.add_argument('-b', '--battery', action='store_true', default=False)
         parser.add_argument('-a', '--plot', action='store_true', default=False)
         parser.add_argument('-c', '--plot_csums', action='store_true', default=False)
         parser.add_argument('-r', '--rejects_only', action='store_true', default=False)
@@ -1903,8 +1921,10 @@ if __name__ == "__main__":
             ld_test.plot_result()
 
         if args.show_levels:
-            allsamples.plot_z_for_groups(
-                    only='z,xymag' )
+            allsamples.plot_z_for_groups( only='z,xymag' )
+
+        if args.battery:
+            allsamples.plot_battery()
 
     elif args.streamed:
         fname = args.dumpfiles[0]
