@@ -48,7 +48,7 @@ if __name__ == "__main__":
         print("Lifetime Active Time (s):\t {:.2f}".format(lifetime_s))
         print("Lifetime Resets:\t\t {}".format(lifetime_resets))
         print("Average Waketime (s):\t\t {:.2f}".format(lifetime_s/lifetime_wakes))
-        print("Lifetime WDT Resets:\t\t {}".format(lifetime_resets))
+        print("Lifetime WDT Resets:\t\t {}".format(wdt_resets))
     else:
         print("No lifetime data")
      

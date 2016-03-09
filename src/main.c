@@ -427,7 +427,7 @@ static bool wakeup_check( void ) {
     accel_enable();
     accel_data_read(&x, &y, &z);
 
-    if (z < -5) {
+    if (z < -10) {
       main_gs.deep_sleep_down_ctr++;
 #ifdef DEEP_SLEEP_DEBUG
       _led_on_full( 30 + main_gs.deep_sleep_down_ctr );
@@ -435,7 +435,7 @@ static bool wakeup_check( void ) {
       _led_off_full( 30 + main_gs.deep_sleep_down_ctr );
       delay_ms(50);
 #endif
-    } else if (z > 5 && main_gs.deep_sleep_down_ctr >= DEEP_SLEEP_SEQ_DOWN_COUNT) {
+    } else if (z > 10 && main_gs.deep_sleep_down_ctr >= DEEP_SLEEP_SEQ_DOWN_COUNT) {
       main_gs.deep_sleep_up_ctr++;
 #ifdef DEEP_SLEEP_DEBUG
       _led_on_full( main_gs.deep_sleep_up_ctr );
@@ -448,7 +448,7 @@ static bool wakeup_check( void ) {
 
     if (main_gs.deep_sleep_down_ctr >= DEEP_SLEEP_SEQ_DOWN_COUNT &&
         main_gs.deep_sleep_up_ctr >= DEEP_SLEEP_SEQ_UP_COUNT) {
-      accel_set_gesture_enabled( main_user_data.wake_gestures );
+      accel_set_gesture_enabled( true ); 
       wake = true;
     } else {
       accel_set_gesture_enabled( false );

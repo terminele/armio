@@ -18,14 +18,14 @@
 
 //___ P R O T O T Y P E S   ( P R I V A T E ) ________________________________
 
-void rtc_alarm_short_callback( void );
+static void rtc_alarm_short_callback( void );
   /* @brief alarm callback
    * then schedules next alarm
    * @param None
    * @retrn None
    */
 
-void aclock_sync_ready_cb ( void );
+static void aclock_sync_ready_cb ( void );
   /* @brief callback after an RTC read sync
    * is finished and we can read an updated
    * clock value
@@ -110,7 +110,7 @@ static int32_t calc_timestamp(uint16_t year, uint8_t month, uint8_t day,
 
 //___ F U N C T I O N S ______________________________________________________
 
-void aclock_sync_ready_cb ( void ) {
+static void aclock_sync_ready_cb ( void ) {
     struct rtc_calendar_time curr_time;
     rtc_calendar_get_time(&rtc_instance, &curr_time);
     aclock_state.year = curr_time.year;

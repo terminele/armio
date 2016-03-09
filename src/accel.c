@@ -369,7 +369,7 @@ bool accel_confirmed = false;
 static uint8_t slow_click_counter = 0;
 static uint8_t fast_click_counter = 0;
 
-static uint16_t i2c_addr = AX_ADDRESS0;     // FIXME : looks like a constant
+static uint16_t i2c_addr = AX_ADDRESS0;    
 
 static uint32_t last_click_time_ms;
 
@@ -1258,7 +1258,7 @@ void accel_init ( void ) {
     }
 
     accel_register_write(AX_REG_CTL5, BOOT);
-    delay_ms(2);    /* this is a guess.. 5ms is required from full power
+    delay_ms(5);    /* this is a guess.. 5ms is required from full power
                        off to configure, if it wasn't ready then these
                        registers probably shouldn't validate */
 
@@ -1316,7 +1316,12 @@ void accel_init ( void ) {
 
 void accel_set_gesture_enabled( bool enabled ) {
 #if (LOG_ACCEL_GESTURE_FIFO)
-    accel_confirmed = !(enabled);
+    if (main_user_data.wake_gestures) {
+        accel_confirmed = !(enabled);
+        accel_wakeup_gesture_enabled = true;
+    } else {
+        accel_wakeup_gesture_enabled = enabled;
+    }
 #else
     accel_wakeup_gesture_enabled = enabled;
 #endif
