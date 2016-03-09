@@ -134,7 +134,7 @@ uint16_t main_get_vbatt_value ( void );
    * @retrn
    */
 
-uint8_t main_get_batt_8bit( void );
+uint8_t main_get_vbatt_relative( void );
   /* @brief return battery voltage as 8-bit unsigned int
    * @retrn battery voltage
    */
