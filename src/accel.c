@@ -1079,6 +1079,7 @@ static inline void log_accel_gesture_fifo( void ) {
         uint8_t START_CODE[3] = { 0x77, 0x77, 0x77 };
         uint8_t END_CODE[3] = { 0x7F, 0x7F, 0x7F };
         uint8_t flags[3];
+        uint8_t vbatt_relative;
         uint32_t waketicks;
         int32_t timestamp;
         uint8_t values[3*FIFO_MAX_SIZE];
@@ -1091,6 +1092,7 @@ static inline void log_accel_gesture_fifo( void ) {
 #else   /* USE_INTERRUPT_2 */
         flags[2] = 0;       /* USE_INTERRUPT_2 */
 #endif  /* USE_INTERRUPT_2 */
+        vbatt_relative = main_get_vbatt_relative();
         waketicks = main_get_waketicks();
         timestamp = aclock_get_timestamp();
 
@@ -1104,6 +1106,7 @@ static inline void log_accel_gesture_fifo( void ) {
         main_log_data (flags, 3, false);
         main_log_data ((uint8_t *) &timestamp, 4, false);
         main_log_data ((uint8_t *) &waketicks, 4, false);
+        main_log_data (&vbatt_relative, 1, false);
         main_log_data (values, 3*accel_fifo.depth, false);
         main_log_data (END_CODE, 3, true);
     }

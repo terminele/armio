@@ -1104,12 +1104,18 @@ class Samples( object ):
                 confirmed))
         confirm = ( confirmed == 0xCC )
         waketime_ms = waketicks / TICKS_PER_MS
-        return confirm, int1, int2, timestamp, waketime_ms
+        if timestamp > 1457519400:  # 10:30am march 3
+            binval = filehandle.read(1)
+            volt8, = struct.unpack('<B', binval)
+            volt = (2048 + 4*volt8)/1024
+        else:
+            volt = None
+        return confirm, int1, int2, timestamp, waketime_ms, volt
 
     @staticmethod
     def parse_fifo_log( filehandle, last_timestamp=0 ):
         END_CODE = (0x7F, 0x7F, 0x7F)
-        confirm, int1, int2, timestamp, waketime = Samples.read_fifo_info(filehandle)
+        confirm, int1, int2, timestamp, waketime, batt = Samples.read_fifo_info(filehandle)
         if timestamp < last_timestamp:
             log.error('Timestamp out of order!!!')
             return None
@@ -1148,7 +1154,7 @@ class Samples( object ):
                         zs.insert(0, None)
                     ws = WakeSample(xs, ys, zs,
                             waketime, confirm, filehandle.name,
-                            timestamp, int1, int2)
+                            timestamp, int1, int2, batt)
                     return ws
                 else:
                     log.info("Skipping invalid sample {}:{}:{}".format(
@@ -1381,14 +1387,15 @@ class Samples( object ):
 
 class WakeSample( object ):
     _sample_counter = 0
-    def __init__( self, xs, ys, zs,
+    def __init__(self, xs, ys, zs,
             waketime=0, confirmed=False, logfile="", timestamp=None,
-            int1_flags=0xaa, int2_flags=0xaa):
+            int1_flags=0xaa, int2_flags=0xaa, batt=None):
         self.uid = uuid.uuid4().hex[-8:]
         self.logfile = os.path.basename(logfile)
         self.xs = xs
         self.ys = ys
         self.zs = zs
+        self.batt = batt
         self.waketime = waketime
         self.confirmed = confirmed
         self.timestamp = timestamp
@@ -1405,6 +1412,7 @@ class WakeSample( object ):
         self.waketime = state['waketime']
         self.confirmed = state['confirmed']
         self.timestamp = state['timestamp']
+        self.batt = state['batt']
         if self.i > WakeSample._sample_counter:
             WakeSample._sample_counter = i
         self._check_result = None
@@ -1413,6 +1421,7 @@ class WakeSample( object ):
     def __getstate__(self):
         state = dict()
         state['uid'] = self.uid
+        state['batt'] = self.batt
         state['logfile'] = self.logfile
         state['accel'] = self.xs, self.ys, self.zs
         state['waketime'] = self.waketime

@@ -282,26 +282,7 @@ static void log_usage ( void ) {
   int32_t timestamp = aclock_get_timestamp();
   /* log vbatt.  vbatt is a 16-bit averaged value
    * of 12-bit reads.  First decimate downt to a 12-bit val */
-  uint16_t vbatt_val = main_gs.vbatt_sensor_adc_val >> 4;
-  uint8_t bat8;
-
-  /* Now, record as an 8-bit value representing the offset
-   * from 2048 (~2v) */
-  if (vbatt_val <= 2048) {
-    vbatt_val = 0;
-  } else {
-    vbatt_val-=2048;
-
-    /* Now decimate down to 8-bit value */
-    if (vbatt_val >= 1024) {
-      vbatt_val = 255;
-    } else {
-      vbatt_val>>=2;
-    }
-  }
-
-  bat8 = (uint8_t) vbatt_val;
-
+  uint8_t bat8 = main_get_vbatt_relative();
   main_log_data (START_CODE, 3, false);
   main_log_data ((uint8_t *) &timestamp, 4, false);
   main_log_data (&bat8, 1, true);
@@ -888,6 +869,28 @@ uint16_t main_get_light_sensor_value ( void ) {
 
 uint16_t main_get_vbatt_value ( void ) {
   return main_gs.vbatt_sensor_adc_val;
+}
+
+uint8_t main_get_vbatt_relative( void ) {
+  /* 8 bit, unsigned offset from ~2V */
+  uint16_t vbatt_val = main_gs.vbatt_sensor_adc_val >> 4;
+
+  /* Now, record as an 8-bit value representing the offset
+   * from 2048 (~2v) */
+  if (vbatt_val <= 2048) {
+    vbatt_val = 0;
+  } else {
+    vbatt_val-=2048;
+
+    /* Now decimate down to 8-bit value */
+    if (vbatt_val >= 1024) {
+      vbatt_val = 255;
+    } else {
+      vbatt_val>>=2;
+    }
+  }
+
+  return (uint8_t) vbatt_val;
 }
 
 bool main_is_low_vbatt ( void ) {

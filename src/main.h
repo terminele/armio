@@ -134,6 +134,10 @@ uint16_t main_get_vbatt_value ( void );
    * @retrn
    */
 
+uint8_t main_get_batt_8bit( void );
+  /* @brief return battery voltage as 8-bit unsigned int
+   * @retrn battery voltage
+   */
 
 bool main_is_low_vbatt ( void );
   /* @brief check if battery is low
