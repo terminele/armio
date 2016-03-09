@@ -897,6 +897,11 @@ uint8_t main_get_vbatt_relative( void ) {
 }
 
 bool main_is_low_vbatt ( void ) {
+#if LOG_ACCEL_GESTURE_FIFO
+  /* indicate FIFO log buffer is full via low battery warn */
+  if (nvm_row_addr >= NVM_LOG_ADDR_MAX)  return true;
+#endif
+
   return IS_LOW_BATT(main_gs.vbatt_sensor_adc_val);
 }
 
