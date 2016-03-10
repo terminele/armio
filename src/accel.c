@@ -622,7 +622,7 @@ static bool wake_check( void ) {
 static bool check_tilt_down( int16_t x, int16_t y, int16_t z ) {
     const int16_t MAX_TILT = 20;
     const int16_t ALMOST_VERT = 28;
-    const int16_t DOWN_FACING = -4;
+    const int16_t DOWN_FACING = -2;
     return (ABS(x) > MAX_TILT ||                            // x-tilted
             (z <= ALMOST_VERT && y <= DOWN_FACING) ||   // turned out
             (z <= DOWN_FACING && y <= ALMOST_VERT));
@@ -722,6 +722,11 @@ static inline bool dclick_filter_check( void ) {
 
     accel_register_write (AX_REG_FIFO_CTL, FIFO_BYPASS);
     accel_data_read(&x, &y, &z);
+
+    if (check_tilt_down(x, y, z)) {
+        return false;
+    }
+
     if (z >= 12 || y >= 12) {
         return true;
     } else if (z > 0 && y > 0 && (z*z + y*y) >= 144) {
