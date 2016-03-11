@@ -1030,7 +1030,7 @@ class Samples( object ):
         batt_startbytes = 0
         BLANK_BYTES = 0xFF
         MAX_BLANK_BYTES = 256
-        MAX_SKIPPED_BYTES = 512
+        MAX_SKIPPED_BYTES = 0x500
         skipped_bytes = 0
         blank_bytes = 0
         processed = 0
