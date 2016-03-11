@@ -84,6 +84,8 @@ endif
 
 DEBUGGER_CFG=utils/$(debugger).cfg
 
+NVM_STORED_DATA_SIZE=0x100
+
 ifeq ($(chip),samd20)
     PART = samd20e14
     PARTD = __SAMD20E14__

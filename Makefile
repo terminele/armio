@@ -523,6 +523,13 @@ dump_log:
 	    echo "Log is EMPTY (starting at byte 256)"; \
 	    fi
 
+dump_stored_data:
+	openocd -f $(DEBUGGER_CFG) \
+	-f $(OCD_PART_CFG) \
+	-c init -c "reset init" \
+	-c "dump_image stored_data.image 0xe000 $(NVM_STORED_DATA_SIZE)" \
+	-c "shutdown"
+
 .PHONY: dump_serial
 dump_serial:
 	openocd -f $(DEBUGGER_CFG) \
