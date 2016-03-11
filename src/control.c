@@ -1491,7 +1491,7 @@ bool vbatt_sense_mode_tic ( event_flags_t event_flags ) {
     return false;
 }
 bool time_set_mode_tic ( event_flags_t event_flags ) {
-    static uint8_t hour=0, minute = 0, new_minute_pos, second;
+    static uint8_t hour=0, minute = 0, new_minute_pos = 0, second = 0;
     static uint32_t timeout = 0;
     static bool is_editing = false;
     static display_comp_t *min_disp_ptr = NULL;
@@ -1527,7 +1527,13 @@ bool time_set_mode_tic ( event_flags_t event_flags ) {
                         MS_IN_TICKS(1200), false);
         }
     }
-
+    
+    /* Zero-out the seconds on 3 or more clicks so user
+     * can set the seconds close to accurate if desired */
+    if (!is_editing && MNCLICK(event_flags, 4, 10)) {
+        aclock_set_time(hour, minute, 0);
+        goto finish;
+    }
 
     if (blink_ptr) {
         if (anim_is_finished(blink_ptr)) {
