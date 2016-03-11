@@ -22,7 +22,7 @@ if __name__ == "__main__":
     
     NVM_DATA_SIZE = 35
     binval = f.read(NVM_DATA_SIZE)
-    fmt = "<BBBBIIIIIHBBBBBBHB"
+    fmt = "<bBBBIIIIIHBBBBBBHB"
     vals = struct.unpack(fmt, binval)
     log.debug("unpack struct: {}".format(vals))
     rtc_corr = vals[0]
