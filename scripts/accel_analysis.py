@@ -1122,6 +1122,8 @@ class Samples( object ):
         CONFIRM = 0xCC
         UNCONFIRM = 0xEE
         binval = filehandle.read(11)
+        if len(binval) != 11:
+            raise ValueError("End of the file.. binval came up short of 11 bytes")
         (confirmed, int1, int2, timestamp, waketicks) = struct.unpack(
                         '<BBBlL', binval)
         if confirmed not in { 0xEE, 0xCC }:
@@ -1140,7 +1142,11 @@ class Samples( object ):
     @staticmethod
     def parse_fifo_log( filehandle, last_timestamp=0 ):
         END_CODE = (0x7F, 0x7F, 0x7F)
-        confirm, int1, int2, timestamp, waketime, batt = Samples.read_fifo_info(filehandle)
+        try:
+            confirm, int1, int2, timestamp, waketime, batt = Samples.read_fifo_info(filehandle)
+        except ValueError as e:
+            log.error("Error reading fifo info: {}".format(e))
+            return None
         if timestamp < last_timestamp:
             log.error('Timestamp out of order!!!')
             return None
