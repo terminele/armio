@@ -826,12 +826,16 @@ class Samples( object ):
         accept = kwargs.pop( "accept_only", False )
         fnonly = kwargs.pop( "false_negatives", False )
         confirmed = kwargs.pop( "confirmed_only", False )
+        supery = kwargs.pop( "supery_only", False )
+        full = kwargs.pop( "full_only", False )
         unconfirmed = kwargs.pop( "unconfirmed_only", False )
+        show = kwargs.pop( "show", False )
         if len(kwargs) == 1:
             otherattr, attrval = kwargs.popitem()
             log.debug("Checking that '{}' attr {}= '{}'".format(
                 otherattr, '!' if reverse else '=', attrval))
         elif len(kwargs):
+            log.warning("Dont recognize kwargs: {}".format(list(kwargs)))
             raise ValueError("Cannot handle more than 1 extra kwargs")
         else:
             otherattr = None
@@ -839,26 +843,43 @@ class Samples( object ):
         for sample in self.samples:
             if reject and sample.accepted:
                 if reverse:
+                    if show: sample.logSummary()
                     yield sample
                 else:
                     continue
             elif accept and not sample.accepted:
                 if reverse:
+                    if show: sample.logSummary()
+                    yield sample
+                else:
+                    continue
+            elif full and any(None in vals for vals in (sample.xs, sample.ys, sample.zs)):
+                if reverse:
+                    if show: sample.logSummary()
+                    yield sample
+                else:
+                    continue
+            elif supery and not sample.supery:
+                if reverse:
+                    if show: sample.logSummary()
                     yield sample
                 else:
                     continue
             elif fnonly and ( not sample.confirmed or sample.accepted ):
                 if reverse:
+                    if show: sample.logSummary()
                     yield sample
                 else:
                     continue
             elif confirmed and not sample.confirmed:
                 if reverse:
+                    if show: sample.logSummary()
                     yield sample
                 else:
                     continue
             elif unconfirmed and sample.confirmed:
                 if reverse:
+                    if show: sample.logSummary()
                     yield sample
                 else:
                     continue
@@ -866,11 +887,13 @@ class Samples( object ):
                 if not hasattr(sample, otherattr):
                     log.debug("sample does not have '{}' attr".format(otherattr))
                     if reverse:
+                        if show: sample.logSummary()
                         yield sample
                     else:
                         continue
                 elif getattr(sample, otherattr) != attrval:
                     if reverse:
+                        if show: sample.logSummary()
                         yield sample
                     else:
                         continue
@@ -878,10 +901,12 @@ class Samples( object ):
                     if reverse:
                         continue
                     else:
+                        if show: sample.logSummary()
                         yield sample
             elif reverse:
                 continue
             else:
+                if show: sample.logSummary()
                 yield sample
 
     def show_plots( self, **kwargs ):
@@ -1122,7 +1147,6 @@ class Samples( object ):
         elif timestamp == last_timestamp:
             log.warning("Duplicate timestamp at {}".format(timestring(timestamp)))
         xs, ys, zs = [], [], []
-        flags = ["sy", "ia", "zh", "zl", "yh", "yl", "xh", "xl"]
         while True:
             binval = filehandle.read(3)
             if len( binval ) != 3:
@@ -1138,16 +1162,6 @@ class Samples( object ):
                     xtra = 32 - len(xs)
                     if xtra > 0:
                         log.debug("adding {} xtra values to sample".format(xtra))
-                    log.info('{}: {:4.1f} sec, {:2} vals, {}confirmed'.format(
-                        timestring(timestamp), waketime/1e3,
-                        len(xs), '  ' if confirm else 'un'))
-                    i1f = (c == '1' for c in "{:08b}".format(int1))
-                    i2f = (c == '1' for c in "{:08b}".format(int2))
-                    log.info('int1:  '+ ' | '.join("{:>2}".format(
-                        f if on else '') for f, on in zip(flags, i1f)))
-                    log.info('int2:  '+ ' | '.join("{:>2}".format(
-                        f if on else '') for f, on in zip(flags, i2f)))
-
                     for _ in range( xtra ):
                         xs.insert(0, None)
                         ys.insert(0, None)
@@ -1155,6 +1169,7 @@ class Samples( object ):
                     ws = WakeSample(xs, ys, zs,
                             waketime, confirm, filehandle.name,
                             timestamp, int1, int2, batt)
+                    ws.logSummary()
                     return ws
                 else:
                     log.info("Skipping invalid sample {}:{}:{}".format(
@@ -1416,6 +1431,8 @@ class WakeSample( object ):
         self.waketime = waketime
         self.confirmed = confirmed
         self.timestamp = timestamp
+        self.int1 = int1_flags
+        self.int2 = int2_flags
         WakeSample._sample_counter += 1
         self.i = WakeSample._sample_counter
         self._check_result = None
@@ -1427,6 +1444,8 @@ class WakeSample( object ):
         self.i = state['i']
         self.xs, self.ys, self.zs = state['accel']
         self.waketime = state['waketime']
+        self.int1 = state["int1"]
+        self.int2 = state["int2"]
         self.confirmed = state['confirmed']
         self.timestamp = state['timestamp']
         self.batt = state['batt']
@@ -1440,6 +1459,8 @@ class WakeSample( object ):
         state['uid'] = self.uid
         state['batt'] = self.batt
         state['logfile'] = self.logfile
+        state['int1'] = self.int1
+        state['int2'] = self.int2
         state['accel'] = self.xs, self.ys, self.zs
         state['waketime'] = self.waketime
         state['confirmed'] = self.confirmed
@@ -1449,6 +1470,35 @@ class WakeSample( object ):
 
     def _getMeasures( self ): return self.xs + self.ys + self.zs
     measures = property( fget=_getMeasures )
+
+    def _getIsSuperY(self): return bool(self.int2 & 0x80)
+    supery = property( fget=_getIsSuperY )
+
+    def logSummary(self):
+        log.info(self.summary)
+        log.info(self.tint1)
+        log.info(self.tint2)
+
+    def _getSummary(self):
+        return '{}: {:4.1f} sec, {:2} vals, {}'.format(
+                timestring(self.timestamp), self.waketime/1e3,
+                sum(1 for x in self.xs if x is not None),
+                'CONFIRMED' if self.confirmed else 'unconfirmed')
+    summary = property( fget=_getSummary )
+
+    def _getInt1Summary(self):
+        flags = ["sy", "ia", "zh", "zl", "yh", "yl", "xh", "xl"]
+        i1f = (c == '1' for c in "{:08b}".format(self.int1))
+        return 'int1:  '+ ' | '.join(
+                "{:>2}".format(f if on else '') for f, on in zip(flags, i1f))
+    tint1 = property( fget=_getInt1Summary )
+
+    def _getInt2Summary(self):
+        flags = ["sy", "ia", "zh", "zl", "yh", "yl", "xh", "xl"]
+        i2f = (c == '1' for c in "{:08b}".format(self.int2))
+        return 'int2:  '+ ' | '.join(
+                "{:>2}".format(f if on else '') for f, on in zip(flags, i2f))
+    tint2 = property( fget=_getInt2Summary )
 
     def _collect_sums( self ):
         self.xsums = [ sum( v for v in self.xs[:i+1] if v is not None ) for i in range( len( self.xs ) ) ]
