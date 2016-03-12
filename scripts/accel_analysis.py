@@ -1953,6 +1953,10 @@ if __name__ == "__main__":
             allsamples.show_csums( **kwargs )
 
         if args.run_tests:
+            if False:   # cleanup samples (remove samples w/o full set)
+                allsamples.samples = [s for s in allsamples.samples
+                    if not any(None in vs for vs in (s.xs, s.ys, s.zs))]
+                allsamples.total = len(allsamples.samples)
             pc_test = PrincipalComponentTest(allsamples, [0, 1, 2])
             pc_test.plot_result()
 
