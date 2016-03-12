@@ -254,7 +254,7 @@ class SampleTest( object ):
                 len(self.test_results), len(self.values), len(self.samples)))
         log.debug( "Plotting {} samples".format( len( self.values ) ) )
 
-        tmin = self.samples.mintime
+        tmin = min(s.timestamp for s in self.samples)
         for tv, val, sample in zip(self.test_results, self.values, self.samples):
             if getattr( sample, 'trainset', False ):
                 cv = TRAINSET
@@ -519,9 +519,6 @@ class PrincipalComponentTest( SampleTest ):
                 print( "{:6}".format(f), end=end )
             print( '])' )
 
-
-
-
     def get_xyz_weights(self, ndx=0, bits=17):
         """ set bits so that sum product of 96 values that are 8-bit * bit fits
             96 < 128 (7 bits)
@@ -588,9 +585,12 @@ class PrincipalComponentTest( SampleTest ):
         x = wt[:n]
         y = wt[n:2*n]
         z = wt[2*n:]
+        t = list(range(len(x)))
         xt = list(range(len(x)))
         yt = list(range(len(y)))
         zt = list(range(len(z)))
+        m = [abs(xi) + abs(yi) + abs(zi) for xi, yi, zi in zip(x, y, z)]
+        ax.add_line( plt.Line2D(t, m, color='k', label='mag') )
         ax.add_line( plt.Line2D(xt, x, color='r', label='x') )
         ax.add_line( plt.Line2D(yt, y, color='g', label='y') )
         ax.add_line( plt.Line2D(zt, z, color='b', label='z') )
