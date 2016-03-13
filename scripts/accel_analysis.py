@@ -340,17 +340,21 @@ class SampleTest( object ):
 
 
 class PrincipalComponentTest( SampleTest ):
-    def __init__(self, trainingset, test_axis=0, **kwargs):
+    _long_name = "Principal Component"
+    _short_name = "PC"
+
+    def __init__(self, *trainsets, **kwargs):
         """ use principal component analysis to find linear combinations
             of the accel data to test
 
-            if trainingset is Samples instance, also add the samples
-            test_axis : single int index or list of index to select for test
+            if trainsets is Samples instance, also add the samples
+
             kwargs:
-               prereduce (None): pre-reduce matrix for reducing dimensions
+                test_axis (0): single int index or list of index to select for test
+                prereduce (None): pre-reduce matrix for reducing dimensions
         """
-        if trainingset is None:
-            """ This is a fixed set from a previous test """
+        if len(trainsets) == 0:
+            """ This is a fixed weighting set (no training data) """
             name = kwargs.pop('name')
             weightings = kwargs.pop('weightings')
             test_fcn = lambda s : self.apply_weighting(weightings, s)
@@ -359,26 +363,25 @@ class PrincipalComponentTest( SampleTest ):
             self.eigvals = [1] + [0 for _ in range(95)]
         else:
             self._prereduce = kwargs.pop("prereduce", None)
-            name, test_names = self._configure_name( test_axis )
-            test_fcn = self._configure_test( trainingset, test_axis, **kwargs )
-            kwargs.setdefault( 'test_names', test_names )
+            test_fcn = self._configure_test(*trainsets, **kwargs)
+            defaultname = type(self)._long_name
+            test_names = None
+            if 'test_axis' in kwargs and isinstance(kwargs['test_axis'], int):
+                defaultname += ' {}'.format(kwargs['test_axis'])
+            elif 'test_axis' in kwargs:
+                defaultname += 's {}'.format(tuple(kwargs['test_axis']))
+                test_names = ["{} {}".format(type(self)._short_name, i) for i in kwargs['test_axis']]
+            name = kwargs.pop('name', defaultname)
+            kwargs.setdefault('test_names', test_names)
         super().__init__(name, test_fcn, **kwargs)
-        if isinstance(trainingset, Samples):
-            self.add_samples(trainingset.samples)
-
-    def _configure_name(self, test_axis):
-        test_names = None
-        if isinstance(test_axis, int):
-            name = "Principle Component {}".format(test_axis)
-        else:
-            name = "Principle Components {}".format(tuple(test_axis))
-            test_names = ["PC {}".format(i) for i in test_axis]
-        return name, test_names
+        for ts in trainsets:
+            if isinstance(ts, Samples):
+                self.add_samples(ts.samples)
 
     def _find_weights(self, *datasets):
         matrix = []
         for ds in datasets:
-            matrix.extend(ds)
+            matrix.extend(ds.measurematrix if isinstance(ds, Samples) else ds)
         m = self.reduce_sample(matrix)
         n = len(m[0])
         M = np.array(m)
@@ -392,13 +395,9 @@ class PrincipalComponentTest( SampleTest ):
         self.matrix = S
         self.getEigens(S)
 
-    def _configure_test( self, trainingset, test_axis, **kwargs ):
-        univariance = kwargs.pop( "univariance", False )
-        if isinstance( trainingset, Samples ):
-            trainingset = trainingset.measurematrix
-        if len(trainingset) == 0:
-            raise ValueError("No data provided in training set")
-        self._find_weights(trainingset)
+    def _configure_test(self, *trainsets, **kwargs):
+        self._find_weights(*trainsets)
+        test_axis = kwargs.pop('test_axis', 0)
         if isinstance(test_axis, int):
             w = self.eigvects[test_axis]
             test_fcn = lambda s : self.apply_weighting(w, s)
@@ -612,7 +611,7 @@ class FixedWeightingTest( PrincipalComponentTest ):
         kwargs['weightings'] = weightings
         kwargs['name'] = name
         kwargs['test_axis'] = 0
-        super().__init__(trainingset=None, **kwargs)
+        super().__init__(**kwargs)
 
 
 class LinearDiscriminantTest( PrincipalComponentTest ):
@@ -620,17 +619,23 @@ class LinearDiscriminantTest( PrincipalComponentTest ):
         based on the difference between our groups instead of
         just maximizing variance
     """
-    def _configure_name(self, test_axis):
-        test_names = None
-        if isinstance(test_axis, int):
-            name = "Linear Discriminant Component {}".format(test_axis)
-        else:
-            name = "Linear Discriminant Components {}".format(tuple(test_axis))
-            test_names = ["LDC {}".format(i) for i in test_axis]
-        return name, test_names
+    _long_name = "Linear Discriminant Component"
+    _short_name = "LDC"
 
     def _find_weights(self, *datasets):
-        ds = [ np.array(self.reduce_sample(d)) for d in datasets ]
+        ds = []
+        for dataset in datasets:
+            if isinstance(dataset, Samples):
+                if len(dataset.samples) == 0:
+                    raise ValueError("{} has no samples".format(dataset.name))
+                else:
+                    log.info("{} has {} samples".format(dataset.name, len(dataset.samples)))
+                data = dataset.measurematrix
+            else:
+                if len(dataset) == 0:
+                    raise ValueError("No samples in a dataset")
+                data = dataset
+            ds.append(np.array(self.reduce_sample(data)))
         ns = [ len(d) for d in ds ]
         N_inv = 1.0 / sum(len(d) for d in ds)
         sum_all = np.sum([np.sum(d, axis=0) for d in ds], axis=0)
@@ -659,40 +664,6 @@ class LinearDiscriminantTest( PrincipalComponentTest ):
         self.SB = S_B
         self.matrix = SWinvSB
         self.getEigens(SWinvSB)
-
-    def _configure_test( self, trainingset, test_axis, **kwargs ):
-        if not isinstance(trainingset, Samples):
-            raise ValueError("we need the original samples for grouping")
-        trainsets = self._getTrainingSets( trainingset, **kwargs )
-        self._find_weights( *trainsets )
-        if isinstance(test_axis, int):
-            w = self.eigvects[test_axis]
-            test_fcn = lambda s : self.apply_weighting(w, s)
-        else:
-            weights = [self.eigvects[i] for i in test_axis]
-            test_fcn = lambda s : [self.apply_weighting(w, s) for w in weights]
-        return test_fcn
-
-    def _getTrainingSets( self, trainingset, **kwargs ):
-        trainselect = kwargs.pop('trainselect', None)
-        if trainselect is not None:
-            attrname, attrval = trainselect
-        else:
-            attrname = 'confirmed'
-            attrval = True
-        kwargs={attrname: attrval}
-        goodset = trainingset.getMeasureMatrix(**kwargs)
-        badset = trainingset.getMeasureMatrix(reverse=True, **kwargs)
-        if len(goodset) == 0:
-            raise ValueError("No samples for {} == {}".format(attrname, attrval))
-        elif len(badset) == 0:
-            raise ValueError("No samples for {} != {}".format(attrname, attrval))
-        else:
-            log.info('goodset is length {} vs badset length {}'.format(
-                len(goodset), len(badset)))
-        for sample in trainingset.filter_samples(**kwargs):
-            sample.trainset = True      # a new attribute
-        return goodset, badset
 
 
 class Samples( object ):
@@ -1423,13 +1394,13 @@ class WakeSample( object ):
     measures = property( fget=_getMeasures )
 
     def _getIsSuperY(self): return bool(self.int2 & 0x80) and bool(self.int2 & 0x40)
-    supery = property( fget=_getIsSuperY )
+    superY = property( fget=_getIsSuperY )
 
-    def _getIsTriggerY(self): return bool(self.int2 & 0x40) and not self.supery
-    triggery = property( fget=_getIsTriggerY )
+    def _getIsTriggerY(self): return bool(self.int2 & 0x40) and not self.superY
+    triggerY = property( fget=_getIsTriggerY )
 
-    def _getIsTriggerZ(self): return bool(self.int1 & 0x40) and not self.supery
-    triggerz = property( fget=_getIsTriggerZ )
+    def _getIsTriggerZ(self): return bool(self.int1 & 0x40) and not self.superY
+    triggerZ = property( fget=_getIsTriggerZ )
 
     def _getIsFull(self):
         return not any(None in v for v in (self.xs, self.ys, self.zs))
@@ -1824,11 +1795,9 @@ def show_various_reductions(samples, pca_test, pcadims=None):
     if pcadims is None:
         pcadims = range(4, 16)
     for i in pcadims:
-        ts = ('logfile', '../armio_logs/walker-test-bare-pcb-yturn.log')
-        ts = None
-        ld = LinearDiscriminantTest(samples, 0,
+        ld = LinearDiscriminantTest(samples, test_axis=0,
                 prereduce=pca_test.getTransformationMatrix(i),
-                accept_below=0, reject_above=0, trainselect=ts)
+                accept_below=0, reject_above=0)
         ld.show_result()
         ld.plot_weightings()
 
@@ -1926,17 +1895,31 @@ if __name__ == "__main__":
                 allsamples.samples = [s for s in allsamples.samples
                     if not any(None in vs for vs in (s.xs, s.ys, s.zs))]
                 allsamples.total = len(allsamples.samples)
-            pc_test = PrincipalComponentTest(allsamples, [0, 1, 2])
+
+            # find all unconfirmed samples that have full FIFO
+            Zunconfirm = Samples("Unconfirmed Z Trigger")
+            Zunconfirm.samples = list(allsamples.filter_samples(
+                confirmed=False, full=True, triggerZ=True))
+            Zconfirm = Samples("Confirmed Z Trigger")
+            Zconfirm.samples = list(allsamples.filter_samples(
+                confirmed=True, full=True, triggerZ=True))
+
+            # add a new attribute for coloring selected data blue
+            for s in Zunconfirm.samples:
+                s.trainset = False
+            for s in Zconfirm.samples:
+                s.trainset = True
+
+            pc_test = PrincipalComponentTest(Zunconfirm, Zconfirm,
+                    test_axis=[0, 1, 2])
             pc_test.plot_result()
 
             final_dims = 8
-            tf = pc_test.getTransformationMatrix(final_dims)
             pc_test.show_eigvals(final_dims)
+            tf = pc_test.getTransformationMatrix(final_dims)
 
-            ts = ('logfile', '../armio_logs/walker-test-bare-pcb-yturn.log')
-            ts = None
-            ld_test = LinearDiscriminantTest(allsamples, 0, prereduce=tf,
-                    accept_below=0, reject_above=0, trainselect=ts)
+            ld_test = LinearDiscriminantTest(Zunconfirm, Zconfirm, test_axis=0,
+                    prereduce=tf, accept_above=0, reject_below=0)
             ld_test.show_result()
             ld_test.show_xyz_filter()
             #ld_test.plot_eigvals()
