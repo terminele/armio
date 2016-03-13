@@ -838,6 +838,7 @@ class Samples( object ):
 
         log.debug('Filtering through {} samples'.format(len(self.samples)))
 
+        count = 0
         for sample in self.samples:
             if or_tests:
                 result = any(test(sample, kwargs))
@@ -847,7 +848,9 @@ class Samples( object ):
                 result = not result
             if result:
                 if show: sample.logSummary()
+                count += 1
                 yield sample
+        log.info("Found {} samples from {}".format(count, len(self.samples)))
 
     def show_plots( self, **kwargs ):
         for sample in self.filter_samples( **kwargs ):
@@ -1417,8 +1420,14 @@ class WakeSample( object ):
     def _getMeasures( self ): return self.xs + self.ys + self.zs
     measures = property( fget=_getMeasures )
 
-    def _getIsSuperY(self): return bool(self.int2 & 0x80)
+    def _getIsSuperY(self): return bool(self.int2 & 0x80) and bool(self.int2 & 0x40)
     supery = property( fget=_getIsSuperY )
+
+    def _getIsTriggerY(self): return bool(self.int2 & 0x40) and not self.supery
+    triggery = property( fget=_getIsTriggerY )
+
+    def _getIsTriggerZ(self): return bool(self.int1 & 0x40) and not self.supery
+    triggerz = property( fget=_getIsTriggerZ )
 
     def _getIsFull(self):
         return not any(None in v for v in (self.xs, self.ys, self.zs))
