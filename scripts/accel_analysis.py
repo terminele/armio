@@ -1486,9 +1486,10 @@ class WakeSample( object ):
         log.info(self.tint2)
 
     def _getSummary(self):
-        return '{}: {:4.1f} sec, {:2} vals, {}'.format(
+        return '{}: {:4.1f} sec, {:2} vals, {} V, {}'.format(
                 timestring(self.timestamp), self.waketime/1e3,
                 sum(1 for x in self.xs if x is not None),
+                '{:.2f}'.format(self.batt) if self.batt is not None else ' -- ',
                 'CONFIRMED' if self.confirmed else 'unconfirmed')
     summary = property( fget=_getSummary )
 
@@ -1924,7 +1925,11 @@ if __name__ == "__main__":
     log.basicConfig(level=log.DEBUG if args.debug else log.INFO,
             format=' '.join(["%(levelname)-7s", "%(lineno)4d", "%(message)s"]))
 
-    if not args.streamed and args.fifo:
+    if args.streamed:
+        fname = args.dumpfiles[0]
+        t, x, y, z = analyze_streamed(fname, plot=args.plot)
+
+    elif args.fifo:
         allsamples = Samples()
         sampleslist = []
         for fname in args.dumpfiles:
@@ -1985,7 +1990,3 @@ if __name__ == "__main__":
 
         if args.battery:
             allsamples.plot_battery()
-
-    elif args.streamed:
-        fname = args.dumpfiles[0]
-        t, x, y, z = analyze_streamed(fname, plot=args.plot)
