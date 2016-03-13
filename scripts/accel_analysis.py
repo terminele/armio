@@ -190,7 +190,7 @@ class SampleTest( object ):
                         self.unconfirmed_passed_time += sample.waketime
         self.analyzed = True
 
-    def show_result( self ):
+    def show_result( self, testsperday=None ):
         if not self.analyzed:
             self.analyze()
         print( "Analysis for '{}'".format( self.name ) )
@@ -200,6 +200,9 @@ class SampleTest( object ):
         print( "{:10}|{:12}|{:12}|{:12}".format( "Rejected", self.confirmed_rejected, self.unconfirmed_rejected, self.rejected ) )
         print( "{:10}|{:12}|{:12}|{:12}".format( "Total", self.confirmed, self.unconfirmed, self.total ) )
         print( "False Negatives {}, {:.0%}".format( self.confirmed_rejected, self.confirmed_rejected/self.confirmed ) )
+        print( "False Positives {}, {:.0%}".format( self.unconfirmed_accepted, self.unconfirmed_accepted/self.unconfirmed ) )
+        if testsperday is not None:
+            print( "Accidental wakes per day: {:.0f}".format( testsperday*self.unconfirmed_accepted/self.unconfirmed ) )
         if self.unconfirmed_time_cnt:
             print( "Unconfirmed time analysis ({} values):".format( self.unconfirmed_time_cnt ) )
             print( "  average unconfirmed time {:.1f} seconds".format(
@@ -754,6 +757,8 @@ class Samples( object ):
         print( "{:10}|{:12}|{:12}|{:12}".format( "Rejected", self.confirmed_rejected, self.unconfirmed_rejected, self.rejected ) )
         print( "{:10}|{:12}|{:12}|{:12}".format( "Total", self.confirmed, self.unconfirmed, self.total ) )
         print( "False Negatives {}, {:.0%}".format( self.confirmed_rejected, self.confirmed_rejected/self.confirmed ) )
+        print( "False Positives {}, {:.0%}".format( self.unconfirmed_accepted, self.unconfirmed_accepted/self.unconfirmed ) )
+        print( "Accidental wakes per day: {}".format( self.wake_tests_per_day*self.unconfirmed_accepted ) )
         if self.unconfirmed_time_cnt:
             print( "Unconfirmed time analysis ({} values):".format( self.unconfirmed_time_cnt ) )
             print( "  average unconfirmed time {:.1f} seconds".format(
@@ -1330,8 +1335,22 @@ class Samples( object ):
             if cutoff is None or interval <= cutoff:
                 yield interval
 
+    def _getWakeIntervalMedian(self):
+        return np.median(list(self.get_wake_intervals(confirmed=False)))
+    wake_interval = property(fget=_getWakeIntervalMedian)
+
+    def _getWakesPerDay(self):
+        day_time_hrs = 16
+        day_time_sec = 3600 * day_time_hrs
+        interval = self.wake_interval
+        return int((day_time_sec + interval/2.0)/ self.wake_interval)
+    wake_tests_per_day = property(fget=_getWakesPerDay)
+
     def show_wake_freq_hist( self, samples=200 ):
-        intervals = list(self.get_wake_intervals(confirmed=False))
+        intervals = sorted(self.get_wake_intervals(confirmed=False))
+        rm_highest_pct = 0.05
+        rm_highest = int(rm_highest_pct*len(intervals))
+        intervals = intervals[:-rm_highest]
         log.info("Interrupt interval mean {:.1f} s, median {:.1f} s".format(
             np.mean(intervals), np.median(intervals)))
         n, bins, patches = plt.hist(intervals, samples, normed=0.8, facecolor='green', alpha=0.5)
@@ -1954,7 +1973,7 @@ if __name__ == "__main__":
 
             ld_test = LinearDiscriminantTest(Zunconfirm, Zconfirm, test_axis=0,
                     prereduce=tf, accept_above=0, reject_below=0)
-            ld_test.show_result()
+            ld_test.show_result(allsamples.wake_tests_per_day)
             ld_test.show_xyz_filter()
             #ld_test.plot_eigvals()
             ld_test.plot_weightings(0)
