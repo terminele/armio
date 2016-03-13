@@ -366,6 +366,32 @@ class PrincipalComponentTest( SampleTest ):
         if isinstance(trainingset, Samples):
             self.add_samples(trainingset.samples)
 
+    def _configure_name(self, test_axis):
+        test_names = None
+        if isinstance(test_axis, int):
+            name = "Principle Component {}".format(test_axis)
+        else:
+            name = "Principle Components {}".format(tuple(test_axis))
+            test_names = ["PC {}".format(i) for i in test_axis]
+        return name, test_names
+
+    def _find_weights(self, *datasets):
+        matrix = []
+        for ds in datasets:
+            matrix.extend(ds)
+        m = self.reduce_sample(matrix)
+        n = len(m[0])
+        M = np.array(m)
+        means = np.mean(M, axis=0)
+        mT = means.reshape(n, 1)
+        S = np.zeros((n, n))
+        for row in M:
+            rT = row.reshape(n, 1)
+            rT_mc = rT - mT
+            S += rT_mc.dot(rT_mc.T)
+        self.matrix = S
+        self.getEigens(S)
+
     def _configure_test( self, trainingset, test_axis, **kwargs ):
         univariance = kwargs.pop( "univariance", False )
         if isinstance( trainingset, Samples ):
@@ -380,15 +406,6 @@ class PrincipalComponentTest( SampleTest ):
             weights = [self.eigvects[i] for i in test_axis]
             test_fcn = lambda s : [self.apply_weighting(w, s) for w in weights]
         return test_fcn
-
-    def _configure_name( self, test_axis ):
-        test_names = None
-        if isinstance(test_axis, int):
-            name = "Principle Component {}".format(test_axis)
-        else:
-            name = "Principle Components {}".format(tuple(test_axis))
-            test_names = ["PC {}".format(i) for i in test_axis]
-        return name, test_names
 
     def getTransformationMatrix(self, num_axis=8):
         """ return the first <num_axis> values as a transformation matrix """
@@ -440,20 +457,6 @@ class PrincipalComponentTest( SampleTest ):
         vars = cls.get_col_variances(matrix)
         mT = ([x / cv**0.5 for x in c] for cv, c in zip(vars, zip(*matrix)))
         return list(zip(*mT))
-
-    def _find_weights(self, matrix):
-        m = self.reduce_sample(matrix)
-        n = len(m[0])
-        M = np.array(m)
-        means = np.mean(M, axis=0)
-        mT = means.reshape(n, 1)
-        S = np.zeros((n, n))
-        for row in M:
-            rT = row.reshape(n, 1)
-            rT_mc = rT - mT
-            S += rT_mc.dot(rT_mc.T)
-        self.matrix = S
-        self.getEigens(S)
 
     def _find_weights_old(self, matrix, univarance_scale=False):
         """ mean center the columns """
@@ -617,6 +620,15 @@ class LinearDiscriminantTest( PrincipalComponentTest ):
         based on the difference between our groups instead of
         just maximizing variance
     """
+    def _configure_name(self, test_axis):
+        test_names = None
+        if isinstance(test_axis, int):
+            name = "Linear Discriminant Component {}".format(test_axis)
+        else:
+            name = "Linear Discriminant Components {}".format(tuple(test_axis))
+            test_names = ["LDC {}".format(i) for i in test_axis]
+        return name, test_names
+
     def _find_weights(self, *datasets):
         ds = [ np.array(self.reduce_sample(d)) for d in datasets ]
         ns = [ len(d) for d in ds ]
@@ -637,7 +649,6 @@ class LinearDiscriminantTest( PrincipalComponentTest ):
                 rT_mc = rT - means
                 S += rT_mc.dot(rT_mc.T)
             S_W += S
-
 
         S_B = np.zeros((dim, dim))
         for n, means in zip(ns, mean_groups):
@@ -661,15 +672,6 @@ class LinearDiscriminantTest( PrincipalComponentTest ):
             weights = [self.eigvects[i] for i in test_axis]
             test_fcn = lambda s : [self.apply_weighting(w, s) for w in weights]
         return test_fcn
-
-    def _configure_name( self, test_axis ):
-        test_names = None
-        if isinstance(test_axis, int):
-            name = "Linear Discriminant Component {}".format(test_axis)
-        else:
-            name = "Linear Discriminant Components {}".format(tuple(test_axis))
-            test_names = ["LDC {}".format(i) for i in test_axis]
-        return name, test_names
 
     def _getTrainingSets( self, trainingset, **kwargs ):
         trainselect = kwargs.pop('trainselect', None)
@@ -1903,17 +1905,21 @@ if __name__ == "__main__":
         else:
             kwargs = dict()
 
-        if args.run_tests:
-            traditional_tests = make_traditional_tests()
-            run_tests( traditional_tests,
-                    allsamples.filter_samples( **kwargs ), plot=args.plot )
-        else:
-            if args.plot:
-                allsamples.show_plots( **kwargs )
+        if args.plot:
+            allsamples.show_plots( **kwargs )
         if args.export:
             allsamples.export_csv( **kwargs )
         if args.plot_csums:
             allsamples.show_csums( **kwargs )
+        if args.show_levels:
+            allsamples.plot_z_for_groups( only='z,xymag' )
+        if args.battery:
+            allsamples.plot_battery()
+
+        if False and args.run_tests:
+            traditional_tests = make_traditional_tests()
+            run_tests( traditional_tests,
+                    allsamples.filter_samples( **kwargs ), plot=args.plot )
 
         if args.run_tests:
             if False:   # cleanup samples (remove samples w/o full set)
@@ -1936,9 +1942,3 @@ if __name__ == "__main__":
             #ld_test.plot_eigvals()
             ld_test.plot_weightings(0)
             ld_test.plot_result()
-
-        if args.show_levels:
-            allsamples.plot_z_for_groups( only='z,xymag' )
-
-        if args.battery:
-            allsamples.plot_battery()
