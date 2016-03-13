@@ -8,11 +8,13 @@ import argparse
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
-import logging as log
+import logging
 import jsonpickle
 import uuid
 import csv
 import random
+
+log = logging.getLogger( __name__ )
 
 TICKS_PER_MS = 1
 
@@ -197,6 +199,7 @@ class SampleTest( object ):
         print( "{:10}|{:12}|{:12}|{:12}".format( "Passed", self.confirmed_passed, self.unconfirmed_passed, self.passed ) )
         print( "{:10}|{:12}|{:12}|{:12}".format( "Rejected", self.confirmed_rejected, self.unconfirmed_rejected, self.rejected ) )
         print( "{:10}|{:12}|{:12}|{:12}".format( "Total", self.confirmed, self.unconfirmed, self.total ) )
+        print( "False Negatives {}, {:.0%}".format( self.confirmed_rejected, self.confirmed_rejected/self.confirmed ) )
         if self.unconfirmed_time_cnt:
             print( "Unconfirmed time analysis ({} values):".format( self.unconfirmed_time_cnt ) )
             print( "  average unconfirmed time {:.1f} seconds".format(
@@ -750,6 +753,7 @@ class Samples( object ):
         print( "{:10}|{:12}|{:12}|{:12}".format( "Accepted", self.confirmed_accepted, self.unconfirmed_accepted, self.accepted ) )
         print( "{:10}|{:12}|{:12}|{:12}".format( "Rejected", self.confirmed_rejected, self.unconfirmed_rejected, self.rejected ) )
         print( "{:10}|{:12}|{:12}|{:12}".format( "Total", self.confirmed, self.unconfirmed, self.total ) )
+        print( "False Negatives {}, {:.0%}".format( self.confirmed_rejected, self.confirmed_rejected/self.confirmed ) )
         if self.unconfirmed_time_cnt:
             print( "Unconfirmed time analysis ({} values):".format( self.unconfirmed_time_cnt ) )
             print( "  average unconfirmed time {:.1f} seconds".format(
@@ -1307,10 +1311,29 @@ class Samples( object ):
 
         plt.show()
 
+    def get_wake_intervals(self, cutoff=None, **kwargs):
+        logfile = None
+        lasttime = None
+        for sample in self.filter_samples(**kwargs):
+            if logfile is None:
+                logfile = sample.logfile
+            if logfile != sample.logfile:
+                """ skip this sample """
+                logfile = sample.logfile
+                lasttime = None
+                continue
+            if lasttime is None:
+                lasttime = sample.timestamp
+                continue
+            interval = sample.timestamp - lasttime
+            lasttime = sample.timestamp
+            if cutoff is None or interval <= cutoff:
+                yield interval
+
     def show_wake_freq_hist( self, samples=200 ):
-        timestamps = [ s.timestamp for s in self.samples ]
-        lasttimes = [timestamps[0]] + timestamps[:-1]
-        intervals = [t - tl for t, tl in zip(timestamps, lasttimes)]
+        intervals = list(self.get_wake_intervals(confirmed=False))
+        log.info("Interrupt interval mean {:.1f} s, median {:.1f} s".format(
+            np.mean(intervals), np.median(intervals)))
         n, bins, patches = plt.hist(intervals, samples, normed=0.8, facecolor='green', alpha=0.5)
 
         plt.xlabel('Time between samples (s)')
@@ -1830,29 +1853,38 @@ if __name__ == "__main__":
     def parse_args():
         parser = argparse.ArgumentParser(description='Analyze an accel log dump')
         parser.add_argument('dumpfiles', nargs='+')
-        parser.add_argument('-f', '--fifo', action='store_false', default=True)
+        parser.add_argument('-d', '--debug', action='store_true', default=False)
+        parser.add_argument('-q', '--quiet', action='store_true', default=False)
         parser.add_argument('-s', '--streamed', action='store_true', default=False)
+
         parser.add_argument('-t', '--run-tests', action='store_true', default=False)
-        parser.add_argument('-w', '--export', action='store_true', default=False)
         parser.add_argument('-b', '--battery', action='store_true', default=False)
+        parser.add_argument('-f', '--frequency', action='store_true', default=False)
+
+        parser.add_argument('-w', '--export', action='store_true', default=False)
         parser.add_argument('-a', '--plot', action='store_true', default=False)
         parser.add_argument('-c', '--plot_csums', action='store_true', default=False)
         parser.add_argument('-r', '--rejects_only', action='store_true', default=False)
         parser.add_argument('-p', '--accepts_only', action='store_true', default=False)
         parser.add_argument('-l', '--show-levels', action='store_true', default=False)
         parser.add_argument('-fn', '--false_negative', action='store_true', default=False)
-        parser.add_argument('-d', '--debug', action='store_true', default=False)
         return parser.parse_args()
 
     args = parse_args()
-    log.basicConfig(level=log.DEBUG if args.debug else log.INFO,
+    if args.quiet:
+        level = logging.WARNING
+    elif args.debug:
+        level = logging.DEBUG
+    else:
+        level = logging.INFO
+    logging.basicConfig(level=level,
             format=' '.join(["%(levelname)-7s", "%(lineno)4d", "%(message)s"]))
 
     if args.streamed:
         fname = args.dumpfiles[0]
         t, x, y, z = analyze_streamed(fname, plot=args.plot)
 
-    elif args.fifo:
+    else:
         allsamples = Samples()
         sampleslist = []
         for fname in args.dumpfiles:
@@ -1884,6 +1916,8 @@ if __name__ == "__main__":
             allsamples.plot_z_for_groups( only='z,xymag' )
         if args.battery:
             allsamples.plot_battery()
+        if args.frequency:
+            allsamples.show_wake_freq_hist()
 
         if False and args.run_tests:
             traditional_tests = make_traditional_tests()
