@@ -676,7 +676,7 @@ class LinearDiscriminantTest( PrincipalComponentTest ):
         if trainselect is not None:
             attrname, attrval = trainselect
         else:
-            attrname = 'confirmed_only'
+            attrname = 'confirmed'
             attrval = True
         kwargs={attrname: attrval}
         goodset = trainingset.getMeasureMatrix(**kwargs)
@@ -821,91 +821,31 @@ class Samples( object ):
             self.unconfirmed_time_max = other.unconfirmed_time_max
 
     def filter_samples( self, **kwargs ):
+        """
+            show : display sample info
+            reverse : reverse the test result
+            or_tests : use testA or testB rather than testA and testB
+
+            any other kwarg will be tested against a property
+        """
+        show = kwargs.pop( "show", False )      # show basic info
         reverse = kwargs.pop( "reverse", False )
-        reject = kwargs.pop( "reject_only", False )
-        accept = kwargs.pop( "accept_only", False )
-        fnonly = kwargs.pop( "false_negatives", False )
-        confirmed = kwargs.pop( "confirmed_only", False )
-        supery = kwargs.pop( "supery_only", False )
-        full = kwargs.pop( "full_only", False )
-        unconfirmed = kwargs.pop( "unconfirmed_only", False )
-        show = kwargs.pop( "show", False )
-        if len(kwargs) == 1:
-            otherattr, attrval = kwargs.popitem()
-            log.debug("Checking that '{}' attr {}= '{}'".format(
-                otherattr, '!' if reverse else '=', attrval))
-        elif len(kwargs):
-            log.warning("Dont recognize kwargs: {}".format(list(kwargs)))
-            raise ValueError("Cannot handle more than 1 extra kwargs")
-        else:
-            otherattr = None
-        log.debug('Checking {} samples'.format(len(self.samples)))
+        or_tests = kwargs.pop( "or_tests", False )
+
+        def test( sample, filters ):
+            for name, val in filters.items():
+                yield getattr(sample, name) == val
+
+        log.debug('Filtering through {} samples'.format(len(self.samples)))
+
         for sample in self.samples:
-            if reject and sample.accepted:
-                if reverse:
-                    if show: sample.logSummary()
-                    yield sample
-                else:
-                    continue
-            elif accept and not sample.accepted:
-                if reverse:
-                    if show: sample.logSummary()
-                    yield sample
-                else:
-                    continue
-            elif full and any(None in vals for vals in (sample.xs, sample.ys, sample.zs)):
-                if reverse:
-                    if show: sample.logSummary()
-                    yield sample
-                else:
-                    continue
-            elif supery and not sample.supery:
-                if reverse:
-                    if show: sample.logSummary()
-                    yield sample
-                else:
-                    continue
-            elif fnonly and ( not sample.confirmed or sample.accepted ):
-                if reverse:
-                    if show: sample.logSummary()
-                    yield sample
-                else:
-                    continue
-            elif confirmed and not sample.confirmed:
-                if reverse:
-                    if show: sample.logSummary()
-                    yield sample
-                else:
-                    continue
-            elif unconfirmed and sample.confirmed:
-                if reverse:
-                    if show: sample.logSummary()
-                    yield sample
-                else:
-                    continue
-            elif otherattr is not None:
-                if not hasattr(sample, otherattr):
-                    log.debug("sample does not have '{}' attr".format(otherattr))
-                    if reverse:
-                        if show: sample.logSummary()
-                        yield sample
-                    else:
-                        continue
-                elif getattr(sample, otherattr) != attrval:
-                    if reverse:
-                        if show: sample.logSummary()
-                        yield sample
-                    else:
-                        continue
-                else:
-                    if reverse:
-                        continue
-                    else:
-                        if show: sample.logSummary()
-                        yield sample
-            elif reverse:
-                continue
+            if or_tests:
+                result = any(test(sample, kwargs))
             else:
+                result = all(test(sample, kwargs))
+            if reverse:
+                result = not result
+            if result:
                 if show: sample.logSummary()
                 yield sample
 
@@ -1151,7 +1091,7 @@ class Samples( object ):
             log.error('Timestamp out of order!!!')
             return None
         elif timestamp == last_timestamp:
-            log.warning("Duplicate timestamp at {}".format(timestring(timestamp)))
+            log.warning("Duplicate timestamp at {}".format(_timestring(timestamp)))
         xs, ys, zs = [], [], []
         while True:
             binval = filehandle.read(3)
@@ -1205,7 +1145,7 @@ class Samples( object ):
             return None
         elif timestamp == last_timestamp:
             log.warning("Duplicated battery timestamp")
-        log.info('{}: BATTERY {:.3} V'.format(timestring(timestamp), volt))
+        log.info('{}: BATTERY {:.3} V'.format(_timestring(timestamp), volt))
         return timestamp, volt
 
     def parse_fifo( self, fname ):
@@ -1480,14 +1420,13 @@ class WakeSample( object ):
     def _getIsSuperY(self): return bool(self.int2 & 0x80)
     supery = property( fget=_getIsSuperY )
 
-    def logSummary(self):
-        log.info(self.summary)
-        log.info(self.tint1)
-        log.info(self.tint2)
+    def _getIsFull(self):
+        return not any(None in v for v in (self.xs, self.ys, self.zs))
+    full = property(fget=_getIsFull)
 
     def _getSummary(self):
         return '{}: {:4.1f} sec, {:2} vals, {} V, {}'.format(
-                timestring(self.timestamp), self.waketime/1e3,
+                _timestring(self.timestamp), self.waketime/1e3,
                 sum(1 for x in self.xs if x is not None),
                 '{:.2f}'.format(self.batt) if self.batt is not None else ' -- ',
                 'CONFIRMED' if self.confirmed else 'unconfirmed')
@@ -1506,6 +1445,11 @@ class WakeSample( object ):
         return 'int2:  '+ ' | '.join(
                 "{:>2}".format(f if on else '') for f, on in zip(flags, i2f))
     tint2 = property( fget=_getInt2Summary )
+
+    def logSummary(self):
+        log.info(self.summary)
+        log.info(self.tint1)
+        log.info(self.tint2)
 
     def _collect_sums( self ):
         self.xsums = [ sum( v for v in self.xs[:i+1] if v is not None ) for i in range( len( self.xs ) ) ]
@@ -1597,9 +1541,6 @@ class WakeSample( object ):
             self._check_result = False
         return self._check_result
     accepted = property( fget=wakeup_check )
-
-    def is_false_negative(self):
-        return not self.wakeup_check() and self.confirmed
 
     def sumN_score(self, n):
         xN = sum(self.xs[:n])
@@ -1700,12 +1641,22 @@ class WakeSample( object ):
                 writer.writerow( [ i, x, y, z ] )
 
 
-def timestring( t=None ):
+def _timestring( t=None ):
     if t is None:
         t = time.time()
     local = time.gmtime(t)
     fmt = "%Y-%m-%d %H:%M:%S"
     return time.strftime(fmt, local)
+
+def load_samples(samplefile=SAMPLESFILE):
+    with open(samplefile, 'r') as fh:
+        samplestext = fh.read()
+    return jsonpickle.decode(samplestext)
+
+def store_samples(samples, samplefile=SAMPLESFILE):
+    samplestext = jsonpickle.encode(samples, keys=True)
+    with open(samplefile, 'w') as fh:
+        fh.write(samplestext)
 
 ### Analysis function for streaming xyz data ###
 def analyze_streamed( fname, plot=True ):
@@ -1818,6 +1769,7 @@ def run_tests(tests, samples, plot=False):
             test.plot_result()
         samples = test.passed_samples
 
+
 ### Relics ###
 def plot_sumN_scores(samples):
     conf_scores = []
@@ -1855,15 +1807,6 @@ def plot_sums(samples, x_cnt = 5, y_cnt = 8):
     #plt.plot(ssums_u, linestyle=":",  color="g")
     plt.plot(ysums_u, linestyle=":",  color="b")
 
-def load_samples(samplefile=SAMPLESFILE):
-    with open(samplefile, 'r') as fh:
-        samplestext = fh.read()
-    return jsonpickle.decode(samplestext)
-
-def store_samples(samples, samplefile=SAMPLESFILE):
-    samplestext = jsonpickle.encode(samples, keys=True)
-    with open(samplefile, 'w') as fh:
-        fh.write(samplestext)
 
 ### mini scripts ###
 def show_various_reductions(samples, pca_test, pcadims=None):
@@ -1917,7 +1860,7 @@ if __name__ == "__main__":
         parser.add_argument('-r', '--rejects_only', action='store_true', default=False)
         parser.add_argument('-p', '--accepts_only', action='store_true', default=False)
         parser.add_argument('-l', '--show-levels', action='store_true', default=False)
-        parser.add_argument('-fn', '--false_negatives', action='store_true', default=False)
+        parser.add_argument('-fn', '--false_negative', action='store_true', default=False)
         parser.add_argument('-d', '--debug', action='store_true', default=False)
         return parser.parse_args()
 
@@ -1941,13 +1884,13 @@ if __name__ == "__main__":
 
         if args.rejects_only:
             log.info( "showing rejects only" )
-            kwargs = { "reject_only": True }
-        elif args.false_negatives:
-            log.info( "showing false_negatives only" )
-            kwargs = { "false_negatives": True }
+            kwargs = { "accepted": False }
+        elif args.false_negative:
+            log.info( "showing false negatives only" )
+            kwargs = { "accepted": False, 'confirmed':True }
         elif args.accepts_only:
             log.info( "showing accepts only" )
-            kwargs = { "accepts_only": True }
+            kwargs = { "accepted": True }
         else:
             kwargs = dict()
 
