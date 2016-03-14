@@ -1335,6 +1335,15 @@ class Samples( object ):
             if cutoff is None or interval <= cutoff:
                 yield interval
 
+    def group_wake_intervals(self, **kwargs):
+        wi = list(self.get_wake_intervals(**kwargs))
+        freq = dict()
+        for item in wi:
+            if item not in freq:
+                freq[item] = 0
+            freq[item] += 1
+        return freq
+
     def _getWakeIntervalMedian(self):
         return np.median(list(self.get_wake_intervals(confirmed=False)))
     wake_interval = property(fget=_getWakeIntervalMedian)
@@ -1347,20 +1356,24 @@ class Samples( object ):
     wake_tests_per_day = property(fget=_getWakesPerDay)
 
     def show_wake_freq_hist( self, samples=200 ):
-        intervals = sorted(self.get_wake_intervals(confirmed=False))
+        wake_intervals = self.group_wake_intervals()
+        total = sum(wake_intervals.values())
+        intervals = sorted(wake_intervals.keys())
+        percents = [(wake_intervals[i]/total * 100) for i in intervals]
+
         rm_highest_pct = 0.05
         rm_highest = int(rm_highest_pct*len(intervals))
-        intervals = intervals[:-rm_highest]
-        log.info("Interrupt interval mean {:.1f} s, median {:.1f} s".format(
-            np.mean(intervals), np.median(intervals)))
-        n, bins, patches = plt.hist(intervals, samples, normed=0.8, facecolor='green', alpha=0.5)
 
+
+        log.info("Interrupt interval median {:.1f} s".format(
+            np.median(list(wake_intervals.values()))))
+        plt.plot(intervals, percents, '.-')
+        plt.xlim(0, intervals[-rm_highest])
         plt.xlabel('Time between samples (s)')
-        plt.ylabel('Probability')
+        plt.ylabel('Probability (%)')
         #plt.title(r'$\mathrm{Histogram\ of\ IQ:}\ \mu=100,\ \sigma=15$')
         #plt.axis([0, 500, 0, 0.03])
         plt.grid(True)
-
         plt.show()
 
     def plot_battery( self ):
