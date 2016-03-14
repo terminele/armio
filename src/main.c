@@ -44,8 +44,9 @@
       (ev_flags != EV_FLAG_NONE && \
         ev_flags != EV_FLAG_ACCEL_DOWN)
 
-#define IS_LOW_BATT(vbatt_adc_val) \
-  ((vbatt_adc_val >> 4) < 2600) //~2.5v
+#define IS_LOW_BATT(vbatt_adc_val)  ((vbatt_adc_val >> 4) < 2600) /* ~2.5v */
+
+#define IS_DEAD_BATT(vbatt_adc_val) ((vbatt_adc_val >> 4) < 2300)
 
 #ifndef LOG_VBATT
 #define LOG_VBATT false
@@ -688,6 +689,11 @@ static void main_init( void ) {
   enum system_reset_cause reset_cause = system_get_reset_cause();
   if (reset_cause == SYSTEM_RESET_CAUSE_WDT) {
       main_nvm_data.wdt_resets++;
+  } else if (reset_cause == SYSTEM_RESET_CAUSE_BOD12 || reset_cause == SYSTEM_RESET_CAUSE_BOD33) {
+    do {
+      main_set_current_sensor(sensor_vbatt);
+      main_start_sensor_read();
+    } while( IS_DEAD_BATT(main_read_current_sensor(true)) );
   }
 
   nvm_update_buffer(NVM_DATA_ADDR, (uint8_t *) &main_nvm_data, 0,
@@ -922,8 +928,6 @@ int main (void) {
   control_init();
   display_init();
   anim_init();
-
-  delay_ms(5);      /* accel takes 5ms to power up */
   accel_init();
 
   /* Errata 39.3.2 -- device may not wake up from
@@ -954,9 +958,9 @@ int main (void) {
         //sleep_wake_anim = anim_random(display_point(0, BRIGHT_DEFAULT),
         //    MS_IN_TICKS(15), MS_IN_TICKS(2000), true);
         sleep_wake_anim = anim_swirl(0, 5, MS_IN_TICKS(50), 120, true);
-#ifdef NOT_NOW //DEEP_SLEEP_AT_BIRTH
+#if 0   /* Deep sleep at birth */
         main_deep_sleep_enable();
-#endif
+#endif  /* 0 */
     } else {
       /* A reset has occurred later in life */
         sleep_wake_anim = anim_swirl(0, 5, MS_IN_TICKS(10), 30, false);
@@ -982,7 +986,6 @@ int main (void) {
     }
   }
 }
-
 #else /* RTC_CALIBRATE enabled */
 int main (void) {
   system_init();
