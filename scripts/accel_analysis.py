@@ -51,11 +51,11 @@ class SampleTest( object ):
         self.values = []
         self.clear_results()
 
-    def _getPassedSamples( self ):
+    def _getPuntedSamples( self ):
         if not self.analyzed:
             self.analyze()
-        return self._passed_samples
-    passed_samples = property( fget=_getPassedSamples )
+        return self._punted_samples
+    punted_samples = property( fget=_getPuntedSamples )
 
     def clear_results( self ):
         self.analyzed = False
@@ -64,19 +64,19 @@ class SampleTest( object ):
         self.test_results = []
 
         self.rejected = 0
-        self.passed = 0
-        self._passed_samples = []
+        self.punted = 0
+        self._punted_samples = []
         self.accepted = 0
 
         self.confirmed = 0
         self.unconfirmed = 0
 
         self.confirmed_accepted = 0
-        self.confirmed_passed = 0
+        self.confirmed_punted = 0
         self.confirmed_rejected = 0
 
         self.unconfirmed_accepted = 0
-        self.unconfirmed_passed = 0
+        self.unconfirmed_punted = 0
         self.unconfirmed_rejected = 0
 
         self.unconfirmed_time = 0
@@ -84,7 +84,7 @@ class SampleTest( object ):
         self.unconfirmed_time_max = 0
 
         self.unconfirmed_rejected_time = 0
-        self.unconfirmed_passed_time = 0
+        self.unconfirmed_punted_time = 0
         self.unconfirmed_accepted_time = 0
 
     def _test_sample( self, value, fltr_num=None ):
@@ -136,15 +136,16 @@ class SampleTest( object ):
                 return ACCEPT
         return PASS
 
-    def add_samples( self, samples ):
-        for sample in samples:
-            if len( sample.xs ) == 0:
-                continue
-            self.analyzed = False
+    def add_samples( self, *sample_sets ):
+        for samples in sample_sets:
+            for sample in samples:
+                if len( sample.xs ) == 0:
+                    continue
+                self.analyzed = False
 
-            val = self._test_fcn( sample )
-            self.samples.append( sample )
-            self.values.append( val )
+                val = self._test_fcn( sample )
+                self.samples.append( sample )
+                self.values.append( val )
 
     def analyze( self ):
         self.clear_results()
@@ -157,8 +158,8 @@ class SampleTest( object ):
             elif test == REJECT:
                 self.rejected += 1
             elif test == PASS:
-                self.passed += 1
-                self._passed_samples.append( sample )
+                self.punted += 1
+                self._punted_samples.append( sample )
 
             if sample.confirmed:
                 self.confirmed += 1
@@ -167,7 +168,7 @@ class SampleTest( object ):
                 elif test == REJECT:
                     self.confirmed_rejected += 1
                 elif test == PASS:
-                    self.confirmed_passed += 1
+                    self.confirmed_punted += 1
             else:
                 self.unconfirmed += 1
                 if test == ACCEPT:
@@ -175,7 +176,7 @@ class SampleTest( object ):
                 elif test == REJECT:
                     self.unconfirmed_rejected += 1
                 elif test == PASS:
-                    self.unconfirmed_passed += 1
+                    self.unconfirmed_punted += 1
 
                 if sample.waketime:
                     self.unconfirmed_time_cnt += 1
@@ -187,7 +188,7 @@ class SampleTest( object ):
                     elif test == REJECT:
                         self.unconfirmed_rejected_time += sample.waketime
                     elif test == PASS:
-                        self.unconfirmed_passed_time += sample.waketime
+                        self.unconfirmed_punted_time += sample.waketime
         self.analyzed = True
 
     def show_result( self, testsperday=None ):
@@ -196,14 +197,16 @@ class SampleTest( object ):
         print( "Analysis for '{}'".format( self.name ) )
         print( "{:10}|{:12}|{:12}|{:12}".format( "", "Confirmed", "Unconfirmed", "Totals" ) )
         print( "{:10}|{:12}|{:12}|{:12}".format( "Accepted", self.confirmed_accepted, self.unconfirmed_accepted, self.accepted ) )
-        print( "{:10}|{:12}|{:12}|{:12}".format( "Passed", self.confirmed_passed, self.unconfirmed_passed, self.passed ) )
+        print( "{:10}|{:12}|{:12}|{:12}".format( "Punted", self.confirmed_punted, self.unconfirmed_punted, self.punted ) )
         print( "{:10}|{:12}|{:12}|{:12}".format( "Rejected", self.confirmed_rejected, self.unconfirmed_rejected, self.rejected ) )
         print( "{:10}|{:12}|{:12}|{:12}".format( "Total", self.confirmed, self.unconfirmed, self.total ) )
-        print( "False Negatives {}, {:.0%}".format( self.confirmed_rejected, self.confirmed_rejected/self.confirmed ) )
-        print( "False Positives {}, {:.0%}".format( self.unconfirmed_accepted, self.unconfirmed_accepted/self.unconfirmed ) )
-        if testsperday is not None:
-            print( "Accidental wakes per day: {:.0f}".format( testsperday*self.unconfirmed_accepted/self.unconfirmed ) )
-        if self.unconfirmed_time_cnt:
+        if self.confirmed != 0:
+            print( "False Negatives {}, {:.0%}".format( self.confirmed_rejected, self.confirmed_rejected/self.confirmed ) )
+        if self.unconfirmed != 0:
+            print( "False Positives {}, {:.0%}".format( self.unconfirmed_accepted, self.unconfirmed_accepted/self.unconfirmed ) )
+            if testsperday is not None:
+                print( "Accidental wakes per day: {:.0f}".format( testsperday*self.unconfirmed_accepted/self.unconfirmed ) )
+        if self.unconfirmed_time_cnt != 0:
             print( "Unconfirmed time analysis ({} values):".format( self.unconfirmed_time_cnt ) )
             print( "  average unconfirmed time {:.1f} seconds".format(
                 1e-3 * self.unconfirmed_time / self.unconfirmed_time_cnt ) )
@@ -212,9 +215,9 @@ class SampleTest( object ):
             print( "  {:.1f} of {:.1f} unconf sec accepted, {:.0%}".format(
                 self.unconfirmed_accepted_time * 1e-3, self.unconfirmed_time * 1e-3,
                 self.unconfirmed_accepted_time / self.unconfirmed_time ) )
-            print( "  {:.1f} of {:.1f} unconf sec passed, {:.0%}".format(
-                self.unconfirmed_passed_time * 1e-3, self.unconfirmed_time * 1e-3,
-                self.unconfirmed_passed_time / self.unconfirmed_time ) )
+            print( "  {:.1f} of {:.1f} unconf sec punted, {:.0%}".format(
+                self.unconfirmed_punted_time * 1e-3, self.unconfirmed_time * 1e-3,
+                self.unconfirmed_punted_time / self.unconfirmed_time ) )
             print( "  {:.1f} of {:.1f} unconf sec rejected, {:.0%}".format(
                 self.unconfirmed_rejected_time * 1e-3, self.unconfirmed_time * 1e-3,
                 self.unconfirmed_rejected_time / self.unconfirmed_time ) )
@@ -344,6 +347,116 @@ class SampleTest( object ):
 
         plt.show()
 
+    def _getMinConfirmed( self ):
+        return min( v for s, v in zip(self.samples, self.values) if s.confirmed )
+    minconfirmed = property(fget=_getMinConfirmed)
+
+    def _getMinUnconfirmed( self ):
+        return min( v for s, v in zip(self.samples, self.values) if not s.confirmed )
+    minunconfirmed = property(fget=_getMinUnconfirmed)
+
+    def _getMaxConfirmed( self ):
+        return max( v for s, v in zip(self.samples, self.values) if s.confirmed )
+    maxconfirmed = property(fget=_getMaxConfirmed)
+
+    def _getMaxUnconfirmed( self ):
+        return max( v for s, v in zip(self.samples, self.values) if not s.confirmed )
+    maxunconfirmed = property(fget=_getMaxUnconfirmed)
+
+    def _getMedianConfirmed( self ):
+        return np.median( list(v for s, v in zip(self.samples, self.values) if s.confirmed) )
+    midconfirmed = property(fget=_getMedianConfirmed)
+
+    def _getMedianUnconfirmed( self ):
+        return np.median( list(v for s, v in zip(self.samples, self.values) if not s.confirmed) )
+    midunconfirmed = property(fget=_getMedianUnconfirmed)
+
+    def plot_boxwhisker(self, dim=0):
+        ths = ( self._reject_below, self._reject_above,
+                self._accept_below, self._accept_above )
+        dims = set( len( th ) if isinstance( th, ( list, tuple ) ) else 1
+                for th in ths if th is not None )
+        if not len(self.values):
+            raise ValueError("Nothing to plot")
+
+        if len(dims) == 0:
+            if isinstance(self.values[0], (list, tuple)):
+                dim = len(self.values[0])
+            else:
+                dim = 1
+        elif len(dims) == 1:
+            dim = dims.pop()
+        else:           # all tests should have same num dimensions
+            raise ValueError( "{} has different dimensions {}".format(
+                self.name, dims ) )
+        if dim == 0:
+            raise ValueError("Must have at least one dimensions")
+        elif dim > 3:
+            log.warning("Truncating to first 3 dimensions")
+
+        data = []
+        labels = []
+        if dim == 1:
+            data.append([v for s, v in zip(self.samples, self.values) if s.confirmed])
+            labels.append('confirmed')
+            data.append([v for s, v in zip(self.samples, self.values) if not s.confirmed])
+            labels.append('unconfirmed')
+        else:
+            for d in range(dim):
+                labels.append('confirmed {}'.format(d))
+                data.append([v[d] for s, v in zip(self.samples, self.values) if s.confirmed])
+                labels.append('unconfirmed {}'.format(d))
+                data.append([v[d] for s, v in zip(self.samples, self.values) if not s.confirmed])
+        plt.boxplot(data, labels=labels)
+        plt.show()
+
+    def plot_accepts(self, resolution=100, start=None, stop=None):
+        rb = self._reject_below
+        ra = self._reject_above
+        ab = self._accept_below
+        aa = self._accept_above
+        self._reject_below = None
+        self._reject_above = None
+        self._accept_below = None
+        self._accept_above = None
+
+        if start is None:
+            start = max(self.minconfirmed, self.minunconfirmed)
+        if stop is None:
+            stop = min(self.maxconfirmed, self.maxunconfirmed)
+
+        if isinstance( start, (tuple, list) ):
+            raise NotImplementedError("Only 1 dimension allowed for now")
+
+        if self.midconfirmed < self.midunconfirmed:
+            accept_below = True
+        else:
+            accept_below = False
+
+        thresholds = [v for v in np.linspace(start, stop, resolution)]
+        false_negative = []
+        false_positive = []
+        for th in thresholds:
+            if accept_below:
+                self._accept_below = th
+                self._reject_above = th
+            else:
+                self._accept_above = th
+                self._reject_below = th
+            self.analyze()
+            false_negative.append( 100 * self.confirmed_rejected / self.confirmed )
+            false_positive.append( 100 * self.unconfirmed_accepted / self.unconfirmed )
+        self._reject_below = rb
+        self._reject_above = ra
+        self._accept_below = ab
+        self._accept_above = aa
+        plt.plot(thresholds, false_negative, label='false_negative')
+        plt.plot(thresholds, false_positive, label='false_positive')
+        plt.legend()
+        plt.xlabel("Threshold")
+        plt.ylabel("Percent (%)")
+        plt.show()
+
 
 class PrincipalComponentTest( SampleTest ):
     _long_name = "Principal Component"
@@ -364,9 +477,9 @@ class PrincipalComponentTest( SampleTest ):
             name = kwargs.pop('name')
             weightings = kwargs.pop('weightings')
             test_fcn = lambda s : self.apply_weighting(weightings, s)
-            self._prereduce = None
-            self.eigvects = [weightings] + [[0]*96 for _ in range(95)]
-            self.eigvals = [1] + [0 for _ in range(95)]
+            self._prereduce = kwargs.pop("prereduce", None)
+            self.eigvects = [weightings] + [[0]*len(weightings) for _ in range(len(weightings)-1)]
+            self.eigvals = [1] + [0 for _ in range(len(weightings)-1)]
         else:
             self._prereduce = kwargs.pop("prereduce", None)
             test_fcn = self._configure_test(*trainsets, **kwargs)
@@ -379,12 +492,13 @@ class PrincipalComponentTest( SampleTest ):
                 test_names = ["{} {}".format(type(self)._short_name, i) for i in kwargs['test_axis']]
             name = kwargs.pop('name', defaultname)
             kwargs.setdefault('test_names', test_names)
+        self.trainsets = trainsets
         super().__init__(name, test_fcn, **kwargs)
         for ts in trainsets:
             if isinstance(ts, Samples):
                 self.add_samples(ts.samples)
 
-    def _find_weights(self, *datasets):
+    def _find_weights_new(self, *datasets):
         matrix = []
         for ds in datasets:
             matrix.extend(ds.measurematrix if isinstance(ds, Samples) else ds)
@@ -400,6 +514,19 @@ class PrincipalComponentTest( SampleTest ):
             S += rT_mc.dot(rT_mc.T)
         self.matrix = S
         self.getEigens(S)
+
+    def _find_weights(self, *datasets):
+        matrix = []
+        for ds in datasets:
+            matrix.extend(ds.measurematrix if isinstance(ds, Samples) else ds)
+        m = self.reduce_sample(matrix)
+        """ mean center the columns """
+        m = self.mean_center_columns(m)
+        #m = self.univarance_scale_columns(m) if univarance_scale else m
+        """ find the eigenvalues and eigenvectors of the matrix """
+        xTx = np.dot(np.transpose(m), m)
+        self.matrix = xTx
+        self.getEigens(xTx)
 
     def _configure_test(self, *trainsets, **kwargs):
         self._find_weights(*trainsets)
@@ -462,15 +589,6 @@ class PrincipalComponentTest( SampleTest ):
         vars = cls.get_col_variances(matrix)
         mT = ([x / cv**0.5 for x in c] for cv, c in zip(vars, zip(*matrix)))
         return list(zip(*mT))
-
-    def _find_weights_old(self, matrix, univarance_scale=False):
-        """ mean center the columns """
-        mc = self.mean_center_columns(matrix)
-        uv = self.univarance_scale_columns(mc) if univarance_scale else mc
-        """ find the eigenvalues and eigenvectors of the matrix """
-        xTx = np.dot(np.transpose(uv), uv)
-        self.matrix = xTx
-        self.getEigens(xTx)
 
     def getEigens(self, matrix):
         """ v should be zero by definition of eigenvalues / eigenvectors
@@ -612,11 +730,11 @@ class FixedWeightingTest( PrincipalComponentTest ):
     def __init__(self, weightings, name, **kwargs):
         """ this should be used to 'capture' the results from a LDA / PCA test
         """
-        if not len(weightings) == 96:
+        if 'prereduce' not in kwargs and not len(weightings) == 96:
             raise ValueError("Must specify weight for all 96 readings")
-        kwargs['weightings'] = weightings
-        kwargs['name'] = name
-        kwargs['test_axis'] = 0
+        kwargs.setdefault('weightings', weightings)
+        kwargs.setdefault('name', name)
+        kwargs.setdefault('test_axis', 0)
         super().__init__(**kwargs)
 
 
@@ -628,7 +746,7 @@ class LinearDiscriminantTest( PrincipalComponentTest ):
     _long_name = "Linear Discriminant Component"
     _short_name = "LDC"
 
-    def _find_weights(self, *datasets):
+    def _find_weights_new(self, *datasets):
         ds = []
         for dataset in datasets:
             if isinstance(dataset, Samples):
@@ -642,7 +760,7 @@ class LinearDiscriminantTest( PrincipalComponentTest ):
                     raise ValueError("No samples in a dataset")
                 data = dataset
             ds.append(np.array(self.reduce_sample(data)))
-        ns = [ len(d) for d in ds ]
+        ns = [len(d) for d in ds]
         N_inv = 1.0 / sum(len(d) for d in ds)
         sum_all = np.sum([np.sum(d, axis=0) for d in ds], axis=0)
         mean_all = np.array([si*N_inv for si in sum_all])
@@ -652,6 +770,7 @@ class LinearDiscriminantTest( PrincipalComponentTest ):
         mean_all = mean_all.reshape(dim, 1)
         mean_groups = [m.reshape(dim, 1) for m in mean_groups]
 
+        # within class scatter
         S_W = np.zeros((dim, dim))
         for d, means in zip(ds, mean_groups):
             S = np.zeros((dim, dim))
@@ -661,6 +780,7 @@ class LinearDiscriminantTest( PrincipalComponentTest ):
                 S += rT_mc.dot(rT_mc.T)
             S_W += S
 
+        # between class scatter
         S_B = np.zeros((dim, dim))
         for n, means in zip(ns, mean_groups):
             S_B += n * (means - mean_all).dot((means - mean_all).T)
@@ -670,6 +790,94 @@ class LinearDiscriminantTest( PrincipalComponentTest ):
         self.SB = S_B
         self.matrix = SWinvSB
         self.getEigens(SWinvSB)
+
+    def _find_weights(self, *datasets):
+        ds = []
+        alldata = []
+        for dataset in datasets:
+            if isinstance(dataset, Samples):
+                if len(dataset.samples) == 0:
+                    raise ValueError("{} has no samples".format(dataset.name))
+                else:
+                    log.info("{} has {} samples".format(dataset.name, len(dataset.samples)))
+                data = dataset.measurematrix
+            else:
+                if len(dataset) == 0:
+                    raise ValueError("No samples in a dataset")
+                data = dataset
+            reduced = self.reduce_sample(data)
+            ds.append(reduced)
+            alldata.extend(reduced)
+
+        # within class scatter
+        dim = len(ds[0][0])
+        S_W = np.zeros((dim, dim))
+        for d in ds:
+            m = self.mean_center_columns(d)
+            xTx = np.dot(np.transpose(m), m)
+            S_W += xTx
+
+        # between class scatter
+        S_B = np.zeros((dim, dim))
+        mean_all = list(self.get_col_means(alldata))
+        mean_all = np.array(mean_all).reshape(dim, 1)
+        for d in ds:
+            N = len(d)
+            means = list(self.get_col_means(d))
+            means = np.array(means).reshape(dim, 1)
+            mdiff = [ ms - ma for ms, ma in zip(means, mean_all) ]
+            S_B += N * np.dot(mdiff, np.transpose(mdiff))
+
+        self.SW = S_W
+        self.SB = S_B
+        self.matrix = np.linalg.inv(S_W).dot(S_B)
+        self.getEigens(self.matrix)
+
+
+class LeastSquaresWeighting( FixedWeightingTest ):
+    CONF_WEIGHT = 1e4
+    def __init__( self, *trainsets, **kwargs ):
+        if 'prereduce' in kwargs:
+            self._prereduce = kwargs['prereduce']
+        else:
+            self._prereduce = None
+        wts = self.do_least_sqare(*trainsets)
+        super().__init__(wts, "Least Sqaares", **kwargs)
+        for ts in trainsets:
+            if isinstance(ts, Samples):
+                self.add_samples(ts.samples)
+
+
+    def do_least_sqare(self, *datasets):
+        ds = []
+        alldata = []
+        weights = []
+        for dataset in datasets:
+            if isinstance(dataset, Samples):
+                if len(dataset.samples) == 0:
+                    raise ValueError("{} has no samples".format(dataset.name))
+                else:
+                    log.info("{} has {} samples".format(dataset.name, len(dataset.samples)))
+                data = dataset.measurematrix
+            else:
+                if len(dataset) == 0:
+                    raise ValueError("No samples in a dataset")
+                data = dataset
+            reduced = self.reduce_sample(data)
+            ds.append(reduced)
+            alldata.extend(reduced)
+            for sample in dataset.samples:
+                if isinstance( sample, WakeSample ):
+                    if sample.confirmed:
+                        weights.append(self.CONF_WEIGHT)
+                    else:
+                        weights.append(-1*sample.waketime)
+
+        phi = list(zip(*alldata))
+        Pinv = np.dot( phi, np.transpose( phi ) )
+        B = np.dot( phi, weights )
+        P = np.linalg.inv( Pinv )
+        return [v for v in np.dot( P, B )]
 
 
 class Samples( object ):
@@ -832,7 +1040,8 @@ class Samples( object ):
                 if show: sample.logSummary()
                 count += 1
                 yield sample
-        log.info("Found {} samples from {}".format(count, len(self.samples)))
+        if len(kwargs):
+            log.info("Found {} samples from {}".format(count, len(self.samples)))
 
     def show_plots( self, **kwargs ):
         for sample in self.filter_samples( **kwargs ):
@@ -1804,7 +2013,7 @@ def run_tests(tests, samples, plot=False):
         test.show_result()
         if plot:
             test.plot_result()
-        samples = test.passed_samples
+        samples = test.punted_samples
 
 
 ### Relics ###
@@ -1846,16 +2055,20 @@ def plot_sums(samples, x_cnt = 5, y_cnt = 8):
 
 
 ### mini scripts ###
-def show_various_reductions(samples, pca_test, pcadims=None):
+def show_various_reductions(*samples, **kwargs):
+    pca_test = kwargs.pop( 'pca_test', None )
+    pcadims = kwargs.pop( 'pcadims', None )
+    wake_tests_per_day = kwargs.pop( 'wake_tests_per_day', 3200 )
+    if pca_test is None:
+        pca_test = PrincipalComponentTest( *samples )
     if pcadims is None:
         pcadims = range(4, 16)
     for i in pcadims:
-        ld = LinearDiscriminantTest(samples, test_axis=0,
+        ld = LinearDiscriminantTest(*samples, test_axis=0,
                 prereduce=pca_test.getTransformationMatrix(i),
                 accept_below=0, reject_above=0)
-        ld.show_result()
+        ld.show_result(wake_tests_per_day)
         ld.plot_weightings()
-
 
 def show_polar( yth=None, zth=None ):
     ax = plt.subplot(111, projection='polar')
@@ -1956,20 +2169,28 @@ if __name__ == "__main__":
             run_tests( traditional_tests,
                     allsamples.filter_samples( **kwargs ), plot=args.plot )
 
+        # find all unconfirmed samples that have full FIFO
+        Zunconfirm = Samples("Unconfirmed Z Trigger")
+        Yunconfirm = Samples("Unconfirmed Y Trigger")
+        superYunconfirm = Samples("Unconfirmed SuperY Trigger")
+        Zconfirm = Samples("Confirmed Z Trigger")
+        Yconfirm = Samples("Confirmed Y Trigger")
+        superYconfirm = Samples("Confirmed Super Y Trigger")
+
+        Zunconfirm.samples = list(allsamples.filter_samples(
+            confirmed=False, full=True, triggerZ=True))
+        Zconfirm.samples = list(allsamples.filter_samples(
+            confirmed=True, full=True, triggerZ=True))
+        Yunconfirm.samples = list(allsamples.filter_samples(
+            confirmed=False, full=True, triggerY=True))
+        Yconfirm.samples = list(allsamples.filter_samples(
+            confirmed=True, full=True, triggerY=True))
+        superYunconfirm.samples = list(allsamples.filter_samples(
+            confirmed=False, full=True, superY=True))
+        superYconfirm.samples = list(allsamples.filter_samples(
+            confirmed=True, full=True, superY=True))
+
         if args.run_tests:
-            if False:   # cleanup samples (remove samples w/o full set)
-                allsamples.samples = [s for s in allsamples.samples
-                    if not any(None in vs for vs in (s.xs, s.ys, s.zs))]
-                allsamples.total = len(allsamples.samples)
-
-            # find all unconfirmed samples that have full FIFO
-            Zunconfirm = Samples("Unconfirmed Z Trigger")
-            Zunconfirm.samples = list(allsamples.filter_samples(
-                confirmed=False, full=True, triggerZ=True))
-            Zconfirm = Samples("Confirmed Z Trigger")
-            Zconfirm.samples = list(allsamples.filter_samples(
-                confirmed=True, full=True, triggerZ=True))
-
             # add a new attribute for coloring selected data blue
             for s in Zunconfirm.samples:
                 s.trainset = False
@@ -1980,7 +2201,8 @@ if __name__ == "__main__":
                     test_axis=[0, 1, 2])
             pc_test.plot_result()
 
-            final_dims = 8
+            #show_various_reductions(Zunconfirm, Zconfirm, wake_tests_per_day=allsamples.wake_tests_per_day):
+            final_dims = 16
             pc_test.show_eigvals(final_dims)
             tf = pc_test.getTransformationMatrix(final_dims)
 
