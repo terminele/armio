@@ -14,77 +14,6 @@ import uuid
 import csv
 import random
 
-"""
-Eigenvalue  0, 1.00e+00:  100.00%, 100.00%
-static const int32_t xfltr[] = {
-     -3300,  -2330,  -1818,     83,   2743,   2656,   2508,  -1027,
-     -3676, -10243, -15074, -21372, -25940, -31854, -37722, -41535,
-    -48169, -52951, -54606, -57449, -60256, -63063, -64348, -65125,
-    -65536, -65236, -65260, -64397, -63800, -63370, -62739, -62279,
-    };
-static const int32_t yfltr[] = {
-    -16368, -18843, -19335, -13331,  -5825,   3838,  13465,  19891,
-     19087,  17799,  13037,   3686,  -8286, -21864, -34379, -41586,
-    -46864, -48608, -45960, -44934, -44070, -43477, -43161, -43426,
-    -44121, -43756, -43916, -43753, -43085, -41843, -41350, -41138,
-    };
-static const int32_t zfltr[] = {
-     36154,  38867,  37112,  32602,  26969,  16138,   6045,   -563,
-     -6024, -10946, -12484, -12654, -10053,  -9119,  -5241,  -2727,
-     -1769,     37,    100,   1559,   2555,   4169,   6266,   7717,
-      8535,   9353,   9596,   9962,   9939,  10262,  10380,  10873,
-    };
-
-FixedWeightingTest([
-     -3300,  -2330,  -1818,     83,   2743,   2656,   2508,  -1027,
-     -3676, -10243, -15074, -21372, -25940, -31854, -37722, -41535,
-    -48169, -52951, -54606, -57449, -60256, -63063, -64348, -65125,
-    -65536, -65236, -65260, -64397, -63800, -63370, -62739, -62279,
-    -16368, -18843, -19335, -13331,  -5825,   3838,  13465,  19891,
-     19087,  17799,  13037,   3686,  -8286, -21864, -34379, -41586,
-    -46864, -48608, -45960, -44934, -44070, -43477, -43161, -43426,
-    -44121, -43756, -43916, -43753, -43085, -41843, -41350, -41138,
-     36154,  38867,  37112,  32602,  26969,  16138,   6045,   -563,
-     -6024, -10946, -12484, -12654, -10053,  -9119,  -5241,  -2727,
-     -1769,     37,    100,   1559,   2555,   4169,   6266,   7717,
-      8535,   9353,   9596,   9962,   9939,  10262,  10380,  10873,
-    ])
-
-static const int32_t xfltr[] = {
-         0,      0,      0,      0,      0,      0,      0,      0,
-         0,      0,      0,      0,      0,      0,   6553,      0,
-         0,      0,      0,      0,      0,      0,      0,      0,
-         0,      0,      0,   1310,      0,      0,      0,      0,
-    };
-static const int32_t yfltr[] = {
-         0,      0,      0,      0,      0,      0,      0,      0,
-         0,      0,      0,      0,      0,      0,      0,      0,
-         0,      0,      0,      0,      0,      0,      0,      0,
-         0,      0,    655,      0,   3276,   1638, -65536,      0,
-    };
-static const int32_t zfltr[] = {
-         0,      0,      0,      0,      0,      0,      0,      0,
-         0,      0,      0,      0,      0,      0,      0,      0,
-         0,      0,  13107,      0,      0,      0,      0,      0,
-         0,      0,      0,  -3276,      0,      0, -52428,      0,
-    };
-
-FixedWeightingTest([
-         0,      0,      0,      0,      0,      0,      0,      0,
-         0,      0,      0,      0,      0,      0,   6553,      0,
-         0,      0,      0,      0,      0,      0,      0,      0,
-         0,      0,      0,   1310,      0,      0,      0,      0,
-         0,      0,      0,      0,      0,      0,      0,      0,
-         0,      0,      0,      0,      0,      0,      0,      0,
-         0,      0,      0,      0,      0,      0,      0,      0,
-         0,      0,    655,      0,   3276,   1638, -65536,      0,
-         0,      0,      0,      0,      0,      0,      0,      0,
-         0,      0,      0,      0,      0,      0,      0,      0,
-         0,      0,  13107,      0,      0,      0,      0,      0,
-         0,      0,      0,  -3276,      0,      0, -52428,      0,
-    ])
-"""
-
 log = logging.getLogger( __name__ )
 
 TICKS_PER_MS = 1
@@ -195,6 +124,9 @@ class SampleTest( object ):
     def retest(self):
         self.clear_results()
         self.values = [self.test_fcn(s) for s in self.samples]
+
+    def filter_samples(self, **kwargs):
+        return filter_samples(self.samples, **kwargs)
 
     def _test_sample( self, value, fltr_num=None ):
         """ if value is multidimensional, filters
@@ -457,28 +389,37 @@ class SampleTest( object ):
         plt.show()
 
     def _getMinConfirmed( self ):
-        return min( v for s, v in zip(self.samples, self.values) if s.confirmed )
+        return min(self.confirmedvals)
     minconfirmed = property(fget=_getMinConfirmed)
 
     def _getMinUnconfirmed( self ):
-        return min( v for s, v in zip(self.samples, self.values) if not s.confirmed )
+        return min(self.unconfirmedvals)
     minunconfirmed = property(fget=_getMinUnconfirmed)
 
     def _getMaxConfirmed( self ):
-        return max( v for s, v in zip(self.samples, self.values) if s.confirmed )
+        return max(self.confirmedvals)
     maxconfirmed = property(fget=_getMaxConfirmed)
 
     def _getMaxUnconfirmed( self ):
-        return max( v for s, v in zip(self.samples, self.values) if not s.confirmed )
+        return max(self.unconfirmedvals)
     maxunconfirmed = property(fget=_getMaxUnconfirmed)
 
     def _getMedianConfirmed( self ):
-        return np.median( list(v for s, v in zip(self.samples, self.values) if s.confirmed) )
+        return np.median(list(self.confirmedvals))
     midconfirmed = property(fget=_getMedianConfirmed)
 
     def _getMedianUnconfirmed( self ):
-        return np.median( list(v for s, v in zip(self.samples, self.values) if not s.confirmed) )
+        return np.median(list(self.unconfirmedvals))
     midunconfirmed = property(fget=_getMedianUnconfirmed)
+
+    def _getConfirmedValues(self):
+        return (v for s, v in zip(self.samples, self.values) if s.confirmed)
+    confirmedvals = property(fget=_getConfirmedValues)
+
+    def _getUnconfirmedValues(self):
+        return (v for s, v in zip(self.samples, self.values) if not s.confirmed)
+    unconfirmedvals = property(fget=_getUnconfirmedValues)
+
 
     def plot_boxwhisker(self, dim=0):
         ths = ( self.reject_below, self.reject_above,
@@ -561,18 +502,39 @@ class SampleTest( object ):
         self.accept_above = aa
         plt.plot(thresholds, false_negative, label='false_negative')
         plt.plot(thresholds, false_positive, label='false_positive')
+        ylim = [0, 100]
+        if ra is not None:
+            plt.plot([ra, ra], ylim, 'r-', label='reject_above')
+        if rb is not None:
+            plt.plot([rb, rb], ylim, 'r-', label='reject_below')
+        if False and aa is not None:
+            plt.plot([aa, aa], ylim, 'g-', label='accept_above')
+        if False and ab is not None:
+            plt.plot([ab, ab], ylim, 'g-', label='accept_below')
         plt.legend()
+        plt.ylim(ylim)
         plt.xlabel("Threshold")
         plt.ylabel("Percent (%)")
         plt.show()
 
-    def set_conservaitve(self):
+    def set_conservative(self, max_false_neg=0, max_false_pos=0):
         if len(self.samples) == 0:
             raise ValueError("We must have some samples first")
-        self.reject_below = self.minconfirmed
-        self.reject_above = self.maxconfirmed
-        self.accept_above = self.maxunconfirmed
-        self.accept_below = self.minunconfirmed
+        if max_false_neg == 0:
+            self.reject_below = self.minconfirmed
+            self.reject_above = self.maxconfirmed
+        else:
+            if max_false_neg > 1:
+                max_false_neg /= 100
+            cvals = sorted(self.confirmedvals)
+
+        if max_false_pos == 0:
+            self.accept_above = self.maxunconfirmed
+            self.accept_below = self.minunconfirmed
+        else:
+            if max_false_pos > 1:
+                max_false_pos /= 100
+            uvals = sorted(self.unconfirmedvals)
 
     def _getFalseNegative(self):
         if not self.analyzed:
@@ -646,6 +608,8 @@ class PrincipalComponentTest( SampleTest ):
         for ts in trainsets:
             if isinstance(ts, Samples):
                 self.add_samples(ts.samples)
+            else:
+                self.add_samples(ts)
 
     def _find_weights_new(self, *datasets):
         matrix = []
@@ -667,10 +631,16 @@ class PrincipalComponentTest( SampleTest ):
     def _find_weights(self, *datasets):
         matrix = []
         for ds in datasets:
-            matrix.extend(ds.measurematrix if isinstance(ds, Samples) else ds)
+            if isinstance(ds, Samples):
+                msub = ds.measurematrix
+            elif isinstance(ds[0], WakeSample):
+                msub = [s.measures for s in ds]
+            else:
+                msub = ds
+            matrix.extend(msub)
         m = self.reduce_sample(matrix)
         """ mean center the columns """
-        m = self.mean_center_columns(m)
+        m = mean_center_columns(m)
         #m = self.univarance_scale_columns(m) if univarance_scale else m
         """ find the eigenvalues and eigenvectors of the matrix """
         xTx = np.dot(np.transpose(m), m)
@@ -711,27 +681,9 @@ class PrincipalComponentTest( SampleTest ):
         return sum(wi * si for wi, si in zip(weights, s_v))
 
     @staticmethod
-    def get_col_means(matrix):
-        N_inv = 1.0 / len(matrix)
-        cms = (sum(c) * N_inv for c in zip(*matrix))
-        return cms
-
-    @staticmethod
     def get_col_variances(matrix):
         N_inv = 1.0 / len(matrix)
         return (sum(x**2 for x in c) * N_inv for c in zip(*matrix))
-
-    @classmethod
-    def mean_center_columns(cls, matrix):
-        """ matrix has the form
-          [ [ ===  row 0  === ],
-            [ ===  .....  === ],
-            [ === row N-1 === ] ]
-            we want each column to be mean centered
-        """
-        cms = cls.get_col_means(matrix)
-        mT = ([x - cm for x in c] for cm, c in zip(cms, zip(*matrix)))
-        return list(zip(*mT))
 
     @classmethod
     def univarance_scale_columns(cls, matrix):
@@ -767,11 +719,12 @@ class PrincipalComponentTest( SampleTest ):
             print('Eigenvalue{: 3},{: 9.2e}: {: 8.2%},{: 8.2%}'.format(i,
                 eigval, (eigval/eigv_sum), (eigv_cum/eigv_sum)))
 
-            vec = self.get_xyz_weights(i)
+            vec, scale = self.get_xyz_weights(i)
             n = len(vec)//3
             xvals = vec[:n]
             yvals = vec[n:2*n]
             zvals = vec[2*n:]
+            print("Scale is {:.3f}".format(scale))
             print("static const int32_t xfltr[] = {", end='\n    ')
             for j, f in enumerate(xvals):
                 end = ', ' if (j + 1) % 8 else ',\n    '
@@ -792,9 +745,18 @@ class PrincipalComponentTest( SampleTest ):
             for j, f in enumerate(vec):
                 end = ', ' if (j + 1) % 8 else ',\n    '
                 print( "{:6}".format(f), end=end )
-            print( '])' )
+            print( ']', end='' )
+            if self.reject_below is not None:
+                print(', reject_below={:.0f}'.format(scale*self.reject_below), end='')
+            if self.reject_above is not None:
+                print(', reject_above={:.0f}'.format(scale*self.reject_above), end='')
+            if self.accept_below is not None:
+                print(', accept_below={:.0f}'.format(scale*self.accept_below), end='')
+            if self.accept_above is not None:
+                print(', accept_above={:.0f}'.format(scale*self.accept_above), end='')
+            print( ')' )
 
-    def get_xyz_weights(self, ndx=0, bits=17):
+    def get_xyz_weights(self, ndx=0, bits=17, scale=None):
         """ set bits so that sum product of 96 values that are 8-bit * bit fits
             96 < 128 (7 bits)
             accel size is 8 bit
@@ -813,9 +775,11 @@ class PrincipalComponentTest( SampleTest ):
         else:
             vec = self.eigvects[ndx]
         assert(len(vec)==96)
-        vmax = max( abs(vi) for vi in vec )
-        vec = [ int((vi / vmax) * 2**(bits - 1)) for vi in vec ]
-        return vec
+        if scale is None:
+            vmax = max( abs(vi) for vi in vec )
+            scale = 2**(bits - 1)/vmax
+        vec = [ int(vi * scale) for vi in vec ]
+        return vec, scale
 
     def show_eigvals(self, num=8, show_full_eig=False):
         if show_full_eig:
@@ -854,7 +818,7 @@ class PrincipalComponentTest( SampleTest ):
         ax.set_xlabel("Time (sample num)")
         ax.set_ylabel("Scale Factor")
         ax.set_title("Scale factor for PCA index {}".format(ndx))
-        wt = self.get_xyz_weights(ndx)
+        wt, scale = self.get_xyz_weights(ndx)
 
         n = len(wt)//3
         x = wt[:n]
@@ -873,6 +837,17 @@ class PrincipalComponentTest( SampleTest ):
         ax.autoscale_view()
         plt.legend()
         plt.show()
+
+    def make_fixed_from_current(self, name=None):
+        if name is None:
+            name = "Fixed Weight Test"
+        wts, scale = self.get_xyz_weights()
+        fix = FixedWeightingTest(wts, name)
+        fix.reject_above = self.reject_above * scale
+        fix.reject_below = self.reject_below * scale
+        fix.accept_above = self.accept_above * scale
+        fix.accept_below = self.accept_below * scale
+        return fix
 
 
 class FixedWeightingTest( PrincipalComponentTest ):
@@ -983,6 +958,8 @@ class LinearDiscriminantTest( PrincipalComponentTest ):
                 else:
                     log.info("{} has {} samples".format(dataset.name, len(dataset.samples)))
                 data = dataset.measurematrix
+            elif isinstance(dataset[0], WakeSample):
+                data = [s.measures for s in dataset]
             else:
                 if len(dataset) == 0:
                     raise ValueError("No samples in a dataset")
@@ -995,17 +972,17 @@ class LinearDiscriminantTest( PrincipalComponentTest ):
         dim = len(ds[0][0])
         S_W = np.zeros((dim, dim))
         for d in ds:
-            m = self.mean_center_columns(d)
+            m = mean_center_columns(d)
             xTx = np.dot(np.transpose(m), m)
             S_W += xTx
 
         # between class scatter
         S_B = np.zeros((dim, dim))
-        mean_all = list(self.get_col_means(alldata))
+        mean_all = list(get_col_means(alldata))
         mean_all = np.array(mean_all).reshape(dim, 1)
         for d in ds:
             N = len(d)
-            means = list(self.get_col_means(d))
+            means = list(get_col_means(d))
             means = np.array(means).reshape(dim, 1)
             mdiff = [ ms - ma for ms, ma in zip(means, mean_all) ]
             S_B += N * np.dot(mdiff, np.transpose(mdiff))
@@ -1028,7 +1005,6 @@ class LeastSquaresWeighting( FixedWeightingTest ):
         for ts in trainsets:
             if isinstance(ts, Samples):
                 self.add_samples(ts.samples)
-
 
     def do_least_sqare(self, *datasets):
         ds = []
@@ -1073,65 +1049,76 @@ class SimpleOptimizer( FixedWeightingTest ):
 
     def check_updates(self, jump=1):
         wts = self.getWeightings()
-        self.set_conservaitve()
+        self.set_conservative()
+        stopped = False
         tn_std = self.true_negative
         tp_std = self.true_positive
         best_tn = (tn_std, wts)
         best_tp = (tp_std, wts)
-        for i in range(len(wts)):
-            best_neg = False
-            best_pos = False
-            newwts = list(wts)
-            newwts[i] -= jump
-            self.setWeightings(newwts)
-            self.set_conservaitve()
-            tn_m1, tp_m1 = self.true_negative, self.true_positive
-            if tn_m1 > best_tn[0]:
-                best_tn = (tn_m1, newwts)
-                best_neg = True
-            if tp_m1 > best_tp[0]:
-                best_tp = (tp_m1, newwts)
-                best_pos = True
-            newwts = list(wts)
-            newwts[i] += jump
-            self.setWeightings(newwts)
-            self.set_conservaitve()
-            tn_p1, tp_p1 = self.true_negative, self.true_positive
-            if tn_p1 > best_tn[0]:
-                best_tn = (tn_p1, newwts)
-                best_neg = True
-            if tp_p1 > best_tp[0]:
-                best_tp = (tp_p1, newwts)
-                best_pos = True
-            fmts = []
-            for v in [tn_p1-tn_std, tn_m1-tn_std, tp_p1-tp_std, tp_m1-tp_std]:
-                if v > 0:
-                    fmts.append("{:+6.1%}".format(v))
-                elif v == 0:
-                    fmts.append("    0 ")
-                else:
-                    fmts.append("   -- ")
-            print("w[{: 3}] = {: 6.1f} +/-{: 6.1f}: {:5.1%} ({} | {}) || {:5.1%} ({} | {}) {} {}".format(
-                i, wts[i], jump, tn_std, fmts[0], fmts[1], tp_std, fmts[2], fmts[3],
-                "<<" if best_neg else "  ", '<<' if best_pos else '  '))
-        self.setWeightings(wts)
-        self.set_conservaitve()
+        try:
+            for i in range(len(wts)):
+                best_neg = False
+                best_pos = False
+                newwts = list(wts)
+                newwts[i] -= jump
+                self.setWeightings(newwts)
+                self.set_conservative()
+                tn_m1, tp_m1 = self.true_negative, self.true_positive
+                if tn_m1 > best_tn[0]:
+                    best_tn = (tn_m1, newwts)
+                    best_neg = True
+                if tp_m1 > best_tp[0]:
+                    best_tp = (tp_m1, newwts)
+                    best_pos = True
+                newwts = list(wts)
+                newwts[i] += jump
+                self.setWeightings(newwts)
+                self.set_conservative()
+                tn_p1, tp_p1 = self.true_negative, self.true_positive
+                if tn_p1 > best_tn[0]:
+                    best_tn = (tn_p1, newwts)
+                    best_neg = True
+                if tp_p1 > best_tp[0]:
+                    best_tp = (tp_p1, newwts)
+                    best_pos = True
+                fmts = []
+                for v in [tn_p1-tn_std, tn_m1-tn_std, tp_p1-tp_std, tp_m1-tp_std]:
+                    if v > 0:
+                        fmts.append("{:+6.1%}".format(v))
+                    elif v == 0:
+                        fmts.append("    0 ")
+                    else:
+                        fmts.append("   -- ")
+                print("w[{: 3}] = {: 6.1f} +/-{: 6.1f}: {:5.1%} ({} | {}) || {:5.1%} ({} | {}) {} {}".format(
+                    i, wts[i], jump, tn_std, fmts[0], fmts[1], tp_std, fmts[2], fmts[3],
+                    "<<" if best_neg else "  ", '<<' if best_pos else '  '))
+        except KeyboardInterrupt:
+            print("Stopped....")
+            stopped = True
+        finally:
+            self.setWeightings(wts)
+            self.set_conservative()
+        if stopped:
+            raise KeyboardInterrupt("Terminated")
         return best_tn, best_tp
 
-    def iterate(self, weights=None):
+    def iterate(self, weights=None, startval=128, minval=1, maxiter=16, usenegative=True):
         if weights is None:
-            weights = [ 100, 80, 64, 50, 40, 32, 25, 20, 16, 13,
-                         10, 8, 6.4,  5, 4, 3.2, 2.5, 2, 1.6, 1.3, 1 ]
-        elif isinstance(weights, float) and weights < 1:
-            wt = 100
+            weights = 0.8
+        if isinstance(weights, float) and weights < 1:
+            wt = startval
             wlist = []
-            while wt >= 1:
+            iteration = 0
+            while wt >= minval and iteration < maxiter:
                 wlist.append(wt)
                 wt = weights * wt
+                iteration += 1
             weights = wlist
         for jp in weights:
             tn, tp = self.check_updates(jp)
-            self.setWeightings(list(tn[1]))
+            updated = list(tn[1] if usenegative else tp[1])
+            self.setWeightings(updated)
+            self.set_conservative()
 
 
 class Samples( object ):
@@ -1161,7 +1148,32 @@ class Samples( object ):
             return None
     mintime = property(fget=_getMinTime)
 
-    def clear_results( self ):
+    def findOutliers(self):
+        mags = get_row_magnitudes(mean_center_columns(self.measurematrix))
+        return sorted(zip(mags, self.samples), reverse=True)
+
+    def plotOutliers(self, skip=None):
+        if skip is not None:
+            outliers = sorted(self.findOutliers())[:-skip]
+        ovals, osamples = list(zip(*outliers))
+        ovmin, ovscale = min(ovals), 0xff/(max(ovals) - min(ovals))
+        ovscaled = [ int((o - ovmin)*ovscale) for o in ovals ]
+        colors = [ "#{:02X}{:02X}{:02X}".format( o, 0, 0xff-o ) for o in ovscaled ]
+        fig = plt.figure()
+
+        ax = fig.add_subplot(311)
+        for color, os in zip(colors, osamples):
+            os.show_plot(axis=ax, color=color, only='x', show=False)
+        ax = fig.add_subplot(312)
+        for color, os in zip(colors, osamples):
+            os.show_plot(axis=ax, color=color, only='y', show=False)
+        ax = fig.add_subplot(313)
+        for color, os in zip(colors, osamples):
+            os.show_plot(axis=ax, color=color, only='z', show=False)
+        plt.show()
+
+
+    def clear_results(self):
         self.total = 0
         self.rejected = 0
         self.accepted = 0
@@ -1182,8 +1194,8 @@ class Samples( object ):
     def analyze( self ):
         self.clear_results()
         for sample in self.samples:
-            if len( sample.xs ) < 1:
-                log.debug( "skipping invalid data {}".format(
+            if len( sample.xs ) == 0:
+                log.debug( "skipping sample w/o data {}".format(
                     (sample.xs, sample.ys, sample.zs) ) )
                 continue
 
@@ -2038,7 +2050,7 @@ class WakeSample( object ):
             show ( True ) : if not to show, also suppresses labels
             hide_legend ( False ): hide the legend
             hide_title ( False ): hide the title
-            ax (None) : optionally provide the axis to plot on
+            axis (None) : optionally provide the axis to plot on
         """
         ax = kwargs.pop('axis', None)
         if ax is None:
@@ -2111,12 +2123,33 @@ class WakeSample( object ):
                 writer.writerow( [ i, x, y, z ] )
 
 
+### HELPER FUNCTIONS ###
 def _timestring( t=None ):
     if t is None:
         t = time.time()
     local = time.gmtime(t)
     fmt = "%Y-%m-%d %H:%M:%S"
     return time.strftime(fmt, local)
+
+def get_col_means(matrix):
+    N_inv = 1.0 / len(matrix)
+    cms = (sum(c) * N_inv for c in zip(*matrix))
+    return cms
+
+def mean_center_columns(matrix):
+    """ matrix has the form
+      [ [ ===  row 0  === ],
+        [ ===  .....  === ],
+        [ === row N-1 === ] ]
+        we want each column to be mean centered
+    """
+    cms = get_col_means(matrix)
+    mT = ([x - cm for x in c] for cm, c in zip(cms, zip(*matrix)))
+    return list(zip(*mT))
+
+def get_row_magnitudes(matrix):
+    for row in matrix:
+        yield sum(ri**2 for ri in row)**0.5
 
 def filter_samples(samples, **kwargs):
     """
@@ -2375,6 +2408,7 @@ def show_threshold_values():
         opposite = (32**2-th**2)**0.5
         print("{: 3}:  {:5.1f}  {:5.1f}".format(th, angle, opposite))
 
+
 if __name__ == "__main__":
     def parse_args():
         parser = argparse.ArgumentParser(description='Analyze an accel log dump')
@@ -2470,6 +2504,91 @@ if __name__ == "__main__":
             confirmed=False, full=True, superY=True))
         superYconfirm.samples = list(allsamples.filter_samples(
             confirmed=True, full=True, superY=True))
+
+        fw = FixedWeightingTest([
+             54012,      0,      0,   4167,  -2165,      0,      0,  -8856,
+                 0,      0,      0,      0,   1958,      0,      0,      0,
+                 0,      0,      0,      0,      0,      0,      0,      0,
+                 0,   1041,      0,   1789,      0,      0,      0,      0,
+                 0,      0,      0,      0,      0,      0,      0,      0,
+                 0,      0,      0,      0,      0,      0,      0,      0,
+                 0,      0,      0,      0,      0,      0,  -4167,    586,
+                 0,   2083,      0,      0,    533,      0, -65536,      0,
+                 0,      0,      0,      0,      0,      0,      0,      0,
+                 0,      0,      0,      0,      0,      0,    520,      0,
+                 0,  31893,      0,      0,      0,      0,      0,      0,
+                 0,      0,      0, -48610,      0,  54752, -60013,  -2083],
+            "Fix Weight no PCA (60%)", reject_below=-4503487, reject_above=-446706)
+
+        fw_fw = FixedWeightingTest([
+                 0,      0,      0,      0,   -512,      0,      0,      0,
+                 0,    256,      0,      0,      0,   2048,      0,      0,
+                 0,      0,      0, -42998,      0, -65536,      0,  18353,
+                 0,      0,  29418,      0, -16658,      0, -28211,      0,
+                 0,      0,      0,      0,      0,      0,      0,      0,
+                 0,      0,      0,      0,      0,      0,      0,      0,
+                 0,      0,      0,      0,      0,      0,      0,      0,
+                 0,      0,      0, -58982,      0,      0,      0,      0,
+                 0,      0,      0,      0,  38698,      0,      0,      0,
+                 0,      0,      0,      0,      0,      0,      0,  -4503,
+                 0, -13493,      0,  18038,      0,      0,   2882,   3602,
+                 0,      0,      0,      0,      0,  34828,  62634,  -4096],
+            "Round 2 Fix Weight no PCA (54%)", reject_below=799630, reject_above=5230486)
+
+        fw16 = FixedWeightingTest([
+             24912,  23804,  24548,  21961,  22940,  17106,   8257,   4437,
+             -1867,  -4358,  -1708, -10924, -16316, -24163, -23182, -17621,
+            -18712, -19745, -13733, -10231,  -7649,  -4510,  -1029,   3061,
+              6079,   8855,  11299,  13708,  15338,  17013,  17815,  18796,
+            -20954,  -5961,  27258,  61376,  65536,  42906,   1332, -14361,
+             -5567,   6993,  24603,  21632,  -7178, -27601, -25445,  -3262,
+             11709,   6866,  -9518, -20687, -28206, -35551, -40934, -42713,
+            -42412, -38837, -34406, -31774, -27021, -23792, -21319, -20966,
+             -1257,  -4371, -16130, -20313, -16556,  -6055,  -2857, -10384,
+            -18299, -20369, -27230, -16506,   5503,  25150,  27247,  15526,
+              8929,   4078,   2497,    150,  -2769,  -4124,  -5289,  -5910,
+             -6868,  -7921,  -8699,  -9236, -10013, -10454, -10146,  -9662],
+             "Fixed Weight PCA16 (50%)", reject_below=-16887483, reject_above=-2192589)
+
+        fw16_fw = FixedWeightingTest([
+                 0,      0,      0,      0,      0,      0,      0,      0,
+                 0,      0,      0,      0,      0,      0,      0,      0,
+                 0,      0,      0, -16456,      0, -65535,      0,      0,
+                 0,      0, -13821,  -8425,      0,      0,      0,      0,
+                 0,      0,      0,  -4313,      0,      0,      0,      0,
+                 0,      0,      0,      0,      0,      0,      0, -13164,
+                 0,      0,      0,      0,      0,      0,      0,      0,
+                 0,      0,      0,      0, -50220,      0,      0,      0,
+                 0,      0,      0,   5392,      0,      0,      0,      0,
+                 0,      0,      0,      0,      0,      0,      0,      0,
+                 0,      0,   2208,      0,      0,      0,      0,      0,
+                 0,      0,      0,      0,      0,      0,  20570,      0],
+            "FW, run after fw16 (37%)", reject_below=-1022321, reject_above=2315226)
+
+        fw8 = FixedWeightingTest([
+             16159,  18057,  16761,  16492,  15305,  13362,  10686,   7176,
+              3552,  -1998,  -4503,  -7243,  -9494, -11082, -10833, -11247,
+            -11368,  -9693,  -6817,  -5634,  -5105,  -4189,  -3519,  -2784,
+             -2579,  -2390,  -2364,  -1930,  -2079,  -1542,  -1177,   -854,
+             -4221,  -3518,   3755,  10806,  17441,  22193,  28658,  30973,
+             31740,  30832,  26556,  21020,  11277,    360, -12997, -25852,
+            -35026, -42521, -48714, -51650, -55731, -58763, -61005, -62124,
+            -63718, -64342, -64952, -65536, -65030, -64171, -62981, -62263,
+            -34766, -39818, -41981, -42266, -40617, -36075, -30217, -21139,
+            -11197,   -364,   6869,  11016,  16247,  18003,  18320,  16982,
+             14171,  10739,   4395,   -541,  -4716,  -7429,  -8873,  -9701,
+             -9972,  -9519,  -9164,  -8385,  -7977,  -7680,  -6624,  -5514],
+            "Fixed Weight PCA8", reject_below=-28203906, reject_above=2042431)
+
+        if False: # most recent sequence for starting testing
+            run_tests([fw, fw_fw], list(allsamples.filter_samples(triggerZ=True, full=True)))
+            unconf = list(filter_samples(fw_fw.punted_samples, confirmed=False))
+            conf = list(filter_samples(fw_fw.punted_samples, confirmed=True))
+            pc = PrincipalComponentTest(conf, unconf, test_axis=[0, 1, 2])
+            ld = LinearDiscriminantTest(conf, unconf, test_axis=0,
+                    prereduce=pc.getTransformationMatrix(8))
+            # now we need to figure out how to set threshold
+# TODO : check if we can get better data with conf filtering for xturn / yturn
 
         if args.run_tests:
             # add a new attribute for coloring selected data blue
