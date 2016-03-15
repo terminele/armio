@@ -14,6 +14,43 @@ import uuid
 import csv
 import random
 
+"""
+
+static const int32_t xfltr[] = {
+         0,      0,      0,      0,      0,      0,      0,      0,
+         0,      0,      0,      0,      0,      0,   6553,      0,
+         0,      0,      0,      0,      0,      0,      0,      0,
+         0,      0,      0,   1310,      0,      0,      0,      0,
+    };
+static const int32_t yfltr[] = {
+         0,      0,      0,      0,      0,      0,      0,      0,
+         0,      0,      0,      0,      0,      0,      0,      0,
+         0,      0,      0,      0,      0,      0,      0,      0,
+         0,      0,    655,      0,   3276,   1638, -65536,      0,
+    };
+static const int32_t zfltr[] = {
+         0,      0,      0,      0,      0,      0,      0,      0,
+         0,      0,      0,      0,      0,      0,      0,      0,
+         0,      0,  13107,      0,      0,      0,      0,      0,
+         0,      0,      0,  -3276,      0,      0, -52428,      0,
+    };
+
+FixedWeightingTest([
+         0,      0,      0,      0,      0,      0,      0,      0,
+         0,      0,      0,      0,      0,      0,   6553,      0,
+         0,      0,      0,      0,      0,      0,      0,      0,
+         0,      0,      0,   1310,      0,      0,      0,      0,
+         0,      0,      0,      0,      0,      0,      0,      0,
+         0,      0,      0,      0,      0,      0,      0,      0,
+         0,      0,      0,      0,      0,      0,      0,      0,
+         0,      0,    655,      0,   3276,   1638, -65536,      0,
+         0,      0,      0,      0,      0,      0,      0,      0,
+         0,      0,      0,      0,      0,      0,      0,      0,
+         0,      0,  13107,      0,      0,      0,      0,      0,
+         0,      0,      0,  -3276,      0,      0, -52428,      0,
+    ])
+"""
+
 log = logging.getLogger( __name__ )
 
 TICKS_PER_MS = 1
@@ -32,8 +69,8 @@ np.set_printoptions(precision=6, linewidth=120)
 class SampleTest( object ):
     def __init__( self, name, test_fcn, **kwargs ):
         """
-        kwargs:
-          test_names : optional individual names for multi-dimensional tests
+            kwargs:
+              test_names : optional individual names for multi-dimensional tests
         """
         self.name = name
         self._test_fcn = test_fcn
@@ -45,6 +82,40 @@ class SampleTest( object ):
         self.samples = []
         self.values = []
         self.clear_results()
+
+    def _getTestFcn(self): return self._test_fcn
+    def _setTestFcn(self, fcn):
+        self._test_fcn = fcn
+        self.retest()
+    test_fcn = property(fget=_getTestFcn, fset=_setTestFcn)
+
+    def _getRejectBelow(self): return self._reject_below
+    def _setRejectBelow(self, val):
+        if val != self._reject_below:
+            self.clear_results()
+            self._reject_below = val
+    reject_below = property(fget=_getRejectBelow, fset=_setRejectBelow)
+
+    def _getRejectAbove(self): return self._reject_above
+    def _setRejectAbove(self, val):
+        if val != self._reject_above:
+            self.clear_results()
+            self._reject_above = val
+    reject_above = property(fget=_getRejectAbove, fset=_setRejectAbove)
+
+    def _getAcceptBelow(self): return self._accept_below
+    def _setAcceptBelow(self, val):
+        if val != self._accept_below:
+            self.clear_results()
+            self._accept_below = val
+    accept_below = property(fget=_getAcceptBelow, fset=_setAcceptBelow)
+
+    def _getAcceptAbove(self): return self._accept_above
+    def _setAcceptAbove(self, val):
+        if val != self._accept_above:
+            self.clear_results()
+            self._accept_above = val
+    accept_above = property(fget=_getAcceptAbove, fset=_setAcceptAbove)
 
     def clear_samples( self ):
         self.samples = []
@@ -87,6 +158,10 @@ class SampleTest( object ):
         self.unconfirmed_punted_time = 0
         self.unconfirmed_accepted_time = 0
 
+    def retest(self):
+        self.clear_results()
+        self.values = [self.test_fcn(s) for s in self.samples]
+
     def _test_sample( self, value, fltr_num=None ):
         """ if value is multidimensional, filters
             must also be multi dimensional (this is for 'and' style) """
@@ -100,27 +175,27 @@ class SampleTest( object ):
                 return PASS
 
         if fltr_num is None:
-            rb = self._reject_below
-            ra = self._reject_above
-            ab = self._accept_below
-            aa = self._accept_above
+            rb = self.reject_below
+            ra = self.reject_above
+            ab = self.accept_below
+            aa = self.accept_above
         else:
-            if self._reject_below is None:
+            if self.reject_below is None:
                 rb = None
             else:
-                rb = self._reject_below[ fltr_num ]
-            if self._reject_above is None:
+                rb = self.reject_below[ fltr_num ]
+            if self.reject_above is None:
                 ra = None
             else:
-                ra = self._reject_above[ fltr_num ]
-            if self._accept_below is None:
+                ra = self.reject_above[ fltr_num ]
+            if self.accept_below is None:
                 ab = None
             else:
-                ab = self._accept_below[ fltr_num ]
-            if self._accept_above is None:
+                ab = self.accept_below[ fltr_num ]
+            if self.accept_above is None:
                 aa = None
             else:
-                aa = self._accept_above[ fltr_num ]
+                aa = self.accept_above[ fltr_num ]
 
         if rb is not None:
             if value < rb:
@@ -138,12 +213,12 @@ class SampleTest( object ):
 
     def add_samples( self, *sample_sets ):
         for samples in sample_sets:
-            for sample in samples:
+            samples_list = samples.samples if isinstance(samples, Samples) else samples
+            for sample in samples_list:
                 if len( sample.xs ) == 0:
                     continue
                 self.analyzed = False
-
-                val = self._test_fcn( sample )
+                val = self.test_fcn( sample )
                 self.samples.append( sample )
                 self.values.append( val )
 
@@ -200,12 +275,12 @@ class SampleTest( object ):
         print( "{:10}|{:12}|{:12}|{:12}".format( "Punted", self.confirmed_punted, self.unconfirmed_punted, self.punted ) )
         print( "{:10}|{:12}|{:12}|{:12}".format( "Rejected", self.confirmed_rejected, self.unconfirmed_rejected, self.rejected ) )
         print( "{:10}|{:12}|{:12}|{:12}".format( "Total", self.confirmed, self.unconfirmed, self.total ) )
-        if self.confirmed != 0:
-            print( "False Negatives {}, {:.0%}".format( self.confirmed_rejected, self.confirmed_rejected/self.confirmed ) )
-        if self.unconfirmed != 0:
-            print( "False Positives {}, {:.0%}".format( self.unconfirmed_accepted, self.unconfirmed_accepted/self.unconfirmed ) )
+        if self.false_negative is not None:
+            print("False Negatives {}, {:.0%}".format(self.confirmed_rejected, self.false_negative))
+        if self.false_positive is not None:
+            print("False Positives {}, {:.0%}".format(self.unconfirmed_accepted, self.false_positive))
             if testsperday is not None:
-                print( "Accidental wakes per day: {:.0f}".format( testsperday*self.unconfirmed_accepted/self.unconfirmed ) )
+                print("Accidental wakes per day: {:.0f}".format(testsperday*self.unconfirmed_accepted/self.unconfirmed))
         if self.unconfirmed_time_cnt != 0:
             print( "Unconfirmed time analysis ({} values):".format( self.unconfirmed_time_cnt ) )
             print( "  average unconfirmed time {:.1f} seconds".format(
@@ -226,8 +301,8 @@ class SampleTest( object ):
     def plot_result( self ):
         if not self.analyzed:
             self.analyze()
-        ths = ( self._reject_below, self._reject_above,
-                self._accept_below, self._accept_above )
+        ths = ( self.reject_below, self.reject_above,
+                self.accept_below, self.accept_above )
         dims = set( len( th ) if isinstance( th, ( list, tuple ) ) else 1
                 for th in ths if th is not None )
         if not len(self.values):
@@ -328,8 +403,8 @@ class SampleTest( object ):
                 xs, ys = list(zip(*data))
                 plt.scatter(xs, ys, color=color, marker=marker)
 
-        ths = ( self._reject_below, self._reject_above,
-                self._accept_below, self._accept_above )
+        ths = ( self.reject_below, self.reject_above,
+                self.accept_below, self.accept_above )
 
         for th in ths:
             if th is None:
@@ -372,8 +447,8 @@ class SampleTest( object ):
     midunconfirmed = property(fget=_getMedianUnconfirmed)
 
     def plot_boxwhisker(self, dim=0):
-        ths = ( self._reject_below, self._reject_above,
-                self._accept_below, self._accept_above )
+        ths = ( self.reject_below, self.reject_above,
+                self.accept_below, self.accept_above )
         dims = set( len( th ) if isinstance( th, ( list, tuple ) ) else 1
                 for th in ths if th is not None )
         if not len(self.values):
@@ -411,14 +486,14 @@ class SampleTest( object ):
         plt.show()
 
     def plot_accepts(self, resolution=100, start=None, stop=None):
-        rb = self._reject_below
-        ra = self._reject_above
-        ab = self._accept_below
-        aa = self._accept_above
-        self._reject_below = None
-        self._reject_above = None
-        self._accept_below = None
-        self._accept_above = None
+        rb = self.reject_below
+        ra = self.reject_above
+        ab = self.accept_below
+        aa = self.accept_above
+        self.reject_below = None
+        self.reject_above = None
+        self.accept_below = None
+        self.accept_above = None
 
         if start is None:
             start = max(self.minconfirmed, self.minunconfirmed)
@@ -438,24 +513,64 @@ class SampleTest( object ):
         false_positive = []
         for th in thresholds:
             if accept_below:
-                self._accept_below = th
-                self._reject_above = th
+                self.accept_below = th
+                self.reject_above = th
             else:
-                self._accept_above = th
-                self._reject_below = th
+                self.accept_above = th
+                self.reject_below = th
             self.analyze()
             false_negative.append( 100 * self.confirmed_rejected / self.confirmed )
             false_positive.append( 100 * self.unconfirmed_accepted / self.unconfirmed )
-        self._reject_below = rb
-        self._reject_above = ra
-        self._accept_below = ab
-        self._accept_above = aa
+        self.reject_below = rb
+        self.reject_above = ra
+        self.accept_below = ab
+        self.accept_above = aa
         plt.plot(thresholds, false_negative, label='false_negative')
         plt.plot(thresholds, false_positive, label='false_positive')
         plt.legend()
         plt.xlabel("Threshold")
         plt.ylabel("Percent (%)")
         plt.show()
+
+    def set_conservaitve(self):
+        if len(self.samples) == 0:
+            raise ValueError("We must have some samples first")
+        self.reject_below = self.minconfirmed
+        self.reject_above = self.maxconfirmed
+        self.accept_above = self.maxunconfirmed
+        self.accept_below = self.minunconfirmed
+
+    def _getFalseNegative(self):
+        if not self.analyzed:
+            self.analyze()
+        if self.confirmed == 0:
+            return None
+        return self.confirmed_rejected / self.confirmed
+    false_negative = property(fget=_getFalseNegative)
+
+    def _getFalsePositive(self):
+        if not self.analyzed:
+            self.analyze()
+        if self.unconfirmed == 0:
+            return None
+        return self.unconfirmed_accepted / self.unconfirmed
+    false_positive = property(fget=_getFalsePositive)
+
+    def _getTrueNegative(self):
+        if not self.analyzed:
+            self.analyze()
+        if self.unconfirmed == 0:
+            return None
+        return self.unconfirmed_rejected / self.unconfirmed
+    true_negative = property(fget=_getTrueNegative)
+
+    def _getTruePositive(self):
+        if not self.analyzed:
+            self.analyze()
+        if self.confirmed == 0:
+            return None
+        return self.confirmed_accepted / self.confirmed
+    true_positive = property(fget=_getTruePositive)
 
 
 class PrincipalComponentTest( SampleTest ):
@@ -730,12 +845,45 @@ class FixedWeightingTest( PrincipalComponentTest ):
     def __init__(self, weightings, name, **kwargs):
         """ this should be used to 'capture' the results from a LDA / PCA test
         """
-        if 'prereduce' not in kwargs and not len(weightings) == 96:
-            raise ValueError("Must specify weight for all 96 readings")
+        if 'prereduce' in kwargs:
+            dims = len(kwargs['prereduce'][0])
+        else:
+            dims = 96
+        if len(weightings) != dims:
+            raise ValueError("Must specify weight for all readings")
         kwargs.setdefault('weightings', weightings)
         kwargs.setdefault('name', name)
         kwargs.setdefault('test_axis', 0)
         super().__init__(**kwargs)
+
+    def setWeightings(self, wts, **kwargs):
+        changed = False
+        if 'prereduce' in kwargs:
+            pr = kwargs.pop("prereduce")
+            if self._prereduce != pr:
+                changed = True
+                self._prereduce = pr
+                if wts is None:
+                    wts = [0] * len(pr[0])
+        if self._prereduce is not None:
+            dims = len(self._prereduce[0])
+        else:
+            dims = 96
+        if len(wts) != dims:
+            raise ValueError("Must specify weight for all readings")
+
+        old_wts = self.eigvects[0]
+        if old_wts != wts:
+            changed = False # re-setting test_fcn removes need to update
+            test_fcn = lambda s : self.apply_weighting(wts, s)
+            self.eigvects = [wts] + [[0]*len(wts) for _ in range(len(wts)-1)]
+            self.eigvals = [1] + [0 for _ in range(len(wts)-1)]
+            self.test_fcn = test_fcn
+        if changed:
+            self.retest()
+
+    def getWeightings(self):
+        return self.eigvects[0]
 
 
 class LinearDiscriminantTest( PrincipalComponentTest ):
@@ -878,6 +1026,72 @@ class LeastSquaresWeighting( FixedWeightingTest ):
         B = np.dot( phi, weights )
         P = np.linalg.inv( Pinv )
         return [v for v in np.dot( P, B )]
+
+
+class SimpleOptimizer( FixedWeightingTest ):
+    def __init__( self, **kwargs ):
+        if 'prereduce' in kwargs:
+            dims = len(kwargs['prereduce'][0])
+        else:
+            dims = 96
+        wts = [0] * dims
+        super().__init__(wts, "Optimizer Test", **kwargs)
+
+    def check_updates(self, jump=1):
+        wts = self.getWeightings()
+        self.set_conservaitve()
+        tn_std = self.true_negative
+        tp_std = self.true_positive
+        best_tn = (tn_std, wts)
+        best_tp = (tp_std, wts)
+        for i in range(len(wts)):
+            best_neg = False
+            best_pos = False
+            newwts = list(wts)
+            newwts[i] -= jump
+            self.setWeightings(newwts)
+            self.set_conservaitve()
+            tn_m1, tp_m1 = self.true_negative, self.true_positive
+            if tn_m1 > best_tn[0]:
+                best_tn = (tn_m1, newwts)
+                best_neg = True
+            if tp_m1 > best_tp[0]:
+                best_tp = (tp_m1, newwts)
+                best_pos = True
+            newwts = list(wts)
+            newwts[i] += jump
+            self.setWeightings(newwts)
+            self.set_conservaitve()
+            tn_p1, tp_p1 = self.true_negative, self.true_positive
+            if tn_p1 > best_tn[0]:
+                best_tn = (tn_p1, newwts)
+                best_neg = True
+            if tp_p1 > best_tp[0]:
+                best_tp = (tp_p1, newwts)
+                best_pos = True
+            fmts = []
+            for v in [tn_p1-tn_std, tn_m1-tn_std, tp_p1-tp_std, tp_m1-tp_std]:
+                if v > 0:
+                    fmts.append("{:+6.1%}".format(v))
+                elif v == 0:
+                    fmts.append("    0 ")
+                else:
+                    fmts.append("   -- ")
+            print("w[{: 3}] = {: 4} +/- {: 4}: {:5.1%} ({} | {}) || {:5.1%} ({} | {}) {} {}".format(
+                i, wts[i], jump, tn_std, fmts[0], fmts[1], tp_std, fmts[2], fmts[3],
+                "<<<" if best_neg else "   ", '<<<' if best_pos else '   '))
+        self.setWeightings(wts)
+        self.set_conservaitve()
+        return best_tn, best_tp
+
+    def iterate(self, weights=None):
+        if weights is None:
+            weights = [ 100, 80, 64, 50, 40, 32, 25, 20, 16, 13,
+                         10, 8, 6.4,  5, 4, 3.2, 2.5, 2, 1.6, 1.3, 1 ]
+        for jp in weights:
+            tn, tp = self.check_updates(jp)
+            self.setWeightings(list(tn[1]))
+            #self.show_xyz_filter()
 
 
 class Samples( object ):
