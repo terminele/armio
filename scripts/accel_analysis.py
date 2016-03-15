@@ -1265,37 +1265,7 @@ class Samples( object ):
             self.unconfirmed_time_max = other.unconfirmed_time_max
 
     def filter_samples( self, **kwargs ):
-        """
-            show : display sample info
-            reverse : reverse the test result
-            or_tests : use testA or testB rather than testA and testB
-
-            any other kwarg will be tested against a property
-        """
-        show = kwargs.pop( "show", False )      # show basic info
-        reverse = kwargs.pop( "reverse", False )
-        or_tests = kwargs.pop( "or_tests", False )
-
-        def test( sample, filters ):
-            for name, val in filters.items():
-                yield getattr(sample, name) == val
-
-        log.debug('Filtering through {} samples'.format(len(self.samples)))
-
-        count = 0
-        for sample in self.samples:
-            if or_tests:
-                result = any(test(sample, kwargs))
-            else:
-                result = all(test(sample, kwargs))
-            if reverse:
-                result = not result
-            if result:
-                if show: sample.logSummary()
-                count += 1
-                yield sample
-        if len(kwargs):
-            log.info("Found {} samples from {}".format(count, len(self.samples)))
+        return filter_samples(self.samples, **kwargs)
 
     def show_plots( self, **kwargs ):
         for sample in self.filter_samples( **kwargs ):
@@ -2148,6 +2118,51 @@ def _timestring( t=None ):
     fmt = "%Y-%m-%d %H:%M:%S"
     return time.strftime(fmt, local)
 
+def filter_samples(samples, **kwargs):
+    """
+        show : display sample info
+        reverse : reverse the test result
+        or_tests : use testA or testB rather than testA and testB
+        namehas : check if the name contains this string
+        namenothas : check if the name does not contain this string
+
+        any other kwarg will be tested against a property
+    """
+    show = kwargs.pop( "show", False )      # show basic info
+    reverse = kwargs.pop( "reverse", False )
+    or_tests = kwargs.pop( "or_tests", False )
+    namehas = kwargs.pop( "namehas", None )
+    namenothas = kwargs.pop( "namenothas", None )
+
+    def test( sample, filters ):
+        for name, val in filters.items():
+            yield getattr(sample, name) == val
+
+    log.debug('Filtering through {} samples'.format(len(samples)))
+
+    count = 0
+    for sample in samples:
+        if or_tests:
+            result = any(test(sample, kwargs))
+            if namehas is not None:
+                result = result or (namehas in sample.logfile)
+            if namenothas is not None:
+                result = result or (namenothas not in sample.logfile)
+        else:
+            result = all(test(sample, kwargs))
+            if namehas is not None:
+                result = result and (namehas in sample.logfile)
+            if namenothas is not None:
+                result = result and (namenothas not in sample.logfile)
+        if reverse:
+            result = not result
+        if result:
+            if show: sample.logSummary()
+            count += 1
+            yield sample
+    if len(kwargs):
+        log.info("Found {} samples from {}".format(count, len(samples)))
+
 def load_samples(samplefile=SAMPLESFILE):
     with open(samplefile, 'r') as fh:
         samplestext = fh.read()
@@ -2157,6 +2172,17 @@ def store_samples(samples, samplefile=SAMPLESFILE):
     samplestext = jsonpickle.encode(samples, keys=True)
     with open(samplefile, 'w') as fh:
         fh.write(samplestext)
+
+def get_file_names(samples):
+    names = set()
+    if isinstance(samples, Samples):
+        sampleslist = samples.samples
+    else:
+        sampleslist = samples
+    for s in sampleslist:
+        names.add(s.logfile)
+    return sorted(names)
+
 
 ### Analysis function for streaming xyz data ###
 def analyze_streamed( fname, plot=True ):
@@ -2206,6 +2232,7 @@ def analyze_streamed( fname, plot=True ):
     except OSError as e:
         log.error( "Unable to open file '{}': {}".format(fname, e) )
         return [], [], [], []
+
 
 ### Filter tests functions ###
 def make_traditional_tests():

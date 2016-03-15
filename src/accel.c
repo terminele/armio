@@ -529,7 +529,7 @@ static void wait_state_conf( wake_gesture_state_t wait_state ) {
 #endif
     } else { /* WAIT_FOR_UP */
         accel_register_write (AX_REG_INT1_THS, 26);
-        accel_register_write (AX_REG_INT1_DUR, MS_TO_ODRS(50, SLEEP_SAMPLE_INT));
+        accel_register_write (AX_REG_INT1_DUR, MS_TO_ODRS(120, SLEEP_SAMPLE_INT));
         accel_register_write (AX_REG_INT1_CFG, AOI_POS | ZHIE);
 
 #if (USE_INTERRUPT_2)
