@@ -748,7 +748,7 @@ class SampleTest( object ):
         plt.show()
 
     def filter_samples(self, **kwargs):
-        return filter_samples(self.samples, **kwargs)
+        return Samples.filter_samples(self.samples, **kwargs)
 
 
 class PrincipalComponentTest( SampleTest ):
@@ -1347,30 +1347,6 @@ class Samples( object ):
             return None
     mintime = property(fget=_getMinTime)
 
-    def findOutliers(self):
-        return find_outliers(self.samples)
-
-    def plotOutliers(self, skip=None):
-        outliers = self.findOutliers()
-        if skip is not None:
-            outliers = outliers[:-skip]
-        ovals, osamples = list(zip(*outliers))
-        ovmin, ovscale = min(ovals), 0xff/(max(ovals) - min(ovals))
-        ovscaled = [ int((o - ovmin)*ovscale) for o in ovals ]
-        colors = [ "#{:02X}{:02X}{:02X}".format( o, 0, 0xff-o ) for o in ovscaled ]
-        fig = plt.figure()
-
-        ax = fig.add_subplot(311)
-        for color, os in zip(colors, osamples):
-            os.show_plot(axis=ax, color=color, only='x', show=False)
-        ax = fig.add_subplot(312)
-        for color, os in zip(colors, osamples):
-            os.show_plot(axis=ax, color=color, only='y', show=False)
-        ax = fig.add_subplot(313)
-        for color, os in zip(colors, osamples):
-            os.show_plot(axis=ax, color=color, only='z', show=False)
-        plt.show()
-
     def load( self, fn ):
         if self.name is None:
             self.name = os.path.basename(fn)
@@ -1383,9 +1359,6 @@ class Samples( object ):
             self.name = "Combined"
         self.samples.extend( other.samples )
         self.battery_reads.extend( other.battery_reads )
-
-    def filter_samples( self, **kwargs ):
-        return filter_samples(self.samples, **kwargs)
 
     def show_plots( self, **kwargs ):
         for sample in self.filter_samples( **kwargs ):
@@ -1630,7 +1603,12 @@ class Samples( object ):
         return samples, battery_reads
 
     def show_wake_time_hist( self, samples=200 ):
-        times = [ s.waketime for s in self.samples ]
+        if isinstance(self, Samples):
+            sampleslist = self.samples
+        else:
+            sampleslist = self
+
+        times = [ s.waketime for s in sampleslist ]
         n, bins, patches = plt.hist(times, samples, normed=0.8, facecolor='green', alpha=0.5)
 
         plt.xlabel('Waketime (ms)')
@@ -1642,9 +1620,13 @@ class Samples( object ):
         plt.show()
 
     def get_wake_intervals(self, cutoff=None, **kwargs):
+        if isinstance(self, Samples):
+            sampleslist = self.samples
+        else:
+            sampleslist = self
         logfile = None
         lasttime = None
-        for sample in self.filter_samples(**kwargs):
+        for sample in Samples.filter_samples(sampleslist, **kwargs):
             if logfile is None:
                 logfile = sample.logfile
             if logfile != sample.logfile:
@@ -1661,7 +1643,10 @@ class Samples( object ):
                 yield interval
 
     def group_wake_intervals(self, **kwargs):
-        wi = list(self.get_wake_intervals(**kwargs))
+        if isinstance(self, Samples):
+            wi = list(self.get_wake_intervals(**kwargs))
+        else:
+            wi = list(Samples.get_wake_intervals(self, **kwargs))
         freq = dict()
         for item in wi:
             if item not in freq:
@@ -1680,8 +1665,11 @@ class Samples( object ):
         return int((day_time_sec + interval/2.0)/ self.wake_interval)
     wake_tests_per_day = property(fget=_getWakesPerDay)
 
-    def show_wake_freq_hist( self, samples=200 ):
-        wake_intervals = self.group_wake_intervals()
+    def show_wake_freq_hist(self, samples=200):
+        if isinstance(self, Samples):
+            wake_intervals = self.group_wake_intervals()
+        else:
+            wake_intervals = Samples.group_wake_intervals(self)
         total = sum(wake_intervals.values())
         intervals = sorted(wake_intervals.keys())
         percents = [(wake_intervals[i]/total * 100) for i in intervals]
@@ -1717,6 +1705,107 @@ class Samples( object ):
         plt.xlabel("Time of day (mod 24 hours)")
         plt.ylabel("Voltage (V)")
         plt.show()
+
+    def find_outliers(self):
+        if isinstance(self, Samples):
+            sampleslist = self.samples
+        else:
+            sampleslist = self
+        matrix = get_measure_matrix(sampleslist)
+        mags = get_row_magnitudes(mean_center_columns(matrix))
+        return sorted(zip(mags, sampleslist))
+
+    def plot_outliers(self, skip=None):
+        outliers = Samples.find_outliers(self)
+        if skip is not None:
+            outliers = outliers[:-skip]
+        ovals, osamples = list(zip(*outliers))
+        ovmin, ovscale = min(ovals), 0xff/(max(ovals) - min(ovals))
+        ovscaled = [ int((o - ovmin)*ovscale) for o in ovals ]
+        colors = [ "#{:02X}{:02X}{:02X}".format( o, 0, 0xff-o ) for o in ovscaled ]
+        fig = plt.figure()
+
+        ax = fig.add_subplot(311)
+        for color, os in zip(colors, osamples):
+            os.show_plot(axis=ax, color=color, only='x', show=False)
+        ax = fig.add_subplot(312)
+        for color, os in zip(colors, osamples):
+            os.show_plot(axis=ax, color=color, only='y', show=False)
+        ax = fig.add_subplot(313)
+        for color, os in zip(colors, osamples):
+            os.show_plot(axis=ax, color=color, only='z', show=False)
+        plt.show()
+
+    def remove_outliers(self, qty):
+        """ in place removal of outlier samples """
+        outs = Samples.find_outliers(self)[-qty:]
+        removed = []
+        for oval, out in outs:
+            if isinstance(self, Samples):
+                self.samples.remove(out)
+            else:
+                self.remove(out)
+            removed.append(out)
+        return removed
+
+    def filter_samples(self, **kwargs):
+        """
+            show : display sample info
+            reverse : reverse the test result
+            or_tests : use testA or testB rather than testA and testB
+            namehas : check if the name contains this string
+            namenothas : check if the name does not contain this string
+
+            any other kwarg will be tested against a property
+        """
+        if isinstance(self, Samples):
+            sampleslist = self.samples
+        else:
+            sampleslist = self
+        show = kwargs.pop( "show", False )      # show basic info
+        reverse = kwargs.pop( "reverse", False )
+        or_tests = kwargs.pop( "or_tests", False )
+        namehas = kwargs.pop( "namehas", None )
+        namenothas = kwargs.pop( "namenothas", None )
+
+        def test( sample, filters ):
+            for name, val in filters.items():
+                yield getattr(sample, name) == val
+
+        log.debug('Filtering through {} samples'.format(len(sampleslist)))
+
+        count = 0
+        for sample in sampleslist:
+            if or_tests:
+                result = any(test(sample, kwargs))
+                if namehas is not None:
+                    result = result or (namehas in sample.logfile)
+                if namenothas is not None:
+                    result = result or (namenothas not in sample.logfile)
+            else:
+                result = all(test(sample, kwargs))
+                if namehas is not None:
+                    result = result and (namehas in sample.logfile)
+                if namenothas is not None:
+                    result = result and (namenothas not in sample.logfile)
+            if reverse:
+                result = not result
+            if result:
+                if show: sample.logSummary()
+                count += 1
+                yield sample
+        if len(kwargs):
+            log.info("Found {} samples from {}".format(count, len(sampleslist)))
+
+    def get_file_names(self):
+        names = set()
+        if isinstance(self, Samples):
+            sampleslist = self.samples
+        else:
+            sampleslist = self
+        for s in sampleslist:
+            names.add(s.logfile)
+        return sorted(names)
 
 
 class WakeSample( object ):
@@ -1929,95 +2018,11 @@ def get_row_magnitudes(matrix):
     for row in matrix:
         yield sum(ri**2 for ri in row)**0.5
 
-def filter_samples(samples, **kwargs):
-    """
-        show : display sample info
-        reverse : reverse the test result
-        or_tests : use testA or testB rather than testA and testB
-        namehas : check if the name contains this string
-        namenothas : check if the name does not contain this string
-
-        any other kwarg will be tested against a property
-    """
-    show = kwargs.pop( "show", False )      # show basic info
-    reverse = kwargs.pop( "reverse", False )
-    or_tests = kwargs.pop( "or_tests", False )
-    namehas = kwargs.pop( "namehas", None )
-    namenothas = kwargs.pop( "namenothas", None )
-
-    def test( sample, filters ):
-        for name, val in filters.items():
-            yield getattr(sample, name) == val
-
-    log.debug('Filtering through {} samples'.format(len(samples)))
-
-    count = 0
-    for sample in samples:
-        if or_tests:
-            result = any(test(sample, kwargs))
-            if namehas is not None:
-                result = result or (namehas in sample.logfile)
-            if namenothas is not None:
-                result = result or (namenothas not in sample.logfile)
-        else:
-            result = all(test(sample, kwargs))
-            if namehas is not None:
-                result = result and (namehas in sample.logfile)
-            if namenothas is not None:
-                result = result and (namenothas not in sample.logfile)
-        if reverse:
-            result = not result
-        if result:
-            if show: sample.logSummary()
-            count += 1
-            yield sample
-    if len(kwargs):
-        log.info("Found {} samples from {}".format(count, len(samples)))
-
-def find_outliers(samples):
-    if isinstance(samples, Samples):
-        sampleslist = samples.samples
+def get_measure_matrix(self):
+    if isinstance(self, Samples):
+        return [sample.measures for sample in self.samples]
     else:
-        sampleslist = samples
-    matrix = get_measure_matrix(sampleslist)
-    mags = get_row_magnitudes(mean_center_columns(matrix))
-    return sorted(zip(mags, sampleslist))
-
-def plot_outliers(samples, skip=None):
-    outliers = find_outliers(samples)
-    if skip is not None:
-        outliers = outliers[:-skip]
-    ovals, osamples = list(zip(*outliers))
-    ovmin, ovscale = min(ovals), 0xff/(max(ovals) - min(ovals))
-    ovscaled = [ int((o - ovmin)*ovscale) for o in ovals ]
-    colors = [ "#{:02X}{:02X}{:02X}".format( o, 0, 0xff-o ) for o in ovscaled ]
-    fig = plt.figure()
-
-    ax = fig.add_subplot(311)
-    for color, os in zip(colors, osamples):
-        os.show_plot(axis=ax, color=color, only='x', show=False)
-    ax = fig.add_subplot(312)
-    for color, os in zip(colors, osamples):
-        os.show_plot(axis=ax, color=color, only='y', show=False)
-    ax = fig.add_subplot(313)
-    for color, os in zip(colors, osamples):
-        os.show_plot(axis=ax, color=color, only='z', show=False)
-    plt.show()
-
-def remove_outliers(samples, qty):
-    """ in place removal of outlier samples """
-    outs = find_outliers(samples)[-qty:]
-    removed = []
-    for oval, out in outs:
-        if isinstance( samples, Samples ):
-            samples.samples.remove(out)
-        else:
-            samples.remove(out)
-        removed.append(out)
-    return removed
-
-def get_measure_matrix(samples):
-    return [sample.measures for sample in samples]
+        return [sample.measures for sample in self]
 
 def load_samples(samplefile=SAMPLESFILE):
     with open(samplefile, 'r') as fh:
@@ -2028,16 +2033,6 @@ def store_samples(samples, samplefile=SAMPLESFILE):
     samplestext = jsonpickle.encode(samples, keys=True)
     with open(samplefile, 'w') as fh:
         fh.write(samplestext)
-
-def get_file_names(samples):
-    names = set()
-    if isinstance(samples, Samples):
-        sampleslist = samples.samples
-    else:
-        sampleslist = samples
-    for s in sampleslist:
-        names.add(s.logfile)
-    return sorted(names)
 
 
 ### Analysis function for streaming xyz data ###
@@ -2468,7 +2463,6 @@ if __name__ == "__main__":
             #ld = LinearDiscriminantTest(conf, unconf, test_axis=0,
             #        prereduce=pc.getTransformationMatrix(8))
             # now we need to figure out how to set threshold
-# TODO : check if we can get better data with conf filtering for xturn / yturn
 # TODO : check if we can use scipy to minimize better
 
         if args.run_tests:
