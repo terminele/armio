@@ -43,15 +43,127 @@ class SampleTest( object ):
         self._accept_below = kwargs.pop( "accept_below", None )
         self._accept_above = kwargs.pop( "accept_above", None )
         self._test_names = kwargs.pop( "test_names", None )
+        self.clear_samples()
+
+    def clear_samples( self ):
         self.samples = []
         self.values = []
+        self._confirmedvals = []
+        self._unconfirmedvals = []
+        self.total = 0
+        self.confirmed = 0
+        self.unconfirmed = 0
+        self.unconfirmed_time = 0
+        self.unconfirmed_time_cnt = 0
+        self.unconfirmed_time_max = 0
         self.clear_results()
+
+    def add_samples( self, *sample_sets ):
+        for samples in sample_sets:
+            samples_list = samples.samples if isinstance(samples, Samples) else samples
+            for sample in samples_list:
+                if len( sample.xs ) == 0:
+                    continue
+                self.total += 1
+                val = self.test_fcn(sample)
+                self.samples.append(sample)
+                self.values.append(val)
+                if sample.confirmed:
+                    self.confirmed += 1
+                    bisect.insort(self._confirmedvals, val)
+                else:
+                    self.unconfirmed += 1
+                    bisect.insort(self._unconfirmedvals, val)
+                    if sample.waketime:
+                        self.unconfirmed_time_cnt += 1
+                        self.unconfirmed_time += sample.waketime
+                        if sample.waketime > self.unconfirmed_time_max:
+                            self.unconfirmed_time_max = sample.waketime
+                if self.analyzed:
+                    self._record_test( sample, self._test_sample(val) )
 
     def _getTestFcn(self): return self._test_fcn
     def _setTestFcn(self, fcn):
         self._test_fcn = fcn
         self.retest()
     test_fcn = property(fget=_getTestFcn, fset=_setTestFcn)
+
+    def retest(self):           # find all test values (no analysis)
+        self.clear_results()
+        self.values = []
+        self._confirmedvals = []
+        self._unconfirmedvals = []
+        for s in self.samples:
+            val = self.test_fcn(s)
+            self.values.append(val)
+            if s.confirmed:
+                bisect.insort(self._confirmedvals, val)
+            else:
+                bisect.insort(self._unconfirmedvals, val)
+
+    def _getMinConfirmed(self):
+        if len(self.confirmedvals) == 0:
+            return None
+        return self.confirmedvals[0]
+    minconfirmed = property(fget=_getMinConfirmed)
+
+    def _getMinUnconfirmed(self):
+        if len(self.unconfirmedvals) == 0:
+            return None
+        return self.unconfirmedvals[0]
+    minunconfirmed = property(fget=_getMinUnconfirmed)
+
+    def _getMaxConfirmed(self):
+        if len(self.confirmedvals) == 0:
+            return None
+        return self.confirmedvals[-1]
+    maxconfirmed = property(fget=_getMaxConfirmed)
+
+    def _getMaxUnconfirmed(self):
+        if len(self.unconfirmedvals) == 0:
+            return None
+        return self.unconfirmedvals[-1]
+    maxunconfirmed = property(fget=_getMaxUnconfirmed)
+
+    def _getMedianConfirmed(self):
+        l = len(self.confirmedvals)
+        if l % 2:
+            return self.confirmedvals[l//2]
+        else:
+            i = l//2
+            return 0.5 * (self.confirmedvals[i] + self.confirmedvals[i-1])
+    midconfirmed = property(fget=_getMedianConfirmed)
+
+    def _getMedianUnconfirmed(self):
+        l = len(self.unconfirmedvals)
+        if l % 2:
+            return self.unconfirmedvals[l//2]
+        else:
+            i = l//2
+            return 0.5 * (self.unconfirmedvals[i] + self.unconfirmedvals[i-1])
+    midunconfirmed = property(fget=_getMedianUnconfirmed)
+
+    def _getConfirmedValues(self): return self._confirmedvals
+    confirmedvals = property(fget=_getConfirmedValues)
+
+    def _getUnconfirmedValues(self): return self._unconfirmedvals
+    unconfirmedvals = property(fget=_getUnconfirmedValues)
+
+    def clear_results( self ):
+        self.analyzed = False
+
+        self._test_results = []
+        self._punted_samples = []
+
+        self._confirmed_accepted = None
+        self._confirmed_rejected = None
+
+        self._unconfirmed_accepted = None
+        self._unconfirmed_rejected = None
+
+        self._unconfirmed_accepted_time = 0
+        self._unconfirmed_punted_time = 0
+        self._unconfirmed_rejected_time = 0
 
     def _getRejectBelow(self): return self._reject_below
     def _setRejectBelow(self, val):
@@ -81,53 +193,185 @@ class SampleTest( object ):
             self._accept_above = val
     accept_above = property(fget=_getAcceptAbove, fset=_setAcceptAbove)
 
-    def clear_samples( self ):
-        self.samples = []
-        self.values = []
-        self.clear_results()
+    # accepted/punted/rejected and confirmed/unconfirmed represented as int
+    def _getAccepted(self): return self.confirmed_accepted + self.unconfirmed_accepted
+    accepted = property(fget=_getAccepted)
 
-    def _getPuntedSamples( self ):
+    def _getPunted(self): return self.confirmed_punted + self.unconfirmed_punted
+    punted = property(fget=_getPunted)
+
+    def _getRejected(self): return self.confirmed_rejected + self.unconfirmed_rejected
+    rejected = property(fget=_getRejected)
+
+    def _getConfirmedAccepted(self):
+        if self._confirmed_accepted is None:
+            self._confirmed_accepted = 0
+            if len(self.confirmedvals) > 0:
+                if isinstance(self.confirmedvals[0], (list, tuple)):
+                    self.analyze()
+                else:
+                    if self.accept_above is not None:
+                        self._confirmed_accepted += self.confirmed - bisect.bisect_right(self.confirmedvals, self.accept_above)
+                    if self.accept_below is not None:
+                        self._confirmed_accepted += bisect.bisect_left(self.confirmedvals, self.accept_below)
+        return self._confirmed_accepted
+    confirmed_accepted = property(fget=_getConfirmedAccepted)
+
+    def _getConfirmedPunted(self): return self.confirmed - self.confirmed_accepted - self.confirmed_rejected
+    confirmed_punted = property(fget=_getConfirmedPunted)
+
+    def _getConfirmedRejected(self):
+        if self._confirmed_rejected is None:
+            self._confirmed_rejected = 0
+            if len(self.confirmedvals) > 0:
+                if isinstance(self.confirmedvals[0], (list, tuple)):
+                    self.analyze()
+                else:
+                    if self.reject_above is not None:
+                        self._confirmed_rejected += self.confirmed - bisect.bisect_right(self.confirmedvals, self.reject_above)
+                    if self.accept_below is not None:
+                        self._confirmed_rejected += bisect.bisect_left(self.confirmedvals, self.reject_below)
+        return self._confirmed_rejected
+    confirmed_rejected = property(fget=_getConfirmedRejected)
+
+    def _getUnconfirmedAccepted(self):
+        if self._unconfirmed_accepted is None:
+            self._unconfirmed_accepted = 0
+            if len(self.unconfirmedvals) > 0:
+                if isinstance(self.unconfirmedvals[0], (list, tuple)):
+                    self.analyze()
+                else:
+                    if self.accept_above is not None:
+                        self._unconfirmed_accepted += self.unconfirmed - bisect.bisect_right(self.unconfirmedvals, self.accept_above)
+                    if self.accept_below is not None:
+                        self._unconfirmed_accepted += bisect.bisect_left(self.unconfirmedvals, self.accept_below)
+        return self._unconfirmed_accepted
+    unconfirmed_accepted = property(fget=_getUnconfirmedAccepted)
+
+    def _getUnconfirmedPunted(self): return self.unconfirmed - self.unconfirmed_accepted - self.unconfirmed_rejected
+    unconfirmed_punted = property(fget=_getUnconfirmedPunted)
+
+    def _getUnconfirmedRejected(self):
+        if self._unconfirmed_rejected is None:
+            self._unconfirmed_rejected = 0
+            if len(self.unconfirmedvals) > 0:
+                if isinstance(self.unconfirmedvals[0], (list, tuple)):
+                    self.analyze()
+                else:
+                    if self.reject_above is not None:
+                        self._unconfirmed_rejected += self.unconfirmed - bisect.bisect_right(self.unconfirmedvals, self.reject_above)
+                    if self.accept_below is not None:
+                        self._unconfirmed_rejected += bisect.bisect_left(self.unconfirmedvals, self.reject_below)
+        return self._unconfirmed_rejected
+    unconfirmed_rejected = property(fget=_getUnconfirmedRejected)
+
+    def set_thresholds(self, max_false_neg=0, max_false_pos=0):
+        """ set thresholds based on acceptable false_neg / false_pos rates (%)
+            max_false_neg -- allows the reject above / below thresholds to creep into confirmed sample space
+            max_false_pos -- allows the accept above / below thresholds to creep into unconfirmed sample space
+        """
+        if self.confirmed == 0 or self.unconfirmed == 0:
+            raise ValueError("We must have samples first")
+
+        if max_false_neg > 0:
+            if max_false_neg > 1:
+                max_false_neg /= 100
+            max_lost_confirm = int(max_false_neg * self.confirmed)
+
+            min_rb_drop = bisect.bisect_left(self.unconfirmedvals, self.confirmedvals[0])
+            max_rb_drop = bisect.bisect_left(self.unconfirmedvals, self.confirmedvals[max_lost_confirm])
+            xtra_rb = max_rb_drop - min_rb_drop
+
+            min_ra_drop = self.unconfirmed - bisect.bisect_right(self.unconfirmedvals, self.confirmedvals[-1])
+            max_ra_drop = self.unconfirmed - bisect.bisect_right(self.unconfirmedvals, self.confirmedvals[-1-max_lost_confirm])
+            xtra_ra = max_ra_drop - min_ra_drop
+
+            if xtra_rb > xtra_ra:
+                self.reject_above = self.confirmedvals[-1]
+                self.reject_below = self.confirmedvals[max_lost_confirm]
+            else:
+                self.reject_above = self.confirmedvals[-1 - max_lost_confirm]
+                self.reject_below = self.confirmedvals[0]
+        else:
+            self.reject_above = self.confirmedvals[-1]
+            self.reject_below = self.confirmedvals[0]
+        if max_false_pos > 0:
+            if max_false_pos > 1:
+                max_false_pos /= 100
+            max_xtra_unconfirm = int(max_false_pos * self.unconfirmed)
+
+            min_ab_keep = bisect.bisect_left(self.confirmedvals, self.unconfirmedvals[0])
+            max_ab_keep = bisect.bisect_left(self.confirmedvals, self.unconfirmedvals[max_xtra_unconfirm])
+            xtra_ab = max_ab_keep - min_ab_keep
+
+            min_aa_keep = self.confirmed - bisect.bisect_right(self.confirmedvals, self.unconfirmedvals[-1])
+            max_aa_keep = self.confirmed - bisect.bisect_right(self.confirmedvals, self.unconfirmedvals[-1-max_xtra_unconfirm])
+            xtra_aa = max_aa_keep - min_aa_keep
+
+            if xtra_ab > xtra_aa:
+                self.accept_above = self.unconfirmedvals[-1]
+                self.accept_below = self.unconfirmedvals[max_xtra_unconfirm]
+            else:
+                self.accept_above = self.unconfirmedvals[-1 - max_xtra_unconfirm]
+                self.accept_below = self.unconfirmedvals[0]
+        else:
+            self.accept_above = self.unconfirmedvals[-1]
+            self.accept_below = self.unconfirmedvals[0]
+
+    # false / true are expressed as percentage (or None) instead of int
+    def _getFalseNegative(self):
+        if self.confirmed == 0:
+            return None
+        return self.confirmed_rejected / self.confirmed
+    false_negative = property(fget=_getFalseNegative)
+
+    def _getFalsePositive(self):
+        if self.unconfirmed == 0:
+            return None
+        return self.unconfirmed_accepted / self.unconfirmed
+    false_positive = property(fget=_getFalsePositive)
+
+    def _getTrueNegative(self):
+        if self.unconfirmed == 0:
+            return None
+        return self.unconfirmed_rejected / self.unconfirmed
+    true_negative = property(fget=_getTrueNegative)
+
+    def _getTruePositive(self):
+        if self.confirmed == 0:
+            return None
+        return self.confirmed_accepted / self.confirmed
+    true_positive = property(fget=_getTruePositive)
+
+    def _getTestResults(self):
+        if not self.analyzed:
+            self.analyze()
+        return self._test_results
+    test_results = property(fget=_getTestResults)
+
+    def _getPuntedSamples(self):
         if not self.analyzed:
             self.analyze()
         return self._punted_samples
     punted_samples = property( fget=_getPuntedSamples )
 
-    def clear_results( self ):
-        self.analyzed = False
-        self.total = 0
+    def _getUnconfirmedAcceptedTime(self):
+        if not self.analyzed:
+            self.analyze()
+        return self._unconfirmed_accepted_time
+    unconfirmed_accepted_time = property(fget=_getUnconfirmedAcceptedTime)
 
-        self.test_results = []
+    def _getUnconfirmedPuntedTime(self):
+        if not self.analyzed:
+            self.analyze()
+        return self._unconfirmed_punted_time
+    unconfirmed_punted_time = property(fget=_getUnconfirmedPuntedTime)
 
-        self.rejected = 0
-        self.punted = 0
-        self._punted_samples = []
-        self.accepted = 0
-
-        self.confirmed = 0
-        self.unconfirmed = 0
-
-        self.confirmed_accepted = 0
-        self.confirmed_punted = 0
-        self.confirmed_rejected = 0
-
-        self.unconfirmed_accepted = 0
-        self.unconfirmed_punted = 0
-        self.unconfirmed_rejected = 0
-
-        self.unconfirmed_time = 0
-        self.unconfirmed_time_cnt = 0
-        self.unconfirmed_time_max = 0
-
-        self.unconfirmed_rejected_time = 0
-        self.unconfirmed_punted_time = 0
-        self.unconfirmed_accepted_time = 0
-
-    def retest(self):
-        self.clear_results()
-        self.values = [self.test_fcn(s) for s in self.samples]
-
-    def filter_samples(self, **kwargs):
-        return filter_samples(self.samples, **kwargs)
+    def _getUnconfirmedRejectedTime(self):
+        if not self.analyzed:
+            self.analyze()
+        return self._unconfirmed_rejected_time
+    unconfirmed_rejected_time = property(fget=_getUnconfirmedRejectedTime)
 
     def _test_sample( self, value, fltr_num=None ):
         """ if value is multidimensional, filters
@@ -178,64 +422,40 @@ class SampleTest( object ):
                 return ACCEPT
         return PASS
 
-    def add_samples( self, *sample_sets ):
-        for samples in sample_sets:
-            samples_list = samples.samples if isinstance(samples, Samples) else samples
-            for sample in samples_list:
-                if len( sample.xs ) == 0:
-                    continue
-                self.analyzed = False
-                val = self.test_fcn( sample )
-                self.samples.append( sample )
-                self.values.append( val )
+    def _record_test( self, sample, testresult ):
+        self._test_results.append( testresult )
+        if testresult == PASS:
+            self._punted_samples.append( sample )
+        if sample.confirmed:
+            if testresult == ACCEPT:
+                self._confirmed_accepted += 1
+            elif testresult == REJECT:
+                self._confirmed_rejected += 1
+        else:
+            if testresult == ACCEPT:
+                self._unconfirmed_accepted += 1
+            elif testresult == REJECT:
+                self._unconfirmed_rejected += 1
+
+            if sample.waketime:
+                if testresult == ACCEPT:
+                    self._unconfirmed_accepted_time += sample.waketime
+                elif testresult == REJECT:
+                    self._unconfirmed_rejected_time += sample.waketime
+                elif testresult == PASS:
+                    self._unconfirmed_punted_time += sample.waketime
 
     def analyze( self ):
         self.clear_results()
+        self._confirmed_accepted = 0
+        self._confirmed_rejected = 0
+        self._unconfirmed_accepted = 0
+        self._unconfirmed_rejected = 0
         for val, sample in zip(self.values, self.samples):
-            self.total += 1
-            test = self._test_sample( val )
-            self.test_results.append( test )
-            if test == ACCEPT:
-                self.accepted += 1
-            elif test == REJECT:
-                self.rejected += 1
-            elif test == PASS:
-                self.punted += 1
-                self._punted_samples.append( sample )
-
-            if sample.confirmed:
-                self.confirmed += 1
-                if test == ACCEPT:
-                    self.confirmed_accepted += 1
-                elif test == REJECT:
-                    self.confirmed_rejected += 1
-                elif test == PASS:
-                    self.confirmed_punted += 1
-            else:
-                self.unconfirmed += 1
-                if test == ACCEPT:
-                    self.unconfirmed_accepted += 1
-                elif test == REJECT:
-                    self.unconfirmed_rejected += 1
-                elif test == PASS:
-                    self.unconfirmed_punted += 1
-
-                if sample.waketime:
-                    self.unconfirmed_time_cnt += 1
-                    self.unconfirmed_time += sample.waketime
-                    if sample.waketime > self.unconfirmed_time_max:
-                        self.unconfirmed_time_max = sample.waketime
-                    if test == ACCEPT:
-                        self.unconfirmed_accepted_time += sample.waketime
-                    elif test == REJECT:
-                        self.unconfirmed_rejected_time += sample.waketime
-                    elif test == PASS:
-                        self.unconfirmed_punted_time += sample.waketime
+            self._record_test( sample, self._test_sample(val) )
         self.analyzed = True
 
     def show_result( self, testsperday=None ):
-        if not self.analyzed:
-            self.analyze()
         print( "Analysis for '{}'".format( self.name ) )
         print( "{:10}|{:12}|{:12}|{:12}".format( "", "Confirmed", "Unconfirmed", "Totals" ) )
         print( "{:10}|{:12}|{:12}|{:12}".format( "Accepted", self.confirmed_accepted, self.unconfirmed_accepted, self.accepted ) )
@@ -244,11 +464,15 @@ class SampleTest( object ):
         print( "{:10}|{:12}|{:12}|{:12}".format( "Total", self.confirmed, self.unconfirmed, self.total ) )
         if self.false_negative is not None:
             print("False Negatives {}, {:.0%}".format(self.confirmed_rejected, self.false_negative))
+        if self.true_negative is not None:
+            print("True Negatives {}, {:.0%}".format(self.unconfirmed_rejected, self.true_negative))
         if self.false_positive is not None:
             print("False Positives {}, {:.0%}".format(self.unconfirmed_accepted, self.false_positive))
-            if testsperday is not None:
-                print("Accidental wakes per day: {:.0f}".format(testsperday*self.unconfirmed_accepted/self.unconfirmed))
-        if self.unconfirmed_time_cnt != 0:
+        if self.true_positive is not None:
+            print("True Positives {}, {:.0%}".format(self.confirmed_accepted, self.true_positive))
+        if testsperday is not None and self.unconfirmed > 0:
+            print("Accidental wakes per day: {:.0f}".format(testsperday*self.unconfirmed_accepted/self.unconfirmed))
+        if self.unconfirmed_time_cnt > 0:
             print( "Unconfirmed time analysis ({} values):".format( self.unconfirmed_time_cnt ) )
             print( "  average unconfirmed time {:.1f} seconds".format(
                 1e-3 * self.unconfirmed_time / self.unconfirmed_time_cnt ) )
@@ -266,8 +490,6 @@ class SampleTest( object ):
         print()
 
     def plot_result( self ):
-        if not self.analyzed:
-            self.analyze()
         ths = ( self.reject_below, self.reject_above,
                 self.accept_below, self.accept_above )
         dims = set( len( th ) if isinstance( th, ( list, tuple ) ) else 1
@@ -389,38 +611,6 @@ class SampleTest( object ):
 
         plt.show()
 
-    def _getMinConfirmed( self ):
-        return min(self.confirmedvals)
-    minconfirmed = property(fget=_getMinConfirmed)
-
-    def _getMinUnconfirmed( self ):
-        return min(self.unconfirmedvals)
-    minunconfirmed = property(fget=_getMinUnconfirmed)
-
-    def _getMaxConfirmed( self ):
-        return max(self.confirmedvals)
-    maxconfirmed = property(fget=_getMaxConfirmed)
-
-    def _getMaxUnconfirmed( self ):
-        return max(self.unconfirmedvals)
-    maxunconfirmed = property(fget=_getMaxUnconfirmed)
-
-    def _getMedianConfirmed( self ):
-        return np.median(list(self.confirmedvals))
-    midconfirmed = property(fget=_getMedianConfirmed)
-
-    def _getMedianUnconfirmed( self ):
-        return np.median(list(self.unconfirmedvals))
-    midunconfirmed = property(fget=_getMedianUnconfirmed)
-
-    def _getConfirmedValues(self):
-        return (v for s, v in zip(self.samples, self.values) if s.confirmed)
-    confirmedvals = property(fget=_getConfirmedValues)
-
-    def _getUnconfirmedValues(self):
-        return (v for s, v in zip(self.samples, self.values) if not s.confirmed)
-    unconfirmedvals = property(fget=_getUnconfirmedValues)
-
     def plot_boxwhisker(self, dim=0):
         ths = ( self.reject_below, self.reject_above,
                 self.accept_below, self.accept_above )
@@ -461,155 +651,52 @@ class SampleTest( object ):
         plt.show()
 
     def plot_accepts(self, resolution=100, start=None, stop=None):
-        rb = self.reject_below
-        ra = self.reject_above
-        ab = self.accept_below
-        aa = self.accept_above
-        self.reject_below = None
-        self.reject_above = None
-        self.accept_below = None
-        self.accept_above = None
-
         if start is None:
-            start = max(self.minconfirmed, self.minunconfirmed)
+            start = min(v for v in (self.minunconfirmed, self.minconfirmed) if v is not None)
         if stop is None:
-            stop = min(self.maxconfirmed, self.maxunconfirmed)
+            stop = max(v for v in (self.maxunconfirmed, self.maxconfirmed) if v is not None)
 
         if isinstance( start, (tuple, list) ):
             raise NotImplementedError("Only 1 dimension allowed for now")
 
-        if self.midconfirmed < self.midunconfirmed:
-            accept_below = True
-        else:
-            accept_below = False
-
         thresholds = [v for v in np.linspace(start, stop, resolution)]
-        false_negative = []
-        false_positive = []
-        for th in thresholds:
-            if accept_below:
-                self.accept_below = th
-                self.reject_above = th
-            else:
-                self.accept_above = th
-                self.reject_below = th
-            self.analyze()
-            false_negative.append( 100 * self.confirmed_rejected / self.confirmed )
-            false_positive.append( 100 * self.unconfirmed_accepted / self.unconfirmed )
-        self.reject_below = rb
-        self.reject_above = ra
-        self.accept_below = ab
-        self.accept_above = aa
-        plt.plot(thresholds, false_negative, label='false_negative')
-        plt.plot(thresholds, false_positive, label='false_positive')
+
+        if len(self.confirmedvals):
+            vals = self.confirmedvals
+            label = "Confirms"
+            scale = 100.0 / len(vals)
+            pct = [scale * bisect.bisect(vals, th) for th in thresholds]
+            plt.plot(thresholds, pct, label=label)
+        if len(self.unconfirmedvals):
+            vals = self.unconfirmedvals
+            label = "Unconfirms"
+            scale = 100.0 / len(vals)
+            pct = [scale * bisect.bisect(vals, th) for th in thresholds]
+            plt.plot(thresholds, pct, label=label)
+
         ylim = [0, 100]
-        if ra is not None:
-            plt.plot([ra, ra], ylim, 'r-', label='reject_above')
-        if rb is not None:
+        xmin, xmax = plt.xlim()
+        rb = self.reject_below
+        ra = self.reject_above
+        ab = self.accept_below
+        aa = self.accept_above
+        if ra is not None and ra >= xmin and ra <= xmax:
+            plt.plot([ra, ra], ylim, 'r-.', label='reject_above')
+        if rb is not None and rb >= xmin and rb <= xmax:
             plt.plot([rb, rb], ylim, 'r-', label='reject_below')
-        if False and aa is not None:
-            plt.plot([aa, aa], ylim, 'g-', label='accept_above')
-        if False and ab is not None:
+        if aa is not None and aa >= xmin and aa <= xmax:
+            plt.plot([aa, aa], ylim, 'g-.', label='accept_above')
+        if ab is not None and ab >= xmin and ab <= xmax:
             plt.plot([ab, ab], ylim, 'g-', label='accept_below')
         plt.legend()
+        plt.grid()
         plt.ylim(ylim)
         plt.xlabel("Threshold")
-        plt.ylabel("Percent (%)")
+        plt.ylabel("Percent Below Threshold (%)")
         plt.show()
 
-    def set_conservative(self, max_false_neg=0, max_false_pos=0):
-        if len(self.samples) == 0:
-            raise ValueError("We must have some samples first")
-        if max_false_neg or max_false_pos:
-            cvals = sorted(self.confirmedvals)
-            uvals = sorted(self.unconfirmedvals)
-            ra = cvals[-1]
-            rb = cvals[0]
-            aa = uvals[-1]
-            ab = uvals[0]
-        else:
-            ra = self.maxconfirmed
-            rb = self.minconfirmed
-            aa = self.maxunconfirmed
-            ab = self.minunconfirmed
-
-        if max_false_neg > 0:
-            if max_false_neg > 1:
-                max_false_neg /= 100
-            max_lost_samples = int(max_false_neg * len(cvals))
-
-            topdropped, botdropped = 0, 0
-            last_botvals = bisect.bisect_left(uvals, cvals[0])
-            last_topvals = bisect.bisect_right(uvals, cvals[-1])
-            while (topdropped + botdropped) < max_lost_samples:
-                new_botvals = bisect.bisect(uvals, cvals[botdropped+1])
-                new_topvals = bisect.bisect(uvals, cvals[-1-botdropped-1])
-                if new_botvals - last_botvals > new_topvals - last_topvals:
-                    last_botvals = new_botvals
-                    botdropped += 1
-                else:
-                    last_topvals = new_topvals
-                    topdropped += 1
-            ra = cvals[-1-topdropped]
-            rb = cvals[0+botdropped]
-        if max_false_pos > 0:
-            """ NOTE : this method will not get past duplicate values on
-                one side even if it is 'strogner' than the other side
-            """
-            if max_false_pos > 1:
-                max_false_pos /= 100
-            max_lost_samples = int(max_false_pos * len(uvals))
-            topdropped, botdropped = 0, 0
-            last_botvals = bisect.bisect_left(cvals, uvals[0])
-            last_topvals = bisect.bisect_right(cvals, uvals[-1])
-            while (topdropped + botdropped) < max_lost_samples:
-                new_botvals = bisect.bisect(cvals, uvals[botdropped+1])
-                new_topvals = bisect.bisect(cvals, uvals[-1-botdropped-1])
-                if new_botvals - last_botvals > new_topvals - last_topvals:
-                    last_botvals = new_botvals
-                    botdropped += 1
-                else:
-                    last_topvals = new_topvals
-                    topdropped += 1
-            aa = uvals[-1-topdropped]
-            ab = uvals[0+botdropped]
-
-        self.reject_below = rb
-        self.reject_above = ra
-        self.accept_above = aa
-        self.accept_below = ab
-
-    def _getFalseNegative(self):
-        if not self.analyzed:
-            self.analyze()
-        if self.confirmed == 0:
-            return None
-        return self.confirmed_rejected / self.confirmed
-    false_negative = property(fget=_getFalseNegative)
-
-    def _getFalsePositive(self):
-        if not self.analyzed:
-            self.analyze()
-        if self.unconfirmed == 0:
-            return None
-        return self.unconfirmed_accepted / self.unconfirmed
-    false_positive = property(fget=_getFalsePositive)
-
-    def _getTrueNegative(self):
-        if not self.analyzed:
-            self.analyze()
-        if self.unconfirmed == 0:
-            return None
-        return self.unconfirmed_rejected / self.unconfirmed
-    true_negative = property(fget=_getTrueNegative)
-
-    def _getTruePositive(self):
-        if not self.analyzed:
-            self.analyze()
-        if self.confirmed == 0:
-            return None
-        return self.confirmed_accepted / self.confirmed
-    true_positive = property(fget=_getTruePositive)
+    def filter_samples(self, **kwargs):
+        return filter_samples(self.samples, **kwargs)
 
 
 class PrincipalComponentTest( SampleTest ):
@@ -626,6 +713,7 @@ class PrincipalComponentTest( SampleTest ):
                 test_axis (0): single int index or list of index to select for test
                 prereduce (None): pre-reduce matrix for reducing dimensions
         """
+        self._reducedsamples = dict()
         if len(trainsets) == 0:
             """ This is a fixed weighting set (no training data) """
             name = kwargs.pop('name')
@@ -713,14 +801,20 @@ class PrincipalComponentTest( SampleTest ):
         """
         if self._prereduce is None or not len(sample):
             return sample
+        if not isinstance(sample, list) and sample in self._reducedsamples:
+            return self._reducedsamples[sample]
         if isinstance( sample[0], (list, tuple) ):
-            return np.dot(np.array(sample), np.array(self._prereduce))
-        # convert to a 'row' of a matrix and back again
-        samplerow = np.array([sample])
-        return list(np.dot(samplerow, np.array(self._prereduce))[0])
+            reduced = np.dot(np.array(sample), np.array(self._prereduce))
+        else:
+            # convert to a 'row' of a matrix and back again
+            samplerow = np.array([sample])
+            reduced = list(np.dot(samplerow, np.array(self._prereduce))[0])
+        if not isinstance(sample, list):
+            self._reducedsamples[sample] = reduced
+        return reduced
 
     def apply_weighting(self, weights, sample):
-        s_v = self.reduce_sample(sample.xs + sample.ys + sample.zs)
+        s_v = self.reduce_sample(tuple(sample.xs + sample.ys + sample.zs))
         return sum(wi * si for wi, si in zip(weights, s_v))
 
     @staticmethod
@@ -892,6 +986,113 @@ class PrincipalComponentTest( SampleTest ):
         fix.accept_below = self.accept_below * scale
         return fix
 
+    def check_updates(self, jump=1):
+        wts = self.getWeightings()
+        self.set_thresholds()
+        stopped = False
+        tn_std = self.true_negative
+        tp_std = self.true_positive
+        best_tn = (tn_std, wts)
+        best_tp = (tp_std, wts)
+        try:
+            for i in range(len(wts)):
+                best_neg = False
+                best_pos = False
+                newwts = list(wts)
+                newwts[i] -= jump
+                self.setWeightings(newwts)
+                self.set_thresholds()
+                tn_m1, tp_m1 = self.true_negative, self.true_positive
+                if tn_m1 > best_tn[0]:
+                    best_tn = (tn_m1, newwts)
+                    best_neg = True
+                if tp_m1 > best_tp[0]:
+                    best_tp = (tp_m1, newwts)
+                    best_pos = True
+                newwts = list(wts)
+                newwts[i] += jump
+                self.setWeightings(newwts)
+                self.set_thresholds()
+                tn_p1, tp_p1 = self.true_negative, self.true_positive
+                if tn_p1 > best_tn[0]:
+                    best_tn = (tn_p1, newwts)
+                    best_neg = True
+                if tp_p1 > best_tp[0]:
+                    best_tp = (tp_p1, newwts)
+                    best_pos = True
+                fmts = []
+                for v in [tn_p1-tn_std, tn_m1-tn_std, tp_p1-tp_std, tp_m1-tp_std]:
+                    if v > 0:
+                        fmts.append("{:+6.1%}".format(v))
+                    elif v == 0:
+                        fmts.append("    0 ")
+                    else:
+                        fmts.append("   -- ")
+                print("w[{: 3}] = {: 6.1f} +/-{: 6.1f}: {:5.1%} ({} | {}) || {:5.1%} ({} | {}) {} {}".format(
+                    i, wts[i], jump, tn_std, fmts[0], fmts[1], tp_std, fmts[2], fmts[3],
+                    "<<" if best_neg else "  ", '<<' if best_pos else '  '))
+        except KeyboardInterrupt:
+            print("Stopped....")
+            stopped = True
+        finally:
+            self.setWeightings(wts)
+            self.set_thresholds()
+        if stopped:
+            raise KeyboardInterrupt("Terminated")
+        return best_tn, best_tp
+
+    def iterate(self, weights=None, startval=128, minval=1, maxiter=16, usenegative=True):
+        if weights is None:
+            weights = 0.8
+        if isinstance(weights, float) and weights < 1:
+            wt = startval
+            wlist = []
+            iteration = 0
+            while wt >= minval and iteration < maxiter:
+                wlist.append(wt)
+                wt = weights * wt
+                iteration += 1
+            weights = wlist
+        for jp in weights:
+            tn, tp = self.check_updates(jp)
+            updated = list(tn[1] if usenegative else tp[1])
+            self.setWeightings(updated)
+            self.set_thresholds()
+
+    def setWeightings(self, wts, **kwargs):
+        changed = False
+        try:
+            pr = kwargs.pop("prereduce")
+        except KeyError:
+            pass
+        else:
+            if self._prereduce != pr:
+                self._reducedsamples = dict()
+                changed = True
+                self._prereduce = pr
+        if self._prereduce is not None:
+            dims = len(self._prereduce[0])
+        else:
+            dims = 96
+        if wts is None:
+            wts = [0] * dims
+        if len(wts) != dims:
+            raise ValueError("Must specify weight for all readings")
+
+        old_wts = self.eigvects[0]
+        if old_wts != wts:
+            changed = False # re-setting test_fcn removes need to update
+            test_fcn = lambda s : self.apply_weighting(wts, s)
+            self.eigvects = [wts] + [[0]*len(wts) for _ in range(len(wts)-1)]
+            self.eigvals = [1] + [0 for _ in range(len(wts)-1)]
+            self.test_fcn = test_fcn
+        if changed:
+            self.retest()
+
+    def getWeightings(self):
+        return self.eigvects[0]
+
+
 
 class FixedWeightingTest( PrincipalComponentTest ):
     def __init__(self, weightings, name, **kwargs):
@@ -908,34 +1109,15 @@ class FixedWeightingTest( PrincipalComponentTest ):
         kwargs.setdefault('test_axis', 0)
         super().__init__(**kwargs)
 
-    def setWeightings(self, wts, **kwargs):
-        changed = False
+
+class SimpleOptimizer( FixedWeightingTest ):
+    def __init__( self, **kwargs ):
         if 'prereduce' in kwargs:
-            pr = kwargs.pop("prereduce")
-            if self._prereduce != pr:
-                changed = True
-                self._prereduce = pr
-                if wts is None:
-                    wts = [0] * len(pr[0])
-        if self._prereduce is not None:
-            dims = len(self._prereduce[0])
+            dims = len(kwargs['prereduce'][0])
         else:
             dims = 96
-        if len(wts) != dims:
-            raise ValueError("Must specify weight for all readings")
-
-        old_wts = self.eigvects[0]
-        if old_wts != wts:
-            changed = False # re-setting test_fcn removes need to update
-            test_fcn = lambda s : self.apply_weighting(wts, s)
-            self.eigvects = [wts] + [[0]*len(wts) for _ in range(len(wts)-1)]
-            self.eigvals = [1] + [0 for _ in range(len(wts)-1)]
-            self.test_fcn = test_fcn
-        if changed:
-            self.retest()
-
-    def getWeightings(self):
-        return self.eigvects[0]
+        wts = [0] * dims
+        super().__init__(wts, "Optimizer Test", **kwargs)
 
 
 class LinearDiscriminantTest( PrincipalComponentTest ):
@@ -1080,88 +1262,6 @@ class LeastSquaresWeighting( FixedWeightingTest ):
         P = np.linalg.inv( Pinv )
         return [v for v in np.dot( P, B )]
 
-
-class SimpleOptimizer( FixedWeightingTest ):
-    def __init__( self, **kwargs ):
-        if 'prereduce' in kwargs:
-            dims = len(kwargs['prereduce'][0])
-        else:
-            dims = 96
-        wts = [0] * dims
-        super().__init__(wts, "Optimizer Test", **kwargs)
-
-    def check_updates(self, jump=1):
-        wts = self.getWeightings()
-        self.set_conservative()
-        stopped = False
-        tn_std = self.true_negative
-        tp_std = self.true_positive
-        best_tn = (tn_std, wts)
-        best_tp = (tp_std, wts)
-        try:
-            for i in range(len(wts)):
-                best_neg = False
-                best_pos = False
-                newwts = list(wts)
-                newwts[i] -= jump
-                self.setWeightings(newwts)
-                self.set_conservative()
-                tn_m1, tp_m1 = self.true_negative, self.true_positive
-                if tn_m1 > best_tn[0]:
-                    best_tn = (tn_m1, newwts)
-                    best_neg = True
-                if tp_m1 > best_tp[0]:
-                    best_tp = (tp_m1, newwts)
-                    best_pos = True
-                newwts = list(wts)
-                newwts[i] += jump
-                self.setWeightings(newwts)
-                self.set_conservative()
-                tn_p1, tp_p1 = self.true_negative, self.true_positive
-                if tn_p1 > best_tn[0]:
-                    best_tn = (tn_p1, newwts)
-                    best_neg = True
-                if tp_p1 > best_tp[0]:
-                    best_tp = (tp_p1, newwts)
-                    best_pos = True
-                fmts = []
-                for v in [tn_p1-tn_std, tn_m1-tn_std, tp_p1-tp_std, tp_m1-tp_std]:
-                    if v > 0:
-                        fmts.append("{:+6.1%}".format(v))
-                    elif v == 0:
-                        fmts.append("    0 ")
-                    else:
-                        fmts.append("   -- ")
-                print("w[{: 3}] = {: 6.1f} +/-{: 6.1f}: {:5.1%} ({} | {}) || {:5.1%} ({} | {}) {} {}".format(
-                    i, wts[i], jump, tn_std, fmts[0], fmts[1], tp_std, fmts[2], fmts[3],
-                    "<<" if best_neg else "  ", '<<' if best_pos else '  '))
-        except KeyboardInterrupt:
-            print("Stopped....")
-            stopped = True
-        finally:
-            self.setWeightings(wts)
-            self.set_conservative()
-        if stopped:
-            raise KeyboardInterrupt("Terminated")
-        return best_tn, best_tp
-
-    def iterate(self, weights=None, startval=128, minval=1, maxiter=16, usenegative=True):
-        if weights is None:
-            weights = 0.8
-        if isinstance(weights, float) and weights < 1:
-            wt = startval
-            wlist = []
-            iteration = 0
-            while wt >= minval and iteration < maxiter:
-                wlist.append(wt)
-                wt = weights * wt
-                iteration += 1
-            weights = wlist
-        for jp in weights:
-            tn, tp = self.check_updates(jp)
-            updated = list(tn[1] if usenegative else tp[1])
-            self.setWeightings(updated)
-            self.set_conservative()
 
 
 class Samples( object ):
@@ -1580,6 +1680,9 @@ class WakeSample( object ):
         WakeSample._sample_counter += 1
         self.i = WakeSample._sample_counter
         self._check_result = None
+
+    def __hash__(self):
+        return hash(self.uid)
 
     def __setstate__(self, state):
         self.uid = state['uid']
@@ -2166,13 +2269,9 @@ if __name__ == "__main__":
             pc = PrincipalComponentTest(conf, unconf, test_axis=[0, 1, 2])
             ld = LinearDiscriminantTest(conf, unconf, test_axis=0,
                     prereduce=pc.getTransformationMatrix(8))
-            c = sorted(ld.confirmedvals)
-            u = sorted(ld.unconfirmedvals)
             # now we need to figure out how to set threshold
 # TODO : check if we can get better data with conf filtering for xturn / yturn
-# TODO : check if we start with LD result, can we 'optimize' better
 # TODO : check if we can use scipy to minimize better
-# TODO : check efficiency of minimization calculations
 
         if args.run_tests:
             # add a new attribute for coloring selected data blue
