@@ -27,10 +27,16 @@
 #define ABS(a)       ( a < 0 ? -1 * a : a )
 #endif
 
+#ifndef LENGTH
+#define LENGTH(a) (sizeof(a)/sizeof(a[0]))
+#endif
+
 #ifndef USE_SELF_TEST
 # define USE_SELF_TEST false
 #endif
 
+/* for easier debugging of interrupt levels */
+/* flash led to indicate isr triggering */
 #ifndef DEBUG_AX_ISR
 # define DEBUG_AX_ISR false
 #endif
@@ -40,11 +46,7 @@
 #ifndef SKIP_WAIT_FOR_DOWN
 #define SKIP_WAIT_FOR_DOWN false
 #endif
-#ifndef USE_INTERRUPT_2
-#define USE_INTERRUPT_2 true
-#endif
-/* for easier debugging of interrupt levels */
-/* flash led to indicate isr triggering */
+
 
 #ifndef GESTURE_FILTERS
 # define GESTURE_FILTERS    true
@@ -57,7 +59,7 @@
 #endif
 /* show / disable accel related errors showing on LED's */
 
-
+#define SHOW_LED_FOR_FILTER_INFO true
 #ifndef SHOW_LED_FOR_FILTER_INFO
 #define SHOW_LED_FOR_FILTER_INFO false
 #endif
@@ -91,13 +93,13 @@
 #if ( SHOW_LED_FOR_FILTER_INFO )
 #define _DISP_FILTER_INFO( i )  do { \
       _led_on_full( i ); \
-      delay_ms(100); \
+      delay_ms(20); \
       _led_off_full( i ); \
-      delay_ms(50); \
+      delay_ms(5); \
       _led_on_full( i ); \
-      delay_ms(100); \
+      delay_ms(20); \
       _led_off_full( i ); \
-      delay_ms(50); \
+      delay_ms(5); \
     } while(0);
 #else   /* SHOW_LED_FOR_FILTER_INFO */
 #define _DISP_FILTER_INFO( i )
@@ -167,7 +169,7 @@
 
 
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
-typedef enum { fail=-1, punt=0, pass=1 } fltr_result_t;
+typedef enum { reject=-1, punt=0, accept=1 } fltr_result_t;
 
 typedef enum {
     WAIT_FOR_DOWN = 0,
@@ -206,21 +208,21 @@ typedef struct {
     union {
         struct {
             short int               : 16 - BITS_PER_ACCEL_VAL;
-            short int x_leftalign   : BITS_PER_ACCEL_VAL;
+            short int x_l   : BITS_PER_ACCEL_VAL;
         };
         short int x                 : 16;
     };
     union {
         struct {
             short int               : 16 - BITS_PER_ACCEL_VAL;
-            short int y_leftalign   : BITS_PER_ACCEL_VAL;
+            short int y_l   : BITS_PER_ACCEL_VAL;
         };
         short int y                 : 16;
     };
     union {
         struct {
             short int               : 16 - BITS_PER_ACCEL_VAL;
-            short int z_leftalign   : BITS_PER_ACCEL_VAL;
+            short int z_l   : BITS_PER_ACCEL_VAL;
         };
         short int z                 : 16;
     };
@@ -234,6 +236,21 @@ typedef struct {
     uint8_t depth;
 } accel_fifo_t;
 
+/* Multiple Accumulate Compare Filter Def */
+typedef struct {
+    /* Filter action (accept, punt, reject) if lower than this threshold */
+    const int32_t lower_ths; 
+    const fltr_result_t lt_action;
+    
+    /* Filter action (accept, punt, reject) if greater than this threshold */
+    const int32_t upper_ths;
+    const fltr_result_t gt_action;
+    
+    /* weights for x,y,z fifo values for multiply accumulate */
+    const int32_t x_ws[32];
+    const int32_t y_ws[32];
+    const int32_t z_ws[32];
+} macc_fltr_t;
 
 //___ P R O T O T Y P E S   ( P R I V A T E ) ________________________________
 static void wait_state_conf( wake_gesture_state_t wait_state );
@@ -272,11 +289,6 @@ static void configure_i2c(void);
      * accelerometer
      * @param
      * @retrn none
-     */
-
-static inline fltr_result_t fltr_lda_trial( void );
-    /* @brief filter using the results of global linear discriminant analysis
-     * @retrn true on fail
      */
 
 static inline bool fltr_y_not_deliberate_fail( int16_t y_last, accel_xyz_t* sums );
@@ -379,12 +391,139 @@ static struct i2c_master_module i2c_master_instance;
 
 static click_flags_t click_flags;
 static int_reg_flags_t int1_flags = { .super = false };
-#if (USE_INTERRUPT_2)
 static int_reg_flags_t int2_flags = { .super = false };
-#endif  /* USE_INTERRUPT_2 */
 
 static wake_gesture_state_t wake_gesture_state;
 
+/* Gesture filter constants */
+const macc_fltr_t zh_fltrs[] = {
+    
+ {
+	/*** FILTER 1 ***/
+	.lower_ths = 0,
+	.lt_action = punt,
+	.upper_ths = -446706,
+	.gt_action = reject,
+	.x_ws = {
+     54012,      0,      0,   4167,  -2165,      0,      0,  -8856,
+         0,      0,      0,      0,   1958,      0,      0,      0,
+         0,      0,      0,      0,      0,      0,      0,      0,
+         0,   1041,      0,   1789,      0,      0,      0,      0,
+    },
+	.y_ws = {
+         0,      0,      0,      0,      0,      0,      0,      0,
+         0,      0,      0,      0,      0,      0,      0,      0,
+         0,      0,      0,      0,      0,      0,  -4167,    586,
+         0,   2083,      0,      0,    533,      0, -65536,      0,
+    },
+	.z_ws = {
+         0,      0,      0,      0,      0,      0,      0,      0,
+         0,      0,      0,      0,      0,      0,    520,      0,
+         0,  31893,      0,      0,      0,      0,      0,      0,
+         0,      0,      0, -48610,      0,  54752, -60013,  -2083,
+    },
+  },
+ {
+	/*** FILTER 2 ***/
+	.lower_ths = 0,
+	.lt_action = punt,
+	.upper_ths = 5230486,
+	.gt_action = reject,
+	.x_ws = {
+         0,      0,      0,      0,   -512,      0,      0,      0,
+         0,    256,      0,      0,      0,   2048,      0,      0,
+         0,      0,      0, -42998,      0, -65536,      0,  18353,
+         0,      0,  29418,      0, -16658,      0, -28211,      0,
+    },
+	.y_ws = {
+         0,      0,      0,      0,      0,      0,      0,      0,
+         0,      0,      0,      0,      0,      0,      0,      0,
+         0,      0,      0,      0,      0,      0,      0,      0,
+         0,      0,      0, -58982,      0,      0,      0,      0,
+    },
+	.z_ws = {
+         0,      0,      0,      0,  38698,      0,      0,      0,
+         0,      0,      0,      0,      0,      0,      0,  -4503,
+         0, -13493,      0,  18038,      0,      0,   2882,   3602,
+         0,      0,      0,      0,      0,  34828,  62634,  -4096,
+    },
+  },
+ {
+	/*** FILTER 3 ***/
+	.lower_ths = 0,
+	.lt_action = punt,
+	.upper_ths = -1749158,
+	.gt_action = accept,
+	.x_ws = {
+     26156,  23497,  19475,  15669,   9098,   5498,     17,  -4861,
+     -7906,  -9712,  -9168,  -7490,  -8205,  -8986, -10649,  -9484,
+     -8574,  -8183,  -6794,  -6422,  -5725,  -4599,  -3422,   -604,
+      -337,   -284,    167,    328,    212,    769,    783,   1146,
+    },
+	.y_ws = {
+    -62271, -61932, -54030, -51469, -48088, -48552, -42286, -32404,
+    -29369, -18587,  -9111,   3161,  12415,  17938,  30386,  36638,
+     41782,  47074,  47740,  49115,  49536,  50535,  52156,  52696,
+     52346,  51421,  50717,  48475,  46952,  45137,  44108,  45227,
+    },
+	.z_ws = {
+    -65536, -62615, -58106, -48842, -38389, -28383, -17732,  -4534,
+      7378,  20030,  23182,  25973,  22934,  21008,  16182,  12977,
+      8315,   4880,   2105,    721,   -628,  -1429,  -2729,  -4981,
+     -6127,  -7392,  -7990,  -8102,  -7017,  -5446,  -3947,  -3245,
+    },
+  },
+ {
+	/*** FILTER 4 ***/
+	.lower_ths = 0,
+	.lt_action = punt,
+	.upper_ths = -17284718,
+	.gt_action = accept,
+	.x_ws = {
+     23200,  16683,   9066,   9580,   4141,  -3962, -12810, -31655,
+    -36521, -38897, -35085, -35851, -36346, -39118, -37378, -39760,
+    -34636, -36256, -31652, -27804, -25864, -19212, -12286,  -7157,
+     -4164,  -1562,   2518,   3528,   4049,   4963,   4682,   6877,
+    },
+	.y_ws = {
+    -29583, -21903,   4622, -17452, -36467, -41474, -26352, -10512,
+    -12657, -13850,  11788,  30983,  57374,  61410,  57328,  49723,
+     54519,  65536,  60635,  60511,  62393,  62598,  61109,  60332,
+     60468,  60394,  60987,  58525,  56137,  55249,  54650,  54682,
+    },
+	.z_ws = {
+    -49395, -55834, -43578, -26345, -12388, -14322, -41967, -44087,
+    -36964, -25421, -53619, -60921, -63159, -45876, -43926, -22894,
+    -18644,  -9957, -12400, -13712, -14677, -16324, -17469, -19462,
+    -19038, -16246, -14383, -13155, -10381,  -7032,  -4119,  -3944,
+    },
+  },
+ {
+	/*** FILTER 5 ***/
+	.lower_ths = 0,
+	.lt_action = accept,
+	.upper_ths = 0,
+	.gt_action = reject,
+	.x_ws = {
+     -3955,   4483,   8721,   4478,  -2022,  -2327,   5260,   9801,
+     12839,  13467,  16849,  19960,  21789,  24624,  27936,  31324,
+     32231,  35895,  36346,  35233,  35162,  35665,  35846,  35786,
+     35141,  34534,  33063,  32611,  31205,  30463,  29131,  28826,
+    },
+	.y_ws = {
+    -12697,  -1905,  -2646, -13055, -23760, -36802, -46602, -54816,
+    -54527, -53567, -60140, -61642, -65536, -61325, -62674, -60174,
+    -60386, -56689, -46092, -39149, -35981, -34129, -31283, -29238,
+    -28368, -28082, -28091, -28353, -26563, -24307, -23030, -22227,
+    },
+	.z_ws = {
+     -8696, -19425, -22185, -17831, -11460,    792,   9893,  14622,
+      9644,  12360,  13187,  15867,  10914,   6411,   8049,   6711,
+      7309,   7154,   6138,   6932,   6753,   6420,   5155,   4056,
+      3422,   2294,   2685,   3483,   3449,   3483,   2636,   1561,
+    },
+  },
+};
 
 //___ I N T E R R U P T S  ___________________________________________________
 static void accel_isr(void) {
@@ -394,11 +533,9 @@ static void accel_isr(void) {
     if (!accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &int1_flags.b8)) {
         DISP_ERR_CONSEC_READ_2();
     }
-#if ( USE_INTERRUPT_2 )
     if (!accel_register_consecutive_read(AX_REG_INT2_SRC, 1, &int2_flags.b8)) {
         DISP_ERR_CONSEC_READ_3();
     }
-#endif  /* USE_INTERRUPT_2 */
 
 #if ( DEBUG_AX_ISR )
     if ( click_flags.ia ) _led_on_full( 56 );
@@ -408,14 +545,12 @@ static void accel_isr(void) {
     if ( int1_flags.yh )  _led_on_full( 29 );   //      |
     if ( int1_flags.zl )  _led_on_full(  7 );   //      .---> x
     if ( int1_flags.zh )  _led_on_full( 36 );   //     /
-#if ( USE_INTERRUPT_2 )
     if ( int2_flags.xl )  _led_on_full( 16 );   //    /
     if ( int2_flags.xh )  _led_on_full( 46 );   //  z'
     if ( int2_flags.yl )  _led_on_full(  1 );
     if ( int2_flags.yh )  _led_on_full( 31 );
     if ( int2_flags.zl )  _led_on_full(  9 );
     if ( int2_flags.zh )  _led_on_full( 38 );
-#endif  /* USE_INTERRUPT_2 */
     delay_ms(100);
     if ( click_flags.ia ) _led_off_full( 56 );
     if ( int1_flags.xl )  _led_off_full( 14 );
@@ -424,14 +559,12 @@ static void accel_isr(void) {
     if ( int1_flags.yh )  _led_off_full( 29 );
     if ( int1_flags.zl )  _led_off_full(  7 );
     if ( int1_flags.zh )  _led_off_full( 36 );
-#if ( USE_INTERRUPT_2 )
     if ( int2_flags.xl )  _led_off_full( 16 );
     if ( int2_flags.xh )  _led_off_full( 46 );
     if ( int2_flags.yl )  _led_off_full(  1 );
     if ( int2_flags.yh )  _led_off_full( 31 );
     if ( int2_flags.zl )  _led_off_full(  9 );
     if ( int2_flags.zh )  _led_off_full( 38 );
-#endif  /* USE_INTERRUPT_2 */
 #endif  /* DEBUG_AX_ISR */
 
     extint_chan_clear_detected(AX_INT_CHAN);
@@ -448,9 +581,7 @@ static void accel_isr(void) {
         extint_chan_clear_detected(AX_INT_CHAN);
         accel_register_consecutive_read(AX_REG_CLICK_SRC, 1, &dummy);
         accel_register_consecutive_read(AX_REG_INT1_SRC, 1, &dummy);
-#if (USE_INTERRUPT_2)
         accel_register_consecutive_read(AX_REG_INT2_SRC, 1, &dummy);
-#endif  /* USE_INTERRUPT_2 */
 
         if (i > 250) {      /* 'i' is expected to roll over */
             /* ### HACK to guard against unreleased AX interrupt */
@@ -512,7 +643,7 @@ static void wait_state_conf( wake_gesture_state_t wait_state ) {
             accel_register_write (AX_REG_INT1_CFG, AOI_POS | XLIE | XHIE | YLIE | ZLIE);
         }
 
-#if (WAKE_ON_SUPER_Y && USE_INTERRUPT_2)
+#if (WAKE_ON_SUPER_Y)
         if (y < 10) {
             accel_register_write (AX_REG_INT2_THS, 28);
             accel_register_write (AX_REG_INT2_DUR, MS_TO_ODRS(100, SLEEP_SAMPLE_INT));
@@ -532,15 +663,11 @@ static void wait_state_conf( wake_gesture_state_t wait_state ) {
         accel_register_write (AX_REG_INT1_DUR, MS_TO_ODRS(120, SLEEP_SAMPLE_INT));
         accel_register_write (AX_REG_INT1_CFG, AOI_POS | ZHIE);
 
-#if (USE_INTERRUPT_2)
         accel_register_write (AX_REG_INT2_THS, 10);
         accel_register_write (AX_REG_INT2_DUR, MS_TO_ODRS(80, SLEEP_SAMPLE_INT));
         accel_register_write (AX_REG_INT2_CFG, AOI_POS | YHIE );
 
         accel_register_write (AX_REG_CTL3, I1_CLICK_EN | I1_AOI1_EN | I1_AOI2_EN);
-#else   /* USE_INTERRUPT_2 */
-        accel_register_write (AX_REG_CTL3, I1_CLICK_EN | I1_AOI1_EN );
-#endif  /* USE_INTERRUPT_2 */
     }
 
     /* Enable stream to FIFO buffer mode */
@@ -570,11 +697,7 @@ static bool wake_check( void ) {
     }
 
     /* we got here bc of an interrupt, check that at least one flag exists */
-#if ( USE_INTERRUPT_2 )
     if (!(int1_flags.ia || int2_flags.ia)) {
-#else   /* USE_INTERRUPT_2 */
-    if (!(int1_flags.ia)) {     /* USE_INTERRUPT_2 */
-#endif  /* USE_INTERRUPT_2 */
         DISP_ERR_WAKE_2();
         /* The accelerometer is in an error state (probably a timing
          * error between interrupt trigger and register read) so just
@@ -589,8 +712,7 @@ static bool wake_check( void ) {
 
     /* if our state was 'down', go forward to 'up' */
     if (wake_gesture_state == WAIT_FOR_DOWN) {
-#if (WAKE_ON_SUPER_Y && USE_INTERRUPT_2)
-// FIXME : which interrupt is better to watch for? yh or xl/xh/yl/z
+#if (WAKE_ON_SUPER_Y)
         if ( int2_flags.ia ) {
             /* we just got a super y-high isr flag, skip to check gesture */
             int2_flags.super = true;
@@ -604,20 +726,21 @@ static bool wake_check( void ) {
             return false;
         }
         int2_flags.super = false;
-#endif  /* WAKE_ON_SUPER_Y && USE_INTERRUPT_2 */
+#endif  /* WAKE_ON_SUPER_Y */
 
         wait_state_conf(WAIT_FOR_UP);
         return false;
     }
 
-    /* we are in WAIT_FOR_UP, check if y|z 'up' was the trigger */
+    /* we are in WAIT_FOR_UP, run gesture filters to determine wake status */
     if (gesture_filter_check()) {
         return true;
     }
-
+    
+    /* gesture has been filtered out, wait for down again */
     main_nvm_data.filtered_gestures++;
-
     wait_state_conf(WAIT_FOR_DOWN);
+    
     return false;
 }
 
@@ -628,6 +751,31 @@ static bool check_tilt_down( int16_t x, int16_t y, int16_t z ) {
     return (ABS(x) > MAX_TILT ||                            // x-tilted
             (z <= ALMOST_VERT && y <= DOWN_FACING) ||   // turned out
             (z <= DOWN_FACING && y <= ALMOST_VERT));
+}
+
+static inline fltr_result_t calc_macc_fltr_action( const macc_fltr_t *macc_fltr ) {
+    uint8_t i;
+    int32_t result = 0;
+    
+    for( i = 0; i < accel_fifo.depth; i++ ) {
+        result += ((int32_t) accel_fifo.values[i].x_l) * macc_fltr->x_ws[i];
+        result += ((int32_t) accel_fifo.values[i].y_l) * macc_fltr->y_ws[i];
+        result += ((int32_t) accel_fifo.values[i].z_l) * macc_fltr->z_ws[i];
+    }
+    
+    if (macc_fltr->lt_action != punt) {
+        if (result < macc_fltr->lower_ths ) {
+            return macc_fltr->lt_action;
+        }
+    }
+    
+    if (macc_fltr->gt_action != punt) {
+        if (result > macc_fltr->upper_ths ) {
+            return macc_fltr->gt_action;
+        }
+    }
+
+    return punt;
 }
 
 static inline bool gesture_filter_check( void ) {
@@ -645,78 +793,47 @@ static inline bool gesture_filter_check( void ) {
     return true;
 #endif
     uint8_t i;
-    fltr_result_t rv;
-    accel_xyz_t curr;
-    accel_xyz_t csum = { .x = 0, .y = 0, .z = 0 };
-    accel_xyz_t csums[32];
-    //accel_xyz_t prev = { .x = 0, .y = 0, .z = 0 };
-    //accel_xyz_t diff;
-
+    fltr_result_t result;
     if( accel_fifo.depth == 0 ) {
         /* there was some error reading the fifo */
         return true;
     }
 
-    for( i = 0; i < accel_fifo.depth; i++ ) {
-        /* find x, y, z values from raw 'left aligned' fifo data */
-        curr.x = accel_fifo.values[i].x_leftalign; /* same as bit shift right */
-        curr.y = accel_fifo.values[i].y_leftalign;
-        curr.z = accel_fifo.values[i].z_leftalign;
-
-        /* maintain integrated value */
-        csum.x += curr.x;
-        csum.y += curr.y;
-        csum.z += curr.z;
-
-        /* record integrated value */
-        csums[i].x = csum.x;
-        csums[i].y = csum.y;
-        csums[i].z = csum.z;
-#if 0
-        /* find differential */
-        diff.x = curr.x - prev.x;
-        diff.y = curr.y - prev.y;
-        diff.z = curr.z - prev.z;
-
-        /* reset previous values */
-        prev.x = curr.x;
-        prev.y = curr.y;
-        prev.z = curr.z;
-
-        if ( diff.z + diff.y > 25 ) {
-            return true;
-        }
-#endif
-    }
-
-    if (check_tilt_down(curr.x, curr.y, curr.z)) {
+    if (check_tilt_down(accel_fifo.values[accel_fifo.depth-1].x_l, 
+                        accel_fifo.values[accel_fifo.depth-1].y_l, 
+                        accel_fifo.values[accel_fifo.depth-1].z_l)) {
+        
+        /* current orientation would put us to sleep immediately anyway */
         return false;
     }
+    
 
-    if( (USE_PCA_LDA_FILTERS) && (rv = fltr_lda_trial()) ) {
-        _DISP_FILTER_INFO(0);
-        return rv == pass ? true : false;
-    } else if( fltr_y_turn_arm_accept( csums ) ) {
-        _DISP_FILTER_INFO(20);
-        return true;
-    } else if( fltr_y_not_deliberate_fail( curr.y, csums ) ) {
-        return false;
-    } else if( fltr_z_sum_slope_accept( csums ) ) {
-        _DISP_FILTER_INFO(40);
-        return true;
-    } else if( fltr_x_turn_arm_accept( csums ) ) {
-        _DISP_FILTER_INFO(15);
-        return true;
-    } else if( fltr_xy_turn_arm_accept( csums ) ) {
-        _DISP_FILTER_INFO(20);
-        return true;
-    } else if( fltr_y_facing_inwards_accept( curr.y ) ) {
-        _DISP_FILTER_INFO(30);
-        return true;
-    } else if( fltr_y_overshoot_accept( csums ) ) {
+    if (int2_flags.super) {
+        /* A "super Y" event has occurred */
+        /* ###no gesture filters for now */
         return true;
     }
-    return false;
+    
+    if (int1_flags.ia) {
+        /* run filters for wakeup due to z-high */
+        for (i=0; i < LENGTH(zh_fltrs); i++) {
+            result = calc_macc_fltr_action(zh_fltrs + i);
+            
+            if (result == accept) {
+                _DISP_FILTER_INFO((i+1)*5);
+                return true;
+            } else if (result == reject) {
+                _DISP_FILTER_INFO(60-(i+1)*5);
+                return false;
+            }
+        } 
+    }
+
+    /* run filters for y-high or z-high (int1 or int2_flag is active) */
+
+
+    /* ###FIXME accept anything that is punted by all filters for now */
+    return true;
 }
 
 static inline bool dclick_filter_check( void ) {
@@ -823,44 +940,6 @@ static inline bool fltr_y_not_deliberate_fail( int16_t y_last,
     return y_test;
 }
 
-static inline bool fltr_z_sum_slope_accept( accel_xyz_t* sums ) {
-    bool ztest = sums[31].z - sums[31-11].z - sums[11].z >= 110;
-    return ztest;
-}
-
-static inline fltr_result_t fltr_lda_trial( void ) {
-    return fail;
-    uint8_t i;
-    int32_t result = 0;
-    static const int32_t threshold = 25;
-    static const fltr_result_t lte_action = pass;
-    static const fltr_result_t gt_action = fail;
-    static const int32_t xfltr[] = {
-        -30016, -30661, -30179, -27877, -23630, -20212, -12017,  -8861,
-         -5510,    577,   6209,   7392,   9054,   7678,   7319,   8224,
-          7939,   7455,   6935,   6789,   8249,   8703,   7452,   7072,
-          6200,   4933,   4454,   3960,   2818,   1994,   1483,   1181,
-        };
-    static const int32_t yfltr[] = {
-        -34925, -33675, -33377, -22390,  -3779,   6250,   1045,  -3870,
-         -9206,  -8196,  -2424,   5249,   6834,   6834,   4639,    952,
-         -2033,  -1282,  -1047,   1318,   4617,   9497,  14704,  21472,
-         27724,  34921,  41498,  47327,  51105,  53223,  53910,  54068,
-        };
-    static const int32_t zfltr[] = {
-        -65536, -58825, -48157, -37355, -26243, -18223, -10954, -12248,
-        -12829, -13958, -15638, -12840,  -7622,   -118,   8230,   8693,
-          7215,   1548,  -4679, -11067, -15311, -17857, -19015, -18543,
-        -17899, -15486, -12543,  -8835,  -6134,  -2247,    473,   3403,
-        };
-
-    for( i = 0; i < accel_fifo.depth; i++ ) {
-        result += ((int32_t) accel_fifo.values[i].x_leftalign) * xfltr[i];
-        result += ((int32_t) accel_fifo.values[i].y_leftalign) * yfltr[i];
-        result += ((int32_t) accel_fifo.values[i].z_leftalign) * zfltr[i];
-    }
-    return result <= threshold ? lte_action : gt_action;
-}
 
 static inline bool fltr_y_turn_arm_accept( accel_xyz_t* sums ) {
     /* "Turn Arm Up" filter */
@@ -1094,19 +1173,15 @@ static inline void log_accel_gesture_fifo( void ) {
 
         flags[0] = accel_confirmed ? 0xCC : 0xEE;
         flags[1] = int1_flags.b8;
-#if (USE_INTERRUPT_2)
         flags[2] = int2_flags.b8;
-#else   /* USE_INTERRUPT_2 */
-        flags[2] = 0;       /* USE_INTERRUPT_2 */
-#endif  /* USE_INTERRUPT_2 */
         vbatt_relative = main_get_vbatt_relative();
         waketicks = main_get_waketicks();
         timestamp = aclock_get_timestamp();
 
         for(i=0; i<accel_fifo.depth; i++) {
-            values[3*i+0] = (uint8_t) (accel_fifo.values[i].x_leftalign & 0xFF);
-            values[3*i+1] = (uint8_t) (accel_fifo.values[i].y_leftalign & 0xFF);
-            values[3*i+2] = (uint8_t) (accel_fifo.values[i].z_leftalign & 0xFF);
+            values[3*i+0] = (uint8_t) (accel_fifo.values[i].x_l & 0xFF);
+            values[3*i+1] = (uint8_t) (accel_fifo.values[i].y_l & 0xFF);
+            values[3*i+2] = (uint8_t) (accel_fifo.values[i].z_l & 0xFF);
         }
 
         main_log_data (START_CODE, 3, false);
@@ -1147,9 +1222,7 @@ void accel_sleep ( void ) {
     }
 
     int1_flags.b8 = 0;
-#if (USE_INTERRUPT_2)
     int2_flags.b8 = 0;
-#endif  /* USE_INTERRUPT_2 */
     click_flags.b8 = 0;
     accel_slow_click_cnt = slow_click_counter = 0;
     accel_fast_click_cnt = fast_click_counter = 0;
@@ -1270,11 +1343,7 @@ void accel_init ( void ) {
                        registers probably shouldn't validate */
 
     /* Latch interrupts and enable FIFO */
-#if (USE_INTERRUPT_2)
     write_byte = FIFO_EN | LIR_INT1 | LIR_INT2 | D4D_INT2;
-#else   /* USE_INTERRUPT_2 */
-    write_byte = FIFO_EN | LIR_INT1;
-#endif  /* USE_INTERRUPT_2 */
     /* Use 4D for interrupt 2 so that Y-HIGH events can be detected at low
      * thresholds (i.e. slightly turned in).  4D allows since the AOI_POS
      * interrupts are only triggered if the axis of interest exceeds the

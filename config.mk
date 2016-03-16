@@ -19,7 +19,7 @@ TARGET_SRAM = bin/armio_sram.elf
 store_lifetime_usage=true
 #log_vbatt=true
 #debug_ax_isr=true
-gestures_filters=false
+gestures_filters=true
 #wake_gestures_user_default=false
 #use_wakeup_alarm=true
 #log_accel_stream=true
@@ -37,7 +37,6 @@ ifdef debug_accel_isr
     skip_wait_for_down=true
     log_accel_gesture_fifo=true
     gestures_filters=true
-    use_interrupt_2=false
 endif
 
 ifdef wakeup_alarm_1m
@@ -376,7 +375,4 @@ CPPFLAGS+= -D WAKE_GESTURES_USER_DEFAULT=$(wake_gestures_user_default)
 endif
 ifdef skip_wait_for_down
 CPPFLAGS+= -D SKIP_WAIT_FOR_DOWN=$(skip_wait_for_down)
-endif
-ifdef use_interrupt_2
-CPPFLAGS+= -D USE_INTERRUPT_2=$(use_interrupt_2)
 endif
