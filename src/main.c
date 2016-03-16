@@ -29,9 +29,9 @@
 #define MAIN_TIMER  TC5
 
 /* deep sleep (i.e. shipping mode) wakeup parameters */
-#define DEEP_SLEEP_EV_DELTA_S   3 /* max time between double clicks */
+#define DEEP_SLEEP_SEQ_MAX_DUR   7 /* max seconds to complete deep sleep sequence */
 #define DEEP_SLEEP_SEQ_UP_COUNT    3 /* # of double clicks facing up to wakeup */
-#define DEEP_SLEEP_SEQ_DOWN_COUNT    2 /* # of double clicks facing down to wakeup */
+#define DEEP_SLEEP_SEQ_DOWN_COUNT    3 /* # of double clicks facing down to wakeup */
 
 #define NVM_LOG_ADDR_START  (NVM_ADDR_START + NVM_DATA_STORE_SIZE)
 #define NVM_LOG_ADDR_MAX    NVM_MAX_ADDR
@@ -168,8 +168,8 @@ static struct {
 
   uint8_t brightness;
 
-  /* wakestamp (i.e seconds since noon/midnight) of last wake event */
-  int32_t last_wakestamp;
+  /* wakestamp (i.e secs since noon/midnight) of start of deep sleep wake sequence*/
+  int32_t ds_wake_seq_start;
 
   /* deep sleep (aka 'shipping mode') */
   bool deep_sleep_mode;
@@ -422,7 +422,7 @@ static bool wakeup_check( void ) {
   /* We are in deep sleep/shipping mode, update dclick counter */
   aclock_enable();
   curr_wakestamp = get_wakestamp();
-  if (wakestamp_elapsed(curr_wakestamp, main_gs.last_wakestamp) < DEEP_SLEEP_EV_DELTA_S) {
+  if (wakestamp_elapsed(curr_wakestamp, main_gs.ds_wake_seq_start) < DEEP_SLEEP_SEQ_MAX_DUR) {
     int16_t x, y, z;
     accel_enable();
     accel_data_read(&x, &y, &z);
@@ -444,25 +444,13 @@ static bool wakeup_check( void ) {
       delay_ms(50);
 #endif
     }
-
-
-    if (main_gs.deep_sleep_down_ctr >= DEEP_SLEEP_SEQ_DOWN_COUNT &&
-        main_gs.deep_sleep_up_ctr >= DEEP_SLEEP_SEQ_UP_COUNT) {
-      /* Deep sleep may be used during a resale so we want
-       * wake gestures enabled by default for that new user */
-      main_user_data.wake_gestures = true;
-      accel_set_gesture_enabled( true );
-      wake = true;
-    } else {
-      accel_set_gesture_enabled( false );
-      wake = false;
-      accel_sleep();
-    }
-  } else {
+  } else { /* reset for new wake sequence start */
+    
     /* we will assume the first dclick is face down so we
      * don't bother wasting power reading accelerometer */
     main_gs.deep_sleep_down_ctr = 1;
     main_gs.deep_sleep_up_ctr = 0;
+    main_gs.ds_wake_seq_start = curr_wakestamp;
     accel_set_gesture_enabled( false );
     wake = false;
 
@@ -472,9 +460,20 @@ static bool wakeup_check( void ) {
     _led_off_full(30);
     delay_ms(50);
 #endif
-  }
+    }
 
-  main_gs.last_wakestamp = curr_wakestamp;
+  if (main_gs.deep_sleep_down_ctr >= DEEP_SLEEP_SEQ_DOWN_COUNT &&
+      main_gs.deep_sleep_up_ctr >= DEEP_SLEEP_SEQ_UP_COUNT) {
+    /* Deep sleep may be used during a resale so we want
+     * wake gestures enabled by default for that new user */
+    main_user_data.wake_gestures = true;
+    accel_set_gesture_enabled( true );
+    wake = true;
+  } else {
+    accel_set_gesture_enabled( false );
+    wake = false;
+    accel_sleep();
+  }
 
   aclock_disable();
 
