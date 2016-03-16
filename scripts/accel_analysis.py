@@ -421,7 +421,6 @@ class SampleTest( object ):
         return (v for s, v in zip(self.samples, self.values) if not s.confirmed)
     unconfirmedvals = property(fget=_getUnconfirmedValues)
 
-
     def plot_boxwhisker(self, dim=0):
         ths = ( self.reject_below, self.reject_above,
                 self.accept_below, self.accept_above )
@@ -538,6 +537,7 @@ class SampleTest( object ):
             if max_false_neg > 1:
                 max_false_neg /= 100
             max_lost_samples = int(max_false_neg * len(cvals))
+
             topdropped, botdropped = 0, 0
             last_botvals = bisect.bisect_left(uvals, cvals[0])
             last_topvals = bisect.bisect_right(uvals, cvals[-1])
@@ -1169,13 +1169,11 @@ class Samples( object ):
         self.samples = []
         self.battery_reads = []
         self.name = name
-        self.clear_results()
 
     def __setstate__(self, state):
         self.name = state['name']
         self.samples = state['samples']
         self.battery_reads = state.pop('batt', [])
-        self.clear_results()
 
     def __getstate__(self):
         state = dict()
@@ -1215,83 +1213,10 @@ class Samples( object ):
             os.show_plot(axis=ax, color=color, only='z', show=False)
         plt.show()
 
-
-    def clear_results(self):
-        self.total = 0
-        self.rejected = 0
-        self.accepted = 0
-
-        self.confirmed = 0
-        self.unconfirmed = 0
-
-        self.confirmed_accepted = 0
-        self.confirmed_rejected = 0
-        self.unconfirmed_accepted = 0
-        self.unconfirmed_rejected = 0
-
-        self.unconfirmed_time = 0
-        self.unconfirmed_rejected_time = 0
-        self.unconfirmed_time_cnt = 0
-        self.unconfirmed_time_max = 0
-
-    def analyze( self ):
-        self.clear_results()
-        for sample in self.samples:
-            if len( sample.xs ) == 0:
-                log.debug( "skipping sample w/o data {}".format(
-                    (sample.xs, sample.ys, sample.zs) ) )
-                continue
-
-            self.total += 1
-            if sample.wakeup_check( force=True ):
-                self.accepted += 1
-            else:
-                self.rejected += 1
-            if sample.confirmed:
-                self.confirmed += 1
-                if sample.accepted:
-                    self.confirmed_accepted += 1
-                else:
-                    self.confirmed_rejected += 1
-            else:
-                self.unconfirmed += 1
-                if sample.accepted:
-                    self.unconfirmed_accepted += 1
-                else:
-                    self.unconfirmed_rejected += 1
-                if sample.waketime:
-                    self.unconfirmed_time_cnt += 1
-                    self.unconfirmed_time += sample.waketime
-                    if not sample.accepted:
-                        self.unconfirmed_rejected_time += sample.waketime
-                    if sample.waketime > self.unconfirmed_time_max:
-                        self.unconfirmed_time_max = sample.waketime
-
-    def show_analysis( self ):
-        print( "Analysis for '{}'".format( self.name ) )
-        print( "{:10}|{:12}|{:12}|{:12}".format( "", "Confirmed", "Unconfirmed", "Totals" ) )
-        print( "{:10}|{:12}|{:12}|{:12}".format( "Accepted", self.confirmed_accepted, self.unconfirmed_accepted, self.accepted ) )
-        print( "{:10}|{:12}|{:12}|{:12}".format( "Rejected", self.confirmed_rejected, self.unconfirmed_rejected, self.rejected ) )
-        print( "{:10}|{:12}|{:12}|{:12}".format( "Total", self.confirmed, self.unconfirmed, self.total ) )
-        print( "False Negatives {}, {:.0%}".format( self.confirmed_rejected, self.confirmed_rejected/self.confirmed ) )
-        print( "False Positives {}, {:.0%}".format( self.unconfirmed_accepted, self.unconfirmed_accepted/self.unconfirmed ) )
-        print( "Accidental wakes per day: {}".format( self.wake_tests_per_day*self.unconfirmed_accepted ) )
-        if self.unconfirmed_time_cnt:
-            print( "Unconfirmed time analysis ({} values):".format( self.unconfirmed_time_cnt ) )
-            print( "  average unconfirmed time {:.1f} seconds".format(
-                1e-3 * self.unconfirmed_time / self.unconfirmed_time_cnt ) )
-            print( "  maximum unconfirmed time {:.1f} seconds".format(
-                1e-3 * self.unconfirmed_time_max ) )
-            print( "  {:.1f} of {:.1f} seconds filtered, {:.0%}".format(
-                self.unconfirmed_rejected_time * 1e-3, self.unconfirmed_time * 1e-3,
-                self.unconfirmed_rejected_time / self.unconfirmed_time ) )
-        print()
-
     def load( self, fn ):
         if self.name is None:
             self.name = os.path.basename(fn)
         newsamples, batt = self.parse_fifo( fn )
-        self.total += len(newsamples)
         self.samples.extend( newsamples )
         self.battery_reads.extend( batt )
 
@@ -1300,24 +1225,6 @@ class Samples( object ):
             self.name = "Combined"
         self.samples.extend( other.samples )
         self.battery_reads.extend( other.battery_reads )
-        self.total += other.total
-        self.rejected += other.rejected
-        self.accepted += other.accepted
-
-        self.confirmed += other.confirmed
-        self.unconfirmed += other.unconfirmed
-
-        self.confirmed_accepted += other.confirmed_accepted
-        self.confirmed_rejected += other.confirmed_rejected
-        self.unconfirmed_accepted += other.unconfirmed_accepted
-        self.unconfirmed_rejected += other.unconfirmed_rejected
-
-        self.unconfirmed_time += other.unconfirmed_time
-        self.unconfirmed_rejected_time += other.unconfirmed_rejected_time
-        self.unconfirmed_time_cnt += other.unconfirmed_time_cnt
-
-        if other.unconfirmed_time_max > self.unconfirmed_time_max:
-            self.unconfirmed_time_max = other.unconfirmed_time_max
 
     def filter_samples( self, **kwargs ):
         return filter_samples(self.samples, **kwargs)
@@ -1329,84 +1236,6 @@ class Samples( object ):
     def export_csv( self, **kwargs ):
         for sample in self.filter_samples( **kwargs ):
             sample.export_csv()
-
-    def show_csums( self, **kwargs ):
-        fig = plt.figure()
-        ax_sigx = fig.add_subplot(111)
-        ax_sigx.set_title( "Sigma x-values" )
-
-        fig = plt.figure()
-        ax_sigx_rev = fig.add_subplot(111)
-        ax_sigx_rev.set_title( "Sigma x-values reverse" )
-
-        fig = plt.figure()
-        ax_sigy = fig.add_subplot(111)
-        ax_sigy.set_title( "Sigma y-values" )
-
-        fig = plt.figure()
-        ax_sigy_rev = fig.add_subplot(111)
-        ax_sigy_rev.set_title( "Sigma y-values reverse" )
-
-        fig = plt.figure()
-        ax_sigz = fig.add_subplot(111)
-        ax_sigz.set_title( "Sigma z-values" )
-
-        fig = plt.figure()
-        ax_sigz_rev = fig.add_subplot(111)
-        ax_sigz_rev.set_title( "Sigma z-values reverse" )
-
-        vals = 0
-        xs_confirm = []
-        dzs_confirm = []
-        xs_unconfirm = []
-        dzs_unconfirm = []
-        for sample in self.filter_samples( **kwargs ):
-            vals += 1
-            t = range( len( sample.xsums ) )
-            c = 'b' if sample.confirmed else 'r'
-
-
-            line = plt.Line2D( t, sample.xsums, marker='o' , color=c )
-            ax_sigx.add_line( line )
-
-            line = plt.Line2D( t, sample.ysums, marker='o', color=c )
-            ax_sigy.add_line( line )
-
-            line = plt.Line2D( t, sample.zsums, marker='o', color=c )
-            ax_sigz.add_line( line )
-
-            line = plt.Line2D( t, sample.xsumrev, marker='o', color=c )
-            ax_sigx_rev.add_line( line )
-
-            line = plt.Line2D( t, sample.ysumrev, marker='o', color=c )
-            ax_sigy_rev.add_line( line )
-
-            line = plt.Line2D( t, sample.zsumrev, marker='o', color=c )
-            ax_sigz_rev.add_line( line )
-
-            x = list( range( 8, 20 ) )
-            try:
-                dz = [ sample.zsums[-1] - sample.zsums[-n-1] - sample.zsums[n-1] for n in x ]
-                if sample.confirmed:
-                    dzs_confirm.extend( dz )
-                    xs_confirm.extend( x )
-                else:
-                    dzs_unconfirm.extend( dz )
-                    xs_unconfirm.extend( x )
-            except IndexError as e:
-                log.error( "zsums only has {} values".format( len( sample.zsums ) ) )
-
-        for ax in ( ax_sigx, ax_sigx_rev, ax_sigy, ax_sigy_rev, ax_sigz, ax_sigz_rev ):
-            ax.set_title( ax.get_title() + ": {} values".format( vals ) )
-            ax.grid()
-            ax.relim()
-            ax.autoscale_view()
-
-        fig = plt.figure()
-        plt.title( "dz delta N" )
-        plt.scatter( xs_unconfirm, dzs_unconfirm, color='r' )
-        plt.scatter( xs_confirm, dzs_confirm, color='b' )
-        plt.show()
 
     def plot_z_for_groups( self, zmin=False, only='xymag' ):
         keys = sorted(list(set(s.logfile for s in self.samples)))
@@ -1642,156 +1471,6 @@ class Samples( object ):
             len(samples), sum(1 for s in samples if s.confirmed), len(battery_reads)))
         return samples, battery_reads
 
-    @staticmethod
-    def _parse_fifo_deprecated( fname ):
-     try:
-       with open( fname, 'rb' ) as fh:
-        binval = fh.read(4)
-
-        """ find first start delimiter"""
-        started = False
-        skips = 0
-        while binval:
-            if 0xaaaa in struct.unpack("<HH", binval):
-                startcode, int1_flags, int2_flags = struct.unpack("<HBB", binval)
-                started = True
-                log.debug("Found start pattern 0x{:4X}".format(startcode))
-                log.info("int_flags 0b{:08b} 0b{:08b}".format(int1_flags, int2_flags))
-                break
-            else:
-                log.debug("ignoring 0x{:8X}".format(struct.unpack("<I", binval)[0]))
-                skips+=1
-                if skips > 100:
-                    raise Exception("No Data")
-            binval = fh.read(4)
-
-        if not started:
-            log.error("Could not find start patttern 0xaaaaaaaa in {}".format(fname))
-            return []
-
-        xs = []
-        ys = []
-        zs = []
-
-        samples = []
-
-        """ loop over binary file in chunks of 6 bytes
-            and parse out:
-                FIFO Start Code - 0xaaaaaaaa
-                FIFO Data - 32x3x2-bytes
-                FIFO End Code - 0xeeeeeeeee
-                (optional) waketime log code 0xddee followed by waketime ticks as unsigned int
-        """
-        binval = fh.read(6)
-        while binval:
-            if len(binval) != 6:
-                log.info("end of file encountered")
-                break
-            data = struct.unpack("<IBB", binval)
-            end_unconfirm = (data[0] == 0xeeeeeeee)#FIFO end code
-            end_confirm = (data[0] == 0xcccccccc) #FIFO end code
-            if end_confirm or end_unconfirm:
-                """end of fifo data"""
-                log.debug("Found fifo end at 0x{:08x}".format(fh.tell()))
-
-                if data[1:] == (0xdd, 0xee): #waketime log code
-                    binval = fh.read(4)
-                    waketime_ticks = struct.unpack("<I", binval)[0]
-                    waketime_ms = waketime_ticks/TICKS_PER_MS
-                    timestamp = None
-                    binval = fh.read(6) # update binval with next 6 bytes
-                elif data[1:] == (0xee, 0xdd):
-                    binval = fh.read(4)
-                    waketime_ticks = struct.unpack("<I", binval)[0]
-                    waketime_ms = waketime_ticks/TICKS_PER_MS
-                    binval = fh.read(4)
-                    timestamp = struct.unpack("<I", binval)[0]
-                    binval = fh.read(6) # update binval with next 6 bytes
-                else:
-                    """ waketime not include in this log dump"""
-                    waketime_ms = 0
-                    timestamp = None
-                    binval = binval[-2:] #retain last 2 bytes
-                    binval += fh.read(4)
-
-                if len(xs) and len(xs) == len(ys) and len(ys) == len(zs):
-                    xtra = 32 - len(xs)
-                    if xtra > 0:
-                        log.info("adding {} xtra values to sample".format(xtra))
-                    for _ in range( xtra ):
-                        xs.insert(0, None)
-                        ys.insert(0, None)
-                        zs.insert(0, None)
-                    ws = WakeSample(xs, ys, zs,
-                            waketime_ms, end_confirm, fname, timestamp,
-                            int1_flags, int2_flags)
-                    samples.append( ws )
-                    log.debug( "new sample: waketime={}ms confirmed={}".format(
-                        waketime_ms, end_confirm ) )
-                else:
-                    log.info("Skipping invalid sample {}:{}:{}".format(
-                        len(xs), len(ys), len(zs)))
-                started = False
-
-                xs = []
-                ys = []
-                zs = []
-
-            if struct.unpack("<Ibb", binval)[0] == 0xdcdcdcdc:
-                log.debug("Found DCLICK at 0x{:08x}".format(fh.tell()))
-                """ retain last 2 bytes """
-                binval = binval[-2:]
-                binval += fh.read(4)
-
-# FIXME : this will never evaluate True bc length 1 will not equal length 2
-            if struct.unpack("<bbbbbb", binval)[2:3] == (0xdd, 0xba):
-
-                log.debug("Found BAD FIFO at 0x{:08x}".format(fh.tell()))
-                """ retain last 2 bytes """
-                binval = binval[-2:]
-                binval += fh.read(4)
-
-            if started:
-                (xh, xl, yh, yl, zh, zl) = struct.unpack("<bbbbbb", binval)
-                xs.append(xl)
-                ys.append(yl)
-                zs.append(zl)
-
-                binval = fh.read(6)
-                log.debug("0x{:08x}  {}\t{}\t{}".format(fh.tell(), xl, yl, zl))
-
-            else:
-                """ Look for magic start code """
-                if len(binval) != 6:
-                    log.info("end of file encountered")
-                    break
-
-                if 0xaaaa in struct.unpack("<HHH", binval):
-                    startcode, int1_flags, int2_flags, _ = struct.unpack("<HBBH", binval)
-                    started = True
-                    log.info("Found start pattern 0x{:4X}".format(startcode))
-                    log.info("int_flags 0b{:08b} 0b{:08b}".format(int1_flags, int2_flags))
-                    """ retain last 2 bytes """
-                    binval = binval[-2:]
-                    binval += fh.read(4)
-                    started = True
-                else:
-                    log.debug("Skipping {} searching for start code".format(binval))
-                    binval = fh.read(6)
-
-            if len(binval) != 6:
-                log.info("end of file encountered")
-                break
-            if struct.unpack("<Ibb", binval)[0] == 0xffffffff:
-                log.debug("No more data after 0x{:08x}".format(fh.tell()))
-                break
-        log.debug("Parsed {} samples from {}".format(len(samples), fname))
-        return samples
-     except Exception as e:
-         log.error ("Unable to process file \'{}\': {}".format(fname, e))
-         raise
-         return []
-
     def show_wake_time_hist( self, samples=200 ):
         times = [ s.waketime for s in self.samples ]
         n, bins, patches = plt.hist(times, samples, normed=0.8, facecolor='green', alpha=0.5)
@@ -1901,7 +1580,6 @@ class WakeSample( object ):
         WakeSample._sample_counter += 1
         self.i = WakeSample._sample_counter
         self._check_result = None
-        self._collect_sums()
 
     def __setstate__(self, state):
         self.uid = state['uid']
@@ -1917,7 +1595,6 @@ class WakeSample( object ):
         if self.i > WakeSample._sample_counter:
             WakeSample._sample_counter = i
         self._check_result = None
-        self._collect_sums()
 
     def __getstate__(self):
         state = dict()
@@ -1984,108 +1661,6 @@ class WakeSample( object ):
         self.ysumrev = [ sum( v for v in self.ys[-i-1:] if v is not None ) for i in range( len( self.ys ) ) ]
         self.zsumrev = [ sum( v for v in self.zs[-i-1:] if v is not None ) for i in range( len( self.zs ) ) ]
 
-    def _fltr_y_not_deliberate_fail( self ):
-        return self.ys[-1] < -5
-
-    def _fltr_y_turn_accept( self ):
-        assert sum( self.ys[:9] ) == self.ysums[8]
-        return abs( self.ysums[8] ) >= 240
-
-    def _fltr_x_turn_accept( self ):
-        assert sum( self.xs[:5] ) == self.xsums[4]
-        return abs(self.xsums[4]) >= 120
-
-    def _fltr_xy_turn_accept( self ):
-        return abs( self.ysums[8] ) + abs( self.xsums[4] ) > 140
-
-    def _fltr_z_sum_slope_accept( self ):
-        assert sum( self.zs[-11:] ) == sum( self.zs[:-12:-1] )
-        assert sum( self.zs[:11] ) == self.zsums[10]
-        assert sum( self.zs[:5] ) == self.zsums[4]
-        assert sum( self.zs[-11:] ) == self.zsums[31] - self.zsums[31-11]
-
-        assert self.dzN == self.zsums[31] - self.zsums[31-11] - self.zsums[10]
-
-        test1 = self.zsums[4] < 100
-        test2 = self.zsums[31] - self.zsums[31-11] - self.zsums[10] > 110
-
-        return test1 and test2
-
-    def _fltr_y_inwards_accept( self ):
-        return self.ys[-1] > 6
-
-    def _fltr_y_overshoot_accept( self ):
-        testsum1a = self.ysums[-1] - self.ysums[26]
-        testsum1b = sum( self.ys[-5:] )
-        assert( testsum1a == testsum1b )
-        test1 = testsum1a > 20
-
-        testsum2a = self.ysums[-1] - self.ysums[22]
-        testsum2b = sum(self.ys[-9:])
-        assert( testsum2a == testsum2b )
-        test2 = testsum2a > 40
-        return test1 or test2
-
-    def wakeup_check( self, force=False ):
-        if force:
-            self._check_result = None
-        if self._check_result is not None:
-            return self._check_result
-        elif len( self.xs ) < 1:
-            self._check_result = False
-            return self._check_result
-
-        if True:    # hack -- temporarily removing to implement variable length
-            self.dzN = 0
-            self.ysum_n = self.ysums[8]
-            self.xsum_n = self.xsums[4]
-            self._check_result = False
-            return self._check_result
-
-        self.dzN = sum( self.zs[-11:] ) - sum( self.zs[:11] )
-        self.ysum_n = self.ysums[8]
-        self.xsum_n = self.xsums[4]
-
-        if False: # to make it easier to re-arrange below tests
-            pass
-        elif self._fltr_y_turn_accept():
-            self._check_result = True
-        elif self._fltr_y_not_deliberate_fail():
-            self._check_result = False
-        elif self._fltr_xy_turn_accept():
-            self._check_result = True
-        elif self._fltr_x_turn_accept():
-            self._check_result = True
-        elif self._fltr_z_sum_slope_accept():
-            self._check_result = True
-        elif self._fltr_y_inwards_accept():
-            self._check_result = True
-        elif self._fltr_y_overshoot_accept():
-            self._check_result = True
-        else:
-            self._check_result = False
-        return self._check_result
-    accepted = property( fget=wakeup_check )
-
-    def sumN_score(self, n):
-        xN = sum(self.xs[:n])
-        yN = sum(self.ys[:n])
-        zN = sum(self.zs[:n])
-        dxN = sum(self.xs[:n:-1]) - xN
-        dyN = sum(self.ys[:n:-1]) - yN
-        dzN = sum(self.zs[:n:-1]) - zN
-
-        #return abs(xN) + abs(yN) + abs(dxN) + abs(dyN) + dzN
-
-        if self.ys[-1] < -10:
-            return 0
-
-
-        if abs(xN) > abs(yN):
-            return abs(xN) + abs(dxN) + dzN
-        else:
-            return abs(yN) + abs(dyN) + dzN
-
     def show_plot( self, **kwargs ):
         """ kwargs include:
             only ( None ): 'x|y|z|xymag|zxmag|zymag|xyzmag'
@@ -2147,8 +1722,7 @@ class WakeSample( object ):
                         marker='.', label='z', linewidth=1, linestyle=':')
         if kwargs.pop( "show", True ):
             if not kwargs.pop( 'hide_title', False ):
-                ax.set_title("sample {} pass={} confirm={}".format(
-                    self.uid, self.accepted, self.confirmed))
+                ax.set_title("sample {} confirm={}".format(self.uid, self.confirmed))
             ax.grid()
             ax.set_xlim([0, SLEEP_SAMPLE_PERIOD*(len(self.xs))])
             ax.set_ylim([-40, 40])
@@ -2312,6 +1886,9 @@ def analyze_streamed( fname, plot=True ):
 
 ### Filter tests functions ###
 def make_traditional_tests():
+    make_sums = SampleTest( "Do nothing, config sample",
+            lambda s : 0 if s._collect_sums() is None else -1 )
+
     y_not_delib_fail = SampleTest( "Y not deliberate fail / Inwards accept",
             lambda s : s.ys[-1], reject_below=-5, accept_above=6 )
 
@@ -2336,7 +1913,7 @@ def make_traditional_tests():
 
     fail_all_test = SampleTest( "Fail remaining", lambda s : -1, reject_below=0 )
 
-    tests = [ y_turn_accept, y_not_delib_fail,
+    tests = [ make_sums, y_turn_accept, y_not_delib_fail,
             y_ovs1_accept, xy_turn_accept, x_turn_accept, z_sum_slope_accept,
             y_ovs2_accept, fail_all_test ]
 
@@ -2371,44 +1948,6 @@ def run_tests(tests, samples, plot=False):
         if plot:
             test.plot_result()
         samples = test.punted_samples
-
-
-### Relics ###
-def plot_sumN_scores(samples):
-    conf_scores = []
-    unconf_scores = []
-    for n in range(5, 20):
-        conf_scores_n = []
-        unconf_scores_n = []
-        for s in samples:
-            score = s.sumN_score(n)
-            if s.confirmed: conf_scores_n.append(score)
-            else: unconf_scores_n.append(score)
-        conf_scores.append(conf_scores_n)
-        unconf_scores.append(unconf_scores_n)
-
-    for n in range(5, 20):
-        conf = conf_scores[n-5]
-        plt.plot(list(2*n-0.2 - 0.4*random.random() for i in range(len(conf))), conf, 'b.', label='confirmed')
-        unconf = unconf_scores[n-5]
-        plt.plot(list(2*n+0.2 + 0.4*random.random() for i in range(len(unconf))), unconf, 'r.', label='unconfirmed')
-
-def plot_sums(samples, x_cnt = 5, y_cnt = 8):
-    xsums = [sum(s.xs[:x_cnt]) for s in samples if s.confirmed]
-    ysums = [sum(s.ys[:y_cnt]) for s in samples if s.confirmed]
-    ssums = [abs(x) + abs(y) for x,y in zip(xsums, ysums)]
-
-    xsums_u = [sum(s.xs[:x_cnt]) for s in samples if not s.confirmed]
-    ysums_u = [sum(s.ys[:y_cnt]) for s in samples if not s.confirmed]
-    ssums_u = [abs(x) + abs(y) for x,y in zip(xsums_u, ysums_u)]
-
-    #plt.plot(xsums, color="r")
-    plt.plot(ysums, marker=".", color="b")
-    #plt.plot(ssums, color="g")
-
-    #plt.plot(xsums_u, linestyle=":", color="r")
-    #plt.plot(ssums_u, linestyle=":",  color="g")
-    plt.plot(ysums_u, linestyle=":",  color="b")
 
 
 ### mini scripts ###
@@ -2466,11 +2005,7 @@ if __name__ == "__main__":
 
         parser.add_argument('-w', '--export', action='store_true', default=False)
         parser.add_argument('-a', '--plot', action='store_true', default=False)
-        parser.add_argument('-c', '--plot_csums', action='store_true', default=False)
-        parser.add_argument('-r', '--rejects_only', action='store_true', default=False)
-        parser.add_argument('-p', '--accepts_only', action='store_true', default=False)
         parser.add_argument('-l', '--show-levels', action='store_true', default=False)
-        parser.add_argument('-fn', '--false_negative', action='store_true', default=False)
         return parser.parse_args()
 
     args = parse_args()
@@ -2493,28 +2028,14 @@ if __name__ == "__main__":
         for fname in args.dumpfiles:
             newsamples = Samples()
             newsamples.load( fname )
-            if newsamples.total:
+            if len(newsamples.samples):
                 sampleslist.append( newsamples )
                 allsamples.combine( newsamples )
-
-        if args.rejects_only:
-            log.info( "showing rejects only" )
-            kwargs = { "accepted": False }
-        elif args.false_negative:
-            log.info( "showing false negatives only" )
-            kwargs = { "accepted": False, 'confirmed':True }
-        elif args.accepts_only:
-            log.info( "showing accepts only" )
-            kwargs = { "accepted": True }
-        else:
-            kwargs = dict()
 
         if args.plot:
             allsamples.show_plots( **kwargs )
         if args.export:
             allsamples.export_csv( **kwargs )
-        if args.plot_csums:
-            allsamples.show_csums( **kwargs )
         if args.show_levels:
             allsamples.plot_z_for_groups( only='z,xymag' )
         if args.battery:
