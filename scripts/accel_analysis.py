@@ -30,6 +30,58 @@ SAMPLESFILE=os.path.join(os.path.dirname(__file__), 'ALLSAMPLES.json')
 
 np.set_printoptions(precision=6, linewidth=120)
 
+class MultiTest( object ):
+    def __init__( self, **kwargs ):
+        self.name = "Combined Test Results"
+        for k, val in kwargs.items():
+            setattr(self, k, val)
+
+    def _getTotal(self): return self.confirmed + self.unconfirmed
+    total = property(fget=_getTotal)
+
+    def _getConfirmed(self): return self.confirmed_rejected + self.confirmed_accepted + self.confirmed_punted
+    confirmed = property(fget=_getConfirmed)
+
+    def _getUnconfirmed(self): return self.unconfirmed_rejected + self.unconfirmed_accepted + self.unconfirmed_punted
+    unconfirmed = property(fget=_getUnconfirmed)
+
+    def _getAccepted(self): return self.confirmed_accepted + self.unconfirmed_accepted
+    accepted = property(fget=_getAccepted)
+
+    def _getPunted(self): return self.confirmed_punted + self.unconfirmed_punted
+    punted = property(fget=_getPunted)
+
+    def _getRejected(self): return self.confirmed_rejected + self.unconfirmed_rejected
+    rejected = property(fget=_getRejected)
+
+    def _getFalseNegative(self):
+        if self.confirmed == 0:
+            return None
+        return self.confirmed_rejected / self.confirmed
+    false_negative = property(fget=_getFalseNegative)
+
+    def _getFalsePositive(self):
+        if self.unconfirmed == 0:
+            return None
+        return self.unconfirmed_accepted / self.unconfirmed
+    false_positive = property(fget=_getFalsePositive)
+
+    def _getTrueNegative(self):
+        if self.unconfirmed == 0:
+            return None
+        return self.unconfirmed_rejected / self.unconfirmed
+    true_negative = property(fget=_getTrueNegative)
+
+    def _getTruePositive(self):
+        if self.confirmed == 0:
+            return None
+        return self.confirmed_accepted / self.confirmed
+    true_positive = property(fget=_getTruePositive)
+
+    def show_result( self, testsperday=2500 ):
+        SampleTest.show_result( self, testsperday )
+
+
 class SampleTest( object ):
     def __init__( self, name, test_fcn, **kwargs ):
         """
@@ -2092,6 +2144,16 @@ def make_LD_PCA_tests():
     return tests
 
 def run_tests(tests, samples, plot=False):
+    confirmed_accepted = 0
+    confirmed_rejected = 0
+    unconfirmed_accepted = 0
+    unconfirmed_rejected = 0
+    unconfirmed_time_cnt = None
+    unconfirmed_time = None
+    unconfirmed_time_max = None
+    unconfirmed_accepted_time = 0
+    unconfirmed_rejected_time = 0
+
     for test in tests:
         test.clear_samples()
 
@@ -2099,9 +2161,39 @@ def run_tests(tests, samples, plot=False):
         test.add_samples( samples )
         test.analyze()
         test.show_result()
+        confirmed_accepted += test.confirmed_accepted
+        confirmed_rejected += test.confirmed_rejected
+        unconfirmed_accepted += test.unconfirmed_accepted
+        unconfirmed_rejected += test.unconfirmed_rejected
+        unconfirmed_accepted_time += test.unconfirmed_accepted_time
+        unconfirmed_rejected_time += test.unconfirmed_rejected_time
+        if unconfirmed_time_cnt is None:
+            unconfirmed_time = test.unconfirmed_time
+            unconfirmed_time_cnt = test.unconfirmed_time_cnt
+            unconfirmed_time_max = test.unconfirmed_time_max
         if plot:
             test.plot_result()
         samples = test.punted_samples
+
+    mt = MultiTest(
+            confirmed_accepted=confirmed_accepted,
+            confirmed_rejected=confirmed_rejected,
+            confirmed_punted=test.confirmed_punted,
+            unconfirmed_accepted=unconfirmed_accepted,
+            unconfirmed_punted=test.unconfirmed_punted,
+            unconfirmed_rejected=unconfirmed_rejected,
+            unconfirmed_time_cnt=unconfirmed_time_cnt,
+            unconfirmed_time=unconfirmed_time,
+            unconfirmed_time_max=unconfirmed_time_max,
+            unconfirmed_accepted_time=unconfirmed_accepted_time,
+            unconfirmed_punted_time=test.unconfirmed_punted_time,
+            unconfirmed_rejected_time=unconfirmed_rejected_time,
+            punted_samples=test.punted_samples,
+            tests=tests)
+    mt.show_result()
+    return mt
+
+
 
 
 ### mini scripts ###
