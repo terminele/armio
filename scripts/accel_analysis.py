@@ -2152,6 +2152,7 @@ if __name__ == "__main__":
         parser.add_argument('-d', '--debug', action='store_true', default=False)
         parser.add_argument('-q', '--quiet', action='store_true', default=False)
         parser.add_argument('-s', '--streamed', action='store_true', default=False)
+        parser.add_argument('-p', '--print-filters', action='store_true', default=False)
 
         parser.add_argument('-t', '--run-tests', action='store_true', default=False)
         parser.add_argument('-b', '--battery', action='store_true', default=False)
@@ -2238,7 +2239,7 @@ if __name__ == "__main__":
                  0,      0,      0,      0,      0,      0,    520,      0,
                  0,  31893,      0,      0,      0,      0,      0,      0,
                  0,      0,      0, -48610,      0,  54752, -60013,  -2083],
-            "Fix Weight no PCA (60%)", reject_below=-4503487, reject_above=-446706)
+            "Fix Weight no PCA (60%)", reject_above=-446706)
 
         fw_fw = FixedWeightingTest([
                  0,      0,      0,      0,   -512,      0,      0,      0,
@@ -2253,7 +2254,7 @@ if __name__ == "__main__":
                  0,      0,      0,      0,      0,      0,      0,  -4503,
                  0, -13493,      0,  18038,      0,      0,   2882,   3602,
                  0,      0,      0,      0,      0,  34828,  62634,  -4096],
-            "Round 2 Fix Weight no PCA (54%)", reject_below=799630, reject_above=5230486)
+            "Round 2 Fix Weight no PCA (54%)", reject_above=5230486)
 
         fw_yturn = FixedWeightingTest([
              26156,  23497,  19475,  15669,   9098,   5498,     17,  -4861,
@@ -2363,8 +2364,12 @@ if __name__ == "__main__":
             "Fixed Weight PCA8 after first PCA8", reject_below=-16928760, reject_above=11180147)
 
         if True: # most recent sequence for starting testing
-            run_tests([fw, fw_fw, fw_yturn, fw_xturn, fw_unknown_motion],
-                    list(allsamples.filter_samples(triggerZ=True, full=True)))
+            filters = [fw, fw_fw, fw_yturn, fw_xturn, fw_unknown_motion]
+            run_tests(filters, list(allsamples.filter_samples(triggerZ=True, full=True)))
+
+            if args.print_filters:
+                for f in filters:
+                    f.show_xyz_filter()
             #unconf = list(filter_samples(fw_xturn.punted_samples, confirmed=False))
             #conf = list(filter_samples(fw_xturn.punted_samples, confirmed=True))
             #pc = PrincipalComponentTest(conf, unconf, test_axis=[0, 1, 2])
