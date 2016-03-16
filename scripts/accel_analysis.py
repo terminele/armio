@@ -845,6 +845,76 @@ class PrincipalComponentTest( SampleTest ):
         self.eigvals = eva
         self.eigvects = evv
 
+    def print_c_defs(self, num=1):
+        eigv_cum = 0
+        eigv_sum = sum(self.eigvals)
+        for i, eigval in enumerate(self.eigvals):
+            if num is not None and i >= num:
+                break
+            eigv_cum += eigval
+            log.debug('Eigenvalue{: 3},{: 9.2e}: {: 8.2%},{: 8.2%}'.format(i,
+                eigval, (eigval/eigv_sum), (eigv_cum/eigv_sum)))
+
+            vec, scale = self.get_xyz_weights(i)
+            n = len(vec)//3
+            xvals = vec[:n]
+            yvals = vec[n:2*n]
+            zvals = vec[2*n:]
+            log.debug("Scale is {:.3f}".format(scale))
+            lower_ths = 0
+            lt_action = 'punt'
+            if self.reject_below is not None:
+                lower_ths = self.reject_below
+                lt_action = 'reject'
+            elif self.accept_below is not None:
+                lower_ths = self.accept_below
+                lt_action = 'accept'
+
+            print('\t.lower_ths = {},'.format(lower_ths))  
+            print('\t.lt_action = {},'.format(lt_action))
+
+            upper_ths = 0
+            gt_action = 'punt'
+            if self.reject_above is not None:
+                upper_ths = self.reject_above
+                gt_action = 'reject'
+            elif self.accept_above is not None:
+                upper_ths = self.accept_above
+                gt_action = 'accept'
+
+            print('\t.upper_ths = {},'.format(upper_ths))  
+            print('\t.gt_action = {},'.format(gt_action))
+
+            print("\t.x_ws = {", end='\n    ')
+            for j, f in enumerate(xvals):
+                end = ', ' if (j + 1) % 8 else ',\n    '
+                print( "{:6}".format(f), end=end )
+            print( '},' )
+            print("\t.y_ws = {", end='\n    ')
+            for j, f in enumerate(yvals):
+                end = ', ' if (j + 1) % 8 else ',\n    '
+                print( "{:6}".format(f), end=end )
+            print( '},' )
+            print("\t.z_ws = {", end='\n    ')
+            for j, f in enumerate(zvals):
+                end = ', ' if (j + 1) % 8 else ',\n    '
+                print( "{:6}".format(f), end=end )
+            print( '},' )
+            log.debug('FixedWeightingTest([', end='\n    ')
+            for j, f in enumerate(vec):
+                end = ', ' if (j + 1) % 8 else ',\n    '
+                log.debug( "{:6}".format(f), end=end )
+            log.debug( ']', end='' )
+            if self.reject_below is not None:
+                log.debug(', reject_below={:.0f}'.format(scale*self.reject_below), end='')
+            if self.reject_above is not None:
+                log.debug(', reject_above={:.0f}'.format(scale*self.reject_above), end='')
+            if self.accept_below is not None:
+                log.debug(', accept_below={:.0f}'.format(scale*self.accept_below), end='')
+            if self.accept_above is not None:
+                log.debug(', accept_above={:.0f}'.format(scale*self.accept_above), end='')
+            log.debug( ')' )
+
     def show_xyz_filter(self, num=1):
         print('                        variance explained')
         eigv_cum = 0
@@ -2153,6 +2223,7 @@ if __name__ == "__main__":
         parser.add_argument('-q', '--quiet', action='store_true', default=False)
         parser.add_argument('-s', '--streamed', action='store_true', default=False)
         parser.add_argument('-p', '--print-filters', action='store_true', default=False)
+        parser.add_argument('-c', '--print-cdefs', action='store_true', default=False)
 
         parser.add_argument('-t', '--run-tests', action='store_true', default=False)
         parser.add_argument('-b', '--battery', action='store_true', default=False)
@@ -2370,6 +2441,17 @@ if __name__ == "__main__":
             if args.print_filters:
                 for f in filters:
                     f.show_xyz_filter()
+
+            if args.print_cdefs:
+
+                print('{')
+                for i,f in enumerate(filters):
+                    print(' {')
+                    print('\t/*** FILTER {} ***/'.format(i+1))
+                    f.print_c_defs()
+                    print('  },')
+                print('};')
+
             #unconf = list(filter_samples(fw_xturn.punted_samples, confirmed=False))
             #conf = list(filter_samples(fw_xturn.punted_samples, confirmed=True))
             #pc = PrincipalComponentTest(conf, unconf, test_axis=[0, 1, 2])
