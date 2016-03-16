@@ -229,7 +229,7 @@ class SampleTest( object ):
                 else:
                     if self.reject_above is not None:
                         self._confirmed_rejected += self.confirmed - bisect.bisect_right(self.confirmedvals, self.reject_above)
-                    if self.accept_below is not None:
+                    if self.reject_below is not None:
                         self._confirmed_rejected += bisect.bisect_left(self.confirmedvals, self.reject_below)
         return self._confirmed_rejected
     confirmed_rejected = property(fget=_getConfirmedRejected)
@@ -260,7 +260,7 @@ class SampleTest( object ):
                 else:
                     if self.reject_above is not None:
                         self._unconfirmed_rejected += self.unconfirmed - bisect.bisect_right(self.unconfirmedvals, self.reject_above)
-                    if self.accept_below is not None:
+                    if self.reject_below is not None:
                         self._unconfirmed_rejected += bisect.bisect_left(self.unconfirmedvals, self.reject_below)
         return self._unconfirmed_rejected
     unconfirmed_rejected = property(fget=_getUnconfirmedRejected)
@@ -862,6 +862,14 @@ class PrincipalComponentTest( SampleTest ):
             yvals = vec[n:2*n]
             zvals = vec[2*n:]
             print("Scale is {:.3f}".format(scale))
+            if self.reject_below is not None:
+                print("static const int32_t rb_threshold = {:.0f}".format(scale*self.reject_below))
+            if self.reject_above is not None:
+                print("static const int32_t ra_threshold = {:.0f}".format(scale*self.reject_above))
+            if self.accept_below is not None:
+                print("static const int32_t ab_threshold = {:.0f}".format(scale*self.accept_below))
+            if self.accept_above is not None:
+                print("static const int32_t aa_threshold = {:.0f}".format(scale*self.accept_above))
             print("static const int32_t xfltr[] = {", end='\n    ')
             for j, f in enumerate(xvals):
                 end = ', ' if (j + 1) % 8 else ',\n    '
@@ -1093,7 +1101,6 @@ class PrincipalComponentTest( SampleTest ):
         return self.eigvects[0]
 
 
-
 class FixedWeightingTest( PrincipalComponentTest ):
     def __init__(self, weightings, name, **kwargs):
         """ this should be used to 'capture' the results from a LDA / PCA test
@@ -1263,7 +1270,6 @@ class LeastSquaresWeighting( FixedWeightingTest ):
         return [v for v in np.dot( P, B )]
 
 
-
 class Samples( object ):
     def __init__( self, name=None ):
         self.samples = []
@@ -1290,12 +1296,12 @@ class Samples( object ):
     mintime = property(fget=_getMinTime)
 
     def findOutliers(self):
-        mags = get_row_magnitudes(mean_center_columns(self.measurematrix))
-        return sorted(zip(mags, self.samples), reverse=True)
+        return find_outliers(self.samples)
 
     def plotOutliers(self, skip=None):
+        outliers = self.findOutliers()
         if skip is not None:
-            outliers = sorted(self.findOutliers())[:-skip]
+            outliers = outliers[:-skip]
         ovals, osamples = list(zip(*outliers))
         ovmin, ovscale = min(ovals), 0xff/(max(ovals) - min(ovals))
         ovscaled = [ int((o - ovmin)*ovscale) for o in ovals ]
@@ -1381,7 +1387,7 @@ class Samples( object ):
         plt.show()
 
     def getMeasureMatrix( self, **kwargs ):
-        return [sample.measures for sample in self.filter_samples(**kwargs)]
+        return get_measure_matrix( self.filter_samples(**kwargs) )
     measurematrix = property(fget=getMeasureMatrix)
 
     def find_fifo_log_start( self, filehandle ):
@@ -1916,6 +1922,51 @@ def filter_samples(samples, **kwargs):
     if len(kwargs):
         log.info("Found {} samples from {}".format(count, len(samples)))
 
+def find_outliers(samples):
+    if isinstance(samples, Samples):
+        sampleslist = samples.samples
+    else:
+        sampleslist = samples
+    matrix = get_measure_matrix(sampleslist)
+    mags = get_row_magnitudes(mean_center_columns(matrix))
+    return sorted(zip(mags, sampleslist))
+
+def plot_outliers(samples, skip=None):
+    outliers = find_outliers(samples)
+    if skip is not None:
+        outliers = outliers[:-skip]
+    ovals, osamples = list(zip(*outliers))
+    ovmin, ovscale = min(ovals), 0xff/(max(ovals) - min(ovals))
+    ovscaled = [ int((o - ovmin)*ovscale) for o in ovals ]
+    colors = [ "#{:02X}{:02X}{:02X}".format( o, 0, 0xff-o ) for o in ovscaled ]
+    fig = plt.figure()
+
+    ax = fig.add_subplot(311)
+    for color, os in zip(colors, osamples):
+        os.show_plot(axis=ax, color=color, only='x', show=False)
+    ax = fig.add_subplot(312)
+    for color, os in zip(colors, osamples):
+        os.show_plot(axis=ax, color=color, only='y', show=False)
+    ax = fig.add_subplot(313)
+    for color, os in zip(colors, osamples):
+        os.show_plot(axis=ax, color=color, only='z', show=False)
+    plt.show()
+
+def remove_outliers(samples, qty):
+    """ in place removal of outlier samples """
+    outs = find_outliers(samples)[-qty:]
+    removed = []
+    for oval, out in outs:
+        if isinstance( samples, Samples ):
+            samples.samples.remove(out)
+        else:
+            samples.remove(out)
+        removed.append(out)
+    return removed
+
+def get_measure_matrix(samples):
+    return [sample.measures for sample in samples]
+
 def load_samples(samplefile=SAMPLESFILE):
     with open(samplefile, 'r') as fh:
         samplestext = fh.read()
@@ -2156,6 +2207,7 @@ if __name__ == "__main__":
         Yunconfirm = Samples("Unconfirmed Y Trigger")
         superYunconfirm = Samples("Unconfirmed SuperY Trigger")
         Zconfirm = Samples("Confirmed Z Trigger")
+        ZYturn = Samples("Z Trigger, Y Turns")
         Yconfirm = Samples("Confirmed Y Trigger")
         superYconfirm = Samples("Confirmed Super Y Trigger")
 
@@ -2167,6 +2219,7 @@ if __name__ == "__main__":
             confirmed=False, full=True, triggerY=True))
         Yconfirm.samples = list(allsamples.filter_samples(
             confirmed=True, full=True, triggerY=True))
+        ZYturn.samples = list(Zconfirm.filter_samples(namehas="yturn"))
         superYunconfirm.samples = list(allsamples.filter_samples(
             confirmed=False, full=True, superY=True))
         superYconfirm.samples = list(allsamples.filter_samples(
@@ -2201,6 +2254,53 @@ if __name__ == "__main__":
                  0, -13493,      0,  18038,      0,      0,   2882,   3602,
                  0,      0,      0,      0,      0,  34828,  62634,  -4096],
             "Round 2 Fix Weight no PCA (54%)", reject_below=799630, reject_above=5230486)
+
+        fw_yturn = FixedWeightingTest([
+             26156,  23497,  19475,  15669,   9098,   5498,     17,  -4861,
+             -7906,  -9712,  -9168,  -7490,  -8205,  -8986, -10649,  -9484,
+             -8574,  -8183,  -6794,  -6422,  -5725,  -4599,  -3422,   -604,
+              -337,   -284,    167,    328,    212,    769,    783,   1146,
+            -62271, -61932, -54030, -51469, -48088, -48552, -42286, -32404,
+            -29369, -18587,  -9111,   3161,  12415,  17938,  30386,  36638,
+             41782,  47074,  47740,  49115,  49536,  50535,  52156,  52696,
+             52346,  51421,  50717,  48475,  46952,  45137,  44108,  45227,
+            -65536, -62615, -58106, -48842, -38389, -28383, -17732,  -4534,
+              7378,  20030,  23182,  25973,  22934,  21008,  16182,  12977,
+              8315,   4880,   2105,    721,   -628,  -1429,  -2729,  -4981,
+             -6127,  -7392,  -7990,  -8102,  -7017,  -5446,  -3947,  -3245],
+             "Round 3 Y-turn accepts", accept_above=-1749158)
+
+        fw_xturn = FixedWeightingTest([
+             23200,  16683,   9066,   9580,   4141,  -3962, -12810, -31655,
+            -36521, -38897, -35085, -35851, -36346, -39118, -37378, -39760,
+            -34636, -36256, -31652, -27804, -25864, -19212, -12286,  -7157,
+             -4164,  -1562,   2518,   3528,   4049,   4963,   4682,   6877,
+            -29583, -21903,   4622, -17452, -36467, -41474, -26352, -10512,
+            -12657, -13850,  11788,  30983,  57374,  61410,  57328,  49723,
+             54519,  65536,  60635,  60511,  62393,  62598,  61109,  60332,
+             60468,  60394,  60987,  58525,  56137,  55249,  54650,  54682,
+            -49395, -55834, -43578, -26345, -12388, -14322, -41967, -44087,
+            -36964, -25421, -53619, -60921, -63159, -45876, -43926, -22894,
+            -18644,  -9957, -12400, -13712, -14677, -16324, -17469, -19462,
+            -19038, -16246, -14383, -13155, -10381,  -7032,  -4119,  -3944],
+            "Round 4 X-turn accepts", accept_above=-17284718)
+
+        fw_unknown_motion = FixedWeightingTest([
+             -3955,   4483,   8721,   4478,  -2022,  -2327,   5260,   9801,
+             12839,  13467,  16849,  19960,  21789,  24624,  27936,  31324,
+             32231,  35895,  36346,  35233,  35162,  35665,  35846,  35786,
+             35141,  34534,  33063,  32611,  31205,  30463,  29131,  28826,
+            -12697,  -1905,  -2646, -13055, -23760, -36802, -46602, -54816,
+            -54527, -53567, -60140, -61642, -65536, -61325, -62674, -60174,
+            -60386, -56689, -46092, -39149, -35981, -34129, -31283, -29238,
+            -28368, -28082, -28091, -28353, -26563, -24307, -23030, -22227,
+             -8696, -19425, -22185, -17831, -11460,    792,   9893,  14622,
+              9644,  12360,  13187,  15867,  10914,   6411,   8049,   6711,
+              7309,   7154,   6138,   6932,   6753,   6420,   5155,   4056,
+              3422,   2294,   2685,   3483,   3449,   3483,   2636,   1561],
+              "Round 5, final", accept_below=0, reject_above=0)
+
+
 
         fw16 = FixedWeightingTest([
              24912,  23804,  24548,  21961,  22940,  17106,   8257,   4437,
@@ -2263,12 +2363,13 @@ if __name__ == "__main__":
             "Fixed Weight PCA8 after first PCA8", reject_below=-16928760, reject_above=11180147)
 
         if True: # most recent sequence for starting testing
-            run_tests([fw, fw_fw], list(allsamples.filter_samples(triggerZ=True, full=True)))
-            unconf = list(filter_samples(fw_fw.punted_samples, confirmed=False))
-            conf = list(filter_samples(fw_fw.punted_samples, confirmed=True))
-            pc = PrincipalComponentTest(conf, unconf, test_axis=[0, 1, 2])
-            ld = LinearDiscriminantTest(conf, unconf, test_axis=0,
-                    prereduce=pc.getTransformationMatrix(8))
+            run_tests([fw, fw_fw, fw_yturn, fw_xturn, fw_unknown_motion],
+                    list(allsamples.filter_samples(triggerZ=True, full=True)))
+            #unconf = list(filter_samples(fw_xturn.punted_samples, confirmed=False))
+            #conf = list(filter_samples(fw_xturn.punted_samples, confirmed=True))
+            #pc = PrincipalComponentTest(conf, unconf, test_axis=[0, 1, 2])
+            #ld = LinearDiscriminantTest(conf, unconf, test_axis=0,
+            #        prereduce=pc.getTransformationMatrix(8))
             # now we need to figure out how to set threshold
 # TODO : check if we can get better data with conf filtering for xturn / yturn
 # TODO : check if we can use scipy to minimize better
