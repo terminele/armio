@@ -4,6 +4,7 @@ import os
 import math
 import time
 import struct
+import bisect
 import argparse
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -190,7 +191,7 @@ class SampleTest( object ):
 
     def analyze( self ):
         self.clear_results()
-        for val, sample in zip( self.values, self.samples ):
+        for val, sample in zip(self.values, self.samples):
             self.total += 1
             test = self._test_sample( val )
             self.test_results.append( test )
@@ -520,21 +521,63 @@ class SampleTest( object ):
     def set_conservative(self, max_false_neg=0, max_false_pos=0):
         if len(self.samples) == 0:
             raise ValueError("We must have some samples first")
-        if max_false_neg == 0:
-            self.reject_below = self.minconfirmed
-            self.reject_above = self.maxconfirmed
+        if max_false_neg or max_false_pos:
+            cvals = sorted(self.confirmedvals)
+            uvals = sorted(self.unconfirmedvals)
+            ra = cvals[-1]
+            rb = cvals[0]
+            aa = uvals[-1]
+            ab = uvals[0]
         else:
+            ra = self.maxconfirmed
+            rb = self.minconfirmed
+            aa = self.maxunconfirmed
+            ab = self.minunconfirmed
+
+        if max_false_neg > 0:
             if max_false_neg > 1:
                 max_false_neg /= 100
-            cvals = sorted(self.confirmedvals)
-
-        if max_false_pos == 0:
-            self.accept_above = self.maxunconfirmed
-            self.accept_below = self.minunconfirmed
-        else:
+            max_lost_samples = int(max_false_neg * len(cvals))
+            topdropped, botdropped = 0, 0
+            last_botvals = bisect.bisect_left(uvals, cvals[0])
+            last_topvals = bisect.bisect_right(uvals, cvals[-1])
+            while (topdropped + botdropped) < max_lost_samples:
+                new_botvals = bisect.bisect(uvals, cvals[botdropped+1])
+                new_topvals = bisect.bisect(uvals, cvals[-1-botdropped-1])
+                if new_botvals - last_botvals > new_topvals - last_topvals:
+                    last_botvals = new_botvals
+                    botdropped += 1
+                else:
+                    last_topvals = new_topvals
+                    topdropped += 1
+            ra = cvals[-1-topdropped]
+            rb = cvals[0+botdropped]
+        if max_false_pos > 0:
+            """ NOTE : this method will not get past duplicate values on
+                one side even if it is 'strogner' than the other side
+            """
             if max_false_pos > 1:
                 max_false_pos /= 100
-            uvals = sorted(self.unconfirmedvals)
+            max_lost_samples = int(max_false_pos * len(uvals))
+            topdropped, botdropped = 0, 0
+            last_botvals = bisect.bisect_left(cvals, uvals[0])
+            last_topvals = bisect.bisect_right(cvals, uvals[-1])
+            while (topdropped + botdropped) < max_lost_samples:
+                new_botvals = bisect.bisect(cvals, uvals[botdropped+1])
+                new_topvals = bisect.bisect(cvals, uvals[-1-botdropped-1])
+                if new_botvals - last_botvals > new_topvals - last_topvals:
+                    last_botvals = new_botvals
+                    botdropped += 1
+                else:
+                    last_topvals = new_topvals
+                    topdropped += 1
+            aa = uvals[-1-topdropped]
+            ab = uvals[0+botdropped]
+
+        self.reject_below = rb
+        self.reject_above = ra
+        self.accept_above = aa
+        self.accept_below = ab
 
     def _getFalseNegative(self):
         if not self.analyzed:
@@ -2580,15 +2623,20 @@ if __name__ == "__main__":
              -9972,  -9519,  -9164,  -8385,  -7977,  -7680,  -6624,  -5514],
             "Fixed Weight PCA8", reject_below=-28203906, reject_above=2042431)
 
-        if False: # most recent sequence for starting testing
+        if True: # most recent sequence for starting testing
             run_tests([fw, fw_fw], list(allsamples.filter_samples(triggerZ=True, full=True)))
             unconf = list(filter_samples(fw_fw.punted_samples, confirmed=False))
             conf = list(filter_samples(fw_fw.punted_samples, confirmed=True))
             pc = PrincipalComponentTest(conf, unconf, test_axis=[0, 1, 2])
             ld = LinearDiscriminantTest(conf, unconf, test_axis=0,
                     prereduce=pc.getTransformationMatrix(8))
+            c = sorted(ld.confirmedvals)
+            u = sorted(ld.unconfirmedvals)
             # now we need to figure out how to set threshold
 # TODO : check if we can get better data with conf filtering for xturn / yturn
+# TODO : check if we start with LD result, can we 'optimize' better
+# TODO : check if we can use scipy to minimize better
+# TODO : check efficiency of minimization calculations
 
         if args.run_tests:
             # add a new attribute for coloring selected data blue
