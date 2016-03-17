@@ -1292,7 +1292,6 @@ event_flags_t accel_event_flags( void ) {
         int_state = true;
 
         if (!click_flags.ia) return ev_flags;
-        if (!click_flags.sign) return ev_flags;
 
         if (click_flags.sclick) {
             if (click_flags.x) {
