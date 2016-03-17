@@ -34,7 +34,7 @@ class TestAttributes(object):
     def __init__(self):
         raise NotImplementedError("must be subclassed")
 
-    def show_result( self, testsperday=2500 ):
+    def show_result( self, testsperday=None ):
         print("Analysis for '{}'".format( self.name ))
         print("{0:10}|{1:^20}|{2:^20}|{3:^12}".format("",
             "Confirmed", "Unconfirmed", "Totals"))
@@ -1706,10 +1706,7 @@ class Samples( object ):
                 yield interval
 
     def group_wake_intervals(self, **kwargs):
-        if isinstance(self, Samples):
-            wi = list(self.get_wake_intervals(**kwargs))
-        else:
-            wi = list(Samples.get_wake_intervals(self, **kwargs))
+        wi = list(Samples.get_wake_intervals(self, **kwargs))
         freq = dict()
         for item in wi:
             if item not in freq:
@@ -1718,15 +1715,15 @@ class Samples( object ):
         return freq
 
     def _getWakeIntervalMedian(self):
-        return np.median(list(self.get_wake_intervals(confirmed=False)))
+        return np.median(list(Samples.get_wake_intervals(self, confirmed=False)))
     wake_interval = property(fget=_getWakeIntervalMedian)
 
-    def _getWakesPerDay(self):
+    def getWakesPerDay(self):
         day_time_hrs = 16
         day_time_sec = 3600 * day_time_hrs
-        interval = self.wake_interval
-        return int((day_time_sec + interval/2.0)/ self.wake_interval)
-    wake_tests_per_day = property(fget=_getWakesPerDay)
+        interval = Samples._getWakeIntervalMedian(self)
+        return int((day_time_sec + interval/2.0)/ interval)
+    wake_tests_per_day = property(fget=getWakesPerDay)
 
     def show_wake_freq_hist(self, samples=200):
         if isinstance(self, Samples):
@@ -2380,10 +2377,8 @@ def make_ytrigger_tests():
           "Unknown Turn (accept between)",
           reject_below=-34544796, reject_above=-3177289)
 
-    pass_all = SampleTest( "Pass remaining", lambda s : 1, accept_above=0 )
-
-
-    return [fw16_1r, fw16_2r, xturn, yturn, unknown, pass_all]
+    accept_all = SampleTest( "Pass remaining", lambda s : 1, accept_above=0 )
+    return [fw16_1r, fw16_2r, xturn, yturn, unknown, accept_all]
 
 def make_ztrigger_tests():
     fw = FixedWeightingTest([
@@ -2523,6 +2518,25 @@ def make_ztrigger_tests():
 
     return [fw, fw_fw, fw_yturn, fw_xturn, fw_unknown_motion]
 
+def make_supery_tests():
+    first_half = FixedWeightingTest([    # 41% FP
+         -8210,  -8060,  -8955,  -8971,  -9368,  -9104, -10555,  -9811,
+        -10049, -10429, -10590, -11387, -12805, -10727, -11444, -12130,
+        -12990, -13794, -17153, -16694, -15913, -16785, -17062, -17802,
+        -18755, -18824, -18977, -18345, -17704, -17354, -17663, -16980,
+         24225,  26623,  27654,  28450,  29231,  30294,  32617,  32675,
+         34207,  33634,  34097,  34245,  34645,  36627,  37661,  37829,
+         38961,  39407,  41753,  42194,  48230,  51651,  54675,  58717,
+         61467,  64221,  65536,  65514,  64524,  63357,  63046,  59882,
+          7585,   6706,   5865,   5378,   5563,   4845,   6663,   6186,
+          6431,   5698,   4814,   4903,   6510,   3455,   3700,   2270,
+          2088,   1274,   1300,    740,   1613,   1415,   1265,   1533,
+          1315,   1900,   2425,   2983,   2239,   2168,   2888,   2996],
+        "LD 2axis, from 16 samples", reject_below=32641288, reject_above=44881771)
+
+    accept_all = SampleTest( "Pass remaining", lambda s : 1, accept_above=0 )
+    return [first_half, accept_all]
+
 if __name__ == "__main__":
     def parse_args():
         parser = argparse.ArgumentParser(description='Analyze an accel log dump')
@@ -2607,17 +2621,23 @@ if __name__ == "__main__":
 
         if True: # most recent sequence for starting testing
             zfilters = make_ztrigger_tests()
-            mtz = MultiTest(zfilters, allsamples.filter_samples(triggerZ=True, full=True),
-                    name="Combined Z Trigger Tests")
+            zsamples = list(allsamples.filter_samples(triggerZ=True, full=True))
+            mtz = MultiTest(zfilters, zsamples, name="Combined Z Trigger Tests")
             mtz.run_tests(args.plot)
 
             yfilters = make_ytrigger_tests()
-            mty = MultiTest(yfilters, allsamples.filter_samples(triggerY=True, full=True),
-                    name="Combined Y Trigger Tests")
+            ysamples = list(allsamples.filter_samples(triggerY=True, full=True))
+            mty = MultiTest(yfilters, ysamples, name="Combined Y Trigger Tests")
             mty.run_tests(args.plot)
 
-            mtz.show_result()
-            mty.show_result()
+            syfilters = make_supery_tests()
+            sysamples = list(allsamples.filter_samples(superY=True, full=True))
+            mtsy = MultiTest(syfilters, sysamples, name="Combined Super Y Trigger Tests")
+            mtsy.run_tests(args.plot)
+
+            mtz.show_result(Samples.getWakesPerDay(zsamples))
+            mty.show_result(Samples.getWakesPerDay(ysamples))
+            mtsy.show_result(Samples.getWakesPerDay(sysamples))
 
             if args.print_filters:
                 print("Z ISR Filters")
