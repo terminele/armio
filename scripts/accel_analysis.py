@@ -2610,7 +2610,7 @@ def make_supery_tests():
 if __name__ == "__main__":
     def parse_args():
         parser = argparse.ArgumentParser(description='Analyze an accel log dump')
-        parser.add_argument('dumpfiles', nargs='+')
+        parser.add_argument('dumpfiles', nargs='*')
         parser.add_argument('-d', '--debug', action='store_true', default=False)
         parser.add_argument('-q', '--quiet', action='store_true', default=False)
         parser.add_argument('-s', '--streamed', action='store_true', default=False)
@@ -2705,6 +2705,43 @@ if __name__ == "__main__":
             sysamples = list(allsamples.filter_samples(superY=True, full=True))
             mtsy = MultiTest(syfilters, sysamples, name="Combined Super Y Trigger Tests")
             mtsy.run_tests(args.plot)
+            
+            if args.print_cdefs:
+                print("const macc_fltr_t zh_fltrs[] = ") 
+                print('{')
+                for i,f in enumerate(zfilters):
+                    if not isinstance(f, PrincipalComponentTest):
+                        continue
+                    print(' {')
+                    print('\t/*** Z-FILTER {} - {} ***/'.format(i+1, f.name))
+                    f.print_c_defs()
+                    print('  },')
+                print('};')
+                print()
+                print("const macc_fltr_t yh_fltrs[] = ") 
+                print('{')
+                for i,f in enumerate(yfilters):
+                    if not isinstance(f, PrincipalComponentTest):
+                        continue
+                    print(' {')
+                    print('\t/*** Y-FILTER {} - {} ***/'.format(i+1, f.name))
+                    f.print_c_defs()
+                    print('  },')
+                print('};')
+
+                print()
+                print("const macc_fltr_t syh_fltrs[] = ") 
+                print('{')
+                for i,f in enumerate(syfilters):
+                    if not isinstance(f, PrincipalComponentTest):
+                        continue
+                    print(' {')
+                    print('\t/*** SUPER Y-FILTER {} - {} ***/'.format(i+1, f.name))
+                    f.print_c_defs()
+                    print('  },')
+                print('};')
+
+                exit()
 
             mtz.show_result(Samples.getWakesPerDay(zsamples))
             mty.show_result(Samples.getWakesPerDay(ysamples))
@@ -2718,15 +2755,6 @@ if __name__ == "__main__":
                 for f in yfilters:
                     f.show_xyz_filter()
 
-            if args.print_cdefs:
-
-                print('{')
-                for i,f in enumerate(filters):
-                    print(' {')
-                    print('\t/*** FILTER {} ***/'.format(i+1))
-                    f.print_c_defs()
-                    print('  },')
-                print('};')
 
             #unconf = list(filter_samples(fw_xturn.punted_samples, confirmed=False))
             #conf = list(filter_samples(fw_xturn.punted_samples, confirmed=True))
