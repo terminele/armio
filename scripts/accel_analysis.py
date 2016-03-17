@@ -1908,6 +1908,10 @@ class Samples( object ):
         ztrig = ffcn(full, triggerZ=True)
         ytrig = ffcn(full, triggerY=True)
         sytrig = ffcn(full, superY=True)
+        zytrig = ffcn(full, triggerY=True, triggerZ=True)
+
+        zytrig_cf = ffcn(zytrig, confirmed=True)
+        zytrig_un = ffcn(zytrig, confirmed=False)
 
         ztrig_uncon = ffcn(ztrig, confirmed=False)
         ytrig_uncon = ffcn(ytrig, confirmed=False)
@@ -1927,6 +1931,9 @@ class Samples( object ):
         print(" nonfull             :{:12,}".format(len(nonfull)))
         print(" nonfull confirmed   :{:12,}".format(len(nonfull_confirm)))
         print(" full samples        :{:12,}".format(len(full)))
+        print(" z&z trigger         :{:12,}".format(len(zytrig)))
+        print(" z&z trigger cf      :{:12,}".format(len(zytrig_cf)))
+        print(" z&y trigger un      :{:12,}".format(len(zytrig_un)))
         print(" ztrigger            :{:12,}".format(len(ztrig)))
         print(" ztrigger unconf     :{:12,}".format(len(ztrig_uncon)))
         print(" ztrigger conf       :{:12,}".format(len(ztrig_conf)))
