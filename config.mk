@@ -101,7 +101,7 @@ ifeq ($(chip),samd21e17)
     UCID_CLOCK=samd21_r21
     OCD_PART_CFG = utils/samd21e17.cfg
     NVM_MAX_ADDR = 0x1E000 #~122K
-    NVM_LOG_SIZE = 0x10000 #64 K
+    NVM_LOG_SIZE = 0xd800 #~56 K
 else
 ifeq ($(chip),samd21e16)
     PART=samd21e16a
