@@ -32,7 +32,7 @@ np.set_printoptions(precision=6, linewidth=120)
 
 class TestAttributes(object):
     def __init__(self):
-        raise NotImplementedError("this should be subclassed")
+        raise NotImplementedError("must be subclassed")
 
     def show_result( self, testsperday=2500 ):
         print("Analysis for '{}'".format( self.name ))
@@ -110,10 +110,74 @@ class TestAttributes(object):
 
 
 class MultiTest(TestAttributes):
-    def __init__( self, **kwargs ):
+    def __init__( self, *tests_and_samples ):
         self.name = "Combined Test Results"
-        for k, val in kwargs.items():
-            setattr(self, k, val)
+        self.tests = []
+        self.samples = []
+        for item in tests_and_samples:
+            if isinstance(item, TestAttributes):
+                self.tests.append(item)
+            elif isinstance(item, Samples):
+                self.samples.extend(item.samples)
+            else:
+                for isub in item:
+                    if isinstance(isub, TestAttributes):
+                        self.tests.append(isub)
+                    elif isinstance(isub, WakeSample):
+                        self.samples.append(isub)
+                    else:
+                        raise ValueError("what is {}, type {}".format(
+                            isub, type(isub)))
+        self.clear_results()
+
+    def clear_results(self):
+        self.confirmed_accepted = 0
+        self.confirmed_rejected = 0
+        self.unconfirmed_accepted = 0
+        self.unconfirmed_rejected = 0
+        self.unconfirmed_time_cnt = None
+        self.unconfirmed_time = None
+        self.unconfirmed_time_max = None
+        self.unconfirmed_accepted_time = 0
+        self.unconfirmed_rejected_time = 0
+
+    def run_tests(self, plot=False):
+        self.clear_results()
+        for test in self.tests:
+            test.clear_samples()
+
+        samples = self.samples
+        for test in self.tests:
+            test.add_samples( samples )
+            test.analyze()
+            test.show_result()
+            self.confirmed_accepted += test.confirmed_accepted
+            self.confirmed_rejected += test.confirmed_rejected
+            self.unconfirmed_accepted += test.unconfirmed_accepted
+            self.unconfirmed_rejected += test.unconfirmed_rejected
+            self.unconfirmed_accepted_time += test.unconfirmed_accepted_time
+            self.unconfirmed_rejected_time += test.unconfirmed_rejected_time
+            if self.unconfirmed_time_cnt is None:
+                self.unconfirmed_time = test.unconfirmed_time
+                self.unconfirmed_time_cnt = test.unconfirmed_time_cnt
+                self.unconfirmed_time_max = test.unconfirmed_time_max
+            if plot:
+                test.plot_result()
+            samples = test.punted_samples
+
+        self.show_result()
+
+    def _getConfirmedPunted(self): return self.tests[-1].confirmed_punted
+    confirmed_punted = property(fget=_getConfirmedPunted)
+
+    def _getUnconfirmedPunted(self): return self.tests[-1].unconfirmed_punted
+    unconfirmed_punted = property(fget=_getUnconfirmedPunted)
+
+    def _getUnconfirmedPuntedTime(self): return self.tests[-1].unconfirmed_punted_time
+    unconfirmed_punted_time = property(fget=_getUnconfirmedPuntedTime)
+
+    def _getPuntedSamples(self): return self.tests[-1].punted_samples
+    punted_samples = property(fget=_getPuntedSamples)
 
     def _getTotal(self): return self.confirmed + self.unconfirmed
     total = property(fget=_getTotal)
@@ -132,9 +196,6 @@ class MultiTest(TestAttributes):
 
     def _getRejected(self): return self.confirmed_rejected + self.unconfirmed_rejected
     rejected = property(fget=_getRejected)
-
-    def show_result( self, testsperday=2500 ):
-        SampleTest.show_result( self, testsperday )
 
 
 class SampleTest(TestAttributes):
@@ -2154,6 +2215,8 @@ def run_tests(tests, samples, plot=False):
     unconfirmed_accepted_time = 0
     unconfirmed_rejected_time = 0
 
+
+
     for test in tests:
         test.clear_samples()
 
@@ -2552,8 +2615,9 @@ if __name__ == "__main__":
 
         if False and args.run_tests:
             traditional_tests = make_traditional_tests()
-            run_tests( traditional_tests,
-                    allsamples.filter_samples( **kwargs ), plot=args.plot )
+            mt = MultiTest( traditional_tests,
+                    allsamples.filter_samples( **kwargs ) )
+            mt.run_tests(plot=args.plot)
 
         # find all unconfirmed samples that have full FIFO
         Zunconfirm = Samples("Unconfirmed Z Trigger")
@@ -2580,7 +2644,8 @@ if __name__ == "__main__":
 
         if True: # most recent sequence for starting testing
             filters = make_ztrigger_tests()
-            run_tests(filters, list(allsamples.filter_samples(triggerZ=True, full=True)))
+            mt = MultiTest(filters, allsamples.filter_samples(triggerZ=True, full=True))
+            mt.run_tests(args.plot)
 
             if args.print_filters:
                 for f in filters:
