@@ -756,7 +756,7 @@ class SampleTest(TestAttributes):
         plt.boxplot(data, labels=labels)
         plt.show()
 
-    def plot_accepts(self, resolution=100, start=None, stop=None):
+    def plot_distributions(self, resolution=100, start=None, stop=None):
         if start is None:
             start = min(v for v in (self.minunconfirmed, self.minconfirmed) if v is not None)
         if stop is None:
@@ -1715,14 +1715,21 @@ class Samples( object ):
         return freq
 
     def _getWakeIntervalMedian(self):
-        return np.median(list(Samples.get_wake_intervals(self, confirmed=False)))
+        itvs = list(Samples.get_wake_intervals(self, confirmed=False))
+        if len(itvs) > 0:
+            return np.median(itvs)
+        else:
+            return 0
     wake_interval = property(fget=_getWakeIntervalMedian)
 
     def getWakesPerDay(self):
         day_time_hrs = 16
         day_time_sec = 3600 * day_time_hrs
         interval = Samples._getWakeIntervalMedian(self)
-        return int((day_time_sec + interval/2.0)/ interval)
+        if interval > 0:
+            return int((day_time_sec + interval/2.0)/ interval)
+        else:
+            return 0
     wake_tests_per_day = property(fget=getWakesPerDay)
 
     def show_wake_freq_hist(self, samples=200):
@@ -1811,6 +1818,7 @@ class Samples( object ):
     def filter_samples(self, **kwargs):
         """
             show : display sample info
+            quiet : no debug info
             reverse : reverse the test result
             or_tests : use testA or testB rather than testA and testB
             namehas : check if the name contains this string
@@ -1825,6 +1833,7 @@ class Samples( object ):
         show = kwargs.pop( "show", False )      # show basic info
         reverse = kwargs.pop( "reverse", False )
         or_tests = kwargs.pop( "or_tests", False )
+        quiet = kwargs.pop( 'quiet', False )
 
         debug_filter_result = len(kwargs) > 0
         namehas = kwargs.pop( "namehas", None )
@@ -1854,7 +1863,7 @@ class Samples( object ):
                 if show: sample.logSummary()
                 count += 1
                 yield sample
-        if debug_filter_result:
+        if debug_filter_result and not quiet:
             log.info("Found {} samples from {}".format(count, len(sampleslist)))
 
     def get_file_names(self):
@@ -1866,6 +1875,58 @@ class Samples( object ):
         for s in sampleslist:
             names.add(s.logfile)
         return sorted(names)
+
+    def print_samples_summary(self):
+        if isinstance(self, Samples):
+            sampleslist = self.samples
+        else:
+            sampleslist = self
+
+        def ffcn(*args, **kwargs):
+            kwargs.setdefault('quiet', True)
+            return list(Samples.filter_samples(*args, **kwargs))
+
+        nonfull = ffcn(sampleslist, full=False)
+        nonfull_confirm = ffcn(nonfull, confirmed=True)
+
+        full = ffcn(sampleslist, full=True)
+
+        ztrig = ffcn(full, triggerZ=True)
+        ytrig = ffcn(full, triggerY=True)
+        sytrig = ffcn(full, superY=True)
+
+        ztrig_uncon = ffcn(ztrig, confirmed=False)
+        ytrig_uncon = ffcn(ytrig, confirmed=False)
+        sytrig_uncon = ffcn(sytrig, confirmed=False)
+
+        ztrig_conf = ffcn(ztrig, confirmed=True)
+        ytrig_conf = ffcn(ytrig, confirmed=True)
+        sytrig_conf = ffcn(sytrig, confirmed=True)
+
+        ztrig_xturn = ffcn(ztrig_conf, namehas='xturn')
+        ztrig_yturn = ffcn(ztrig_conf, namehas='yturn')
+
+        ytrig_xturn = ffcn(ytrig_conf, namehas='xturn')
+        ytrig_yturn = ffcn(ytrig_conf, namehas='yturn')
+
+        print("Samples Total        :{:12,}".format(len(sampleslist)))
+        print(" nonfull             :{:12,}".format(len(nonfull)))
+        print(" nonfull confirmed   :{:12,}".format(len(nonfull_confirm)))
+        print(" full samples        :{:12,}".format(len(full)))
+        print(" ztrigger            :{:12,}".format(len(ztrig)))
+        print(" ztrigger unconf     :{:12,}".format(len(ztrig_uncon)))
+        print(" ztrigger conf       :{:12,}".format(len(ztrig_conf)))
+        print(" ztrigger conf xt    :{:12,}".format(len(ztrig_xturn)))
+        print(" ztrigger conf yt    :{:12,}".format(len(ztrig_yturn)))
+        print(" ytrigger            :{:12,}".format(len(ytrig)))
+        print(" ytrigger unconf     :{:12,}".format(len(ytrig_uncon)))
+        print(" ytrigger conf       :{:12,}".format(len(ytrig_conf)))
+        print(" ytrigger conf xt    :{:12,}".format(len(ytrig_xturn)))
+        print(" ytrigger conf yt    :{:12,}".format(len(ytrig_yturn)))
+        print(" superY              :{:12,}".format(len(sytrig)))
+        print(" superY   unconf     :{:12,}".format(len(sytrig_uncon)))
+        print(" superY   conf       :{:12,}".format(len(sytrig_conf)))
+        print("")
 
 
 class WakeSample( object ):
@@ -2537,6 +2598,7 @@ def make_supery_tests():
     accept_all = SampleTest( "Pass remaining", lambda s : 1, accept_above=0 )
     return [first_half, accept_all]
 
+
 if __name__ == "__main__":
     def parse_args():
         parser = argparse.ArgumentParser(description='Analyze an accel log dump')
@@ -2634,6 +2696,8 @@ if __name__ == "__main__":
             sysamples = list(allsamples.filter_samples(superY=True, full=True))
             mtsy = MultiTest(syfilters, sysamples, name="Combined Super Y Trigger Tests")
             mtsy.run_tests(args.plot)
+
+            allsamples.print_samples_summary()
 
             mtz.show_result(Samples.getWakesPerDay(zsamples))
             mty.show_result(Samples.getWakesPerDay(ysamples))
