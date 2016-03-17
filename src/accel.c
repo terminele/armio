@@ -1200,14 +1200,15 @@ event_flags_t accel_event_flags( void ) {
     static bool int_state = false;//keep track of prev interrupt state
     /* these values assume a 4g scale */
     const uint32_t SLEEP_DOWN_DUR_MS = 200;
+    const uint32_t SLEEP_NOT_VIEWABLE_DUR_MS = 200;
+    
     /* timestamp (based on main tic count) of most recent
      * y down interrupt for entering sleep on z-low
      */
-    static bool accel_down = false;
-    static uint32_t accel_down_to_ms = 0;
-    static bool accel_not_viewable = false;
-    static uint32_t accel_not_viewable_to_ms = 0;
-    const uint32_t SLEEP_NOT_VIEWABLE_DUR_MS = 200;
+    static bool tilt_down = false;
+    static bool tilt_not_viewable = false;
+    static uint32_t tilt_down_timeout_ms = 0;
+    static uint32_t tilt_not_viewable_timeout_ms = 0;
 #ifdef NO_ACCEL
     return ev_flags;
 #endif
@@ -1216,25 +1217,25 @@ event_flags_t accel_event_flags( void ) {
     /* Check for turn down event */
     accel_data_read(&x, &y, &z);
     if (check_tilt_down(x, y, z)) {
-        if (!accel_down) {
-            accel_down = true;
-            accel_down_to_ms = main_get_waketime_ms() + SLEEP_DOWN_DUR_MS;
-        } else if (main_get_waketime_ms() > accel_down_to_ms) {
+        if (!tilt_down) {
+            tilt_down = true;
+            tilt_down_timeout_ms = main_get_waketime_ms() + SLEEP_DOWN_DUR_MS;
+        } else if (main_get_waketime_ms() > tilt_down_timeout_ms) {
             /* Check for accel low-z timeout */
             ev_flags |= EV_FLAG_ACCEL_DOWN;
         }
         if (check_tilt_not_viewable(x, y, z)) {
-            if (!accel_not_viewable) {
-                accel_not_viewable = true;
-                accel_not_viewable_to_ms = main_get_waketime_ms() + SLEEP_NOT_VIEWABLE_DUR_MS;
-            } else if (main_get_waketime_ms() > accel_not_viewable_to_ms) {
+            if (!tilt_not_viewable) {
+                tilt_not_viewable = true;
+                tilt_not_viewable_timeout_ms = main_get_waketime_ms() + SLEEP_NOT_VIEWABLE_DUR_MS;
+            } else if (main_get_waketime_ms() > tilt_not_viewable_timeout_ms) {
                 ev_flags |= EV_FLAG_ACCEL_NOT_VIEWABLE;
             }
         } else {
-            accel_not_viewable = false;
+            tilt_not_viewable = false;
         }
     } else {
-        accel_down = false;
+        tilt_down = false;
     }
 
     if (port_pin_get_input_level(AX_INT_PIN)) {
