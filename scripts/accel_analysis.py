@@ -30,29 +30,47 @@ SAMPLESFILE=os.path.join(os.path.dirname(__file__), 'ALLSAMPLES.json')
 
 np.set_printoptions(precision=6, linewidth=120)
 
-class MultiTest( object ):
-    def __init__( self, **kwargs ):
-        self.name = "Combined Test Results"
-        for k, val in kwargs.items():
-            setattr(self, k, val)
+class TestAttributes(object):
+    def __init__(self):
+        raise NotImplementedError("this should be subclassed")
 
-    def _getTotal(self): return self.confirmed + self.unconfirmed
-    total = property(fget=_getTotal)
-
-    def _getConfirmed(self): return self.confirmed_rejected + self.confirmed_accepted + self.confirmed_punted
-    confirmed = property(fget=_getConfirmed)
-
-    def _getUnconfirmed(self): return self.unconfirmed_rejected + self.unconfirmed_accepted + self.unconfirmed_punted
-    unconfirmed = property(fget=_getUnconfirmed)
-
-    def _getAccepted(self): return self.confirmed_accepted + self.unconfirmed_accepted
-    accepted = property(fget=_getAccepted)
-
-    def _getPunted(self): return self.confirmed_punted + self.unconfirmed_punted
-    punted = property(fget=_getPunted)
-
-    def _getRejected(self): return self.confirmed_rejected + self.unconfirmed_rejected
-    rejected = property(fget=_getRejected)
+    def show_result( self, testsperday=2500 ):
+        print("Analysis for '{}'".format( self.name ))
+        print("{0:10}|{1:^20}|{2:^20}|{3:^12}".format("",
+            "Confirmed", "Unconfirmed", "Totals"))
+        print("{0:10}|{1:12,} :{4:>5} |{2:12,} :{5:>5} |{3:12,}".format("Accepted",
+            self.confirmed_accepted, self.unconfirmed_accepted, self.accepted,
+            '--' if self.true_positive is None else "{:.0%}".format(self.true_positive),
+            '--' if self.false_positive is None else "{:.0%}".format(self.false_positive)))
+        print("{0:10}|{1:12,} :{4:>5} |{2:12,} :{5:>5} |{3:12,}".format("Punted",
+            self.confirmed_punted, self.unconfirmed_punted, self.punted,
+            '--' if self.punted_positive is None else "{:.0%}".format(self.punted_positive),
+            '--' if self.punted_negative is None else "{:.0%}".format(self.punted_negative)))
+        print("{0:10}|{1:12,} :{4:>5} |{2:12,} :{5:>5} |{3:12,}".format("Rejected",
+            self.confirmed_rejected, self.unconfirmed_rejected, self.rejected,
+            '--' if self.false_negative is None else "{:.0%}".format(self.false_negative),
+            '--' if self.true_negative is None else "{:.0%}".format(self.true_negative)))
+        print("{0:10}|{1:12,} :{4:>5} |{2:12,} :{5:>5} |{3:12,}".format("Total",
+            self.confirmed, self.unconfirmed, self.total, "100%", "100%"))
+        if testsperday is not None and self.false_positive is not None:
+            print("Accidental wakes per day: {:.0f}, from {} tests".format(
+                testsperday*self.false_positive, testsperday))
+        if self.unconfirmed_time_cnt > 0:
+            print("Unconfirmed time analysis ({} values):".format(self.unconfirmed_time_cnt))
+            print("  average unconfirmed time {:.1f} seconds".format(
+                1e-3 * self.unconfirmed_time / self.unconfirmed_time_cnt))
+            print("  maximum unconfirmed time {:.1f} seconds".format(
+                1e-3 * self.unconfirmed_time_max))
+            print("  {:.1f} of {:.1f} unconf sec accepted, {:.0%}".format(
+                self.unconfirmed_accepted_time * 1e-3, self.unconfirmed_time * 1e-3,
+                self.unconfirmed_accepted_time / self.unconfirmed_time))
+            print("  {:.1f} of {:.1f} unconf sec punted, {:.0%}".format(
+                self.unconfirmed_punted_time * 1e-3, self.unconfirmed_time * 1e-3,
+                self.unconfirmed_punted_time / self.unconfirmed_time))
+            print("  {:.1f} of {:.1f} unconf sec rejected, {:.0%}".format(
+                self.unconfirmed_rejected_time * 1e-3, self.unconfirmed_time * 1e-3,
+                self.unconfirmed_rejected_time / self.unconfirmed_time))
+        print()
 
     def _getFalseNegative(self):
         if self.confirmed == 0:
@@ -78,11 +96,48 @@ class MultiTest( object ):
         return self.confirmed_accepted / self.confirmed
     true_positive = property(fget=_getTruePositive)
 
+    def _getPuntedNegative(self):
+        if self.unconfirmed == 0:
+            return None
+        return self.unconfirmed_punted / self.unconfirmed
+    punted_negative = property(fget=_getPuntedNegative)
+
+    def _getPuntedPositive(self):
+        if self.confirmed == 0:
+            return None
+        return self.confirmed_punted / self.confirmed
+    punted_positive = property(fget=_getPuntedPositive)
+
+
+class MultiTest(TestAttributes):
+    def __init__( self, **kwargs ):
+        self.name = "Combined Test Results"
+        for k, val in kwargs.items():
+            setattr(self, k, val)
+
+    def _getTotal(self): return self.confirmed + self.unconfirmed
+    total = property(fget=_getTotal)
+
+    def _getConfirmed(self): return self.confirmed_rejected + self.confirmed_accepted + self.confirmed_punted
+    confirmed = property(fget=_getConfirmed)
+
+    def _getUnconfirmed(self): return self.unconfirmed_rejected + self.unconfirmed_accepted + self.unconfirmed_punted
+    unconfirmed = property(fget=_getUnconfirmed)
+
+    def _getAccepted(self): return self.confirmed_accepted + self.unconfirmed_accepted
+    accepted = property(fget=_getAccepted)
+
+    def _getPunted(self): return self.confirmed_punted + self.unconfirmed_punted
+    punted = property(fget=_getPunted)
+
+    def _getRejected(self): return self.confirmed_rejected + self.unconfirmed_rejected
+    rejected = property(fget=_getRejected)
+
     def show_result( self, testsperday=2500 ):
         SampleTest.show_result( self, testsperday )
 
 
-class SampleTest( object ):
+class SampleTest(TestAttributes):
     def __init__( self, name, test_fcn, **kwargs ):
         """
             kwargs:
@@ -370,31 +425,6 @@ class SampleTest( object ):
             self.accept_above = self.unconfirmedvals[-1]
             self.accept_below = self.unconfirmedvals[0]
 
-    # false / true are expressed as percentage (or None) instead of int
-    def _getFalseNegative(self):
-        if self.confirmed == 0:
-            return None
-        return self.confirmed_rejected / self.confirmed
-    false_negative = property(fget=_getFalseNegative)
-
-    def _getFalsePositive(self):
-        if self.unconfirmed == 0:
-            return None
-        return self.unconfirmed_accepted / self.unconfirmed
-    false_positive = property(fget=_getFalsePositive)
-
-    def _getTrueNegative(self):
-        if self.unconfirmed == 0:
-            return None
-        return self.unconfirmed_rejected / self.unconfirmed
-    true_negative = property(fget=_getTrueNegative)
-
-    def _getTruePositive(self):
-        if self.confirmed == 0:
-            return None
-        return self.confirmed_accepted / self.confirmed
-    true_positive = property(fget=_getTruePositive)
-
     def _getTestResults(self):
         if not self.analyzed:
             self.analyze()
@@ -507,41 +537,7 @@ class SampleTest( object ):
             self._record_test( sample, self._test_sample(val) )
         self.analyzed = True
 
-    def show_result( self, testsperday=None ):
-        print( "Analysis for '{}'".format( self.name ) )
-        print( "{:10}|{:12}|{:12}|{:12}".format( "", "Confirmed", "Unconfirmed", "Totals" ) )
-        print( "{:10}|{:12}|{:12}|{:12}".format( "Accepted", self.confirmed_accepted, self.unconfirmed_accepted, self.accepted ) )
-        print( "{:10}|{:12}|{:12}|{:12}".format( "Punted", self.confirmed_punted, self.unconfirmed_punted, self.punted ) )
-        print( "{:10}|{:12}|{:12}|{:12}".format( "Rejected", self.confirmed_rejected, self.unconfirmed_rejected, self.rejected ) )
-        print( "{:10}|{:12}|{:12}|{:12}".format( "Total", self.confirmed, self.unconfirmed, self.total ) )
-        if self.false_negative is not None:
-            print("False Negatives {}, {:.0%}".format(self.confirmed_rejected, self.false_negative))
-        if self.true_negative is not None:
-            print("True Negatives {}, {:.0%}".format(self.unconfirmed_rejected, self.true_negative))
-        if self.false_positive is not None:
-            print("False Positives {}, {:.0%}".format(self.unconfirmed_accepted, self.false_positive))
-        if self.true_positive is not None:
-            print("True Positives {}, {:.0%}".format(self.confirmed_accepted, self.true_positive))
-        if testsperday is not None and self.unconfirmed > 0:
-            print("Accidental wakes per day: {:.0f}".format(testsperday*self.unconfirmed_accepted/self.unconfirmed))
-        if self.unconfirmed_time_cnt > 0:
-            print( "Unconfirmed time analysis ({} values):".format( self.unconfirmed_time_cnt ) )
-            print( "  average unconfirmed time {:.1f} seconds".format(
-                1e-3 * self.unconfirmed_time / self.unconfirmed_time_cnt ) )
-            print( "  maximum unconfirmed time {:.1f} seconds".format(
-                1e-3 * self.unconfirmed_time_max ) )
-            print( "  {:.1f} of {:.1f} unconf sec accepted, {:.0%}".format(
-                self.unconfirmed_accepted_time * 1e-3, self.unconfirmed_time * 1e-3,
-                self.unconfirmed_accepted_time / self.unconfirmed_time ) )
-            print( "  {:.1f} of {:.1f} unconf sec punted, {:.0%}".format(
-                self.unconfirmed_punted_time * 1e-3, self.unconfirmed_time * 1e-3,
-                self.unconfirmed_punted_time / self.unconfirmed_time ) )
-            print( "  {:.1f} of {:.1f} unconf sec rejected, {:.0%}".format(
-                self.unconfirmed_rejected_time * 1e-3, self.unconfirmed_time * 1e-3,
-                self.unconfirmed_rejected_time / self.unconfirmed_time ) )
-        print()
-
-    def plot_result( self ):
+    def plot_result(self):
         ths = ( self.reject_below, self.reject_above,
                 self.accept_below, self.accept_above )
         dims = set( len( th ) if isinstance( th, ( list, tuple ) ) else 1
