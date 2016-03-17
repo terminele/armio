@@ -369,6 +369,7 @@ CPPFLAGS+= -D USE_SELF_TEST=$(self_test_accel)
 endif
 ifdef log_vbatt
 CPPFLAGS+= -D LOG_VBATT=$(log_vbatt)
+CPPFLAGS+= -D VBATT_LOG_INTERVAL=100
 endif
 ifdef wake_gestures_user_default
 CPPFLAGS+= -D WAKE_GESTURES_USER_DEFAULT=$(wake_gestures_user_default)
