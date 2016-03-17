@@ -110,8 +110,8 @@ class TestAttributes(object):
 
 
 class MultiTest(TestAttributes):
-    def __init__( self, *tests_and_samples ):
-        self.name = "Combined Test Results"
+    def __init__( self, *tests_and_samples, **kwargs ):
+        self.name = kwargs.pop('name', "Combined Test Results")
         self.tests = []
         self.samples = []
         for item in tests_and_samples:
@@ -145,7 +145,6 @@ class MultiTest(TestAttributes):
         self.clear_results()
         for test in self.tests:
             test.clear_samples()
-
         samples = self.samples
         for test in self.tests:
             test.add_samples( samples )
@@ -164,8 +163,6 @@ class MultiTest(TestAttributes):
             if plot:
                 test.plot_result()
             samples = test.punted_samples
-
-        self.show_result()
 
     def _getConfirmedPunted(self): return self.tests[-1].confirmed_punted
     confirmed_punted = property(fget=_getConfirmedPunted)
@@ -2204,60 +2201,6 @@ def make_LD_PCA_tests():
     tests = [ y_turn_basic ]
     return tests
 
-def run_tests(tests, samples, plot=False):
-    confirmed_accepted = 0
-    confirmed_rejected = 0
-    unconfirmed_accepted = 0
-    unconfirmed_rejected = 0
-    unconfirmed_time_cnt = None
-    unconfirmed_time = None
-    unconfirmed_time_max = None
-    unconfirmed_accepted_time = 0
-    unconfirmed_rejected_time = 0
-
-
-
-    for test in tests:
-        test.clear_samples()
-
-    for test in tests:
-        test.add_samples( samples )
-        test.analyze()
-        test.show_result()
-        confirmed_accepted += test.confirmed_accepted
-        confirmed_rejected += test.confirmed_rejected
-        unconfirmed_accepted += test.unconfirmed_accepted
-        unconfirmed_rejected += test.unconfirmed_rejected
-        unconfirmed_accepted_time += test.unconfirmed_accepted_time
-        unconfirmed_rejected_time += test.unconfirmed_rejected_time
-        if unconfirmed_time_cnt is None:
-            unconfirmed_time = test.unconfirmed_time
-            unconfirmed_time_cnt = test.unconfirmed_time_cnt
-            unconfirmed_time_max = test.unconfirmed_time_max
-        if plot:
-            test.plot_result()
-        samples = test.punted_samples
-
-    mt = MultiTest(
-            confirmed_accepted=confirmed_accepted,
-            confirmed_rejected=confirmed_rejected,
-            confirmed_punted=test.confirmed_punted,
-            unconfirmed_accepted=unconfirmed_accepted,
-            unconfirmed_punted=test.unconfirmed_punted,
-            unconfirmed_rejected=unconfirmed_rejected,
-            unconfirmed_time_cnt=unconfirmed_time_cnt,
-            unconfirmed_time=unconfirmed_time,
-            unconfirmed_time_max=unconfirmed_time_max,
-            unconfirmed_accepted_time=unconfirmed_accepted_time,
-            unconfirmed_punted_time=test.unconfirmed_punted_time,
-            unconfirmed_rejected_time=unconfirmed_rejected_time,
-            punted_samples=test.punted_samples,
-            tests=tests)
-    mt.show_result()
-    return mt
-
-
-
 
 ### mini scripts ###
 def show_various_reductions(*samples, **kwargs):
@@ -2420,7 +2363,27 @@ def make_ytrigger_tests():
          57189,  59734,  62266,  62659,  61706,  64270,  65536,  65368],
          "Y Turn Accepts (70%FP)", accept_above=13924076)
 
-    return [fw16_1r, fw16_2r, xturn, yturn]
+
+    unknown = FixedWeightingTest([  # 70 % FP
+         23766,  23662,  24254,  25012,  27096,  29853,  37806,  40447,
+         44582,  45172,  43463,  45401,  45258,  50672,  52952,  56804,
+         59877,  57231,  49602,  41161,  35540,  31689,  20571,  16995,
+         16151,  16125,  10484,   6839,   6109,   5972,   3577,   3862,
+         19362,  21516,  33608,  43188,  45681,  39521,  32411,  23015,
+          9700,   2424,  -4169, -11686, -25987, -39646, -47287, -50814,
+        -49927, -43993, -34680, -24676, -21000,  -8895,  -5398,    998,
+         14490,  22525,  23709,  23345,  18327,  10732,   1906,  -6265,
+        -29437, -31287, -34501, -36684, -34836, -37806, -42648, -44897,
+        -52850, -54111, -50442, -52089, -56323, -64133, -65003, -65536,
+        -62167, -48252, -36509, -25470, -17529,  -9033,     -7,   3084,
+          3655,   1105,   4639,   1277,   3600,   6722,   9490,  12711],
+          "Unknown Turn (accept between)",
+          reject_below=-34544796, reject_above=-3177289)
+
+    pass_all = SampleTest( "Pass remaining", lambda s : 1, accept_above=0 )
+
+
+    return [fw16_1r, fw16_2r, xturn, yturn, unknown, pass_all]
 
 def make_ztrigger_tests():
     fw = FixedWeightingTest([
@@ -2643,12 +2606,25 @@ if __name__ == "__main__":
             confirmed=True, full=True, superY=True))
 
         if True: # most recent sequence for starting testing
-            filters = make_ztrigger_tests()
-            mt = MultiTest(filters, allsamples.filter_samples(triggerZ=True, full=True))
-            mt.run_tests(args.plot)
+            zfilters = make_ztrigger_tests()
+            mtz = MultiTest(zfilters, allsamples.filter_samples(triggerZ=True, full=True),
+                    name="Combined Z Trigger Tests")
+            mtz.run_tests(args.plot)
+
+            yfilters = make_ytrigger_tests()
+            mty = MultiTest(yfilters, allsamples.filter_samples(triggerY=True, full=True),
+                    name="Combined Y Trigger Tests")
+            mty.run_tests(args.plot)
+
+            mtz.show_result()
+            mty.show_result()
 
             if args.print_filters:
-                for f in filters:
+                print("Z ISR Filters")
+                for f in zfilters:
+                    f.show_xyz_filter()
+                print("\nY ISR Filters")
+                for f in yfilters:
                     f.show_xyz_filter()
             #unconf = list(filter_samples(fw_xturn.punted_samples, confirmed=False))
             #conf = list(filter_samples(fw_xturn.punted_samples, confirmed=True))
