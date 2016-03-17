@@ -354,6 +354,13 @@ static bool check_tilt_down( int16_t x, int16_t y, int16_t z );
      * @retrn true when tilted down
      */
 
+static bool check_tilt_not_viewable( int16_t x, int16_t y, int16_t z );
+    /* @brief check if the watch is oriented in a postion that is not viewable
+     * @param current accel values
+     * @retrn true when tilted down
+     */
+
+
 
 //___ V A R I A B L E S ______________________________________________________
 uint8_t accel_slow_click_cnt = 0;
@@ -626,6 +633,13 @@ static bool check_tilt_down( int16_t x, int16_t y, int16_t z ) {
     return (ABS(x) > MAX_TILT ||                            // x-tilted
             (z <= ALMOST_VERT && y <= DOWN_FACING) ||   // turned out
             (z <= DOWN_FACING && y <= ALMOST_VERT));
+}
+
+static bool check_tilt_not_viewable( int16_t x, int16_t y, int16_t z ) {
+    const int16_t SLIGHTLY_VERT = 5;
+    const int16_t DOWN_FACING = -15;
+    return ((z <= SLIGHTLY_VERT && y <= DOWN_FACING) ||   // turned out
+            (z <= DOWN_FACING && y <= SLIGHTLY_VERT));
 }
 
 static inline bool gesture_filter_check( void ) {
@@ -1191,6 +1205,9 @@ event_flags_t accel_event_flags( void ) {
      */
     static bool accel_down = false;
     static uint32_t accel_down_to_ms = 0;
+    static bool accel_not_viewable = false;
+    static uint32_t accel_not_viewable_to_ms = 0;
+    const uint32_t SLEEP_NOT_VIEWABLE_DUR_MS = 200;
 #ifdef NO_ACCEL
     return ev_flags;
 #endif
@@ -1205,6 +1222,16 @@ event_flags_t accel_event_flags( void ) {
         } else if (main_get_waketime_ms() > accel_down_to_ms) {
             /* Check for accel low-z timeout */
             ev_flags |= EV_FLAG_ACCEL_DOWN;
+        }
+        if (check_tilt_not_viewable(x, y, z)) {
+            if (!accel_not_viewable) {
+                accel_not_viewable = true;
+                accel_not_viewable_to_ms = main_get_waketime_ms() + SLEEP_NOT_VIEWABLE_DUR_MS;
+            } else if (main_get_waketime_ms() > accel_not_viewable_to_ms) {
+                ev_flags |= EV_FLAG_ACCEL_NOT_VIEWABLE;
+            }
+        } else {
+            accel_not_viewable = false;
         }
     } else {
         accel_down = false;

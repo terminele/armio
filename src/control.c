@@ -16,7 +16,8 @@
 #define LONG_TIMEOUT_TICKS                              MS_IN_TICKS(1000*(60*3 + 43)) ;
 #define INF_TIMEOUT_TICKS                               MS_IN_TICKS(1000*60*60*8)
 #define TIME_SET_MODE_EDITING_SLEEP_TIMEOUT_TICKS       MS_IN_TICKS(80000)
-#define TIME_SET_MODE_NOEDIT_SLEEP_TIMEOUT_TICKS        MS_IN_TICKS(10000)
+#define TIME_SET_MODE_NOEDIT_SLEEP_TIMEOUT_TICKS        MS_IN_TICKS(8000)
+#define SELECTOR_MODE_TIMEOUT_TICKS                     MS_IN_TICKS(8000)
 #define EE_MODE_SLEEP_TIMEOUT_TICKS                     MS_IN_TICKS(8000)
 #define EE_RUN_TIMEOUT_TICKS                            MS_IN_TICKS(3000)
 #define EE_RUN_MIN_INTERTICK                            MS_IN_TICKS(100)
@@ -406,13 +407,17 @@ bool selector_mode_tic( event_flags_t event_flags ) {
     static animation_t *mode_trans_blink = NULL;
     static uint8_t selected_mode = CONTROL_MODE_SHOW_TIME;
 
-    if (accel_slow_click_cnt == 0 && modeticks > MS_IN_TICKS(3000)) {
+    if (accel_slow_click_cnt == 0 && modeticks > SELECTOR_MODE_TIMEOUT_TICKS) {
       selected_mode = CONTROL_MODE_SHOW_TIME;
       goto finish;
     }
 
     if (event_flags & EV_FLAG_SLEEP) {
       goto finish;
+    }
+
+    if (event_flags & EV_FLAG_ACCEL_NOT_VIEWABLE) {
+        goto finish;
     }
 
     if (mode_trans_blink && anim_is_finished(mode_trans_blink)) {
@@ -1506,7 +1511,15 @@ bool time_set_mode_tic ( event_flags_t event_flags ) {
       goto finish;
     }
 
-    if (modeticks < 500) {
+    if (!is_editing && !blink_ptr) {
+        if (event_flags & EV_FLAG_ACCEL_NOT_VIEWABLE) {
+            goto finish;
+        }
+    }
+
+    if (modeticks < 300) {
+        /* if this is too long you can mistakenly think that you have
+         * correclty performed a 3-tap and the watch is off */
         /* Pause briefly with the display off to indicate
          * entrance into time setting mode */
         return false;
