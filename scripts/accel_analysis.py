@@ -174,6 +174,13 @@ class MultiTest(TestAttributes):
                 test.plot_result()
             samples = test.punted_samples
 
+    def plot_weightings(self):
+        for tst in self.tests:
+            try:
+                tst.plot_weightings()
+            except AttributeError:
+                pass
+
     def _getConfirmedPunted(self): return self.tests[-1].confirmed_punted
     confirmed_punted = property(fget=_getConfirmedPunted)
 
@@ -684,7 +691,15 @@ class SampleTest(TestAttributes):
 
         tmin = min(s.timestamp for s in self.samples)
         for tv, val, sample in zip(self.test_results, self.values, self.samples):
-            if getattr( sample, 'trainset', False ):
+            if getattr(sample, 'red', False):
+                cv = LONG
+            elif getattr(sample, 'orange', False):
+                cv = MED
+            elif getattr(sample, 'yellow', False):
+                cv = SHORT
+            elif getattr(sample, 'blue', False):
+                cv = TRAINSET
+            elif getattr(sample, 'trainset', False):
                 cv = TRAINSET
             elif sample.confirmed:
                 cv = CONFIRMED
@@ -1030,11 +1045,11 @@ class PrincipalComponentTest( SampleTest ):
             zvals = vec[2*n:]
             print("Scale is {:.3f}".format(scale))
 
-            print('tst = FixedWeightingTest([', end='\n    ')
+            print('tst_p{} = FixedWeightingTest(['.format(len(self.getWeightings())), end='\n    ')
             for j, f in enumerate(vec):
                 end = ', ' if (j + 1) % 8 else ',\n    '
                 if j == len(vec) - 1:
-                    end = '],\n    "Test Name"'
+                    end = '],\n    "Test Name, p{}"'.format(len(self.getWeightings()))
                 print( "{:6}".format(f), end=end )
             if self.reject_below is not None:
                 print(', reject_below={:.0f}'.format(scale*self.reject_below), end='')
@@ -1107,7 +1122,7 @@ class PrincipalComponentTest( SampleTest ):
         ax = fig.add_subplot(111)
         ax.set_xlabel("Time (sample num)")
         ax.set_ylabel("Scale Factor")
-        ax.set_title("Scale factor for PCA index {}".format(ndx))
+        ax.set_title(self.name)
         wt, scale = self.get_xyz_weights(ndx)
 
         n = len(wt)//3
@@ -2392,8 +2407,87 @@ def make_prelim_tests( *samples ):
 
     return MultiTest(non_full, dual_trigger, *samples, name="Preliminary Tests")
 
-def make_ytrigger_tests( *samples ):
-    fw8_1r = FixedWeightingTest([   # 45 % TN
+def make_ytrigger_tests_16p(*samples):
+    r1_p16 = FixedWeightingTest([       # 54 % TN
+         65536,  59945,  49981,  38958,  26688,  16366,   6473,    230,
+         -5822,  -7306,  -8877,  -9307,  -7720,  -7882,  -6555,  -4510,
+          -233,   3643,   7762,   9908,  13120,  15241,  15561,  16374,
+         16294,  15858,  15833,  14707,  12806,  11649,  11202,  10455,
+         14709,  12339,   7524,   4986,   6802,  11621,  16744,  24876,
+         31166,  27656,  25885,  26572,  23941,  14464,   2806, -11170,
+        -24001, -33707, -39389, -38380, -32229, -21626, -13669, -10485,
+         -7908,  -4670,  -1306,    704,   2430,   4438,   5461,   5261,
+        -11664, -12280, -11309, -11470, -12861,  -9232, -10381, -11010,
+         -9273,  -6291,  -4174,   1548,   4043,   5067,   8314,  12576,
+         12228,   9428,   2192,  -6136, -13329, -18812, -22620, -23781,
+        -25894, -27685, -29044, -29371, -28439, -27671, -25919, -25282],
+        "Y-Trig Reject 1, p16 (54 % TN)", reject_above=-5247343)
+
+    r2_p16 = FixedWeightingTest([       # 21 % TN
+         65536,  54073,  41958,  32618,  21017,   4419, -11381, -20985,
+        -25582, -30418, -36011, -42921, -50279, -53608, -59320, -58536,
+        -57104, -52598, -45347, -39422, -29314, -22216,  -8095,  -1347,
+          2928,   5195,   8347,  10813,  10570,  11423,  12729,  13865,
+         42927,  42418,  47414,  42237,  32256,  23903,  16874,  12802,
+          6580,  13367,  13610,  13019,   8570,   1822,   -516,   4184,
+          9797,  14867,  22695,  29992,  41141,  44801,  52578,  60395,
+         61836,  62352,  60529,  54404,  46785,  38614,  34068,  27387,
+          1022,   3841,  13695,  16160,  17413,  14841,  15991,   7135,
+         -3928,  -5646,  -9088,  -3604,   4154,   8448,  22753,  30834,
+         38296,  42460,  43013,  41857,  34230,  24578,  15604,   5281,
+           620,  -4225,  -6452,  -5672,  -5189,  -6352,  -7763, -11756],
+        "Y-Trig Reject 2, p16 (21% TN)", reject_above=27381764)
+
+    xturn_p16 = FixedWeightingTest([    # 10 % FP
+        -65536, -49931, -36765, -26428, -12122,   1571,  21671,  27763,
+         23998,  18673,  18306,  13502,  12936,  13198,   7648,   5476,
+           478,  -7354, -15258, -22053, -26903, -31542, -35286, -37202,
+        -38406, -38313, -38705, -38662, -38096, -35962, -33852, -32499,
+          -467,    170,  -6102,  -7482,    -41,     45,  27560,  31146,
+         16575,   4800,  11262,  14609,  14116,  17572,  12599,   6149,
+          9024,   7486,   2936,  -7692, -12270, -19923, -28776, -38629,
+        -44738, -51566, -54781, -52830, -51833, -47471, -41628, -35833,
+         -9480, -10884, -15975, -11481,  -4722,   7388,  -2006,   1590,
+         14817,  16410,  18563,  12571,   3330,   2328,  -2126,  -9722,
+        -18147, -21690, -19694, -15948, -11502,  -7118,  -4166,    755,
+          3431,   6848,  11294,  12712,  14389,  17784,  18502,  23190],
+        "Y-trig X-turn, p16 (10% FP)", accept_above=-3369716)
+
+    yturn_p16 = FixedWeightingTest([    # 27 % FP
+          5211,   2631,  -1119,  -9511, -18960, -18771, -11579, -11364,
+        -11389,  -9616,  -7828,  -2958,   2738,  11548,  13375,  15088,
+         16683,  12310,  13891,   7885,   6863,   1279,  -2084,  -3565,
+         -3719,  -3644,  -3803,  -3747,  -4044,  -5575,  -4952,  -4794,
+         55207,  44583,  26625,   8246,   -325, -14591, -10644,   -210,
+          6546,   1876,   1322,   4647,  16712,  23295,  20993,  24372,
+         15377,   7473,   1213,   7445,   6336,   6661,   3665,   4672,
+          8676,  11778,  16456,  19993,  21630,  22619,  18637,  12525,
+         65536,  60398,  55516,  44893,  24506,  19844,  -8077, -22209,
+        -22959, -24857, -22200, -17291, -22797, -30112, -33944, -34146,
+        -33979, -30378, -21656, -13682,     38,  10879,  16830,  14807,
+         13005,   6921,  -1600, -10751, -20074, -24517, -29758, -31890],
+        "Y-trig Y-turn, p16 (27% FP)", accept_below=-5038357)
+
+    last_p16 = FixedWeightingTest([     # 21% FN / 32% FP
+         48184,  35667,  23211,   8229,  -5223, -12821, -22689, -29053,
+        -29821, -27708, -28852, -30206, -24935,  -6844,  -5136,  11271,
+         24249,  28373,  37889,  31606,  32962,  32362,  29479,  29664,
+         29963,  29727,  28481,  26709,  25063,  22635,  23585,  24750,
+         18315,  18483,  15409,  11828,   8509,  -1848, -11546, -12459,
+         -4814,  -7265, -11364,  -4908,   6676,  21010,  17902,  13318,
+         -9071, -26985, -48336, -49047, -35878, -20732, -11187,   1281,
+         12155,  20178,  26058,  29768,  24026,  23977,  13662,   -434,
+         65536,  58896,  57443,  50925,  27300,   9456,  -5632, -19973,
+        -27598, -29786, -23486,  -5898, -15949, -29988, -31078, -26428,
+        -23837, -13313,  -5042,  -5234,   2425,   6246,  11803,   7638,
+          6912,  -1915,  -8072, -14550, -19565, -17125, -19017, -20902],
+        "Y-Trig Last Test, p16 (32% FP / 21% FN)", reject_above=0, accept_below=0)
+
+    return MultiTest(r1_p16, r2_p16, xturn_p16, yturn_p16, last_p16,
+            *samples, name="Y-Trigger, 16 parameters")
+
+def make_ytrigger_tests_8p(*samples):
+    r1_p8 = FixedWeightingTest([        # 45 % TN
         -28247, -26720, -25102, -23099, -20643, -19454, -16719, -16150,
         -16157, -16853, -16253, -15324, -14883, -13047, -12133, -10941,
         -10783, -10014,  -9170,  -8288,  -7870,  -7449,  -6238,  -5228,
@@ -2408,7 +2502,7 @@ def make_ytrigger_tests( *samples ):
          54996,  59684,  64015,  65536,  65057,  63945,  62580,  59360],
         "PCA8, Reject Test 1 (45%)", reject_below=2733591, reject_above=34764674)
 
-    fw8_2r = FixedWeightingTest([   # 22 % TN
+    r2_p8 = FixedWeightingTest([        # 22 % TN
          57961,  61043,  63047,  63874,  64606,  65535,  65195,  64894,
          61653,  59486,  57407,  58174,  55736,  53252,  49559,  45092,
          42341,  37142,  33296,  30578,  27535,  24511,  17972,  15209,
@@ -2423,7 +2517,7 @@ def make_ytrigger_tests( *samples ):
           8260,   9118,   9555,  10099,  11304,  11484,  10890,  11501],
         "PCA8, Reject Test 2 (22%)", reject_below=-89832048, reject_above=29154581)
 
-    xturn = FixedWeightingTest([    # 16 % FP
+    xturn_p8 = FixedWeightingTest([     # 16 % FP
          65536,  53201,  43038,  34966,  25535,  17619,   9357,   1228,
          -4127,  -8943, -11623, -15508, -18465, -20734, -21103, -19894,
         -20036, -15790, -11932, -11583,  -8788,  -8774,  -2441,  -1155,
@@ -2438,7 +2532,7 @@ def make_ytrigger_tests( *samples ):
         -12158, -11830, -11633, -12837, -14729, -16347, -16449, -20403],
         "Y-trig X-turn Accept (PCA8, FP 16%)", accept_below=3269748)
 
-    yturn = FixedWeightingTest([    # 14 % FP
+    yturn_p8 = FixedWeightingTest([     # 14 % FP
          -6274,  -6995,  -6853,  -5462,  -3768,  -3804,  -1949,   -627,
           2644,   4716,   6570,   6000,   5023,   4181,   4146,   7215,
           7001,   6894,   5917,   3448,   3488,   3478,   1460,     24,
@@ -2453,7 +2547,7 @@ def make_ytrigger_tests( *samples ):
           4131,   8108,   9231,   8688,   7429,   7087,   3718,   1772],
         "Y-trig Y-turn Accept (PCA8, FP 14%)", accept_below=-13211549)
 
-    last_test = FixedWeightingTest([
+    last_p8 = FixedWeightingTest([
            875,   1455,   2967,   3329,   4117,   4681,   4213,   5223,
          11094,   9426,  10778,  11242,   8419,   6770,   4561,    181,
          -3241,  -2474,  -1254,   -589,     58,  -1959,  -1772,   -898,
@@ -2468,10 +2562,89 @@ def make_ytrigger_tests( *samples ):
         -13882, -11034, -10079, -10972,  -9973, -11085, -18889, -20353],
         "Y-Trig, last ditch", reject_above=-12426520, accept_below=-12426520)
 
-    return MultiTest(fw8_1r, fw8_2r, xturn, yturn, last_test,
-            *samples, name="Combined Y-Trigger")
+    return MultiTest(r1_p8, r2_p8, xturn_p8, yturn_p8, last_p8,
+            *samples, name="Y-Trigger 8 parameters")
 
-def make_ztrigger_tests( *samples ):
+def make_ztrigger_tests_16p( *samples ):
+    r1_p16 = FixedWeightingTest([      # 56 % TN
+        -51347, -48077, -42486, -37898, -31478, -23230, -15681,  -3044,
+          5742,  13002,  19745,  18857,  20364,  20381,  18719,  22160,
+         21903,  18372,  12641,   6686,   1465,  -4473, -10102, -15362,
+        -20652, -25133, -29800, -33410, -35683, -37372, -37717, -39009,
+        -28252, -31226, -41494, -47809, -47692, -45804, -36032, -15669,
+          1311,  15615,  19757,  11384, -10580, -27742, -31937, -14081,
+         11544,  31215,  44965,  57203,  64124,  65536,  63401,  57723,
+         50249,  42671,  35847,  30392,  25343,  21758,  19832,  18864,
+        -30502, -27274, -18393,  -9371,  -1320,   5333,  10559,   6634,
+          2268,  -2008,  -1924,   7310,  17254,  24887,  26088,  17219,
+          8011,  -3619, -10502, -18100, -25004, -30384, -34333, -36185,
+        -36630, -36124, -35776, -34678, -33799, -32929, -31516, -29008],
+        "Z-Trig Reject 1, PCA16 (56% TN)", reject_below=-13190000)
+
+    r2_p16 = FixedWeightingTest([      # 50% TN
+         -1598,  -3149,  -3331,  -5139, -10611, -13203, -20036, -16331,
+        -16261, -12024,  -7724,  -6382,  -6183,  -6885,  -6828,  -4740,
+         -1662,    882,   4452,   6473,   7581,   9609,  10491,  11600,
+         12215,  12287,  12204,  11891,  11718,  11665,  11248,  10436,
+           954,  12154,  33370,  40979,  34784,  16379,  -1838,  -7073,
+         -4617,  -1576,   -867,  -2646,    693,   3222,   8781,   8128,
+         -2346, -10404, -11391, -12050,  -7619,     83,  10648,  22286,
+         33520,  44090,  52170,  58972,  63651,  65536,  65349,  64421,
+        -21432, -26609, -28047, -24722, -15949,  -5230,    432,  -4118,
+        -15223, -24718, -35964, -37656, -35458, -29972, -17863,  -7150,
+           -90,   2099,    970,    143,    224,    870,   2232,   3768,
+          5499,   6255,   7414,   7894,   8217,   8722,   8481,   8286],
+        "Z-Trig Reject 2, PCA16 (50% TN)", reject_below=-10335557)
+
+    xturn_p16 = FixedWeightingTest([   # 15 % FP
+         51176,  45168,  39144,  32818,  28271,  23880,  20259,  12040,
+          6741,   -605,  -3531,  -6916,  -7938, -11686, -10266,  -8286,
+         -8186,  -7968,  -9355, -10954, -12092, -13478, -14802, -15699,
+        -18000, -18416, -17767, -18998, -19628, -19770, -19717, -20086,
+        -45600, -46858, -43828, -45274, -46667, -41052, -36832, -28345,
+        -24839, -23567, -20213, -21185, -26837, -35807, -39165, -11357,
+         12820,  18328,  10963,   7896,   7490,  -1187, -12759, -21423,
+        -29688, -34584, -40994, -44713, -51083, -53259, -53223, -54849,
+         35115,  35155,  36170,  38475,  37335,  39242,  34888,  34622,
+         39350,  43521,  47446,  48619,  36543,  35630,  39072,  30156,
+         24509,  26526,  38178,  48813,  56435,  62373,  65124,  65277,
+         65536,  64111,  61968,  61486,  60456,  55759,  50675,  44920],
+        "Z-Trig, X-turn, PCA16 (15% FP)", accept_below=37133677)
+
+    yturn_p16 = FixedWeightingTest([   # 15 % FP
+         16755,  14842,  14203,  13008,  11956,  10938,  12033,   5760,
+          1135,  -4827,  -3133,  -4496,  -5570,  -7453,  -8216,  -4032,
+          -281,   -624,  -2540,  -1467,    318,    385,    247,    151,
+           365,   1208,   1689,   1244,   1353,   2179,   2290,   2744,
+         38595,  32554,  25867,  17554,   9220,   7777,   9929,   1932,
+          -675,    195,   6060,   7200,    622,   3282,   3572,  -6035,
+        -24034, -32394, -24541, -16970, -12538, -11811, -14261, -18831,
+        -24958, -32540, -42059, -48211, -55374, -59913, -63297, -65536,
+         45949,  43056,  36298,  28865,  18826,   9539,   1766,   1486,
+         -1335,  -4755,  -6034,  -4338,  -3086,   -656,   5622,   5798,
+          9042,  12639,  14681,  18853,  23575,  28671,  31920,  33707,
+         34188,  33900,  33383,  34371,  35287,  34015,  31584,  27731],
+        "Z-Trig, Y-Turn, PCA16 (15% FP)", accept_below=11316960)
+
+    last_p16 = FixedWeightingTest([     # 15 % FN / 50 % FP
+          7327,   6693,   9767,   4830,   3493,   7682,  -9335,  -6702,
+         -6951,  -7546,   1775,  -1228,   7107,  -4643, -36264,   4760,
+         25153,  13091,   9983,  11647,   9898,   9866,   4989,   1800,
+         -2632,  -8827, -14579, -18911, -22962, -26465, -29441, -30635,
+          5437,  14543,  21267,  19032,  15217, -17816, -52705, -29276,
+          8263,  36770,  40468,  16185, -29008, -59610,  -7393,  18941,
+        -12467, -37108, -10088,   1630,   3515,   -945,  -5591, -11920,
+        -24650, -30463, -37432, -39648, -42092, -44266, -46665, -47718,
+         26507,  26026,  19551,   8388,  14708,  13373,  19866,   6804,
+         -1933, -16180, -33835, -15835, -26415,  29419,  65535,  30407,
+         17313,  15092,   9038,   4427,   2283,   3655,   6843,   8118,
+          9098,   9990,  12151,  13967,  15845,  14884,  12870,   9248],
+        "Z-Trig, Last Test PC16 (15%FN / 50%FP)", reject_above=9848706, accept_below=9848706)
+
+    return MultiTest(r1_p16, r2_p16, xturn_p16, yturn_p16, last_p16,
+            *samples, name="Z-Trigger, 16 parameters")
+
+def make_ztrigger_tests_full(*samples):
     fw = FixedWeightingTest([
          54012,      0,      0,   4167,  -2165,      0,      0,  -8856,
              0,      0,      0,      0,   1958,      0,      0,      0,
@@ -2610,6 +2783,9 @@ def make_ztrigger_tests( *samples ):
     return MultiTest(fw, fw_fw, fw_yturn, fw_xturn, fw_unknown_motion,
             *samples, name="Combined Z-Trigger")
 
+def make_ztrigger_tests(*samples): return make_ztrigger_tests_16p(*samples)
+def make_ytrigger_tests(*samples): return make_ytrigger_tests_16p(*samples)
+
 def make_supery_tests( *samples ):
     first_half = FixedWeightingTest([    # 41% FP
          -8210,  -8060,  -8955,  -8971,  -9368,  -9104, -10555,  -9811,
@@ -2719,7 +2895,7 @@ if __name__ == "__main__":
             ztest = make_ztrigger_tests(Zsamples)
             sytest = make_supery_tests(sYsamples)
 
-            alltests = AllTest(ptest, ytest, ztest, sytest)
+            alltests = AllTest(ptest, ztest, ytest, sytest)
             alltests.run_tests()
 
             Zunconfirm.samples = list(Zsamples.filter_samples(confirmed=False))
@@ -2742,12 +2918,48 @@ if __name__ == "__main__":
                 Zconfirm.remove_outliers(2)
             Yunconfirm.samples = list(Ysamples.filter_samples(confirmed=False))
             Yconfirm.samples = list(Ysamples.filter_samples(confirmed=True))
+            if 'rab_2016-03-09.log' in Yconfirm.get_file_names():
+                Yconfirm.remove_outliers(1)
             if 'rab_2016-03-10.log' in Yconfirm.get_file_names():
+                Yconfirm.remove_outliers(3)
+            if 'rab_2016-03-11b.log' in Yconfirm.get_file_names():
+                Yconfirm.remove_outliers(1)
+            if 'pf_2016-03-13.log' in Yconfirm.get_file_names():
                 Yconfirm.remove_outliers(1)
             if 'rab_2016-03-14.log' in Yconfirm.get_file_names():
                 Yconfirm.remove_outliers(1)
+            if 'swi_2016-03-15b_yturn.log' in Yconfirm.get_file_names():
+                Yconfirm.remove_outliers(1)
+            if 'rab_2016-03-15.log' in Yconfirm.get_file_names():
+                Yconfirm.remove_outliers(1)
+            if 'rab_2016-03-15b.log' in Yconfirm.get_file_names():
+                Yconfirm.remove_outliers(3)
+            if 'rab_2016-03-16a.log' in Yconfirm.get_file_names():
+                Yconfirm.remove_outliers(3)
+            if 'swi_2016-03-17b_xturn.log' in Yconfirm.get_file_names():
+                Yconfirm.remove_outliers(1)
             sYunconfirm.samples = list(sYsamples.filter_samples(confirmed=False))
             sYconfirm.samples = list(sYsamples.filter_samples(confirmed=True))
+
+            zc = [s for s in Samples.filter_samples(ztest.punted_samples, confirmed=True) if s in Zconfirm.samples]
+            zcy = list(Samples.filter_samples(zc, namehas='yturn'))
+            zcx = list(Samples.filter_samples(zc, namehas='xturn'))
+            if 'rab_2016-03-15d_xturn.log' in Samples.get_file_names(zcx):
+                Samples.remove_outliers(zcx, 1)
+            zu = list(Samples.filter_samples(ztest.punted_samples, confirmed=False))
+
+            yc = [s for s in Samples.filter_samples(ytest.punted_samples, confirmed=True) if s in Yconfirm.samples]
+            ycy = list(Samples.filter_samples(yc, namehas='yturn'))
+            ycx = list(Samples.filter_samples(yc, namehas='xturn'))
+            if 'rab_2016-03-15d_xturn.log' in Samples.get_file_names(ycx):
+                Samples.remove_outliers(ycx, 2)
+            if 'swi_2016-03-17b_xturn.log' in Samples.get_file_names(ycx):
+                Samples.remove_outliers(ycx, 1)
+            if 'swi_2016-03-17d_xturn.log' in Samples.get_file_names(ycx):
+                Samples.remove_outliers(ycx, 1)
+            if 'swi_2016-03-17e_xturn.log' in Samples.get_file_names(ycx):
+                Samples.remove_outliers(ycx, 1)
+            yu = list(Samples.filter_samples(ytest.punted_samples, confirmed=False))
 
             allsamples.print_samples_summary()
 
@@ -2771,9 +2983,9 @@ if __name__ == "__main__":
         if args.run_tests:
             # add a new attribute for coloring selected data blue
             for s in Zunconfirm.samples:
-                s.trainset = False
+                s.blue = False
             for s in Zconfirm.samples:
-                s.trainset = True
+                s.blue = True
 
             pc_test = PrincipalComponentTest(Zunconfirm, Zconfirm,
                     test_axis=[0, 1, 2])
