@@ -1468,6 +1468,17 @@ class Samples( object ):
             return None
     mintime = property(fget=_getMinTime)
 
+    def get(self, logfile, timestamp):
+        if isinstance(self, Samples):
+            sampleslist = self.samples
+        else:
+            sampleslist = self
+        matches = []
+        for s in sampleslist:
+            if s.logfile == logfile and s.timestamp == timestamp:
+                matches.append(s)
+        return matches
+
     def load( self, fn ):
         if self.name is None:
             self.name = os.path.basename(fn)
@@ -1838,7 +1849,7 @@ class Samples( object ):
             sampleslist = self
         if values is None:
             values = get_measure_matrix(sampleslist)
-        mags = get_row_magnitudes(mean_center_columns(values))
+        mags = (int(v*1e6) for v in get_row_magnitudes(mean_center_columns(values)))
         return sorted(zip(mags, sampleslist))
 
     def plot_outliers(self, skip=None, outliers=None):
@@ -2017,6 +2028,9 @@ class WakeSample( object ):
         WakeSample._sample_counter += 1
         self.i = WakeSample._sample_counter
         self._check_result = None
+
+    def __repr__(self):
+        return "<{} s @ {}>".format(self.logfile, self.timestamp)
 
     def __hash__(self):
         return hash(self.uid)
@@ -2710,6 +2724,22 @@ if __name__ == "__main__":
 
             Zunconfirm.samples = list(Zsamples.filter_samples(confirmed=False))
             Zconfirm.samples = list(Zsamples.filter_samples(confirmed=True))
+            if 'swi_2016-03-08.log' in Zconfirm.get_file_names():
+                Zconfirm.remove_outliers(1)
+            if 'swi_2016-03-15_yturn.log' in Zconfirm.get_file_names():
+                Zconfirm.remove_outliers(3)
+            if 'swi_2016-03-15b_yturn.log' in Zconfirm.get_file_names():
+                Zconfirm.remove_outliers(3)
+            if 'pf_2016-03-13.log' in Zconfirm.get_file_names():
+                Zconfirm.remove_outliers(1)
+            if 'rab_2016-03-15.log' in Zconfirm.get_file_names():
+                Zconfirm.remove_outliers(1)
+            if 'rab_2016-03-15b.log' in Zconfirm.get_file_names():
+                Zconfirm.remove_outliers(1)
+            if 'rab_2016-03-16a.log' in Zconfirm.get_file_names():
+                Zconfirm.remove_outliers(3)
+            if 'rab_2016-03-11.log' in Zconfirm.get_file_names():
+                Zconfirm.remove_outliers(2)
             Yunconfirm.samples = list(Ysamples.filter_samples(confirmed=False))
             Yconfirm.samples = list(Ysamples.filter_samples(confirmed=True))
             if 'rab_2016-03-10.log' in Yconfirm.get_file_names():
