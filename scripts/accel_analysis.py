@@ -113,6 +113,7 @@ class TestAttributes(object):
 class MultiTest(TestAttributes):
     def __init__( self, *tests_and_samples, **kwargs ):
         self.name = kwargs.pop('name', "Combined Test Results")
+        self.cdefname = kwargs.pop('cdefname', None)
         self.tests = []
         self.samples = []
         for item in tests_and_samples:
@@ -1027,6 +1028,76 @@ class PrincipalComponentTest( SampleTest ):
         eva, evv = list(zip(*sort))
         self.eigvals = eva
         self.eigvects = evv
+
+    def print_c_defs(self, num=1):
+        eigv_cum = 0
+        eigv_sum = sum(self.eigvals)
+        for i, eigval in enumerate(self.eigvals):
+            if num is not None and i >= num:
+                break
+            eigv_cum += eigval
+            log.debug('Eigenvalue{: 3},{: 9.2e}: {: 8.2%},{: 8.2%}'.format(i,
+                eigval, (eigval/eigv_sum), (eigv_cum/eigv_sum)))
+
+            vec, scale = self.get_xyz_weights(i)
+            n = len(vec)//3
+            xvals = vec[:n]
+            yvals = vec[n:2*n]
+            zvals = vec[2*n:]
+            log.debug("Scale is {:.3f}".format(scale))
+            lower_ths = 0
+            lt_action = 'punt'
+            if self.reject_below is not None:
+                lower_ths = self.reject_below
+                lt_action = 'reject'
+            elif self.accept_below is not None:
+                lower_ths = self.accept_below
+                lt_action = 'accept'
+
+            print('\t.lower_ths = {},'.format(lower_ths))
+            print('\t.lt_action = {},'.format(lt_action))
+
+            upper_ths = 0
+            gt_action = 'punt'
+            if self.reject_above is not None:
+                upper_ths = self.reject_above
+                gt_action = 'reject'
+            elif self.accept_above is not None:
+                upper_ths = self.accept_above
+                gt_action = 'accept'
+
+            print('\t.upper_ths = {},'.format(upper_ths))
+            print('\t.gt_action = {},'.format(gt_action))
+
+            print("\t.x_ws = {", end='\n    ')
+            for j, f in enumerate(xvals):
+                end = ', ' if (j + 1) % 8 else ',\n    '
+                print( "{:6}".format(f), end=end )
+            print( '},' )
+            print("\t.y_ws = {", end='\n    ')
+            for j, f in enumerate(yvals):
+                end = ', ' if (j + 1) % 8 else ',\n    '
+                print( "{:6}".format(f), end=end )
+            print( '},' )
+            print("\t.z_ws = {", end='\n    ')
+            for j, f in enumerate(zvals):
+                end = ', ' if (j + 1) % 8 else ',\n    '
+                print( "{:6}".format(f), end=end )
+            print( '},' )
+            log.debug('FixedWeightingTest([', end='\n    ')
+            for j, f in enumerate(vec):
+                end = ', ' if (j + 1) % 8 else ',\n    '
+                log.debug( "{:6}".format(f), end=end )
+            log.debug( ']', end='' )
+            if self.reject_below is not None:
+                log.debug(', reject_below={:.0f}'.format(scale*self.reject_below), end='')
+            if self.reject_above is not None:
+                log.debug(', reject_above={:.0f}'.format(scale*self.reject_above), end='')
+            if self.accept_below is not None:
+                log.debug(', accept_below={:.0f}'.format(scale*self.accept_below), end='')
+            if self.accept_above is not None:
+                log.debug(', accept_above={:.0f}'.format(scale*self.accept_above), end='')
+            log.debug( ')' )
 
     def show_xyz_filter(self, num=1):
         print('                        variance explained')
@@ -2425,7 +2496,8 @@ def make_prelim_tests( *samples ):
     dt_tst = lambda s : 1 if s.triggerY and s.triggerZ else -1
     dual_trigger = SampleTest("Z&Y Dual Trigger accept", dt_tst, accept_above=0)
 
-    return MultiTest(non_full, dual_trigger, *samples, name="Preliminary Tests")
+    return MultiTest(non_full, dual_trigger, *samples,
+            name="Preliminary Tests", cdefname=None)
 
 def make_ytrigger_tests_16p(*samples):
     r1_p16 = FixedWeightingTest([       # 54 % TN
@@ -2504,7 +2576,7 @@ def make_ytrigger_tests_16p(*samples):
         "Y-Trig Last Test, p16 (32% FP / 21% FN)", reject_above=0, accept_below=0)
 
     return MultiTest(r1_p16, r2_p16, xturn_p16, yturn_p16, last_p16,
-            *samples, name="Y-Trigger, 16 parameters")
+            *samples, name="Y-Trigger, 16 parameters", cdefname='yh')
 
 def make_ytrigger_tests_8p(*samples):
     r1_p8 = FixedWeightingTest([        # 45 % TN
@@ -2583,7 +2655,7 @@ def make_ytrigger_tests_8p(*samples):
         "Y-Trig, last ditch", reject_above=-12426520, accept_below=-12426520)
 
     return MultiTest(r1_p8, r2_p8, xturn_p8, yturn_p8, last_p8,
-            *samples, name="Y-Trigger 8 parameters")
+            *samples, name="Y-Trigger 8 parameters", cdefname='yh')
 
 def make_ztrigger_tests_16p( *samples ):
     r1_p16 = FixedWeightingTest([      # 56 % TN
@@ -2662,7 +2734,7 @@ def make_ztrigger_tests_16p( *samples ):
         "Z-Trig, Last Test PC16 (15%FN / 50%FP)", reject_above=9848706, accept_below=9848706)
 
     return MultiTest(r1_p16, r2_p16, xturn_p16, yturn_p16, last_p16,
-            *samples, name="Z-Trigger, 16 parameters")
+            *samples, name="Z-Trigger, 16 parameters", cdefname='zh')
 
 def make_ztrigger_tests_8p( *samples ):
     r1_p8 = FixedWeightingTest([        # 60% TN
@@ -2742,7 +2814,7 @@ def make_ztrigger_tests_8p( *samples ):
         reject_below=-17000000, accept_above=-17000000)
 
     return MultiTest(r1_p8, r2_p8, xturn_p8, yturn_p8, last_p8,
-            *samples, name="Z-Trigger 8 parameters")
+            *samples, name="Z-Trigger 8 parameters", cdefname='zh')
 
 def make_ztrigger_tests_full(*samples):
     fw = FixedWeightingTest([
@@ -2881,13 +2953,12 @@ def make_ztrigger_tests_full(*samples):
         "Fixed Weight PCA8 after first PCA8", reject_below=-16928760, reject_above=11180147)
 
     return MultiTest(fw, fw_fw, fw_yturn, fw_xturn, fw_unknown_motion,
-            *samples, name="Combined Z-Trigger")
+            *samples, name="Combined Z-Trigger", cdefname='zh')
 
 def make_ztrigger_tests(*samples): return make_ztrigger_tests_8p(*samples)
 def make_ytrigger_tests(*samples): return make_ytrigger_tests_8p(*samples)
 
 def make_supery_tests( *samples ):
-
     r1_p2 = FixedWeightingTest([        # 71 % TN
         -11652, -11398, -12497, -12737, -13268, -13077, -14563, -14039,
         -14372, -14908, -15189, -16015, -17854, -15700, -16329, -16745,
@@ -2905,17 +2976,33 @@ def make_supery_tests( *samples ):
 
     accept_all = SampleTest( "Pass remaining", lambda s : 1, accept_above=0 )
 
-    return MultiTest( r1_p2, accept_all, *samples, name="SuperY Trigger, 2 param" )
+    return MultiTest( r1_p2, accept_all, *samples,
+            name="SuperY Trigger, 2 param", cdefname='syh')
 
+def print_cdefs(alltests):
+    for multitest in alltests.tests:
+        if multitest.cdefname is None:
+            continue
+        print("const macc_fltr_t {}_fltrs[] = ".format(multitest.cdefname))
+        print('{')
+        for tst in multitest.tests:
+            if not isinstance(tst, PrincipalComponentTest):
+                continue
+            print(' {')
+            print('\t/*** {} - {} ***/'.format(multitest.name, tst.name))
+            tst.print_c_defs()
+            print('  },')
+        print('};')
+        print()
 
 if __name__ == "__main__":
     def parse_args():
         parser = argparse.ArgumentParser(description='Analyze an accel log dump')
-        parser.add_argument('dumpfiles', nargs='+')
+        parser.add_argument('dumpfiles', nargs='*')
         parser.add_argument('-d', '--debug', action='store_true', default=False)
         parser.add_argument('-q', '--quiet', action='store_true', default=False)
         parser.add_argument('-s', '--streamed', action='store_true', default=False)
-        parser.add_argument('-p', '--print-filters', action='store_true', default=False)
+        parser.add_argument('-c', '--print-cdefs', action='store_true', default=False)
 
         parser.add_argument('-t', '--run-tests', action='store_true', default=False)
         parser.add_argument('-b', '--battery', action='store_true', default=False)
@@ -3068,13 +3155,9 @@ if __name__ == "__main__":
 
             alltests.show_result(allsamples.wake_tests_per_day)
 
-            if args.print_filters:
-                print("Z ISR Filters")
-                for f in zfilters:
-                    f.show_xyz_filter()
-                print("\nY ISR Filters")
-                for f in yfilters:
-                    f.show_xyz_filter()
+            if args.print_cdefs:
+                print_cdefs(alltests)
+
             #unconf = list(filter_samples(fw_xturn.punted_samples, confirmed=False))
             #conf = list(filter_samples(fw_xturn.punted_samples, confirmed=True))
             #pc = PrincipalComponentTest(conf, unconf, test_axis=[0, 1, 2])

@@ -47,7 +47,7 @@ typedef enum {
 #define assert(B) if (!(B)) main_terminate_in_error( error_group_assertion, 0 )
 
 /* Starting flash address at which to store data */
-#define NVM_ADDR_START      ((1 << 15) + (1 << 14) + (1 << 13)) /* assumes program size < 56KB */
+#define NVM_ADDR_START      0x10000 /* assumes program size < 64KB */
 #define NVM_DATA_ADDR       NVM_ADDR_START
 #define NVM_DATA_STORE_SIZE NVMCTRL_ROW_SIZE //256 bytes
 

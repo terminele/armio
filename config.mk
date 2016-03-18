@@ -19,7 +19,7 @@ TARGET_SRAM = bin/armio_sram.elf
 store_lifetime_usage=true
 #log_vbatt=true
 #debug_ax_isr=true
-gestures_filters=false
+gestures_filters=true
 #wake_gestures_user_default=false
 #use_wakeup_alarm=true
 #log_accel_stream=true
@@ -37,7 +37,6 @@ ifdef debug_accel_isr
     skip_wait_for_down=true
     log_accel_gesture_fifo=true
     gestures_filters=true
-    use_interrupt_2=false
 endif
 
 ifdef wakeup_alarm_1m
@@ -65,6 +64,10 @@ ifdef rtc_cal
     POSTBUILD_CMD += touch .compiler_flags; 	# ensure remake all
 endif
 
+ifdef install_rtc
+    TARGET_FLASH = bin/armio_rtc_cal_flash.elf
+    TARGET_SRAM = bin/armio_rtc_cal_sram.elf
+endif
 
 # Path to top level ASF directory relative to this project directory.
 PRJ_PATH = .
@@ -102,7 +105,7 @@ ifeq ($(chip),samd21e17)
     UCID_CLOCK=samd21_r21
     OCD_PART_CFG = utils/samd21e17.cfg
     NVM_MAX_ADDR = 0x1E000 #~122K
-    NVM_LOG_SIZE = 0x10000 #64 K
+    NVM_LOG_SIZE = 0xd800 #~56 K
 else
 ifeq ($(chip),samd21e16)
     PART=samd21e16a
@@ -377,7 +380,4 @@ CPPFLAGS+= -D WAKE_GESTURES_USER_DEFAULT=$(wake_gestures_user_default)
 endif
 ifdef skip_wait_for_down
 CPPFLAGS+= -D SKIP_WAIT_FOR_DOWN=$(skip_wait_for_down)
-endif
-ifdef use_interrupt_2
-CPPFLAGS+= -D USE_INTERRUPT_2=$(use_interrupt_2)
 endif

@@ -503,6 +503,9 @@ install_debug: $(target)
 install: all $(target)
 	$(INSTALL_CMD)
 
+install_bin: 
+	$(INSTALL_CMD)
+
 .PHONY: chiperase
 chiperase:
 	$(CHIPERASE_CMD)
@@ -516,7 +519,7 @@ dump_log:
 	openocd -f $(DEBUGGER_CFG) \
 	-f $(OCD_PART_CFG) \
 	-c init -c "reset init" \
-	-c "dump_image data_log.image 0xe000 $(NVM_LOG_SIZE)" \
+	-c "dump_image data_log.image 0x10000 $(NVM_LOG_SIZE)" \
 	-c "shutdown"
 	@if [ 0 -eq $$(hexdump -s 256 -v -e '/1 "%02X\n"' data_log.image \
 	    | grep -v FF | wc -l) ]; then \
@@ -527,7 +530,7 @@ dump_stored_data:
 	openocd -f $(DEBUGGER_CFG) \
 	-f $(OCD_PART_CFG) \
 	-c init -c "reset init" \
-	-c "dump_image stored_data.image 0xe000 $(NVM_STORED_DATA_SIZE)" \
+	-c "dump_image stored_data.image 0x10000 $(NVM_STORED_DATA_SIZE)" \
 	-c "shutdown"
 
 .PHONY: dump_serial
@@ -537,6 +540,8 @@ dump_serial:
 	-c init -c "reset init" \
 	-c "dump_image serial 0x0080A00C 16" \
 	-c "shutdown"
+	@echo -n "serial: "
+	@hexdump -v -e ' "%02X "' serial; echo
 
 #.PHONY: write_conf_data
 #ifndef conf_data
