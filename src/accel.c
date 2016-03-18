@@ -368,6 +368,13 @@ static bool check_tilt_down( int16_t x, int16_t y, int16_t z );
      * @retrn true when tilted down
      */
 
+static bool check_tilt_not_viewable( int16_t x, int16_t y, int16_t z );
+    /* @brief check if the watch is oriented in a postion that is not viewable
+     * @param current accel values
+     * @retrn true when tilted down
+     */
+
+
 
 //___ V A R I A B L E S ______________________________________________________
 uint8_t accel_slow_click_cnt = 0;
@@ -938,6 +945,13 @@ static inline fltr_result_t calc_macc_fltr_action( const macc_fltr_t *macc_fltr 
     return punt;
 }
 
+static bool check_tilt_not_viewable( int16_t x, int16_t y, int16_t z ) {
+    const int16_t SLIGHTLY_VERT = 5;
+    const int16_t DOWN_FACING = -15;
+    return ((z <= SLIGHTLY_VERT && y <= DOWN_FACING) ||   // turned out
+            (z <= DOWN_FACING && y <= SLIGHTLY_VERT));
+}
+
 static inline bool gesture_filter_check( void ) {
     /* Read FIFO to determine if a turn-up gesture occurred */
 #if (LOG_ACCEL_GESTURE_FIFO || GESTURE_FILTERS)
@@ -1446,11 +1460,15 @@ event_flags_t accel_event_flags( void ) {
     static bool int_state = false;//keep track of prev interrupt state
     /* these values assume a 4g scale */
     const uint32_t SLEEP_DOWN_DUR_MS = 200;
+    const uint32_t SLEEP_NOT_VIEWABLE_DUR_MS = 200;
+    
     /* timestamp (based on main tic count) of most recent
      * y down interrupt for entering sleep on z-low
      */
-    static bool accel_down = false;
-    static uint32_t accel_down_to_ms = 0;
+    static bool tilt_down = false;
+    static bool tilt_not_viewable = false;
+    static uint32_t tilt_down_timeout_ms = 0;
+    static uint32_t tilt_not_viewable_timeout_ms = 0;
 #ifdef NO_ACCEL
     return ev_flags;
 #endif
@@ -1459,15 +1477,25 @@ event_flags_t accel_event_flags( void ) {
     /* Check for turn down event */
     accel_data_read(&x, &y, &z);
     if (check_tilt_down(x, y, z)) {
-        if (!accel_down) {
-            accel_down = true;
-            accel_down_to_ms = main_get_waketime_ms() + SLEEP_DOWN_DUR_MS;
-        } else if (main_get_waketime_ms() > accel_down_to_ms) {
+        if (!tilt_down) {
+            tilt_down = true;
+            tilt_down_timeout_ms = main_get_waketime_ms() + SLEEP_DOWN_DUR_MS;
+        } else if (main_get_waketime_ms() > tilt_down_timeout_ms) {
             /* Check for accel low-z timeout */
             ev_flags |= EV_FLAG_ACCEL_DOWN;
         }
+        if (check_tilt_not_viewable(x, y, z)) {
+            if (!tilt_not_viewable) {
+                tilt_not_viewable = true;
+                tilt_not_viewable_timeout_ms = main_get_waketime_ms() + SLEEP_NOT_VIEWABLE_DUR_MS;
+            } else if (main_get_waketime_ms() > tilt_not_viewable_timeout_ms) {
+                ev_flags |= EV_FLAG_ACCEL_NOT_VIEWABLE;
+            }
+        } else {
+            tilt_not_viewable = false;
+        }
     } else {
-        accel_down = false;
+        tilt_down = false;
     }
 
     if (port_pin_get_input_level(AX_INT_PIN)) {
