@@ -205,6 +205,45 @@ class MultiTest(TestAttributes):
     rejected = property(fget=_getRejected)
 
 
+class AllTest(MultiTest):
+    def __init__( self, *tests, **kwargs ):
+        self.name = kwargs.pop('name', "Combined Test Results")
+        self.tests = tests
+        self.clear_results()
+
+    def run_tests(self, plot=False):
+        self.clear_results()
+        for tst in self.tests:
+            tst.run_tests(plot)
+            self.confirmed_accepted += tst.confirmed_accepted
+            self.confirmed_rejected += tst.confirmed_rejected
+            self.unconfirmed_accepted += tst.unconfirmed_accepted
+            self.unconfirmed_rejected += tst.unconfirmed_rejected
+            self.unconfirmed_accepted_time += tst.unconfirmed_accepted_time
+            self.unconfirmed_rejected_time += tst.unconfirmed_rejected_time
+            if self.unconfirmed_time_cnt is None:
+                self.unconfirmed_time = tst.unconfirmed_time
+                self.unconfirmed_time_cnt = tst.unconfirmed_time_cnt
+                self.unconfirmed_time_max = tst.unconfirmed_time_max
+
+    def show_result(self, testsperday=None):
+        for tst in self.tests:
+            tst.show_result()
+        super().show_result(testsperday)
+
+    def _getConfirmedPunted(self): return 0
+    confirmed_punted = property(fget=_getConfirmedPunted)
+
+    def _getUnconfirmedPunted(self): return 0
+    unconfirmed_punted = property(fget=_getUnconfirmedPunted)
+
+    def _getUnconfirmedPuntedTime(self): return 0
+    unconfirmed_punted_time = property(fget=_getUnconfirmedPuntedTime)
+
+    def _getPuntedSamples(self): return []
+    punted_samples = property(fget=_getPuntedSamples)
+
+
 class SampleTest(TestAttributes):
     def __init__( self, name, test_fcn, **kwargs ):
         """
@@ -2330,7 +2369,6 @@ def show_threshold_values():
         opposite = (32**2-th**2)**0.5
         print("{: 3}:  {:5.1f}  {:5.1f}".format(th, angle, opposite))
 
-
 def make_prelim_tests( *samples ):
     nf_tst = lambda s : 1 if s.full else -1
     non_full = SampleTest("Non-full reject", nf_tst, reject_below=0)
@@ -2558,7 +2596,6 @@ def make_ztrigger_tests( *samples ):
     return MultiTest(fw, fw_fw, fw_yturn, fw_xturn, fw_unknown_motion,
             *samples, name="Combined Z-Trigger")
 
-
 def make_supery_tests( *samples ):
     first_half = FixedWeightingTest([    # 41% FP
          -8210,  -8060,  -8955,  -8971,  -9368,  -9104, -10555,  -9811,
@@ -2640,63 +2677,51 @@ if __name__ == "__main__":
                     allsamples.filter_samples( **kwargs ) )
             mt.run_tests(plot=args.plot)
 
-        # find all unconfirmed samples that have full FIFO
-        Zunconfirm = Samples("Unconfirmed Z Trigger")
-        Yunconfirm = Samples("Unconfirmed Y Trigger")
-        superYunconfirm = Samples("Unconfirmed SuperY Trigger")
-        Zconfirm = Samples("Confirmed Z Trigger")
-        ZYturn = Samples("Z Trigger, Y Turns")
-        Yconfirm = Samples("Confirmed Y Trigger")
-        superYconfirm = Samples("Confirmed Super Y Trigger")
-
-        Zunconfirm.samples = list(allsamples.filter_samples(
-            confirmed=False, full=True, triggerZ=True))
-        Zconfirm.samples = list(allsamples.filter_samples(
-            confirmed=True, full=True, triggerZ=True))
-        Yunconfirm.samples = list(allsamples.filter_samples(
-            confirmed=False, full=True, triggerY=True))
-        Yconfirm.samples = list(allsamples.filter_samples(
-            confirmed=True, full=True, triggerY=True))
-        if 'rab_2016-03-10.log' in Yconfirm.get_file_names():
-            Yconfirm.remove_outliers(1)
-        if 'rab_2016-03-14.log' in Yconfirm.get_file_names():
-            Yconfirm.remove_outliers(1)
-        ZYturn.samples = list(Zconfirm.filter_samples(namehas="yturn"))
-        superYunconfirm.samples = list(allsamples.filter_samples(
-            confirmed=False, full=True, superY=True))
-        superYconfirm.samples = list(allsamples.filter_samples(
-            confirmed=True, full=True, superY=True))
-
         if True: # most recent sequence for starting testing
-            prelim_tst = make_prelim_tests(allsamples)
-            prelim_tst.run_tests()
+            ptest = make_prelim_tests(allsamples)
+            ptest.run_tests()
 
-            tst_samples = prelim_tst.punted_samples
+            tst_samples = ptest.punted_samples
 
-            zsamples = list(Samples.filter_samples(tst_samples, triggerZ=True))
-            ysamples = list(Samples.filter_samples(tst_samples, triggerY=True))
-            sysamples = list(Samples.filter_samples(tst_samples, superY=True))
+            # Create sample sets for all remaining samples
+            Zsamples = Samples("Z-Trigger")
+            Ysamples = Samples("Y-Trigger")
+            sYsamples = Samples("Super Y-Trigger")
+            Zunconfirm = Samples("Unconfirmed Z Trigger")
+            Yunconfirm = Samples("Unconfirmed Y Trigger")
+            sYunconfirm = Samples("Unconfirmed SuperY Trigger")
+            Zconfirm = Samples("Confirmed Z Trigger")
+            Yconfirm = Samples("Confirmed Y Trigger")
+            sYconfirm = Samples("Confirmed Super Y Trigger")
 
+            Zsamples.samples = list(Samples.filter_samples(tst_samples, triggerZ=True))
+            Ysamples.samples = list(Samples.filter_samples(tst_samples, triggerY=True))
+            sYsamples.samples = list(Samples.filter_samples(tst_samples, superY=True))
             if len(list(Samples.filter_samples(tst_samples,
                 triggerZ=False, triggerY=False, superY=False))):
                 raise Exception("Somehow we missed testing a sample!")
 
-            ytest = make_ytrigger_tests(ysamples)
-            ztest = make_ztrigger_tests(zsamples)
-            sytest = make_supery_tests(sysamples)
+            ytest = make_ytrigger_tests(Ysamples)
+            ztest = make_ztrigger_tests(Zsamples)
+            sytest = make_supery_tests(sYsamples)
 
-            for tst in (ztest, ytest, sytest):
-                tst.run_tests()
+            alltests = AllTest(ptest, ytest, ztest, sytest)
+            alltests.run_tests()
 
-            # FIXME : get these values from 'allsamples'
-            zwakes_per_day = Samples.getWakesPerDay(zsamples)
-            ywakes_per_day = Samples.getWakesPerDay(ysamples)
-            sywakes_per_day = Samples.getWakesPerDay(sysamples)
+            Zunconfirm.samples = list(Zsamples.filter_samples(confirmed=False))
+            Zconfirm.samples = list(Zsamples.filter_samples(confirmed=True))
+            Yunconfirm.samples = list(Ysamples.filter_samples(confirmed=False))
+            Yconfirm.samples = list(Ysamples.filter_samples(confirmed=True))
+            if 'rab_2016-03-10.log' in Yconfirm.get_file_names():
+                Yconfirm.remove_outliers(1)
+            if 'rab_2016-03-14.log' in Yconfirm.get_file_names():
+                Yconfirm.remove_outliers(1)
+            sYunconfirm.samples = list(sYsamples.filter_samples(confirmed=False))
+            sYconfirm.samples = list(sYsamples.filter_samples(confirmed=True))
 
             allsamples.print_samples_summary()
 
-            for tst in (ztest, ytest, sytest):
-                tst.show_result()
+            alltests.show_result(allsamples.wake_tests_per_day)
 
             if args.print_filters:
                 print("Z ISR Filters")
