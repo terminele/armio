@@ -9,6 +9,8 @@
 #include "leds.h"
 #include "aclock.h"
 
+// TODO : on super Y, turn off when y low / z high
+
 
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
 #define ACCEL_ERROR_TIMEOUT             ((uint32_t) 1)
