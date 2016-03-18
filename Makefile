@@ -503,6 +503,9 @@ install_debug: $(target)
 install: all $(target)
 	$(INSTALL_CMD)
 
+install_bin: 
+	$(INSTALL_CMD)
+
 .PHONY: chiperase
 chiperase:
 	$(CHIPERASE_CMD)

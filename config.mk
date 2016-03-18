@@ -64,6 +64,10 @@ ifdef rtc_cal
     POSTBUILD_CMD += touch .compiler_flags; 	# ensure remake all
 endif
 
+ifdef install_rtc
+    TARGET_FLASH = bin/armio_rtc_cal_flash.elf
+    TARGET_SRAM = bin/armio_rtc_cal_sram.elf
+endif
 
 # Path to top level ASF directory relative to this project directory.
 PRJ_PATH = .
