@@ -59,7 +59,7 @@
 #endif
 /* show / disable accel related errors showing on LED's */
 
-#define SHOW_LED_FOR_FILTER_INFO true
+//#define SHOW_LED_FOR_FILTER_INFO true
 #ifndef SHOW_LED_FOR_FILTER_INFO
 #define SHOW_LED_FOR_FILTER_INFO false
 #endif
