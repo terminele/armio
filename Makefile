@@ -537,6 +537,8 @@ dump_serial:
 	-c init -c "reset init" \
 	-c "dump_image serial 0x0080A00C 16" \
 	-c "shutdown"
+	@echo -n "serial: "
+	@hexdump -v -e ' "%02X "' serial; echo
 
 #.PHONY: write_conf_data
 #ifndef conf_data
