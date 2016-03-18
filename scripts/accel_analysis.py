@@ -131,6 +131,15 @@ class MultiTest(TestAttributes):
                             isub, type(isub)))
         self.clear_results()
 
+    def clear_samples(self):
+        self.samples = []
+
+    def add_samples(self, samples):
+        if isinstance(samples, Samples):
+            self.samples.extend(samples.samples)
+        else:
+            self.samples.extend(samples)
+
     def clear_results(self):
         self.confirmed_accepted = 0
         self.confirmed_rejected = 0
@@ -2321,7 +2330,17 @@ def show_threshold_values():
         opposite = (32**2-th**2)**0.5
         print("{: 3}:  {:5.1f}  {:5.1f}".format(th, angle, opposite))
 
-def make_ytrigger_tests():
+
+def make_prelim_tests( *samples ):
+    nf_tst = lambda s : 1 if s.full else -1
+    non_full = SampleTest("Non-full reject", nf_tst, reject_below=0)
+
+    dt_tst = lambda s : 1 if s.triggerY and s.triggerZ else -1
+    dual_trigger = SampleTest("Z&Y Dual Trigger accept", dt_tst, accept_above=0)
+
+    return MultiTest(non_full, dual_trigger, *samples, name="Preliminary Tests")
+
+def make_ytrigger_tests( *samples ):
     fw8_1r = FixedWeightingTest([   # 45 % TN
         -28247, -26720, -25102, -23099, -20643, -19454, -16719, -16150,
         -16157, -16853, -16253, -15324, -14883, -13047, -12133, -10941,
@@ -2382,7 +2401,6 @@ def make_ytrigger_tests():
           4131,   8108,   9231,   8688,   7429,   7087,   3718,   1772],
         "Y-trig Y-turn Accept (PCA8, FP 14%)", accept_below=-13211549)
 
-
     last_test = FixedWeightingTest([
            875,   1455,   2967,   3329,   4117,   4681,   4213,   5223,
          11094,   9426,  10778,  11242,   8419,   6770,   4561,    181,
@@ -2398,9 +2416,10 @@ def make_ytrigger_tests():
         -13882, -11034, -10079, -10972,  -9973, -11085, -18889, -20353],
         "Y-Trig, last ditch", reject_above=-12426520, accept_below=-12426520)
 
-    return [fw8_1r, fw8_2r, xturn, yturn, last_test]
+    return MultiTest(fw8_1r, fw8_2r, xturn, yturn, last_test,
+            *samples, name="Combined Y-Trigger")
 
-def make_ztrigger_tests():
+def make_ztrigger_tests( *samples ):
     fw = FixedWeightingTest([
          54012,      0,      0,   4167,  -2165,      0,      0,  -8856,
              0,      0,      0,      0,   1958,      0,      0,      0,
@@ -2536,9 +2555,11 @@ def make_ztrigger_tests():
           8186,   7468,   7016,   6416,   6879,   6776,   6303,   6148],
         "Fixed Weight PCA8 after first PCA8", reject_below=-16928760, reject_above=11180147)
 
-    return [fw, fw_fw, fw_yturn, fw_xturn, fw_unknown_motion]
+    return MultiTest(fw, fw_fw, fw_yturn, fw_xturn, fw_unknown_motion,
+            *samples, name="Combined Z-Trigger")
 
-def make_supery_tests():
+
+def make_supery_tests( *samples ):
     first_half = FixedWeightingTest([    # 41% FP
          -8210,  -8060,  -8955,  -8971,  -9368,  -9104, -10555,  -9811,
         -10049, -10429, -10590, -11387, -12805, -10727, -11444, -12130,
@@ -2555,7 +2576,8 @@ def make_supery_tests():
         "LD 2axis, from 16 samples", reject_below=32641288, reject_above=44881771)
 
     accept_all = SampleTest( "Pass remaining", lambda s : 1, accept_above=0 )
-    return [first_half, accept_all]
+
+    return MultiTest( first_half, accept_all, *samples, name="SuperY Trigger" )
 
 
 if __name__ == "__main__":
@@ -2593,6 +2615,7 @@ if __name__ == "__main__":
     else:
         allsamples = Samples()
         sampleslist = []
+
         for fname in args.dumpfiles:
             newsamples = Samples()
             newsamples.load( fname )
@@ -2645,26 +2668,35 @@ if __name__ == "__main__":
             confirmed=True, full=True, superY=True))
 
         if True: # most recent sequence for starting testing
-            zfilters = make_ztrigger_tests()
-            zsamples = list(allsamples.filter_samples(triggerZ=True, full=True))
-            mtz = MultiTest(zfilters, zsamples, name="Combined Z Trigger Tests")
-            mtz.run_tests(args.plot)
+            prelim_tst = make_prelim_tests(allsamples)
+            prelim_tst.run_tests()
 
-            yfilters = make_ytrigger_tests()
-            ysamples = list(allsamples.filter_samples(triggerY=True, full=True))
-            mty = MultiTest(yfilters, ysamples, name="Combined Y Trigger Tests")
-            mty.run_tests(args.plot)
+            tst_samples = prelim_tst.punted_samples
 
-            syfilters = make_supery_tests()
-            sysamples = list(allsamples.filter_samples(superY=True, full=True))
-            mtsy = MultiTest(syfilters, sysamples, name="Combined Super Y Trigger Tests")
-            mtsy.run_tests(args.plot)
+            zsamples = list(Samples.filter_samples(tst_samples, triggerZ=True))
+            ysamples = list(Samples.filter_samples(tst_samples, triggerY=True))
+            sysamples = list(Samples.filter_samples(tst_samples, superY=True))
+
+            if len(list(Samples.filter_samples(tst_samples,
+                triggerZ=False, triggerY=False, superY=False))):
+                raise Exception("Somehow we missed testing a sample!")
+
+            ytest = make_ytrigger_tests(ysamples)
+            ztest = make_ztrigger_tests(zsamples)
+            sytest = make_supery_tests(sysamples)
+
+            for tst in (ztest, ytest, sytest):
+                tst.run_tests()
+
+            # FIXME : get these values from 'allsamples'
+            zwakes_per_day = Samples.getWakesPerDay(zsamples)
+            ywakes_per_day = Samples.getWakesPerDay(ysamples)
+            sywakes_per_day = Samples.getWakesPerDay(sysamples)
 
             allsamples.print_samples_summary()
 
-            mtz.show_result(Samples.getWakesPerDay(zsamples))
-            mty.show_result(Samples.getWakesPerDay(ysamples))
-            mtsy.show_result(Samples.getWakesPerDay(sysamples))
+            for tst in (ztest, ytest, sytest):
+                tst.show_result()
 
             if args.print_filters:
                 print("Z ISR Filters")
