@@ -147,9 +147,9 @@
 #define DEEP_SLEEP_THS      4
 #define DEEP_SLEEP_DUR      MS_TO_ODRS(1000, SLEEP_SAMPLE_INT)
 
-#define ACTIVE_CLICK_THS        55      /* assumes 4g scale */
+#define ACTIVE_CLICK_THS        70      /* assumes 4g scale */
 #define ACTIVE_CLICK_TIME_LIM   MS_TO_ODRS(20, ACTIVE_SAMPLE_INT)
-#define ACTIVE_CLICK_TIME_LAT   MS_TO_ODRS(50, ACTIVE_SAMPLE_INT) /* ms */
+#define ACTIVE_CLICK_TIME_LAT   MS_TO_ODRS(100, ACTIVE_SAMPLE_INT) /* ms */
 
 #define SLEEP_CLICK_THS         47      /* assumes 4g scale */
 #define SLEEP_CLICK_TIME_LIM    MS_TO_ODRS(30,  SLEEP_SAMPLE_INT)
