@@ -644,11 +644,11 @@ bool ee_mode_tic ( event_flags_t event_flags ) {
                 break;
             case 9:
                 disp_vals[0] =  main_nvm_data.lifetime_wakes;
-                disp_vals[1] =  8999999876;
+                disp_vals[1] =  999998876;
                 disp_vals[2] =  main_nvm_data.lifetime_ticks;
-                disp_vals[3] =  8999999876;
+                disp_vals[3] =  999999876;
                 disp_vals[4] =  main_nvm_data.wdt_resets;
-                disp_vals[5] =  8999999876;
+                disp_vals[5] =  999999876;
                 disp_vals[6] =  main_nvm_data.filtered_gestures;
                 disp_vals[7] =  0;
                 disp_vals[8] =  0;
