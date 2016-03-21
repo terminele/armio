@@ -643,18 +643,17 @@ bool ee_mode_tic ( event_flags_t event_flags ) {
                 ee_submode_tic = char_disp_mode_tic;
                 break;
             case 9:
-                if (main_nvm_data.rtc_freq_corr >= 0) {
-                    pos = main_nvm_data.rtc_freq_corr % 60;
-                    blink_int = MS_IN_TICKS(800);
-                } else {
+                disp_vals[0] =  main_nvm_data.lifetime_wakes;
+                disp_vals[1] =  8999999876;
+                disp_vals[2] =  main_nvm_data.lifetime_ticks;
+                disp_vals[3] =  8999999876;
+                disp_vals[4] =  main_nvm_data.wdt_resets;
+                disp_vals[5] =  8999999876;
+                disp_vals[6] =  main_nvm_data.filtered_gestures;
+                disp_vals[7] =  0;
+                disp_vals[8] =  0;
 
-                    pos = (60 - main_nvm_data.rtc_freq_corr) % 60;
-                    blink_int = MS_IN_TICKS(100);
-                }
-
-                display_comp = display_point(pos, BRIGHT_DEFAULT);
-                anim = anim_blink(display_comp, blink_int, ANIMATION_DURATION_INF,
-                        false);
+                ee_submode_tic = digit_disp_mode_tic;
                 break;
             case 10:
                 display_comp = display_polygon(0, BRIGHT_DEFAULT, 10);
@@ -1877,9 +1876,15 @@ bool digit_disp_mode_tic ( event_flags_t event_flags ) {
     if (!digit_disp_ptr) {
         digit_disp_ptr = display_point(digit * 5, BRIGHT_DEFAULT);
     }
+    
+    if (modeticks - last_update_tic < 50) {
+        display_comp_hide(digit_disp_ptr);
+    } else {
+        display_comp_show(digit_disp_ptr);
+    }
 
     display_comp_update_pos(digit_disp_ptr, digit * 5);
-
+    
     return false;
 
 finish:
