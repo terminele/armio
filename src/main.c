@@ -16,13 +16,9 @@
 #include "utils.h"
 
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
-#define BUTTON_PIN          PIN_PA31
-#define BUTTON_PIN_EIC      PIN_PA31A_EIC_EXTINT11
-#define BUTTON_PIN_EIC_MUX  MUX_PA31A_EIC_EXTINT11
-#define BUTTON_EIC_CHAN     11
-
-#define BUTTON_UP           true
-#define BUTTON_DOWN         false
+#ifndef ABS
+#define ABS(a)       ( a < 0 ? -1 * a : a )
+#endif
 
 #define VBATT_ADC_PIN               ADC_POSITIVE_INPUT_SCALEDIOVCC
 #define LIGHT_ADC_PIN               ADC_POSITIVE_INPUT_PIN1
@@ -32,37 +28,68 @@
 
 #define MAIN_TIMER  TC5
 
-#define DEFAULT_SLEEP_TIMEOUT_TICKS     MS_IN_TICKS(7000)
+/* deep sleep (i.e. shipping mode) wakeup parameters */
+#define DEEP_SLEEP_SEQ_MAX_DUR   7 /* max seconds to complete deep sleep sequence */
+#define DEEP_SLEEP_SEQ_UP_COUNT    3 /* # of double clicks facing up to wakeup */
+#define DEEP_SLEEP_SEQ_DOWN_COUNT    3 /* # of double clicks facing down to wakeup */
 
-/* tick count before considering a button press "long" */
-#define LONG_PRESS_TICKS    MS_IN_TICKS(1500)
+#define NVM_LOG_ADDR_START  (NVM_ADDR_START + NVM_DATA_STORE_SIZE)
+#define NVM_LOG_ADDR_MAX    NVM_MAX_ADDR
 
-/* max tick count between successive quick taps */
-#define QUICK_TAP_INTERVAL_TICKS    500
-
-/* covering the watch (when in watch mode) will turn off the display
- * if the scaled reading on the light sensor drops by this much */
-#define LIGHT_SENSOR_REDUCTION_SHUTOFF  15
-
-/* Starting flash address at which to store data */
-#define NVM_ADDR_START      ((1 << 15) + (1 << 14)) /* assumes program size < 48KB */
-#define NVM_CONF_ADDR       NVM_ADDR_START
-#define NVM_CONF_STORE_SIZE NVMCTRL_ROW_SIZE
-#define NVM_LOG_ADDR_START  (NVM_ADDR_START + NVM_CONF_STORE_SIZE)
-#define NVM_LOG_ADDR_MAX     NVM_MAX_ADDR
+/* Ignore any click events occuring just after wakeup
+ * since they are most likely spurious */
+#define WAKE_CLICK_IGNORE_DUR_TICKS     MS_IN_TICKS(400)
 
 #define IS_ACTIVITY_EVENT(ev_flags) \
       (ev_flags != EV_FLAG_NONE && \
-        ev_flags != EV_FLAG_ACCEL_Z_LOW)
+        ev_flags != EV_FLAG_ACCEL_DOWN)
 
-#if LOG_USAGE
-  #define LOG_WAKEUP() \
-    log_vbatt(true)
-  #define LOG_SLEEP() \
-    log_vbatt(false)
-#else
-  #define LOG_WAKEUP()
-  #define LOG_SLEEP()
+#define IS_LOW_BATT(vbatt_adc_val)  ((vbatt_adc_val >> 4) < 2600) /* ~2.5v */
+
+#define IS_DEAD_BATT(vbatt_adc_val) ((vbatt_adc_val >> 4) < 2300)
+
+#ifndef LOG_VBATT
+#define LOG_VBATT false
+#endif
+
+#ifndef VBATT_LOG_INTERVAL
+#define VBATT_LOG_INTERVAL 20
+#endif
+
+#ifndef STORE_LIFETIME_USAGE
+#define STORE_LIFETIME_USAGE false
+#endif
+
+#ifndef LIFETIME_USAGE_PERIOD
+#define LIFETIME_USAGE_PERIOD 30
+#endif
+
+#ifndef ENABLE_VBATT
+#define ENABLE_VBATT true
+#endif
+
+#ifndef ENABLE_LIGHT_SENSE
+#define ENABLE_LIGHT_SENSE true
+#endif
+
+#ifndef CLOCK_OUTPUT
+#define CLOCK_OUTPUT false
+#endif
+
+#ifndef ALWAYS_ACTIVE
+#define ALWAYS_ACTIVE false
+#endif
+
+#ifndef SPARKLE_FOREVER_MODE
+#define SPARKLE_FOREVER_MODE false
+#endif
+
+#ifndef SHOW_SEC_ALWAYS
+#define SHOW_SEC_ALWAYS false
+#endif
+
+#ifndef WAKE_GESTURES_USER_DEFAULT
+#define WAKE_GESTURES_USER_DEFAULT true
 #endif
 
 //___ T Y P E D E F S   ( P R I V A T E ) ____________________________________
@@ -70,45 +97,37 @@ typedef enum main_state_t {
   STARTUP = 0,
   RUNNING,
   ENTERING_SLEEP,
-  MODE_TRANSITION
+  WAKEUP,
 } main_state_t;
 
 //___ P R O T O T Y P E S   ( P R I V A T E ) ________________________________
-static void configure_input( void );
-  /* @brief configure input buttons
-   * @param None
-   * @retrn None
-   */
 
-#ifdef CLOCK_OUTPUT
+#if (CLOCK_OUTPUT)
 static void setup_clock_pin_outputs( void );
   /* @brief multiplex clocks onto output pins
    * @param None
    * @retrn None
    */
-#endif
+#endif  /* CLOCK_OUTPUT */
 
-static void update_vbatt_running_avg( void );
-  /* @brief update vbatt running avg based on latest read
+static void watchdog_early_warning_callback(void);
+  /* @brief gives us a chance to write time to flash before wdt timeout
    * @param None
    * @retrn None
    */
 
-static void configure_extint(void);
-  /* @brief enable external interrupts
+static void configure_wdt( void );
+  /* @brief configure watchdog timer
    * @param None
    * @retrn None
    */
-static event_flags_t button_event_flags( void );
-  /* @brief check current button event flags
-   * @param None
-   * @retrn button event flags
-   */
+
 static void prepare_sleep( void );
   /* @brief enter into standby sleep
    * @param None
    * @retrn None
    */
+
 static void wakeup( void );
   /* @brief wakeup from sleep (e.g. enable sleeping modules)
    * @param None
@@ -131,23 +150,11 @@ static void main_init( void );
 static struct tc_module main_tc;
 
 static struct {
-
-  /* Ticks since entering current mode */
-  uint32_t modeticks;
-
   /* Ticks since last wake */
   uint32_t waketicks;
 
-  /* Inactivity counter for sleeping.  Resets on any
-   * user activity (e.g. button press)
-   */
+  /* Inactivity counter for sleeping.  Resets on user activity (e.g. click) */
   uint32_t inactivity_ticks;
-
-  /* Current button state */
-  bool button_state;
-
-  /* Counter for button ticks since pushed down */
-  uint32_t button_hold_ticks;
 
   /* Count of multiple quick presses in a row */
   uint8_t tap_count;
@@ -156,66 +163,84 @@ static struct {
   sensor_type_t current_sensor;
   uint16_t light_sensor_adc_val;
   uint16_t vbatt_sensor_adc_val;
-  uint16_t running_avg_vbatt;
 
   uint8_t light_sensor_scaled_at_wakeup;
   main_state_t state;
 
   uint8_t brightness;
 
+  /* wakestamp (i.e secs since noon/midnight) of start of deep sleep wake sequence*/
+  int32_t ds_wake_seq_start;
+
+  /* deep sleep (aka 'shipping mode') */
+  bool deep_sleep_mode;
+
+  /* count for deep sleep (i.e shipping mode) wakeup recognition */
+  uint8_t deep_sleep_down_ctr;
+  uint8_t deep_sleep_up_ctr;
 } main_gs;
 
-static animation_t *sleep_wake_anim;
-static animation_t *mode_trans_swirl;
-static animation_t *mode_trans_blink;
-static display_comp_t *mode_disp_point;
+static animation_t *sleep_wake_anim = NULL;
 
 static struct adc_module light_vbatt_sens_adc;
-nvm_conf_t main_nvm_conf_data;
 
 static uint32_t nvm_row_addr = NVM_LOG_ADDR_START;
 static uint8_t nvm_row_buffer[NVMCTRL_ROW_SIZE];
 static uint16_t nvm_row_ind;
+static struct wdt_conf config_wdt = {.enable=false};
 
+nvm_data_t main_nvm_data;
+user_data_t main_user_data;
 
 //___ F U N C T I O N S   ( P R I V A T E ) __________________________________
+static void watchdog_early_warning_callback(void) {
+  /* we are about to do a watchdog reset, when it wakes back up again the
+   * current time will be read from the program time (which will be way off),
+   * unless we re-set it here... which should be much closer to actual time
+   * we will know that a watchdog reset has occured on startup
+   * */
+      main_nvm_data.year   = aclock_state.year;
+      main_nvm_data.month  = aclock_state.month;
+      main_nvm_data.day    = aclock_state.day;
 
-static void update_vbatt_running_avg( void ) {
-  /* Use exponential moving average with alpha = 1/128
-   * to update vbatt level */
-  uint32_t temp;
-  temp = main_gs.running_avg_vbatt*127;
-  main_gs.running_avg_vbatt = (temp + main_gs.vbatt_sensor_adc_val)/128;
+      main_nvm_data.hour   = aclock_state.hour;
+      main_nvm_data.minute = aclock_state.minute;
+      main_nvm_data.second = aclock_state.second;
+
+      main_nvm_data.pm     = aclock_state.pm;
+      nvm_update_buffer(NVM_DATA_ADDR, (uint8_t *) &main_nvm_data, 0,
+          sizeof(nvm_data_t));
 }
 
-static void config_main_tc( void ) {
-  struct tc_config config_tc;
+static void configure_wdt( void ) {
+	/* Create a new configuration structure for the Watchdog settings and fill
+	 * with the default module settings. */
+	wdt_get_config_defaults(&config_wdt);
 
-  /* Configure main timer counter */
-  tc_get_config_defaults( &config_tc );
-  config_tc.clock_source = GCLK_GENERATOR_0;
-  config_tc.counter_size = TC_COUNTER_SIZE_16BIT;
-  config_tc.clock_prescaler = TC_CLOCK_PRESCALER_DIV8; //give 1us count for 8MHz clock
-  config_tc.wave_generation = TC_WAVE_GENERATION_MATCH_FREQ;
-  config_tc.counter_16_bit.compare_capture_channel[0] = MAIN_TIMER_TICK_US;
-  config_tc.counter_16_bit.value = 0;
+	/* Set the Watchdog configuration settings */
+	config_wdt.always_on            = false;
+	config_wdt.clock_source         = GCLK_GENERATOR_4;
+	config_wdt.early_warning_period = WDT_PERIOD_2048CLK; //~2s
+	config_wdt.timeout_period       = WDT_PERIOD_4096CLK; //~4s
 
-  tc_init(&main_tc, MAIN_TIMER, &config_tc);
-  tc_enable(&main_tc);
+	/* Initialize and enable the Watchdog with the user settings */
+	wdt_set_config(&config_wdt);
+
+        wdt_register_callback(watchdog_early_warning_callback,
+		WDT_CALLBACK_EARLY_WARNING);
 }
 
-#if LOG_USAGE
-static void log_vbatt (bool wakeup) {
-  /* Log current vbatt with timestamp */
-  int32_t time = aclock_get_timestamp();
-  uint32_t data = (wakeup ? 0xBEEF0000 : 0xDEAD0000);
-  main_set_current_sensor(sensor_vbatt);
-  main_start_sensor_read();
-  data+=main_read_current_sensor(true);
-  main_log_data((uint8_t *)&time, sizeof(time), true);
-  main_log_data((uint8_t *)&data, sizeof(data), true);
+static void wdt_enable( void ) {
+        config_wdt.enable = true;
+	wdt_set_config(&config_wdt);
+	wdt_enable_callback(WDT_CALLBACK_EARLY_WARNING);
 }
-#endif
+
+static void wdt_disable( void ) {
+        config_wdt.enable = false;
+	wdt_set_config(&config_wdt);
+	wdt_disable_callback(WDT_CALLBACK_EARLY_WARNING);
+}
 
 static void configure_input(void) {
     /* Configure our button as an input */
@@ -235,21 +260,37 @@ static void configure_input(void) {
   port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, false);
 }
 
-static void configure_extint(void) {
-  struct extint_chan_conf eint_chan_conf;
-  extint_chan_get_config_defaults(&eint_chan_conf);
+static void config_main_tc( void ) {
+  struct tc_config config_tc;
 
-  eint_chan_conf.gpio_pin             = BUTTON_PIN_EIC;
-  eint_chan_conf.gpio_pin_mux         = BUTTON_PIN_EIC_MUX;
-  eint_chan_conf.gpio_pin_pull        = EXTINT_PULL_NONE;
-  /* NOTE: cannot wake from standby with filter or edge detection ... */
-  eint_chan_conf.detection_criteria   = EXTINT_DETECT_LOW;
-  eint_chan_conf.filter_input_signal  = false;
-  eint_chan_conf.wake_if_sleeping     = true;
-  extint_chan_set_config(BUTTON_EIC_CHAN, &eint_chan_conf);
+  /* Configure main timer counter */
+  tc_get_config_defaults( &config_tc );
+  config_tc.clock_source = GCLK_GENERATOR_0;
+  config_tc.counter_size = TC_COUNTER_SIZE_16BIT;
+  config_tc.clock_prescaler = TC_CLOCK_PRESCALER_DIV8; //give 1us count for 8MHz clock
+  config_tc.wave_generation = TC_WAVE_GENERATION_MATCH_FREQ;
+  config_tc.counter_16_bit.compare_capture_channel[0] = MAIN_TIMER_TICK_US;
+  config_tc.counter_16_bit.value = 0;
+
+  tc_init(&main_tc, MAIN_TIMER, &config_tc);
+  tc_enable(&main_tc);
 }
 
-#ifdef CLOCK_OUTPUT
+#if (LOG_VBATT)
+static void log_usage ( void ) {
+  /* Log current vbatt with timestamp */
+  uint8_t START_CODE[3] = { 0x66, 0x66, 0x66 };
+  int32_t timestamp = aclock_get_timestamp();
+  /* log vbatt.  vbatt is a 16-bit averaged value
+   * of 12-bit reads.  First decimate downt to a 12-bit val */
+  uint8_t bat8 = main_get_vbatt_relative();
+  main_log_data (START_CODE, 3, false);
+  main_log_data ((uint8_t *) &timestamp, 4, false);
+  main_log_data (&bat8, 1, true);
+}
+#endif
+
+#if (CLOCK_OUTPUT)
 static void setup_clock_pin_outputs( void ) {
   /* For debugging purposes, multiplex our
    * clocks onto output pins.. GCLK gens 4 and 7
@@ -267,16 +308,10 @@ static void setup_clock_pin_outputs( void ) {
   pin_mux.mux_position = MUX_PA23H_GCLK_IO7;
   system_pinmux_pin_set_config(PIN_PA23H_GCLK_IO7, &pin_mux);
 }
-#endif
+#endif  /* CLOCK_OUTPUT */
 
 static void prepare_sleep( void ) {
-  LOG_SLEEP();
-
-#ifdef ENABLE_BUTTON
-  /* Enable button callback to awake us from sleep */
-  extint_chan_enable_callback(BUTTON_EIC_CHAN,
-      EXTINT_CALLBACK_TYPE_DETECT);
-#endif
+  wdt_disable();
 
   if (light_vbatt_sens_adc.hw) {
     adc_disable(&light_vbatt_sens_adc);
@@ -294,14 +329,8 @@ static void prepare_sleep( void ) {
 }
 
 static void wakeup (void) {
-  if (light_vbatt_sens_adc.hw) {
-    adc_enable(&light_vbatt_sens_adc);
-  }
+  wdt_enable();
 
-#ifdef ENABLE_BUTTON
-  extint_chan_disable_callback(BUTTON_EIC_CHAN,
-      EXTINT_CALLBACK_TYPE_DETECT);
-#endif
   led_controller_enable();
   aclock_enable();
   accel_enable();
@@ -310,19 +339,21 @@ static void wakeup (void) {
   tc_reset(&main_tc);
   config_main_tc();
 
-
   tc_enable(&main_tc);
   system_interrupt_enable_global();
 
+  if (light_vbatt_sens_adc.hw) {
+    adc_enable(&light_vbatt_sens_adc);
+  }
+
   /* Update vbatt estimate on wakeup only */
-#if ENABLE_VBATT
+#if (ENABLE_VBATT)
   main_set_current_sensor(sensor_vbatt);
   main_start_sensor_read();
   main_read_current_sensor(true);
-  update_vbatt_running_avg();
-#endif
+#endif  /* ENABLE_VBATT */
 
-#if ENABLE_LIGHT_SENSE
+#if (ENABLE_LIGHT_SENSE)
   port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, true);
   main_set_current_sensor(sensor_light);
   main_start_sensor_read();
@@ -338,48 +369,117 @@ static void wakeup (void) {
 
   led_set_max_brightness( main_gs.brightness );
   port_pin_set_output_level(LIGHT_SENSE_ENABLE_PIN, false);
-#endif
+#endif  /* ENABLE_LIGHT_SENSE */
 
-  LOG_WAKEUP();
-}
-
-static event_flags_t button_event_flags ( void ) {
-  event_flags_t event_flags = EV_FLAG_NONE;
-#ifdef ENABLE_BUTTON
-  bool new_btn_state = port_pin_get_input_level(BUTTON_PIN);
-
-  if (new_btn_state == BUTTON_UP &&
-      main_gs.button_state == BUTTON_DOWN) {
-    /* button has been released */
-    main_gs.button_state = BUTTON_UP;
-    if (main_gs.tap_count == 0) {
-      /* End of a single button push */
-      if (main_gs.button_hold_ticks  < LONG_PRESS_TICKS ) {
-        event_flags |= EV_FLAG_SINGLE_BTN_PRESS_END;
-      } else {
-        event_flags |= EV_FLAG_LONG_BTN_PRESS_END;
-      }
-      main_gs.button_hold_ticks = 0;
-    } else {
-      /* TODO -- multi-tap support */
-    }
-  } else if (new_btn_state == BUTTON_DOWN &&
-      main_gs.button_state == BUTTON_UP) {
-    /* button has been pushed down */
-    main_gs.button_state = BUTTON_DOWN;
-  } else {
-    /* button state has not changed */
-    if (main_gs.button_state == BUTTON_DOWN) {
-      main_gs.button_hold_ticks++;
-      if (main_gs.button_hold_ticks > LONG_PRESS_TICKS) {
-        event_flags |= EV_FLAG_LONG_BTN_PRESS;
-      }
-    }
+#if (LOG_VBATT)
+  if (main_nvm_data.lifetime_wakes % VBATT_LOG_INTERVAL == 0) {
+    log_usage();
   }
 #endif
-  return event_flags;
 }
 
+static int32_t get_wakestamp( void ) {
+  /* a 'wakestamp' is simply the # of seconds elapsed since midnight/noon
+   * 'wakestamps' are used to keep track of wakeup check times.
+   * They are used to determine if a double-click sequence has
+   * occurred that should wake us up from deep-sleep (i.e. shipping mode) */
+    uint8_t hour, min, sec;
+
+    aclock_get_time(&hour, &min, &sec);
+
+    return 3600*(int32_t)hour + 60*(int32_t)min + sec;
+}
+
+static int32_t wakestamp_elapsed( int32_t stamp_recent, int32_t stamp_earlier ) {
+  /* Returns the # of seconds elapsed betwen stamp_recent
+   * and an earlier wakestamp.  Accounts for rollover of
+   * wakestamps at midnight/noon boundaries */
+
+  if (stamp_recent < stamp_earlier) {
+    stamp_recent += 3600*12; /* assumes max of 1 rollover */
+  }
+
+  return stamp_recent - stamp_earlier;
+}
+
+static bool wakeup_check( void ) {
+  /* If we've been awaken by an interrupt, determine if we should fully wakeup */
+  int32_t curr_wakestamp;
+  bool wake = false;
+
+#if (USE_WAKEUP_ALARM)
+    accel_wakeup_check();
+    return true;
+#endif
+
+  if (!main_gs.deep_sleep_mode) {
+    if (accel_wakeup_check()) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  /* We are in deep sleep/shipping mode, update dclick counter */
+  aclock_enable();
+  curr_wakestamp = get_wakestamp();
+  if (wakestamp_elapsed(curr_wakestamp, main_gs.ds_wake_seq_start) < DEEP_SLEEP_SEQ_MAX_DUR) {
+    int16_t x, y, z;
+    accel_enable();
+    accel_data_read(&x, &y, &z);
+
+    if (z < -10) {
+      main_gs.deep_sleep_down_ctr++;
+#ifdef DEEP_SLEEP_DEBUG
+      _led_on_full( 30 + main_gs.deep_sleep_down_ctr );
+      delay_ms(100);
+      _led_off_full( 30 + main_gs.deep_sleep_down_ctr );
+      delay_ms(50);
+#endif
+    } else if (z > 10 && main_gs.deep_sleep_down_ctr >= DEEP_SLEEP_SEQ_DOWN_COUNT) {
+      main_gs.deep_sleep_up_ctr++;
+#ifdef DEEP_SLEEP_DEBUG
+      _led_on_full( main_gs.deep_sleep_up_ctr );
+      delay_ms(100);
+      _led_off_full( main_gs.deep_sleep_up_ctr );
+      delay_ms(50);
+#endif
+    }
+  } else { /* reset for new wake sequence start */
+    
+    /* we will assume the first dclick is face down so we
+     * don't bother wasting power reading accelerometer */
+    main_gs.deep_sleep_down_ctr = 1;
+    main_gs.deep_sleep_up_ctr = 0;
+    main_gs.ds_wake_seq_start = curr_wakestamp;
+    accel_set_gesture_enabled( false );
+    wake = false;
+
+#ifdef DEEP_SLEEP_DEBUG
+    _led_on_full(30);
+    delay_ms(100);
+    _led_off_full(30);
+    delay_ms(50);
+#endif
+    }
+
+  if (main_gs.deep_sleep_down_ctr >= DEEP_SLEEP_SEQ_DOWN_COUNT &&
+      main_gs.deep_sleep_up_ctr >= DEEP_SLEEP_SEQ_UP_COUNT) {
+    /* Deep sleep may be used during a resale so we want
+     * wake gestures enabled by default for that new user */
+    main_user_data.wake_gestures = true;
+    accel_set_gesture_enabled( true );
+    wake = true;
+  } else {
+    accel_set_gesture_enabled( false );
+    wake = false;
+    accel_sleep();
+  }
+
+  aclock_disable();
+
+  return wake;
+}
 
 //___ F U N C T I O N S ______________________________________________________
 static void main_tic( void ) {
@@ -388,8 +488,10 @@ static void main_tic( void ) {
   main_gs.inactivity_ticks++;
   main_gs.waketicks++;
 
-  event_flags |= button_event_flags();
-  event_flags |= accel_event_flags();
+  /* Get accel events flags only if enough time has passed since waking */
+  if (main_gs.waketicks > WAKE_CLICK_IGNORE_DUR_TICKS) {
+    event_flags |= accel_event_flags();
+  }
 
   /* Reset inactivity if any button/click event occurs */
   if (IS_ACTIVITY_EVENT(event_flags)) {
@@ -399,169 +501,137 @@ static void main_tic( void ) {
     led_set_max_brightness( main_gs.brightness );
   }
 
+  /* ### DEBUG led controller */
+  if (MNCLICK(event_flags, 12, 20)) {
+      _led_on_full( 15 );
+      delay_ms(100);
+      _led_off_full( 15 );
+  }
+
+#if 0
+  if (MNCLICK(event_flags, 20, 30)) {
+    while(1);
+  }
+#endif
+
   switch (main_gs.state) {
     case STARTUP:
       /* Stay in startup until animation is finished */
       if (anim_is_finished(sleep_wake_anim)) {
-        main_gs.state = RUNNING;
         anim_release(sleep_wake_anim);
+        sleep_wake_anim = NULL;
+        main_gs.state = RUNNING;
       }
       return;
     case ENTERING_SLEEP:
       /* Wait until animation is finished to sleep */
       if (anim_is_finished(sleep_wake_anim)) {
         anim_release(sleep_wake_anim);
+        sleep_wake_anim = NULL;
 
-        /* Reset control mode to main (time display) mode */
-        control_state_set(ctrl_state_main);
+        /* Update and store lifetime usage data */
+#if (STORE_LIFETIME_USAGE)
+        main_nvm_data.lifetime_wakes++;
+        main_nvm_data.lifetime_ticks+=main_gs.waketicks;
+        if (main_nvm_data.lifetime_wakes % LIFETIME_USAGE_PERIOD == 1) {
+          /* Only update buffer once every 100 wakes to extend
+           * lifetime of the NVM -- may fail after 100k writes */
+          nvm_update_buffer(NVM_DATA_ADDR, (uint8_t *) &main_nvm_data, 0,
+              sizeof(nvm_data_t));
+        }
+#endif  /* STORE_LIFETIME_USAGE */
+
         prepare_sleep();
-
         accel_sleep();
 
         /* we will stay in standby mode now until an interrupt wakes us
          * from sleep (and we continue from this point) */
         do {
           system_sleep();
-        } while(!accel_wakeup_check());
+        } while(!wakeup_check());
 
         wakeup();
 
-        //main_set_current_sensor(sensor_light);
-        //main_start_sensor_read();
-        //main_gs.light_sensor_scaled_at_wakeup = adc_light_value_scale(
-        //    main_read_current_sensor(true) );
+        if (main_gs.deep_sleep_mode) {
+          /* We have now woken up from deep sleep mode so
+           * display a sparkle animation
+           */
+          main_gs.deep_sleep_mode = false;
+          sleep_wake_anim = anim_random(display_point(0, BRIGHT_DEFAULT),
+              MS_IN_TICKS(15), MS_IN_TICKS(4000), true);
+        }
 
-        if (ctrl_mode_active->wakeup_cb)
-          ctrl_mode_active->wakeup_cb();
-
-        display_comp_show_all();
         led_clear_all();
 
-        main_gs.modeticks = 0;
+#if 0
+        if (IS_LOW_BATT(main_gs.vbatt_sensor_adc_val)) {
+          /* If low battery, display warning animation for a short period */
+          sleep_wake_anim = anim_blink(display_polygon(30, BRIGHT_MED_LOW, 3),
+               MS_IN_TICKS(300), MS_IN_TICKS(2100), true);
+        }
+#endif
+
+        main_gs.state = WAKEUP;
+      }
+      return;
+    case WAKEUP:
+      if (anim_is_finished(sleep_wake_anim)) {
+        /* animation is autorelease */
+        sleep_wake_anim = NULL;
+        main_gs.state = RUNNING;
+
         main_gs.waketicks = 0;
         main_gs.inactivity_ticks = 0;
-        main_gs.state = RUNNING;
       }
       return;
     case RUNNING:
-#if ENABLE_LIGHT_SENSE
-#ifdef NOT_NOW
-      if( IS_CONTROL_MODE_SHOW_TIME() ) {
-        /* we are in main time display mode */
-        main_set_current_sensor(sensor_light);
-        main_start_sensor_read();
-        if ( adc_light_value_scale( main_read_current_sensor(false) ) +
-            LIGHT_SENSOR_REDUCTION_SHUTOFF < main_gs.light_sensor_scaled_at_wakeup ) {
-          /* sleep the watch */
-          main_gs.inactivity_ticks = ctrl_mode_active->sleep_timeout_ticks;
-        }
-      }
-#endif
-#endif
       /* Check for inactivity timeout */
-      if (
-#ifdef ALWAYS_ACTIVE
-          true
+      if((!(ALWAYS_ACTIVE)) &&
+          ((main_gs.inactivity_ticks > ctrl_mode_active->sleep_timeout_ticks)
+            || (IS_CONTROL_MODE_SHOW_TIME()
+              && ((event_flags & EV_FLAG_ACCEL_DOWN) || TCLICK(event_flags))))) {
+
+          /* A sleep event has occurred */
+          if (IS_CONTROL_MODE_SHOW_TIME() && TCLICK(event_flags)) {
+            accel_set_gesture_enabled( false );
+          } else {
+            accel_set_gesture_enabled( main_user_data.wake_gestures );
+          }
+
+          /* Notify control mode of sleep event and reset control mode */
+          ctrl_mode_active->tic_cb(EV_FLAG_SLEEP);
+
+          main_gs.state = ENTERING_SLEEP;
+
+#ifdef NO_TIME_ANIMATION
+          sleep_wake_anim = NULL;
 #else
-          main_gs.inactivity_ticks > \
-          ctrl_mode_active->sleep_timeout_ticks ||
-          (IS_CONTROL_MODE_SHOW_TIME() && event_flags & EV_FLAG_ACCEL_Z_LOW &&
-           main_get_waketime_ms() > 300)
+          if (event_flags & EV_FLAG_ACCEL_DOWN) {
+            sleep_wake_anim = NULL;
+          } else {
+            sleep_wake_anim = anim_swirl(0, 5, MS_IN_TICKS(5), 57, true);
+          }
 #endif
-
-          ) {
-        /* A sleep event has occurred */
-
-        main_gs.state = ENTERING_SLEEP;
-
-        /* Notify control mode of sleep event and reset control mode */
-        ctrl_mode_active->tic_cb(EV_FLAG_SLEEP, main_gs.modeticks);
-        if (ctrl_mode_active->about_to_sleep_cb)
-          ctrl_mode_active->about_to_sleep_cb();
-
-        display_comp_hide_all();
-
-        sleep_wake_anim = anim_swirl(0, 5, MS_IN_TICKS(5), 57, false);
-        return;
+          return;
       }
 
       /* Call mode's main tic loop/event handler */
-      if (ctrl_mode_active->tic_cb(event_flags, main_gs.modeticks++)){
-
-        /* Control mode has returned true indicating it is finished,
-         * so transition to next control mode */
-        main_gs.modeticks = 0;
-        main_gs.button_hold_ticks = 0;
-        main_gs.inactivity_ticks = 0;
-
-        if (IS_CONTROL_STATE_EE()) {
-          control_state_set(ctrl_state_main);
-
-        }
-        else if ( IS_CONTROL_MODE_SHOW_TIME() &&
-            ( event_flags & EV_FLAG_ACCEL_7CLICK_X ||
-              event_flags & EV_FLAG_ACCEL_8CLICK_X ||
-              event_flags & EV_FLAG_ACCEL_9CLICK_X )) {
-            /* Enter util state */
-          control_state_set(ctrl_state_util);
-
-        }
-        else if ( IS_CONTROL_MODE_SHOW_TIME() &&
-              event_flags & EV_FLAG_ACCEL_NCLICK_X ) {
-          /* Enter easter egg mode */
-          control_state_set(ctrl_state_ee);
-        } else {
-
-          /* begin transition to next control mode */
-          main_gs.state = MODE_TRANSITION;
-
-          /* animate slow snake from current mode to next. */
-          uint8_t mode_gap = 60/control_mode_count();
-          uint8_t tail_len = 4;
-          mode_trans_swirl = anim_swirl(
-              mode_gap*control_mode_index(ctrl_mode_active),
-              tail_len, MS_IN_TICKS(5 + 40/control_mode_count()),
-              mode_gap - tail_len, true);
-        }
-      }
-
-      break;
-    case MODE_TRANSITION:
-      if (mode_trans_swirl) {
-        if(anim_is_finished(mode_trans_swirl)) {
-          anim_release(mode_trans_swirl);
-          mode_trans_swirl = NULL;
-          control_mode_next();
-          uint8_t mode_gap = 60/control_mode_count();
-          mode_disp_point = display_point(
-              mode_gap*(control_mode_index(ctrl_mode_active)) % 60,
-              BRIGHT_DEFAULT);
-          mode_trans_blink = anim_blink(mode_disp_point,
-              BLINK_INT_MED, MS_IN_TICKS(800), false);
-        }
-      } else if (mode_trans_blink && anim_is_finished(mode_trans_blink)) {
-        display_comp_release(mode_disp_point);
-        mode_disp_point = NULL;
-        anim_release(mode_trans_blink);
-        mode_trans_blink = NULL;
-        main_gs.state = RUNNING;
-      }
-
-      break;
+      control_tic(event_flags);
+      return; /* END OF RUNNING STATE SWITCH CASE */
   }
 }
 
 static void main_init( void ) {
   /* Initalize main state */
-  main_gs.modeticks = 0;
   main_gs.waketicks = 0;
-  main_gs.button_hold_ticks = 0;
   main_gs.tap_count = 0;
   main_gs.inactivity_ticks = 0;
-  main_gs.button_state = BUTTON_UP;
   main_gs.light_sensor_scaled_at_wakeup = 0;
   main_gs.brightness = MAX_BRIGHT_VAL;
   main_gs.state = STARTUP;
+  main_gs.deep_sleep_mode = false;
+  main_user_data.wake_gestures = WAKE_GESTURES_USER_DEFAULT;
+  main_user_data.seconds_always_on = SHOW_SEC_ALWAYS;
 
   /* Configure main timer counter */
   config_main_tc();
@@ -577,7 +647,6 @@ static void main_init( void ) {
    * iterating through log data until an
    * empty (4 bytes of 1s) row is found */
   while (nvm_row_addr < NVM_LOG_ADDR_MAX) {
-
     nvm_read_buffer(nvm_row_addr, (uint8_t *) &data, sizeof(data));
     if (data == 0xffffffff)
       break;
@@ -586,8 +655,52 @@ static void main_init( void ) {
   }
 
   /* Read configuration data stored in nvm */
-  nvm_read_buffer(NVM_CONF_ADDR, (uint8_t *) &main_nvm_conf_data,
-      sizeof(nvm_conf_t));
+  nvm_read_buffer(NVM_DATA_ADDR, (uint8_t *) &main_nvm_data,
+      sizeof(nvm_data_t));
+
+  if (main_nvm_data.lifetime_wakes == 0xffffffff) {
+      main_nvm_data.lifetime_wakes = 0;
+  }
+
+  if (main_nvm_data.filtered_gestures == 0xffffffff) {
+      main_nvm_data.filtered_gestures = 0;
+  }
+
+  if (main_nvm_data.filtered_dclicks == 0xffffffff) {
+      main_nvm_data.filtered_dclicks = 0;
+  }
+
+  if (main_nvm_data.lifetime_ticks == 0xffffffff) {
+      main_nvm_data.lifetime_ticks = 0;
+  }
+
+
+  if (main_nvm_data.lifetime_resets == 0xffffffff) {
+      main_nvm_data.lifetime_resets = 0;
+  } else {
+      main_nvm_data.lifetime_resets++;
+  }
+
+  if (main_nvm_data.wdt_resets == 0xffff) {
+      main_nvm_data.wdt_resets = 0;
+  }
+
+  enum system_reset_cause reset_cause = system_get_reset_cause();
+  if (reset_cause == SYSTEM_RESET_CAUSE_WDT) {
+      main_nvm_data.wdt_resets++;
+  } else if (reset_cause == SYSTEM_RESET_CAUSE_BOD12 || reset_cause == SYSTEM_RESET_CAUSE_BOD33) {
+    do {
+      main_set_current_sensor(sensor_vbatt);
+      main_start_sensor_read();
+    } while( IS_DEAD_BATT(main_read_current_sensor(true)) );
+  }
+
+  nvm_update_buffer(NVM_DATA_ADDR, (uint8_t *) &main_nvm_data, 0,
+          sizeof(nvm_data_t));
+}
+
+uint32_t main_get_waketicks( void ) {
+  return main_gs.waketicks;
 }
 
 uint32_t main_get_waketime_ms( void ) {
@@ -596,6 +709,14 @@ uint32_t main_get_waketime_ms( void ) {
 
 void main_inactivity_timeout_reset( void ) {
   main_gs.inactivity_ticks = 0;
+}
+
+void main_deep_sleep_enable( void ) {
+  main_gs.deep_sleep_mode = true;
+  main_gs.deep_sleep_down_ctr = 0;
+  main_gs.deep_sleep_up_ctr = 0;
+  accel_set_gesture_enabled( false );
+  main_gs.state = ENTERING_SLEEP;
 }
 
 void main_terminate_in_error ( error_group_code_t error_group, uint32_t subcode ) {
@@ -626,11 +747,16 @@ void main_terminate_in_error ( error_group_code_t error_group, uint32_t subcode 
     }
   }
 
-  /* blink error code indefinitely */
+  if( !config_wdt.enable ) {
+    configure_wdt();
+    wdt_enable();
+  }
+
   while( 1 ) {
-    _led_on_full( ((uint8_t) error_group));
+    //_led_on_full( ((uint8_t) error_group));
+    led_on( (uint8_t) error_group, BRIGHT_DEFAULT);
     delay_ms(100);
-    _led_off_full( ((uint8_t) error_group));
+    led_off( (uint8_t) error_group);
     delay_ms(100);
   }
 }
@@ -638,8 +764,9 @@ void main_terminate_in_error ( error_group_code_t error_group, uint32_t subcode 
 void main_log_data( uint8_t *data, uint16_t length, bool flush) {
   /* Store data in NVM flash */
   enum status_code error_code;
-  uint16_t  i, p;
+  uint16_t i, p;
 
+  if (nvm_row_addr >= NVM_LOG_ADDR_MAX)  return; //out of buffer space
 
   for (i = 0; i < length; i++) {
     nvm_row_buffer[nvm_row_ind] = data[i];
@@ -668,14 +795,12 @@ void main_log_data( uint8_t *data, uint16_t length, bool flush) {
       nvm_row_addr+=NVMCTRL_ROW_SIZE;
 
       if (nvm_row_addr >= NVM_LOG_ADDR_MAX)  {
-        /* rollover to beginning of storage buffer */
-        nvm_row_addr = NVM_LOG_ADDR_START;
+        return; //out of buffer space
+        //nvm_row_addr = NVM_LOG_ADDR_START; //rollover
       }
     }
-
   }
 }
-
 
 void main_start_sensor_read ( void ) {
   if (!(adc_get_status(&light_vbatt_sens_adc) & ADC_STATUS_RESULT_READY))
@@ -718,7 +843,6 @@ void main_set_current_sensor ( sensor_type_t sensor ) {
   adc_enable(&light_vbatt_sens_adc);
 }
 
-
 uint16_t main_read_current_sensor( bool blocking ) {
   uint16_t result;
   uint16_t *curr_sens_adc_val_ptr;
@@ -752,46 +876,58 @@ uint16_t main_get_light_sensor_value ( void ) {
 }
 
 uint16_t main_get_vbatt_value ( void ) {
-  return main_gs.running_avg_vbatt;
+  return main_gs.vbatt_sensor_adc_val;
+}
+
+uint8_t main_get_vbatt_relative( void ) {
+  /* 8 bit, unsigned offset from ~2V */
+  uint16_t vbatt_val = main_gs.vbatt_sensor_adc_val >> 4;
+
+  /* Now, record as an 8-bit value representing the offset
+   * from 2048 (~2v) */
+  if (vbatt_val <= 2048) {
+    vbatt_val = 0;
+  } else {
+    vbatt_val-=2048;
+
+    /* Now decimate down to 8-bit value */
+    if (vbatt_val >= 1024) {
+      vbatt_val = 255;
+    } else {
+      vbatt_val>>=2;
+    }
+  }
+
+  return (uint8_t) vbatt_val;
+}
+
+bool main_is_low_vbatt ( void ) {
+#if LOG_ACCEL_GESTURE_FIFO
+  /* indicate FIFO log buffer is full via low battery warn */
+  if (nvm_row_addr >= NVM_LOG_ADDR_MAX)  return true;
+#endif
+
+  return IS_LOW_BATT(main_gs.vbatt_sensor_adc_val);
 }
 
 uint8_t main_get_multipress_count( void ) {
   return main_gs.tap_count;
 }
 
-
-uint32_t main_get_button_hold_ticks ( void ) {
-  return main_gs.button_hold_ticks;
-}
-
+#if !(RTC_CALIBRATE)
 int main (void) {
-  PM_RCAUSE_Type rcause_bf;
-  uint32_t reset_cause;
-
   system_init();
   system_set_sleepmode(SYSTEM_SLEEPMODE_STANDBY);
 
   delay_init();
   main_init();
-  aclock_init();
   led_controller_init();
   led_controller_enable();
+  aclock_init();
   control_init();
   display_init();
   anim_init();
   accel_init();
-
-  /* Log reset cause */
-  rcause_bf.reg = system_get_reset_cause();
-  if( rcause_bf.bit.POR || rcause_bf.bit.BOD12 || rcause_bf.bit.BOD33 ) {
-    /* TODO : jump into set time mode instead of general startup */
-  }
-  reset_cause = 0x000000FF & (uint32_t) rcause_bf.reg;
-  reset_cause |= 0xBADBAD00;
-  main_log_data((uint8_t *)&reset_cause, sizeof(uint32_t), true);
-
-  reset_cause = 0xABCD1234;
-  main_log_data((uint8_t *)&reset_cause, sizeof(uint32_t), true);
 
   /* Errata 39.3.2 -- device may not wake up from
    * standby if nvm goes to sleep. Not needed
@@ -800,29 +936,40 @@ int main (void) {
   NVMCTRL->CTRLB.bit.SLEEPPRM = NVMCTRL_CTRLB_SLEEPPRM_DISABLED_Val;
 #endif
 
-  /* Read light and vbatt sensors on startup */
-#if ENABLE_VBATT
+  /* Read vbatt sensor on startup */
+#if (ENABLE_VBATT)
   main_set_current_sensor(sensor_vbatt);
   main_start_sensor_read();
-  main_gs.running_avg_vbatt = main_read_current_sensor(true);
+  main_read_current_sensor(true);
 #endif
 
-
-  LOG_WAKEUP();
+  configure_wdt();
 
   /* Show a startup LED swirl */
-  sleep_wake_anim = anim_swirl(0, 8, MS_IN_TICKS(4), 172, true);
+#if (SPARKLE_FOREVER_MODE)
+  sleep_wake_anim = anim_random(display_point(0, BRIGHT_DEFAULT), MS_IN_TICKS(15), ANIMATION_DURATION_INF, false);
+#endif
 
-  /* get intial time */
+  if (!sleep_wake_anim) {
+    if (main_nvm_data.lifetime_resets == 0) {
+      /* This watch has just been born.  Display a slow swirl so we
+       * can ensure all the LEDs are working */
+        //sleep_wake_anim = anim_random(display_point(0, BRIGHT_DEFAULT),
+        //    MS_IN_TICKS(15), MS_IN_TICKS(2000), true);
+        sleep_wake_anim = anim_swirl(0, 5, MS_IN_TICKS(50), 120, true);
+#if 0   /* Deep sleep at birth */
+        main_deep_sleep_enable();
+#endif  /* 0 */
+    } else {
+      /* A reset has occurred later in life */
+        sleep_wake_anim = anim_swirl(0, 5, MS_IN_TICKS(10), 30, false);
+    }
+  }
+
   configure_input();
   system_interrupt_enable_global();
-#ifdef ENABLE_BUTTON
-  while (!port_pin_get_input_level(BUTTON_PIN)) {
-    //if btn down at startup, zero out time
-    //and dont continue until released
-    aclock_set_time(0, 0, 0);
-  }
-#endif
+
+  wdt_enable();
 
   while (1) {
     if (tc_get_status(&main_tc) & TC_STATUS_COUNT_OVERFLOW) {
@@ -830,8 +977,29 @@ int main (void) {
       main_tic();
       anim_tic();
       display_tic();
+
+      if (main_gs.waketicks % 500 == 0) {
+        wdt_reset_count();
+      }
+
     }
   }
 }
+#else /* RTC_CALIBRATE enabled */
+int main (void) {
+  system_init();
+  system_set_sleepmode(SYSTEM_SLEEPMODE_STANDBY);
 
+  delay_init();
+  main_init();
+  led_controller_conf_output();
+  led_clear_all();
+
+  _led_on_full(0);
+  delay_ms(1000);
+  _led_off_full(0);
+
+  rtc_cal_run();
+}
+#endif /* RTC_CALIBRATE */
 // vim:shiftwidth=2

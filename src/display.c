@@ -23,11 +23,8 @@
 
 //___ M A C R O S   ( P R I V A T E ) ________________________________________
 #define DISP_ERROR_MALLOC_FAIL              ((uint32_t) 1)
-#define DISP_ERROR_DRAW_BAD_TYPE( type )   (((uint32_t) 2) \
-    | (((uint32_t) type)<<8))
-#define DISP_ERROR_CLEAR_BAD_TYPE( type )  (((uint32_t) 3) \
-    | (((uint32_t) type)<<8))
-
+#define DISP_ERROR_DRAW_BAD_TYPE( type )    ((uint32_t) 1<<3)
+#define DISP_ERROR_CLEAR_BAD_TYPE( type )   ((uint32_t) 1<<5) 
 #define MAX_ALLOCATIONS     10
 #define MOD(a,b) (((a) % (b)) < 0 ? (((a) % (b)) + (b)) : ((a) % (b)))
 

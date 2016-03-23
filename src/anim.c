@@ -182,14 +182,14 @@ animation_t* anim_rotate(display_comp_t *disp_comp,
 }
 
 animation_t* anim_random( display_comp_t *disp_comp,
-    uint16_t tick_interval, int32_t duration) {
+    uint16_t tick_interval, int32_t duration, bool autorelease) {
 
   animation_t *anim = anim_alloc();
 
   anim->type = animt_rand;
   anim->enabled = true;
-  anim->autorelease_disp_comp = false;
-  anim->autorelease_anim = false;
+  anim->autorelease_disp_comp = autorelease;
+  anim->autorelease_anim = autorelease;
   anim->tick_interval = tick_interval;
   anim->disp_comp = disp_comp;
   anim->interval_counter = 0;

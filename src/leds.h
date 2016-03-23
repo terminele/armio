@@ -27,11 +27,22 @@
 #define MIN_BRIGHT_VAL      1
 
 #define BRIGHT_LOW          MIN_BRIGHT_VAL
-#define BRIGHT_MED_LOW      3
+#define BRIGHT_MED_LOW      2
 #define BRIGHT_MED          4
 #define BRIGHT_HIGH         5
 #define BRIGHT_MAX          MAX_BRIGHT_VAL
 
+/* Non-pwm blink of LEDs -- bypassing the LED TC controller */
+#define _BLINK( i )  do { \
+      _led_on_full( i ); \
+      delay_ms(100); \
+      _led_off_full( i ); \
+      delay_ms(50); \
+      _led_on_full( i ); \
+      delay_ms(100); \
+      _led_off_full( i ); \
+      delay_ms(50); \
+    } while(0);
 //___ T Y P E D E F S ________________________________________________________
 
 //___ V A R I A B L E S ______________________________________________________
@@ -49,12 +60,19 @@ void led_controller_disable( void );
    * @retrn None
    */
 
+void led_controller_conf_output( void );
+  /* @brief configure led pins for output
+   * @brief enables _led_on/_led_off to function without
+   * @brief running timer counters
+   * @param None
+   * @retrn None
+   */
+
 void led_controller_enable( void );
   /* @brief enable the led controller
    * @param None
    * @retrn None
    */
-
 
 void led_set_intensity( uint8_t led, uint8_t intensity );
   /* @brief set led intensity

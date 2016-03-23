@@ -8,6 +8,9 @@
 //___ I N C L U D E S ________________________________________________________
 
 //___ M A C R O S ____________________________________________________________
+#ifndef USE_WAKEUP_ALARM
+#define USE_WAKEUP_ALARM false
+#endif
 
 //___ T Y P E D E F S ________________________________________________________
 
@@ -26,6 +29,7 @@ typedef struct aclock_state_t {
 
 //___ V A R I A B L E S ______________________________________________________
 
+aclock_state_t aclock_state;
 
 //___ P R O T O T Y P E S ____________________________________________________
 
@@ -49,6 +53,12 @@ int32_t aclock_get_timestamp ( void );
   /* @brief get unix time from RTC
    * @param None
    * @retrn unix time
+   */
+
+int32_t aclock_get_timestamp_relative( void );
+  /* @brief Get the current timestamp as the number of seconds elapsed
+   * since startdate (startdate is stored in flash)
+   * @return relative timestamp
    */
 
 void aclock_get_time( uint8_t* hour_ptr, uint8_t* minute_ptr, uint8_t* second_ptr);

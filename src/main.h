@@ -16,24 +16,12 @@
 #define EV_FLAG_SINGLE_BTN_PRESS_END    (1 << 1)
 #define EV_FLAG_LONG_BTN_PRESS          (1 << 2)
 #define EV_FLAG_LONG_BTN_PRESS_END      (1 << 3)
-#define EV_FLAG_ACCEL_SCLICK_X          (1 << 4)
-#define EV_FLAG_ACCEL_SCLICK_Y          (1 << 5)
-#define EV_FLAG_ACCEL_SCLICK_Z          (1 << 6)
-#define EV_FLAG_ACCEL_DCLICK_X          (1 << 7)
-#define EV_FLAG_ACCEL_DCLICK_Y          (1 << 8)
-#define EV_FLAG_ACCEL_DCLICK_Z          (1 << 9)
-#define EV_FLAG_ACCEL_TCLICK_X          (1 << 10)
-#define EV_FLAG_ACCEL_TCLICK_Y          (1 << 11)
-#define EV_FLAG_ACCEL_QCLICK_X          (1 << 12)
-#define EV_FLAG_ACCEL_QCLICK_Y          (1 << 13)
-#define EV_FLAG_ACCEL_5CLICK_X          (1 << 15)
-#define EV_FLAG_ACCEL_6CLICK_X          (1 << 16)
-#define EV_FLAG_ACCEL_7CLICK_X          (1 << 17)
-#define EV_FLAG_ACCEL_8CLICK_X          (1 << 18)
-#define EV_FLAG_ACCEL_9CLICK_X          (1 << 19)
-#define EV_FLAG_ACCEL_NCLICK_X          (1 << 20)
+#define EV_FLAG_ACCEL_CLICK             (1 << 4)
+#define EV_FLAG_ACCEL_FAST_CLICK_END    (1 << 5)
+#define EV_FLAG_ACCEL_SLOW_CLICK_END    (1 << 6)
+#define EV_FLAG_ACCEL_NOT_VIEWABLE      (1 << 20)
 #define EV_FLAG_ACCEL_DOWN_UP           (1 << 21)
-#define EV_FLAG_ACCEL_Z_LOW             (1 << 22)
+#define EV_FLAG_ACCEL_DOWN              (1 << 22)
 #define EV_FLAG_SLEEP                   (1 << 23)
 
 /* Error Codes */
@@ -44,6 +32,7 @@ typedef enum {
   error_group_animation,
   error_group_control,
   error_group_assertion,
+  error_group_rtc,
 } error_group_code_t;
 
 
@@ -57,6 +46,11 @@ typedef enum {
 
 #define assert(B) if (!(B)) main_terminate_in_error( error_group_assertion, 0 )
 
+/* Starting flash address at which to store data */
+#define NVM_ADDR_START      0x10000 /* assumes program size < 64KB */
+#define NVM_DATA_ADDR       NVM_ADDR_START
+#define NVM_DATA_STORE_SIZE NVMCTRL_ROW_SIZE //256 bytes
+
 //___ T Y P E D E F S ________________________________________________________
 typedef uint32_t event_flags_t;
 
@@ -66,11 +60,35 @@ typedef enum sensor_type_t {
 } sensor_type_t;
 
 typedef struct {
-    /* RTC Frequency Correction value in ppm */
+    /* configuration data and usage stats stored in flash
+     * If updating this struct, ensure size does not
+     * exceed NVM_DATA_STORE_SIZE
+     */
     int8_t rtc_freq_corr;
-} nvm_conf_t;
+    uint32_t lifetime_wakes;
+    uint32_t filtered_gestures;
+    uint32_t filtered_dclicks;
+    uint32_t lifetime_ticks;
+    uint32_t lifetime_resets;
+    uint16_t wdt_resets;
+    uint8_t  second;
+    uint8_t  minute;
+    uint8_t  hour;
+    uint8_t  day;
+    uint8_t  month;
+    uint16_t year;
+    bool     pm;
+
+} nvm_data_t;
+
+typedef struct {
+    bool wake_gestures;
+    bool seconds_always_on;
+} user_data_t;
+
 //___ V A R I A B L E S ______________________________________________________
-extern nvm_conf_t main_nvm_conf_data;
+extern nvm_data_t main_nvm_data;
+extern user_data_t main_user_data;
 
 //___ P R O T O T Y P E S ____________________________________________________
 void main_terminate_in_error( error_group_code_t error_group, uint32_t subcode );
@@ -114,7 +132,18 @@ uint16_t main_get_light_sensor_value ( void );
 uint16_t main_get_vbatt_value ( void );
   /* @brief get running-averaged vbatt value
    * @param None
-   * @retrn None
+   * @retrn
+   */
+
+uint8_t main_get_vbatt_relative( void );
+  /* @brief return battery voltage as 8-bit unsigned int
+   * @retrn battery voltage
+   */
+
+bool main_is_low_vbatt ( void );
+  /* @brief check if battery is low
+   * @param None
+   * @retrn true if battery is low
    */
 
 uint8_t main_get_multipress_count( void );
@@ -137,6 +166,12 @@ uint32_t main_get_button_hold_ticks( void );
    * @retrn # of button ticks since long press started
    */
 
+uint32_t main_get_waketicks( void );
+    /* @brief get then current value for waketicks
+     * @param None
+     * @retrn None
+     */
+
 uint32_t main_get_waketime_ms( void );
   /* @brief get time since last wake in ms
    * @param None
@@ -149,6 +184,17 @@ void main_inactivity_timeout_reset( void );
    * @retrn None
    */
 
+void main_deep_sleep_enable( void );
+  /* @brief enable deep sleep/shipping mode
+   * @param None
+   * @retrn None
+   */
+
+void main_set_gesture_enable_preference( bool enable );
+  /* @brief update user preference for enabling of wakeup gestures
+   * @param enable boolean
+   * @retrn None
+   */
 #endif /* end of include guard: __MAIN_H__ */
 
 // vim:shiftwidth=2

@@ -31,8 +31,6 @@
    * triggers the tc_pwm_isr
    */
 
-
-//FIXME
 #define CONF_EVENT_BANK_INC_GEN_ID       EVSYS_ID_GEN_TC3_OVF
 #define CONF_EVENT_BANK_INC_USER_ID            EVSYS_ID_USER_TC4_EVU
 
@@ -194,8 +192,6 @@ static uint8_t max_brightness = MAX_BRIGHT_VAL;
 static uint8_t led_intensities[ BANK_COUNT ][ SEGMENT_COUNT ];
 static uint32_t led_segment_masks[ BANK_COUNT ][ BRIGHT_LEVELS ];
 
-static bool enabled = false;
-
 //___ I N T E R R U P T S  ___________________________________________________
 static void tc_pwm_isr ( struct tc_module *const tc_inst) {
 
@@ -305,6 +301,7 @@ static void configure_tc ( void ) {
   /* Allocate and attach pwm->bank timer inc event */
   events_get_config_defaults(&config_ev);
 
+  /* TODO - make this ASYNCHRONOUS and see if we can increase bright levels*/
   config_ev.path           = EVENTS_PATH_SYNCHRONOUS;
   config_ev.generator      = CONF_EVENT_BANK_INC_GEN_ID;
 
@@ -320,10 +317,8 @@ void led_controller_init ( void ) {
   configure_tc();
 }
 
-void led_controller_enable ( void ) {
+void led_controller_conf_output( void ) {
   struct port_config pin_conf;
-
-  if (enabled) return;
 
   /* Configure bank and segment pin groups as outputs */
   port_get_config_defaults(&pin_conf);
@@ -331,31 +326,35 @@ void led_controller_enable ( void ) {
 
   port_group_set_config(&PORTA, SEGMENT_PIN_PORT_MASK, &pin_conf );
   port_group_set_config(&PORTA, BANK_PIN_PORT_MASK, &pin_conf );
+}
+
+void led_controller_enable ( void ) {
+  
+  led_controller_conf_output();
 
   led_clear_all();
 
   /* Errata 12227: perform a software reset of tc after waking up */
-  tc_reset(&pwm_tc_instance);
-  tc_reset(&bank_tc_instance);
-  configure_tc();
-
-  tc_enable_callback(&pwm_tc_instance, TC_CALLBACK_CC_CHANNEL0);
+  //tc_reset(&pwm_tc_instance);
+  //tc_reset(&bank_tc_instance);
+  
+  //configure_tc();
+    
   tc_enable(&pwm_tc_instance);
 
   tc_enable(&bank_tc_instance);
+  
+  tc_enable_callback(&pwm_tc_instance, TC_CALLBACK_CC_CHANNEL0);
   /* The bank tc shouldnt run -- it should only increment on pwm events
    * therefore, stop and reset its value immediately
    */
   tc_stop_counter(&bank_tc_instance);
   tc_set_count_value(&bank_tc_instance, 0);
 
-  enabled = true;
 }
 
 void led_controller_disable ( void ) {
   struct port_config pin_conf;
-
-  if (!enabled) return;
 
   tc_disable_callback(&pwm_tc_instance, TC_CALLBACK_CC_CHANNEL0);
   tc_disable(&pwm_tc_instance);
@@ -369,8 +368,6 @@ void led_controller_disable ( void ) {
   pin_conf.powersave = true;
   port_group_set_config(&PORTA, SEGMENT_PIN_PORT_MASK, &pin_conf );
   port_group_set_config(&PORTA, BANK_PIN_PORT_MASK, &pin_conf );
-
-  enabled = false;
 
 }
 

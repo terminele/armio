@@ -10,12 +10,15 @@
 #include "main.h"
 
 //___ M A C R O S ____________________________________________________________
-
 #define ACCEL_VALUE_1G  32
+
 
 //___ T Y P E D E F S ________________________________________________________
 
+
 //___ V A R I A B L E S ______________________________________________________
+extern uint8_t accel_slow_click_cnt;
+extern uint8_t accel_fast_click_cnt;
 
 //___ P R O T O T Y P E S ____________________________________________________
 
@@ -32,6 +35,12 @@ event_flags_t accel_event_flags( void );
    * @retrn ev flags (e.g. SCLICK_X, DCLICK_Z, etc.)
    */
 
+void accel_events_clear( void );
+  /* @brief Reset click event counters
+   * @param None
+   * @retrn
+   */
+
 bool accel_wakeup_check( void );
   /* @brief confirm that the recent interrupt
    * should fully wake us up
@@ -39,13 +48,17 @@ bool accel_wakeup_check( void );
    * @retrn true if system should fully wakeup
    */
 
+void accel_set_gesture_enabled( bool enabled );
+    /* @brief set gestures for on or off
+     * @param None
+     * @retrn None
+     */
 
 void accel_enable ( void );
   /* @brief enable this module (i.e. wakeup accelerometer)
    * @param None
    * @retrn None
    */
-
 
 void accel_sleep ( void );
   /* @brief disable this module (i.e. sleep accelerometer)

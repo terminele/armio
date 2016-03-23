@@ -46,11 +46,11 @@ def get_noise( level, filt ):
     return noise
 
 def get_signal( ):
-    y = [ 1 - (1 - i * 1.0 / INTERVALS)**2 - 0.5 for i in xrange( INTERVALS ) ]
     y = [ (i * 1.0 / INTERVALS)**2 - 0.5 for i in xrange( INTERVALS ) ]
     y = [ (i * 1.0 / INTERVALS)**3 - 0.5 for i in xrange( INTERVALS ) ]
     #y = [ (i * 1.0 / INTERVALS)**4 - 0.5 for i in xrange( INTERVALS ) ]
-    #y = [ (i * 1.0 / INTERVALS) - 0.5 for i in xrange( INTERVALS ) ]
+    y = [ 1 - (1 - i * 1.0 / INTERVALS)**2 - 0.5 for i in xrange( INTERVALS ) ]
+    y = [ (i * 1.0 / INTERVALS) - 0.5 for i in xrange( INTERVALS ) ]
     return y
 
 def bin_limit( y ):
@@ -96,4 +96,4 @@ def convert( y, dt=DT_MS ):
     return switches
 
 if __name__ == "__main__":
-    run_test( noise=1.1, filt=2 )
+    result = run_test( noise=1.1, filt=2 )

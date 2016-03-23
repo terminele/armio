@@ -208,6 +208,7 @@ asflags-gnu-y           := $(ASFLAGS)
 cflags-gnu-y            := $(CFLAGS)
 cxxflags-gnu-y          := $(CXXFLAGS)
 cppflags-gnu-y          := $(CPPFLAGS)
+time-info-flags         := $(TIME_INFO_FLAGS)
 cpuflags-gnu-y          :=
 dbgflags-gnu-y          := $(DBGFLAGS)
 libflags-gnu-y          := $(foreach LIB,$(LIBS),-l$(LIB))
@@ -399,8 +400,15 @@ rebuild: clean all
 .PHONY: objfiles
 objfiles: $(obj-y)
 
+.PHONY: force
+
+.compiler_flags : force
+	@echo '$(c_flags) $(a_flags) $(cxx_flags)' | \
+	    cmp -s - '$@' || echo '$(c_flags) $(a_flags) $(cxx_flags)' > $@
+
+
 # Create object files from C source files.
-$(build-dir)%.o: %.c $(MAKEFILE_PATH) config.mk
+$(build-dir)%.o: %.c $(MAKEFILE_PATH) .compiler_flags
 	$(Q)test -d $(dir $@) || echo $(MSG_MKDIR)
 ifeq ($(os),Windows)
 	$(Q)test -d $(patsubst %/,%,$(dir $@)) || mkdir $(subst /,\,$(dir $@))
@@ -408,10 +416,10 @@ else
 	$(Q)test -d $(dir $@) || mkdir -p $(dir $@)
 endif
 	@echo $(MSG_COMPILING)
-	$(Q)$(CC) $(c_flags) -c $< -o $@
+	$(Q)$(CC) $(c_flags) $(time-info-flags) -c $< -o $@
 
 # Create object files from C++ source files.
-$(build-dir)%.o: %.cpp $(MAKEFILE_PATH) config.mk
+$(build-dir)%.o: %.cpp $(MAKEFILE_PATH) .compiler_flags
 	$(Q)test -d $(dir $@) || echo $(MSG_MKDIR)
 ifeq ($(os),Windows)
 	$(Q)test -d $(patsubst %/,%,$(dir $@)) || mkdir $(subst /,\,$(dir $@))
@@ -419,10 +427,10 @@ else
 	$(Q)test -d $(dir $@) || mkdir -p $(dir $@)
 endif
 	@echo $(MSG_COMPILING_CXX)
-	$(Q)$(CXX) $(cxx_flags) -c $< -o $@
+	$(Q)$(CXX) $(cxx_flags) $(time-info-flags) -c $< -o $@
 
 # Preprocess and assemble: create object files from assembler source files.
-$(build-dir)%.o: %.S $(MAKEFILE_PATH) config.mk
+$(build-dir)%.o: %.S $(MAKEFILE_PATH) .compiler_flags
 	$(Q)test -d $(dir $@) || echo $(MSG_MKDIR)
 ifeq ($(os),Windows)
 	$(Q)test -d $(patsubst %/,%,$(dir $@)) || mkdir $(subst /,\,$(dir $@))
@@ -430,7 +438,7 @@ else
 	$(Q)test -d $(dir $@) || mkdir -p $(dir $@)
 endif
 	@echo $(MSG_ASSEMBLING)
-	$(Q)$(CC) $(a_flags) -c $< -o $@
+	$(Q)$(CC) $(a_flags) $(time-info-flags) -c $< -o $@
 
 # Include all dependency files to add depedency to all header files in use.
 include $(dep-files)
@@ -495,39 +503,67 @@ install_debug: $(target)
 install: all $(target)
 	$(INSTALL_CMD)
 
+install_bin: 
+	$(INSTALL_CMD)
+
 .PHONY: chiperase
 chiperase:
 	$(CHIPERASE_CMD)
+
+.PHONY: secure
+secure:
+	$(SSB_CMD)
 
 .PHONY: dump_log
 dump_log:
 	openocd -f $(DEBUGGER_CFG) \
 	-f $(OCD_PART_CFG) \
 	-c init -c "reset init" \
-	-c "dump_image data_log.image 0xc000 $(NVM_LOG_SIZE)" \
+	-c "dump_image data_log.image 0x10000 $(NVM_LOG_SIZE)" \
 	-c "shutdown"
+	@if [ 0 -eq $$(hexdump -s 256 -v -e '/1 "%02X\n"' data_log.image \
+	    | grep -v FF | wc -l) ]; then \
+	    echo "Log is EMPTY (starting at byte 256)"; \
+	    fi
 
-.PHONY: write_conf_data
-ifndef conf_data
-    $(warning defaulting conf_data to 0x00)
-    conf_data = 0x00
-endif
-ifndef conf_data_byte_cnt
-    $(warning defaulting conf_data_byte_cnt to 1)
-    conf_data_byte_cnt = 1
-endif
-sector_len = 0x2000
-write_conf_data:
-	-openocd -f $(DEBUGGER_CFG) \
-	-f $(OCD_PART_CFG) \
-	-c init -c "reset init" \
-	-c "flash erase_address 0xc000 $(sector_len)" \
-	-c "shutdown"
+dump_stored_data:
 	openocd -f $(DEBUGGER_CFG) \
 	-f $(OCD_PART_CFG) \
 	-c init -c "reset init" \
-	-c "flash fillb 0xc000 $(conf_data) $(conf_data_byte_cnt)" \
+	-c "dump_image stored_data.image 0x10000 $(NVM_STORED_DATA_SIZE)" \
 	-c "shutdown"
+
+.PHONY: dump_serial
+dump_serial:
+	openocd -f $(DEBUGGER_CFG) \
+	-f $(OCD_PART_CFG) \
+	-c init -c "reset init" \
+	-c "dump_image serial 0x0080A00C 16" \
+	-c "shutdown"
+	@echo -n "serial: "
+	@hexdump -v -e ' "%02X "' serial; echo
+
+#.PHONY: write_conf_data
+#ifndef conf_data
+#    $(warning defaulting conf_data to 0x00)
+#    conf_data = 0x00
+#endif
+#ifndef conf_data_byte_cnt
+#    $(warning defaulting conf_data_byte_cnt to 1)
+#    conf_data_byte_cnt = 1
+#endif
+#sector_len = 0x2000
+#write_conf_data:
+#	-openocd -f $(DEBUGGER_CFG) \
+#	-f $(OCD_PART_CFG) \
+#	-c init -c "reset init" \
+#	-c "flash erase_address 0xe000 $(sector_len)" \
+#	-c "shutdown"
+#	openocd -f $(DEBUGGER_CFG) \
+#	-f $(OCD_PART_CFG) \
+#	-c init -c "reset init" \
+#	-c "flash fillb 0xe000 $(conf_data) $(conf_data_byte_cnt)" \
+#	-c "shutdown"
 
 # Build Doxygen generated documentation.
 #.PHONY: doc

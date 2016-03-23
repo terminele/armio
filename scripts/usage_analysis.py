@@ -31,11 +31,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
     fname = args.dumpfile
     try:
-        f = open(fname, 'r')
+        f = open(fname, 'rb')
     except:
         print ("Unable to open file \'{}\'".format(fname))
         sys.exit()
-
+    
+    f.seek(0x100)
     skips = 0
     ts = []
     t_rels = []
@@ -44,86 +45,63 @@ if __name__ == "__main__":
     deltas = []
     t_wakes = []
     v_wakes = []
+    v_adcs = []
     t_offset = 0
     while True:
-        binval = f.read(8)
+        binval = f.read(4)
 
         if not binval:
           break
 
-        if struct.unpack("<IHH", binval)[0] >= 0xffffffff:
+        if struct.unpack("<I", binval)[0] >= 0xffffffff or \
+           struct.unpack("<I", binval)[0] == 0:
             skips+=1
 
-            if skips > 64:
-              print("Ending after skipping 64 values")
+            if skips > 1024:
+              print("Ending after skipping 1024 values")
               break
 
             continue
+        
+        #format is a 24-bit unsigned left packed, then an 8-bit vbatt val
+        (v,t0,t1,t2) = struct.unpack("<BBBB", binval)
+        t = t_offset + t0 + (t1<<8) + (t2<<16)
+        print((v, t0, t1, t2)) 
+        if len(ts) and t < ts[-1]:
+            dt=ts[-1]-t+1
+            print("Encountered out-of-order timestamp -- adding offset of {}".format(dt))
+            t_offset+=dt
+            t+=dt
 
-        (t,v,p) = struct.unpack("<iHH", binval)
-
-        if p != 0xbeef and p !=0xdead:
-            skips+=1
-            print("ignoring bad beef code '{0:#x}'".format(p))
-        if t < 10000:
-          skips+=1
-          print("ignoring bad time val {}".format(t))
-          continue
-        if len(ts) and t + t_offset < ts[-1]:
-          if abs(t - ts[0]) < 20:
-            t_offset = ts[-1] - t
-            ts.append(ts[-1] + -.1)
-            powers.append(-1.0) #to indicate issue at this point
-            t_rels.append(ts[-1] - tstart)
-            vs.append(0)
-            print("t[{}] found reset to t={} at t: {}".format(len(ts),time.ctime(t),
-            time.ctime(ts[-1])))
-          else:
-            print("t[{}] found out of order t={} at t: {}".format(len(ts),time.ctime(t),
-              time.ctime(ts[-1])))
-            t_offset = ts[-1] - t
-            ts.append(ts[-1] + -.1)
-            powers.append(-1.0) #to indicate issue at this point
-            t_rels.append(ts[-1] - tstart)
-            vs.append(0)
-
-        t+=t_offset
-
-        if not len(ts):
-          tstart = t
-          print("tstart is {}".format(time.ctime(t)))
-
-        if (p == 0xbeef):
-          powers.append(3.3)
-          if len(ts) > 2:
-            #print("wakes after {}s".format(t - ts[-1]))
-            v_normal = v*4.0/4096
-            deltas.append(v_normal - vs[-1])
-            t_wakes.append(t - tstart)
-            v_wakes.append(v*4.0/4096)
-        elif (p == 0xdead):
-          powers.append(0)
-          #if len(ts) > 2:
-          #  print("sleeps after {}s".format(t - ts[-1]))
-        else:
-          print("skipping bad value at idx {}".format(len(ts)))
-          continue
-
+        print("{} : {}".format(t, v))
+        v_normal = 4*(2048 + (v << 2))/4096
+        vs.append(v_normal)
         ts.append(t)
-        t_rels.append(t - tstart)
-        vs.append(v*4.0/4096)
-        print("t[{}]  {}".format(len(ts),time.ctime(t)))
 
-
-    t_hrs = [t/3600.0 for t in t_rels]
-    t_wake_hrs = [t/3600.0 for t in t_wakes]
-    vbatt_line, = plt.plot(t_hrs, vs, 'r.', label='vbatt')
-    plt.plot(t_wake_hrs, v_wakes, 'y-', label='vbatt (wake-only)')
-    plt.plot(t_hrs, powers, 'b-', label='on', drawstyle='steps-post',
-        fillstyle='bottom', alpha = 0.3)
-    ax2 = vbatt_line.axes.twiny()
-    ax2.plot(range(len(t_hrs)), [0 for i in range(len(t_hrs))]) #add top x-axis with indices
+    
+    t_hrs = [t/3600.0 for t in ts]
+    plt.plot(t_hrs, vs, 'b.-', label='on', drawstyle='steps-post')
     plt.show()
+#        fillstyle='bottom', alpha = 0.3)
+#
+#
+#    t_hrs = [t/3600.0 for t in t_rels]
+#    t_wake_hrs = [t/3600.0 for t in t_wakes]
+#    #plt.plot(t_wake_hrs, v_wakes, 'y-', label='vbatt (wake-only)')
+#    plt.plot(t_hrs, powers, 'b-', label='on', drawstyle='steps-post',
+#        fillstyle='bottom', alpha = 0.3)
+#    vbatt_line, = plt.plot(t_hrs, vs, 'r.', label='vbatt')
+#    #ax2 = vbatt_line.axes.twiny()
+#    #ax2.plot(range(len(t_hrs)), [0 for i in range(len(t_hrs))]) #add top x-axis with indices
+#    plt.show()
+#    plt.ylim(0.95*min(vs), 1.05*max(vs) )
+#    vbatt_line, = plt.plot(range(len(vs)), vs, 'r.', label='vbatt')
+#    #vwakes_line, = plt.plot(range(len(v_wakes)), v_wakes, 'g.', label='vbatt-wakes')
+#    plt.show()
+#    
+#    v_adcs, = plt.plot(range(len(v_adcs)), v_adcs, 'b.', label='adc')
+#    #vwakes_line, = plt.plot(range(len(v_wakes)), v_wakes, 'g.', label='vbatt-wakes')
+#    plt.show()
 
 #    plt.plot(t_wakes, deltas, 'b-', label='vbatt (delta)')
 #    plt.show()
@@ -153,7 +131,7 @@ if __name__ == "__main__":
 #    plt.plot(t_hrs, vs_32, 'y-', label='vbatt (alpha=1/128)')
 #    plt.show()
 #
-    dur_hrs = t_hrs[-1] - t_hrs[0]
-    print("{} datapts".format(len(t_hrs)))
-    print("{} looks over {} hours".format(len(v_wakes), dur_hrs))
-    print("Look rate: {} per day".format(len(v_wakes)/(dur_hrs/24)))
+#    dur_hrs = t_hrs[-1] - t_hrs[0]
+#    print("{} datapts".format(len(t_hrs)))
+#    print("{} looks over {} hours".format(len(v_wakes), dur_hrs))
+#    print("Look rate: {} per day".format(len(v_wakes)/(dur_hrs/24)))
