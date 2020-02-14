@@ -1,5 +1,5 @@
 # ARMIO
-* Embedded Software for the DECKO PCB LED Wristwatch
+Embedded Software for the DECKO PCB LED Wristwatch
 
 
 ## NOTES
