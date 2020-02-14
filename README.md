@@ -1,7 +1,7 @@
 ARMIO
-#Embedded Software for the DECKO PCB LED Wristwatch
+# Embedded Software for the DECKO PCB LED Wristwatch
 
 
-#NOTES
-may need to use arm-none-gcc version 4.8.4 to build
+# NOTES
+*may need to use arm-none-gcc version 4.8.4 to build
  ** 4.9.3 results in weirdness
