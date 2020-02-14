@@ -1,4 +1,3 @@
-ARMIO
 # Embedded Software for the DECKO PCB LED Wristwatch
 
 
